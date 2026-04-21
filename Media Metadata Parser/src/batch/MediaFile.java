@@ -6,8 +6,13 @@ import java.util.Objects;
 import common.DigitalSignature;
 
 /**
- * Represents metadata for a single media file, including file path, capture date, file format, and
- * metadata availability.
+ * Represents metadata for a single media file, including the file path, capture date, file format,
+ * and metadata availability.
+ * 
+ * <p>
+ * This class is designed to be immutable, ensuring thread safety when shared across batch
+ * processing tasks.
+ * </p>
  * 
  * @author Trevor Maggs
  * @version 1.0
@@ -110,8 +115,8 @@ public final class MediaFile
     }
 
     /**
-     * Indicates whether this media file lacks embedded metadata, for example: EXIF. This may be
-     * used to determine whether metadata should be added or inferred.
+     * Indicates whether this media file lacks embedded metadata (for example, EXIF). This is
+     * used to determine whether metadata should be added or inferred from the file system.
      *
      * @return true if the file lacks metadata, otherwise false
      */
@@ -161,7 +166,7 @@ public final class MediaFile
     }
 
     /**
-     * Returns whether this media file is in isWebP format.
+     * Returns whether this media file is in WebP format.
      *
      * @return true if isWebP, otherwise false
      */
@@ -171,7 +176,7 @@ public final class MediaFile
     }
 
     /**
-     * Returns whether this media file is a known video format, for example: MP4, MOV, AVI, etc.
+     * Returns whether this media file is of a known video format, for example: MP4, MOV, AVI, etc.
      *
      * @return true if the media is a video, otherwise false
      */

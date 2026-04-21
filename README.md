@@ -23,12 +23,12 @@ In future development phases, support will be expanded to include other metadata
 Clone the repository:
 
 ```bash
-git clone https://github.com/trevormaggs/ImageMetadata.git
+git clone https://github.com/trevormaggs/Media-Metadata-Parser.git
 ```
 
 Import the project into your favourite Java IDE supporting Java 8 or above.
 
-Review the **[Javadoc documentation](https://trevormaggs.github.io/ImageMetadataParser/)** for detailed API usage.
+Review the **[Javadoc documentation](https://trevormaggs.github.io/Media-Metadata-Parser/)** for detailed API usage.
 
 Use the library to parse Exif metadata from supported image files as needed.
 

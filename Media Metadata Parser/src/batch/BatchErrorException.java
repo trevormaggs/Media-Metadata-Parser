@@ -4,8 +4,8 @@ package batch;
  * This exception is thrown when the running application is terminated abruptly. It can be further
  * examined using the {@link #getCause()} method.
  * 
- * The class encapsulates the standard Java checked exception, enhancing it with customised error
- * handling and reporting capabilities.
+ * This class extends the standard Java {@code Exception} class, providing a domain-specific wrapper
+ * for errors occurring during batch operations.
  * 
  * @author Trevor Maggs
  * @version 1.0

@@ -31,7 +31,7 @@ import util.SystemInfo;
  * This class supports a range of image formats, including JPEG, TIFF, PNG, WebP, and HEIF. If EXIF
  * metadata is not available, it defaults to using the file's last modified time-stamp.
  * </p>
- *
+ * 
  * @author Trevor Maggs
  * @version 1.0
  * @since 13 August 2025
@@ -100,7 +100,7 @@ public class BatchExecutor implements Iterable<MediaFile>
      * @param builder
      *        the builder object containing required parameters
      */
-    protected BatchExecutor(BatchBuilder builder)
+    BatchExecutor(BatchBuilder builder)
     {
         this.sourceDir = Paths.get(builder.bd_sourceDir);
         this.prefix = builder.bd_prefix;
@@ -140,8 +140,8 @@ public class BatchExecutor implements Iterable<MediaFile>
     }
 
     /**
-     * Sub-classes to define an implementation to iterate through the internal sorted set of
-     * {@link MediaFile} objects for batching.
+     * To be implemented by subclasses to provide the logic for iterating through the internal
+     * sorted set of {@link MediaFile} objects for batching.
      */
     public void processBatchCopy()
     {
@@ -150,7 +150,8 @@ public class BatchExecutor implements Iterable<MediaFile>
 
     /**
      * Begins the batch processing workflow by cleaning the target directory, setting up logging,
-     * and processing the specified source files or directory.
+     * and processing the specified source files or directory. Note, this operation is destructive,
+     * as the code uses DELETE_VISITOR to wipe the folder.
      *
      * @throws BatchErrorException
      *         if an I/O error has occurred
@@ -185,7 +186,7 @@ public class BatchExecutor implements Iterable<MediaFile>
 
             startLogging();
 
-            if (fileSet != null && fileSet.length > 0)
+            if (fileSet.length > 0)
             {
                 for (String fileName : fileSet)
                 {
@@ -283,8 +284,9 @@ public class BatchExecutor implements Iterable<MediaFile>
      * If true, the system will prioritise the date string provided by the user over any
      * {@code DateTimeOriginal} or other EXIF tags found within the media files.
      * </p>
-     *
-     * @return true if the user-defined date override is active, false otherwise
+     * 
+     * @return true if the user-defined date override is enabled (prioritising user input over EXIF
+     *         tags), or false otherwise
      */
     protected boolean isDateChangeForced()
     {
@@ -319,15 +321,14 @@ public class BatchExecutor implements Iterable<MediaFile>
              * hierarchy.
              *
              * <ol>
-             * <li>User-provided date (if {@code force} is true or metadata missing)</li>
+             * <li>User-provided date (if {@code force} is true or metadata is missing)</li>
              * <li>Metadata date (if available)</li>
-             * <li>File's last modified time (final fallback)</li>
+             * <li>File's last modified time-stamp (final fallback)</li>
              * </ol>
              *
-             * If the user-provided date is used, the timestamp will be incremented by a 10-second
-             * offset for subsequent files. This mechanism is necessary to avoid timestamp
-             * collisions.
-             *
+             * If the user-provided date is utilised, the time-stamp is incremented by a 10-second
+             * offset for subsequent files to avoid collisions.
+             * 
              * @param fpath
              *        the image file path, used only for logging context
              * @param dateTaken
@@ -422,11 +423,11 @@ public class BatchExecutor implements Iterable<MediaFile>
     }
 
     /**
-     * Begins the logging system and writes initial configuration details to a log file. This method
-     * is for internal setup and is not intended for external use.
+     * Begins the logging system and writes configuration details to a log file. This method is
+     * for internal setup and is not intended for external use.
      *
      * @throws BatchErrorException
-     *         if the logging service cannot be set up
+     *         if the logging service cannot be established
      */
     private void startLogging() throws BatchErrorException
     {

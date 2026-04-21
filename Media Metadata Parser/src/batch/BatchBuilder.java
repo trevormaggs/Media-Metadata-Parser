@@ -2,24 +2,25 @@ package batch;
 
 /**
  * <p>
- * Implements the Builder design pattern for step-by-step construction of a {@link BatchExecutor}
- * instance. This base class provides setter methods to configure batch parameters, which can then
- * be used to create a new {@code BatchExecutor} using the {@link #build()} method.
+ * Implements the Builder design pattern for the step-by-step construction of a
+ * {@link BatchExecutor} instance. This class provides setter methods to configure batch parameters,
+ * which are subsequently used to create a new {@code BatchExecutor} via the {@link #build()}
+ * method.
  * </p>
  *
  * <p>
  * <b>Example:</b>
  * </p>
- *
+ * 
  * <pre>
  * <code>
- * Builder batch = new BatchBuilder()
- *         .source("D:\\KDR Project\\Milestones\\TestBatch")
- *         .target("local\\images")
- *         .name("image")
- *         .descending(true)
- *         .userDate("26 4 2006")
- *         .build();
+ * BatchExecutor batch = new BatchBuilder()
+ * .source("D:\\Media\\Photos")
+ * .target("local\\images")
+ * .prefix("holiday")
+ * .descending(true)
+ * .userDate("26 04 2006")
+ * .build();
  * </code>
  * </pre>
  *
@@ -29,40 +30,44 @@ package batch;
  */
 public final class BatchBuilder
 {
-    protected String bd_sourceDir = BatchExecutor.DEFAULT_SOURCE_DIRECTORY;
-    protected String bd_prefix = BatchExecutor.DEFAULT_IMAGE_PREFIX;
-    protected String bd_target = BatchExecutor.DEFAULT_TARGET_DIRECTORY;
-    protected boolean bd_embedDateTime = false;
-    protected String bd_userDate = "";
-    protected boolean bd_force = false;
-    protected String[] bd_files = new String[0];
-    protected boolean bd_skipVideoFiles = false;
-    protected boolean bd_displayMetadata = false;
-    protected boolean bd_descending = false;
-    protected boolean bd_cleanTargetDir = false;
-    protected boolean bd_debug = false;
+    /* All field variables have a visibility of package-private */
+    String bd_sourceDir = BatchExecutor.DEFAULT_SOURCE_DIRECTORY;
+    String bd_prefix = BatchExecutor.DEFAULT_IMAGE_PREFIX;
+    String bd_target = BatchExecutor.DEFAULT_TARGET_DIRECTORY;
+    boolean bd_embedDateTime = false;
+    String bd_userDate = "";
+    boolean bd_force = false;
+    String[] bd_files = new String[0];
+    boolean bd_skipVideoFiles = false;
+    boolean bd_displayMetadata = false;
+    boolean bd_descending = false;
+    boolean bd_cleanTargetDir = false;
+    boolean bd_debug = false;
 
     /**
-     * Sets the source directory containing original image files.
+     * Sets the source directory containing the original media files.
      *
      * @param src
-     *        the source directory, must not be null
-     *
-     * @return this object to allow method chaining
+     *        the source directory path; must not be null or empty
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder source(final String src)
     {
+        if (src == null || src.isEmpty())
+        {
+            throw new IllegalArgumentException("Source directory cannot be null or empty");
+        }
+
         bd_sourceDir = src;
         return this;
     }
 
     /**
-     * Sets a prefix to be prepended to each output image file name.
+     * Sets a prefix to be prepended to each output file name.
      *
      * @param prefix
-     *        the name to be appended to every copied file
-     *
-     * @return this object to allow method chaining
+     *        the string to be prepended to every copied file
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder prefix(final String prefix)
     {
@@ -71,12 +76,11 @@ public final class BatchBuilder
     }
 
     /**
-     * Sets the target directory where copied image files are saved to.
+     * Sets the target directory where the processed files will be saved.
      *
      * @param target
-     *        the target directory
-     *
-     * @return this object to allow method chaining
+     *        the target directory path
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder target(final String target)
     {
@@ -85,12 +89,12 @@ public final class BatchBuilder
     }
 
     /**
-     * Appends the date and time attribute to each image file name.
+     * Determines whether the date and time attribute should be prepended
+     * to each output file name.
      *
      * @param emb
-     *        {@code true} to append the date/time to the filename, or {@code false} to exclude it
-     *
-     * @return this object to allow method chaining
+     *        {@code true} to include the date/time in the filename, or {@code false} to exclude it
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder embedDateTime(final boolean emb)
     {
@@ -99,12 +103,11 @@ public final class BatchBuilder
     }
 
     /**
-     * Sets the date and time to modify the {@code Date Taken} attribute.
+     * Sets a specific date and time to initialise or override the {@code Date Taken} attribute.
      *
      * @param dt
-     *        the date and time attribute
-     *
-     * @return this object to allow method chaining
+     *        the date and time string to be used for processing
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder userDate(final String dt)
     {
@@ -113,9 +116,10 @@ public final class BatchBuilder
     }
 
     /**
-     * Forces the user-defined date to override the date property in the metadata segment.
+     * Forces the system to prioritise the user-defined date, even if existing metadata is present
+     * in the file.
      * 
-     * @return this object to allow method chaining
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder forceDateChange()
     {
@@ -124,27 +128,25 @@ public final class BatchBuilder
     }
 
     /**
-     * Specifies a list of individual image files to copy, instead of copying all files in the
-     * source directory.
+     * Specifies a defined set of individual files to copy, rather than processing the entire source
+     * directory.
      *
      * @param files
-     *        a string array of file names to be copied
-     *
-     * @return this object to allow method chaining
+     *        a string array of specific filenames to be processed
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder fileSet(final String[] files)
     {
-        bd_files = files;
+        bd_files = (files == null) ? new String[0] : (String[]) files.clone();
         return this;
     }
 
     /**
-     * Determines whether media files should be ignored or copied.
+     * Defines whether video files should be ignored or included in the batch.
      *
      * @param video
-     *        a boolean true value to skip media video files, otherwise copy them
-     *
-     * @return this object to allow method chaining
+     *        {@code true} to skip video files, otherwise copy them
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder skipVideo(final boolean video)
     {
@@ -153,12 +155,11 @@ public final class BatchBuilder
     }
 
     /**
-     * Display a list of metadata entries for the given set of files.
+     * Configures the builder to display a list of metadata entries for the processed files.
      *
      * @param meta
-     *        a boolean true value to display metadata
-     *
-     * @return this object to allow method chaining
+     *        {@code true} to enable metadata display
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder showMetadata(final boolean meta)
     {
@@ -167,12 +168,11 @@ public final class BatchBuilder
     }
 
     /**
-     * Enables a flag to sort the copied images in descending order.
+     * Configures the sorting order of the processed images to be descending.
      *
      * @param desc
-     *        a true boolean value to sort the list in descending order
-     *
-     * @return this object to allow method chaining
+     *        {@code true} to sort in descending order, otherwise ascending
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder descending(final boolean desc)
     {
@@ -181,12 +181,11 @@ public final class BatchBuilder
     }
 
     /**
-     * Enables or disables the debug mode.
+     * Enables or disables debug mode for more verbose logging.
      *
      * @param debug
-     *        a boolean true value to enable debugging, otherwise false to disable it
-     *
-     * @return this object to allow method chaining
+     *        {@code true} to enable debugging
+     * @return this builder instance to allow method chaining
      */
     public BatchBuilder debug(final boolean debug)
     {
@@ -195,15 +194,20 @@ public final class BatchBuilder
     }
 
     /**
-     * Begins the batch handling process.
+     * Constructs the {@link BatchExecutor} with the configured parameters.
      * 
-     * @return a newly created instance of the BatchImageEngine outer class
-     *
+     * @return a new {@code BatchExecutor} instance
+     * 
      * @throws BatchErrorException
-     *         in case of an error during batch processing
+     *         if the configuration is invalid or an error occurs during initialisation
      */
     public BatchExecutor build() throws BatchErrorException
     {
+        if (bd_sourceDir == null)
+        {
+            throw new BatchErrorException("Source directory must be configured");
+        }
+
         return new BatchExecutor(this);
     }
 }
