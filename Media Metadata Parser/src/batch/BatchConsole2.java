@@ -38,9 +38,9 @@ import webp.WebPDatePatcher;
  * @version 1.2
  * @since 9 February 2026
  */
-public final class BatchConsole extends BatchExecutor
+public final class BatchConsole2 extends BatchExecutor2
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(BatchConsole.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(BatchConsole2.class);
     private static final SimpleDateFormat DF = new SimpleDateFormat("_ddMMMyyyy");
 
     /**
@@ -54,11 +54,12 @@ public final class BatchConsole extends BatchExecutor
      * @throws BatchErrorException
      *         if any metadata-related reading error occurs
      */
-    public BatchConsole(BatchSettings config) throws BatchErrorException
+    public BatchConsole2(BatchBuilder2 builder) throws BatchErrorException
     {
-        super(config);
+        super(builder);
 
         start();
+        processBatchCopy();
     }
 
     /**
@@ -226,7 +227,7 @@ public final class BatchConsole extends BatchExecutor
 
             if (cli.existsFlag("-v") || cli.existsFlag("--version"))
             {
-                System.out.printf("Build date: %s%n", ProjectBuildInfo.getInstance(BatchConsole.class).getBuildDate());
+                System.out.printf("Build date: %s%n", ProjectBuildInfo.getInstance(BatchConsole2.class).getBuildDate());
                 System.exit(0);
             }
         }
@@ -248,7 +249,7 @@ public final class BatchConsole extends BatchExecutor
     private static void showUsage()
     {
         System.out.format("Usage: %s [-p prefix] [-t target directory] [-e] [-m date taken] [-f] [-l <File 1> ... <File n>] [-k] [-s] [--desc] [-v|--version] [-h|--help] [-d|--debug] <Source Directory>%n",
-                ProjectBuildInfo.getInstance(BatchConsole.class).getShortFileName());
+                ProjectBuildInfo.getInstance(BatchConsole2.class).getShortFileName());
     }
 
     /**
@@ -312,19 +313,19 @@ public final class BatchConsole extends BatchExecutor
 
         try
         {
-            BatchConsole engine = builder.build();
-
-            engine.processBatchCopy();
+            builder.build();
+            //new BatchConsole(batch);
         }
 
         catch (Exception exc)
         {
-            LOGGER.error("Batch failed [" + exc.getMessage() + "]");
+            // Ensure no silent failures are allowed
+            LOGGER.error(exc.getMessage());
         }
     }
 
     public static void main(String[] args)
     {
-        BatchConsole.readCommand(args);
+        BatchConsole2.readCommand(args);
     }
 }
