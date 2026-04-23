@@ -10,18 +10,17 @@ import java.util.Set;
 /**
  * An immutable configuration object representing the validated parameters for a batch processing
  * operation.
- * *
+ * 
  * <p>
- * In Java 8, this is implemented as a final class with final fields to ensure that once the
- * {@link BatchBuilder} produces this object, the settings remain constant throughout the execution
- * of the {@link BatchExecutor}.
+ * Designed to provide a "frozen" snapshot of settings, this class ensures that parameters remain
+ * constant once the {@link BatchBuilder} has completed validation and instantiation.
  * </p>
  * 
  * @author Trevor Maggs
  * @version 1.0
- * @since 22 April 2026
+ * @since 23 April 2026
  */
-public final class BatchSettings
+public final class BatchConfiguration
 {
     private final Path source;
     private final Path target;
@@ -36,9 +35,32 @@ public final class BatchSettings
     private final boolean debug;
 
     /**
-     * Internal constructor used by the Builder to "freeze" the state.
+     * Internal constructor used by the {@link BatchBuilder} to encapsulate validated state.
+     * 
+     * @param source
+     *        the directory containing the original media files
+     * @param target
+     *        the destination directory for processed copies
+     * @param prefix
+     *        a user-defined string prepended to new filenames
+     * @param userDate
+     *        a forced timestamp for metadata patching (may be null)
+     * @param fileSet
+     *        an optional array of specific filenames to process
+     * @param forceDateChange
+     *        flag to overwrite existing metadata tags
+     * @param embedDateTime
+     *        flag to include timestamps in the generated filename
+     * @param skipVideo
+     *        flag to ignore video formats during processing
+     * @param showMetadata
+     *        flag to trigger detailed metadata logging
+     * @param descending
+     *        flag to sort media in reverse chronological order
+     * @param debug
+     *        flag to enable verbose diagnostic output
      */
-    public BatchSettings(Path source, Path target, String prefix, ZonedDateTime userDate, String[] fileSet, boolean forceDateChange, boolean embedDateTime, boolean skipVideo, boolean showMetadata, boolean descending, boolean debug)
+    BatchConfiguration(Path source, Path target, String prefix, ZonedDateTime userDate, String[] fileSet, boolean forceDateChange, boolean embedDateTime, boolean skipVideo, boolean showMetadata, boolean descending, boolean debug)
     {
         this.source = source;
         this.target = target;
@@ -68,6 +90,9 @@ public final class BatchSettings
         return prefix;
     }
 
+    /**
+     * @return the user-defined time-stamp, or {@code null} if using original file dates
+     */
     public ZonedDateTime getUserDate()
     {
         return userDate;
@@ -109,7 +134,12 @@ public final class BatchSettings
     }
 
     /**
-     * Utility method to check if a specific file name is part of the restricted processing set.
+     * Determines if a file should be included in the batch based on the user-defined whitelist. If
+     * the set is empty, all files are accepted.
+     * 
+     * @param fileName
+     *        the name of the file to check
+     * @return {@code true} if the file matches the filter or no filter is defined
      */
     public boolean shouldProcessFile(String fileName)
     {

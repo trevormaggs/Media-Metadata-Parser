@@ -30,11 +30,10 @@ import util.SmartDateParser;
  *
  * @author Trevor Maggs
  * @version 1.0
- * @since 13 August 2025
+ * @since 23 April 2026
  */
 public final class BatchBuilder
 {
-    /* All field variables have a visibility of package-private */
     private String bd_sourceDir = BatchExecutor.DEFAULT_SOURCE_DIRECTORY;
     private String bd_prefix = BatchExecutor.DEFAULT_IMAGE_PREFIX;
     private String bd_target = BatchExecutor.DEFAULT_TARGET_DIRECTORY;
@@ -47,21 +46,21 @@ public final class BatchBuilder
     private boolean bd_descending = false;
     private boolean bd_debug = false;
 
-    public BatchBuilder source(String src)
+    public BatchBuilder source(String s)
     {
-        if (src != null)
+        if (s != null)
         {
-            bd_sourceDir = src;
+            bd_sourceDir = s;
         }
 
         return this;
     }
 
-    public BatchBuilder target(String tgt)
+    public BatchBuilder target(String t)
     {
-        if (tgt != null)
+        if (t != null)
         {
-            bd_target = tgt;
+            bd_target = t;
         }
 
         return this;
@@ -77,19 +76,19 @@ public final class BatchBuilder
         return this;
     }
 
-    public BatchBuilder userDate(String datestr)
+    public BatchBuilder userDate(String d)
     {
-        if (datestr != null)
+        if (d != null)
         {
-            bd_userDate = datestr;
+            bd_userDate = d;
         }
 
         return this;
     }
 
-    public BatchBuilder forceDateChange()
+    public BatchBuilder forceDateChange(boolean f)
     {
-        bd_force = true;
+        bd_force = f;
         return this;
     }
 
@@ -133,35 +132,63 @@ public final class BatchBuilder
         return this;
     }
 
+    /**
+     * Validates configuration constraints and returns a new {@link BatchConsole} object.
+     * 
+     * @return a new {@code BatchConsole} instance
+     * 
+     * @throws IllegalStateException
+     *         if validation rules are violated
+     * @throws RuntimeException
+     *         if the initial source directory scan fails
+     */
     public BatchConsole build()
     {
         validate();
 
         ZonedDateTime parsedDate = SmartDateParser.convertToZonedDateTime(bd_userDate);
-        BatchSettings settings = new BatchSettings(Paths.get(bd_sourceDir), Paths.get(bd_target), bd_prefix,
+        BatchConfiguration settings = new BatchConfiguration(Paths.get(bd_sourceDir), Paths.get(bd_target), bd_prefix,
                 parsedDate, bd_files, bd_force, bd_embedDateTime, bd_skipVideoFiles,
                 bd_displayMetadata, bd_descending, bd_debug);
 
         try
         {
-            return new BatchConsole(settings);
+            BatchConsole console = new BatchConsole(settings);
+            console.start();
+
+            return console;
         }
 
-        catch (BatchErrorException e)
+        catch (Exception exc)
         {
-            throw new RuntimeException("Initialisation failed: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to scan source directory [" + exc.getMessage() + "]", exc);
         }
     }
 
+    /**
+     * Validates the builder's state against internal constraint rules to maintain configuration
+     * integrity.
+     * 
+     * <p>
+     * This validation ensures that:
+     * </p>
+     * 
+     * <ul>
+     * <li>A user-defined date is present when the force flag is enabled.</li>
+     * <li>A source directory has been explicitly specified.</li>
+     * </ul>
+     * 
+     * @throws IllegalStateException
+     *         if the force flag is enabled without a user date, or if the source directory is
+     *         missing
+     */
     private void validate()
     {
-        // Check if force is requested without a valid date string
         if (bd_force && (bd_userDate == null || bd_userDate.trim().isEmpty()))
         {
             throw new IllegalStateException("Force flag (-f) requires a target date (-m)");
         }
 
-        // Optional: Ensure source directory actually exists before starting the batch
         if (bd_sourceDir == null || bd_sourceDir.trim().isEmpty())
         {
             throw new IllegalStateException("Source directory must be specified");

@@ -44,21 +44,23 @@ public final class BatchConsole extends BatchExecutor
     private static final SimpleDateFormat DF = new SimpleDateFormat("_ddMMMyyyy");
 
     /**
-     * Constructs a console interface, using a Builder design pattern to process the parameters and
-     * update the copied image files. The actual Builder implementation exists in the
-     * {@link BatchBuilder} class.
-     *
-     * @param builder
-     *        the Builder object containing parameters for constructing this instance
+     * Constructs a console interface using a {@link BatchConfiguration} configuration.
+     * 
+     * <p>
+     * This constructor is invoked via {@link BatchBuilder#build()} to ensure all configuration
+     * constraints are validated before instantiation.
+     * </p>
+     * 
+     * @param config
+     *        the immutable configuration object containing the validated parameters required to
+     *        execute the batch
      *
      * @throws BatchErrorException
-     *         if any metadata-related reading error occurs
+     *         if any metadata-related reading error occurs during initialisation
      */
-    public BatchConsole(BatchSettings config) throws BatchErrorException
+    protected BatchConsole(BatchConfiguration config) throws BatchErrorException
     {
         super(config);
-
-        start();
     }
 
     /**
@@ -217,18 +219,6 @@ public final class BatchConsole extends BatchExecutor
 
             cli.setFreeArgumentLimit(1);
             cli.parse();
-
-            if (cli.existsFlag("-h") || cli.existsFlag("--help"))
-            {
-                showHelp();
-                System.exit(0);
-            }
-
-            if (cli.existsFlag("-v") || cli.existsFlag("--version"))
-            {
-                System.out.printf("Build date: %s%n", ProjectBuildInfo.getInstance(BatchConsole.class).getBuildDate());
-                System.exit(0);
-            }
         }
 
         catch (Exception exc)
@@ -278,9 +268,21 @@ public final class BatchConsole extends BatchExecutor
      * @param arguments
      *        an array of strings containing the command line arguments
      */
-    private static void readCommand(String[] arguments)
+    private static void execute(String[] arguments)
     {
         CommandFlagParser cli = scanArguments(arguments);
+
+        if (cli.existsFlag("-h") || cli.existsFlag("--help"))
+        {
+            showHelp();
+            System.exit(0);
+        }
+
+        if (cli.existsFlag("-v") || cli.existsFlag("--version"))
+        {
+            System.out.printf("Build date: %s%n", ProjectBuildInfo.getInstance(BatchConsole.class).getBuildDate());
+            System.exit(0);
+        }
 
         BatchBuilder builder = new BatchBuilder()
                 .source(cli.getFirstFreeArgument())
@@ -291,6 +293,7 @@ public final class BatchConsole extends BatchExecutor
                 .skipVideo(cli.existsFlag("-k"))
                 .showMetadata(cli.existsFlag("-s"))
                 .descending(cli.existsFlag("--desc"))
+                .forceDateChange(cli.existsFlag("-f"))
                 .debug(cli.existsFlag("-d") || cli.existsFlag("--debug"));
 
         if (cli.existsFlag("-l"))
@@ -303,11 +306,6 @@ public final class BatchConsole extends BatchExecutor
             }
 
             builder.fileSet(files);
-        }
-
-        if (cli.existsFlag("-f") && cli.existsFlag("-m"))
-        {
-            builder.forceDateChange();
         }
 
         try
@@ -325,6 +323,6 @@ public final class BatchConsole extends BatchExecutor
 
     public static void main(String[] args)
     {
-        BatchConsole.readCommand(args);
+        BatchConsole.execute(args);
     }
 }

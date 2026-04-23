@@ -34,18 +34,19 @@ import util.SystemInfo;
  * @version 1.0
  * @since 13 August 2025
  * @see MediaFile
- */
+ */  
 public abstract class BatchExecutor implements Iterable<MediaFile>
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(BatchExecutor.class);
     private static final long TEN_SECOND_OFFSET_MS = 10_000L;
     private static final FileVisitor<Path> DELETE_VISITOR;
+    private final Set<MediaFile> imageSet;
+    private final BatchConfiguration settings;
+    private long dateOffsetUpdate;
+
     public static final String DEFAULT_SOURCE_DIRECTORY = ".";
     public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
     public static final String DEFAULT_IMAGE_PREFIX = "image";
-    private final Set<MediaFile> imageSet;
-    private final BatchSettings settings;
-    private long dateOffsetUpdate;
 
     static
     {
@@ -90,7 +91,7 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
      * @param builder
      *        the builder object containing required parameters
      */
-    BatchExecutor(BatchSettings settings)
+    protected BatchExecutor(BatchConfiguration settings)
     {
         this.settings = settings;
 
@@ -107,7 +108,6 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
             imageSet = new TreeSet<>(new DefaultTimestampComparator());
             LOGGER.info("Sorted copied images in ascending order.");
         }
-
     }
 
     /**
@@ -120,17 +120,6 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
     {
         return imageSet.iterator();
     }
-
-    /**
-     * To be implemented by subclasses to provide the logic for iterating through the internal
-     * sorted set of {@link MediaFile} objects for batching.
-     */
-    public void processBatchCopy2()
-    {
-        throw new UnsupportedOperationException("Subclasses must implement this method's logic");
-    }
-
-    public abstract void processBatchCopy();
 
     /**
      * Begins the batch processing workflow by cleaning the target directory, setting up logging,
@@ -433,4 +422,10 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
             throw new BatchErrorException("Unable to enable logging. Program terminated", exc);
         }
     }
+
+    /**
+     * To be implemented by subclasses to provide the logic for iterating through the internal
+     * sorted set of {@link MediaFile} objects for batching.
+     */
+    protected abstract void processBatchCopy();
 }
