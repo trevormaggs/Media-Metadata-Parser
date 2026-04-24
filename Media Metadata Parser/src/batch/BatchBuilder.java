@@ -2,20 +2,23 @@ package batch;
 
 import java.nio.file.Paths;
 import java.time.ZonedDateTime;
-import util.SmartDateParser;
 
 /**
  * <p>
- * Implements the Builder design pattern for the step-by-step construction of a
- * {@link BatchExecutor} instance. This class provides setter methods to configure batch parameters,
- * which are subsequently used to create a new {@code BatchExecutor} via the {@link #build()}
- * method.
+ * Implements the Builder design pattern for the construction and validation of
+ * {@link BatchExecutor} configurations.
  * </p>
- *
+ * 
  * <p>
- * <b>Example:</b>
+ * This class serves as the central gateway for defining batch parameters. It can produce a
+ * self-initiating {@link BatchConsole} via {@link #build()} for CLI applications, or an immutable
+ * {@link BatchConfiguration} via {@link #buildConfig()} for custom implementations such as GUI.
  * </p>
- *
+ * 
+ * <p>
+ * <b>Example (CLI):</b>
+ * </p>
+ * 
  * <pre>
  * <code>
  * BatchConsole batch = new BatchBuilder()
@@ -27,10 +30,22 @@ import util.SmartDateParser;
  * .build();
  * </code>
  * </pre>
+ * 
+ * <p>
+ * <b>Example (GUI):</b>
+ * </p>
+ * 
+ * <pre>
+ * <code>
+ * BatchConfiguration config = new BatchBuilder()
+ * .source(txtField.getText())
+ * .buildConfig();
+ * </code>
+ * </pre>
  *
  * @author Trevor Maggs
  * @version 1.0
- * @since 23 April 2026
+ * @since 24 April 2026
  */
 public final class BatchBuilder
 {
@@ -46,6 +61,13 @@ public final class BatchBuilder
     private boolean bd_descending = false;
     private boolean bd_debug = false;
 
+    /**
+     * Sets the source directory containing the original media files.
+     *
+     * @param s
+     *        the source directory
+     * @return this builder instance to allow method chaining
+     */
     public BatchBuilder source(String s)
     {
         if (s != null)
@@ -56,6 +78,13 @@ public final class BatchBuilder
         return this;
     }
 
+    /**
+     * Sets the target directory where the processed files will be saved.
+     *
+     * @param t
+     *        the target directory
+     * @return this builder instance to allow method chaining
+     */
     public BatchBuilder target(String t)
     {
         if (t != null)
@@ -66,6 +95,13 @@ public final class BatchBuilder
         return this;
     }
 
+    /**
+     * Sets a prefix to be prepended uniformly to each output file name.
+     *
+     * @param p
+     *        the string to be prepended to every copied file
+     * @return this builder instance to allow method chaining
+     */
     public BatchBuilder prefix(String p)
     {
         if (p != null)
@@ -76,6 +112,13 @@ public final class BatchBuilder
         return this;
     }
 
+    /**
+     * Sets a specific date and time used to override the {@code Date Taken} attribute.
+     *
+     * @param d
+     *        the date and time string to be used for processing
+     * @return this builder instance to allow method chaining
+     */
     public BatchBuilder userDate(String d)
     {
         if (d != null)
@@ -86,18 +129,14 @@ public final class BatchBuilder
         return this;
     }
 
-    public BatchBuilder forceDateChange(boolean f)
-    {
-        bd_force = f;
-        return this;
-    }
-
-    public BatchBuilder embedDateTime(boolean e)
-    {
-        bd_embedDateTime = e;
-        return this;
-    }
-
+    /**
+     * Specifies a defined set of individual files to copy, rather than processing the entire source
+     * directory.
+     *
+     * @param f
+     *        a string array of specific filenames
+     * @return this builder instance to allow method chaining
+     */
     public BatchBuilder fileSet(String[] f)
     {
         if (f != null)
@@ -108,27 +147,82 @@ public final class BatchBuilder
         return this;
     }
 
-    public BatchBuilder skipVideo(boolean s)
+    /**
+     * Forces the system to prioritise the user-defined date, regardless of any existing metadata
+     * present in the file.
+     *
+     * @param b
+     *        {@code true} to enable forced user date/time in the filename
+     * @return this builder instance to allow method chaining
+     */
+    public BatchBuilder forceDateChange(boolean b)
     {
-        bd_skipVideoFiles = s;
+        bd_force = b;
         return this;
     }
 
-    public BatchBuilder showMetadata(boolean s)
+    /**
+     * Determines whether the date and time attribute should be prepended to each output file name.
+     *
+     * @param b
+     *        {@code true} to include the date/time in the filename, or {@code false} to omit it
+     * @return this builder instance to allow method chaining
+     */
+    public BatchBuilder embedDateTime(boolean b)
     {
-        bd_displayMetadata = s;
+        bd_embedDateTime = b;
         return this;
     }
 
-    public BatchBuilder descending(boolean d)
+    /**
+     * Defines whether video files should be skipped or included in the batch.
+     *
+     * @param b
+     *        {@code true} to skip video files, otherwise copy them
+     * @return this builder instance to allow method chaining
+     */
+    public BatchBuilder skipVideo(boolean b)
     {
-        bd_descending = d;
+        bd_skipVideoFiles = b;
         return this;
     }
 
-    public BatchBuilder debug(boolean d)
+    /**
+     * Configures the builder to display a list of metadata entries for the processed files.
+     *
+     * @param b
+     *        {@code true} to enable metadata display
+     * @return this builder instance to allow method chaining
+     */
+    public BatchBuilder showMetadata(boolean b)
     {
-        bd_debug = d;
+        bd_displayMetadata = b;
+        return this;
+    }
+
+    /**
+     * Configures the sorting order of the processed images to be descending.
+     *
+     * @param b
+     *        {@code true} to sort in descending order, otherwise ascending
+     * @return this builder instance to allow method chaining
+     */
+    public BatchBuilder descending(boolean b)
+    {
+        bd_descending = b;
+        return this;
+    }
+
+    /**
+     * Enables or disables debug mode for more verbose logging.
+     *
+     * @param b
+     *        {@code true} to enable debugging
+     * @return this builder instance to allow method chaining
+     */
+    public BatchBuilder debug(boolean b)
+    {
+        bd_debug = b;
         return this;
     }
 
@@ -139,30 +233,37 @@ public final class BatchBuilder
      * 
      * @throws IllegalStateException
      *         if validation rules are violated
-     * @throws RuntimeException
-     *         if the initial source directory scan fails
+     * @throws BatchErrorException
+     *         if there is an I/O error during the initial source directory scan
      */
-    public BatchConsole build()
+    public BatchConsole build() throws BatchErrorException
+    {
+        BatchConsole console = new BatchConsole(buildConfig());
+
+        console.start();
+        return console;
+    }
+
+    /**
+     * Validates the current configuration and returns an immutable {@link BatchConfiguration}
+     * snapshot.
+     * 
+     * @return a validated, immutable configuration object
+     *
+     * @throws IllegalStateException
+     *         if validation rules are violated
+     */
+    public BatchConfiguration buildConfig()
     {
         validate();
+        ZonedDateTime parsedDate = util.SmartDateParser.convertToZonedDateTime(bd_userDate);
 
-        ZonedDateTime parsedDate = SmartDateParser.convertToZonedDateTime(bd_userDate);
-        BatchConfiguration settings = new BatchConfiguration(Paths.get(bd_sourceDir), Paths.get(bd_target), bd_prefix,
-                parsedDate, bd_files, bd_force, bd_embedDateTime, bd_skipVideoFiles,
-                bd_displayMetadata, bd_descending, bd_debug);
-
-        try
-        {
-            BatchConsole console = new BatchConsole(settings);
-            console.start();
-
-            return console;
-        }
-
-        catch (Exception exc)
-        {
-            throw new RuntimeException("Failed to scan source directory [" + exc.getMessage() + "]", exc);
-        }
+        return new BatchConfiguration(Paths.get(bd_sourceDir), Paths.get(bd_target),
+                bd_prefix, parsedDate,
+                bd_files, bd_force,
+                bd_embedDateTime, bd_skipVideoFiles,
+                bd_displayMetadata, bd_descending,
+                bd_debug);
     }
 
     /**

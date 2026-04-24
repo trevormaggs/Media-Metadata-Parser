@@ -45,12 +45,12 @@ public final class BatchConsole extends BatchExecutor
 
     /**
      * Constructs a console interface using a {@link BatchConfiguration} configuration.
-     * 
+     *
      * <p>
      * This constructor is invoked via {@link BatchBuilder#build()} to ensure all configuration
      * constraints are validated before instantiation.
      * </p>
-     * 
+     *
      * @param config
      *        the immutable configuration object containing the validated parameters required to
      *        execute the batch
@@ -72,14 +72,14 @@ public final class BatchConsole extends BatchExecutor
      * </p>
      *
      * <ul>
-     * <li>Generates a new filename based on prefix, index, and optional timestamp</li>
+     * <li>Generates a new filename based on prefix, index, and optional time-stamp</li>
      * <li>Copies the file to the target directory while preserving original attributes</li>
      * <li>If forced or metadata is missing, patches internal binary date tags (EXIF/XMP)</li>
-     * <li>Synchronises OS-level timestamps with the media's capture time</li>
+     * <li>Synchronises OS-level time-stamps with the media's capture time</li>
      * </ul>
      */
     @Override
-    public void processBatchCopy()
+    protected void processBatchCopy()
     {
         int k = 0;
         ProgressListener progressListener = new ConsoleProgressBar(0, getImageCount());
@@ -176,9 +176,15 @@ public final class BatchConsole extends BatchExecutor
             return media.getPath().getFileName().toString().toLowerCase();
         }
 
+        String prefix = getPrefix();
         String suffix = embedDateTime() ? DF.format(media.getTimestamp()) : "";
 
-        return String.format("%s%d%s.%s", getPrefix(), index, suffix, media.getMediaFormat().getFileExtensionName());
+        if (prefix != null && !prefix.isEmpty() && !prefix.endsWith("-") && !prefix.endsWith("_"))
+        {
+            prefix += "_";
+        }
+
+        return String.format("%s%03d%s.%s", prefix, index, suffix, media.getMediaFormat().getFileExtensionName());
     }
 
     /**
@@ -296,28 +302,19 @@ public final class BatchConsole extends BatchExecutor
                 .forceDateChange(cli.existsFlag("-f"))
                 .debug(cli.existsFlag("-d") || cli.existsFlag("--debug"));
 
-        if (cli.existsFlag("-l"))
+        if (cli.existsFlag("-l") && cli.getValueLength("-l") > 0)
         {
-            String[] files = new String[cli.getValueLength("-l")];
-
-            for (int k = 0; k < cli.getValueLength("-l"); k++)
-            {
-                files[k] = cli.getValueByFlag("-l", k);
-            }
-
-            builder.fileSet(files);
+            builder.fileSet(cli.getValuesByFlag("-l"));
         }
 
         try
         {
-            BatchConsole engine = builder.build();
-
-            engine.processBatchCopy();
+            builder.build();
         }
 
-        catch (Exception exc)
+        catch (BatchErrorException exc)
         {
-            LOGGER.error("Batch failed [" + exc.getMessage() + "]");
+            LOGGER.error(exc.getMessage());
         }
     }
 

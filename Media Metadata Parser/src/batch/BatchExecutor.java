@@ -34,7 +34,7 @@ import util.SystemInfo;
  * @version 1.0
  * @since 13 August 2025
  * @see MediaFile
- */  
+ */
 public abstract class BatchExecutor implements Iterable<MediaFile>
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(BatchExecutor.class);
@@ -125,11 +125,16 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
      * Begins the batch processing workflow by cleaning the target directory, setting up logging,
      * and processing the specified source files or directory. Note, this operation is destructive,
      * as the code uses DELETE_VISITOR to wipe the folder.
+     * 
+     * <p>
+     * Note, this method is final to ensure no subclass accidentally overrides the defined critical
+     * logic.
+     * </p>
      *
      * @throws BatchErrorException
      *         if an I/O error has occurred
      */
-    protected void start() throws BatchErrorException
+    public final void start() throws BatchErrorException
     {
         FileVisitor<Path> visitor = createImageVisitor();
 
@@ -138,8 +143,7 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
             if (Files.exists(settings.getTarget()))
             {
                 /*
-                 * Prevents the user from accidentally pointing
-                 * targetDir as the source directory.
+                 * Prevents the user from accidentally pointing targetDir as the source directory.
                  */
                 if (Files.isSameFile(settings.getSource().toAbsolutePath(), settings.getTarget().toAbsolutePath()))
                 {
@@ -181,6 +185,8 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
             {
                 Files.walkFileTree(settings.getSource(), visitor);
             }
+
+            processBatchCopy();
         }
 
         catch (IOException exc)
@@ -357,9 +363,8 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
                     FileTime modifiedTime = selectDateTaken(fpath, dateTaken, attr.lastModifiedTime());
                     MediaFile media = new MediaFile(fpath, modifiedTime, parser.getImageFormat(), (dateTaken == null));
 
-                    // System.out.printf("LOOK: %s\n", dateTaken);
-                    // System.out.printf("METADATA DATE -> %s%n", metadataDate);
-                    // System.out.printf("%s%n", parser.formatDiagnosticString());
+                    //System.out.printf("Date/Time: %s\n", dateTaken);
+                    System.out.printf("%s%n", parser.formatDiagnosticString());
 
                     imageSet.add(media);
                 }
