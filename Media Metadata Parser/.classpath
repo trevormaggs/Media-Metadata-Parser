@@ -8,11 +8,11 @@
 	<classpathentry kind="src" path="src"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/Logging"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/5"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/CLI Parsing"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/Progress Bar Toolkit"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/Toolbox"/>
 	<classpathentry kind="lib" path="jar/commons-imaging-1.0.0-alpha5.jar"/>
 	<classpathentry kind="lib" path="jar/commons-io-2.16.1.jar"/>
 	<classpathentry kind="lib" path="jar/xmpcore-6.1.10.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/Toolbox"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CLI Parsing"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

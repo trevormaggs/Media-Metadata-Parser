@@ -41,7 +41,7 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
     private static final long TEN_SECOND_OFFSET_MS = 10_000L;
     private static final FileVisitor<Path> DELETE_VISITOR;
     private final Set<MediaFile> imageSet;
-    private final BatchConfiguration settings;
+    private final BatchConfiguration config;
     private long dateOffsetUpdate;
 
     public static final String DEFAULT_SOURCE_DIRECTORY = ".";
@@ -84,29 +84,27 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
     }
 
     /**
-     * Constructs a {@code BatchExecutor} using the provided {@link BatchBuilder} configuration.
-     * This constructor is package-private and should be invoked through
-     * {@link BatchBuilder#build()}.
+     * Constructs a new Executor using the specified configuration.
      *
-     * @param builder
-     *        the builder object containing required parameters
+     * @param settings
+     *        the configuration settings used to initialise the executor
      */
     protected BatchExecutor(BatchConfiguration settings)
     {
-        this.settings = settings;
+        this.config = settings;
 
-        if (settings.isDescending())
+        if (config.isDescending())
         {
             // Sorts the copied images in descending order
             imageSet = new TreeSet<>(new DescendingTimestampComparator());
-            LOGGER.info("Sorted copied images in descending order.");
+            LOGGER.info("Sorted copied images in descending order");
         }
 
         else
         {
             // Sorts the copied images in ascending order
             imageSet = new TreeSet<>(new DefaultTimestampComparator());
-            LOGGER.info("Sorted copied images in ascending order.");
+            LOGGER.info("Sorted copied images in ascending order");
         }
     }
 
@@ -140,34 +138,34 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
 
         try
         {
-            if (Files.exists(settings.getTarget()))
+            if (Files.exists(config.getTarget()))
             {
                 /*
                  * Prevents the user from accidentally pointing targetDir as the source directory.
                  */
-                if (Files.isSameFile(settings.getSource().toAbsolutePath(), settings.getTarget().toAbsolutePath()))
+                if (Files.isSameFile(config.getSource().toAbsolutePath(), config.getTarget().toAbsolutePath()))
                 {
-                    throw new BatchErrorException("Target directory [" + settings.getTarget() + "] cannot be the same location as source directory [" + settings.getSource() + "]. Program terminated");
+                    throw new BatchErrorException("Target directory [" + config.getTarget() + "] cannot be the same location as source directory [" + config.getSource() + "]");
                 }
 
                 /*
                  * Permanently deletes the target directory and all of its contents.
                  * This operation is destructive and cannot be undone.
                  */
-                Files.walkFileTree(settings.getTarget(), DELETE_VISITOR);
+                Files.walkFileTree(config.getTarget(), DELETE_VISITOR);
 
-                LOGGER.warn("Old files within directory [" + settings.getTarget() + "] deleted");
+                LOGGER.warn("Old files within directory [" + config.getTarget() + "] deleted");
             }
 
-            Files.createDirectories(settings.getTarget());
+            Files.createDirectories(config.getTarget());
 
             startLogging();
 
-            if (settings.getFileSet().size() > 0)
+            if (config.getFileSet().size() > 0)
             {
-                for (String fileName : settings.getFileSet())
+                for (String fileName : config.getFileSet())
                 {
-                    Path fpath = settings.getSource().resolve(fileName);
+                    Path fpath = config.getSource().resolve(fileName);
 
                     if (Files.exists(fpath) && Files.isRegularFile(fpath))
                     {
@@ -183,7 +181,7 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
 
             else
             {
-                Files.walkFileTree(settings.getSource(), visitor);
+                Files.walkFileTree(config.getSource(), visitor);
             }
 
             processBatchCopy();
@@ -202,7 +200,7 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
      */
     protected Path getSourceDirectory()
     {
-        return settings.getSource();
+        return config.getSource();
     }
 
     /**
@@ -212,7 +210,7 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
      */
     protected Path getTargetDirectory()
     {
-        return settings.getTarget();
+        return config.getTarget();
     }
 
     /**
@@ -222,11 +220,11 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
      */
     protected String getPrefix()
     {
-        return settings.getPrefix();
+        return config.getPrefix();
     }
 
     /**
-     * Returns the total number of image files identified and processed after a batch run.
+     * Returns the total number of image files identified.
      *
      * @return the count of processed images
      */
@@ -243,7 +241,7 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
      */
     protected boolean embedDateTime()
     {
-        return settings.isEmbedDateTime();
+        return config.isEmbedDateTime();
     }
 
     /**
@@ -253,30 +251,30 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
      */
     protected boolean skipVideoFiles()
     {
-        return settings.isSkipVideo();
+        return config.isSkipVideo();
     }
 
     /**
-     * Returns whether the use of a user-provided date is forced, bypassing existing file metadata.
+     * Returns whether the use of a user-provided date is forced, overriding existing file metadata.
      *
      * <p>
      * If true, the system will prioritise the date string provided by the user over any
      * {@code DateTimeOriginal} or other EXIF tags found within the media files.
      * </p>
      *
-     * @return true if the user-defined date override is enabled (prioritising user input over EXIF
-     *         tags), or false otherwise
+     * @return {@code true} if the user-defined date override is enabled;
+     *         {@code false} otherwise
      */
     protected boolean isDateChangeForced()
     {
-        return settings.isForceDateChange();
+        return config.isForceDateChange();
     }
 
     /**
-     * Creates and returns a {@link FileVisitor} instance to traverse the source directory.
+     * Returns a {@link FileVisitor} instance to traverse the source directory.
      *
      * <p>
-     * The visitor analyses each file, extracts metadata segments and determines the
+     * The visitor analyses each file, extracts metadata segments, and determines the
      * {@code Date Taken} time-stamp. Each file is then wrapped in a {@link MediaFile} object and
      * added to the internal set for later processing.
      * </p>
@@ -288,9 +286,9 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
      */
     private FileVisitor<Path> createImageVisitor() throws BatchErrorException
     {
-        if (!Files.isDirectory(settings.getSource()))
+        if (!Files.isDirectory(config.getSource()))
         {
-            throw new BatchErrorException("The source directory [" + settings.getSource() + "] is not a valid directory. Please verify that the path exists and is a directory");
+            throw new BatchErrorException("The source directory [" + config.getSource() + "] is not a valid directory. Please verify that the path exists and is a directory");
         }
 
         return new SimpleFileVisitor<Path>()
@@ -318,9 +316,9 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
              */
             private FileTime selectDateTaken(Path fpath, ZonedDateTime dateTaken, FileTime modifiedTime)
             {
-                if (settings.getUserDate() != null && (settings.isForceDateChange() || dateTaken == null))
+                if (config.getUserDate() != null && (config.isForceDateChange() || dateTaken == null))
                 {
-                    long newTime = settings.getUserDate().toInstant().toEpochMilli() + (dateOffsetUpdate * TEN_SECOND_OFFSET_MS);
+                    long newTime = config.getUserDate().toInstant().toEpochMilli() + (dateOffsetUpdate * TEN_SECOND_OFFSET_MS);
                     dateOffsetUpdate++;
 
                     return FileTime.fromMillis(newTime);
@@ -339,7 +337,7 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
             {
-                if (!dir.equals(settings.getSource()))
+                if (!dir.equals(config.getSource()))
                 {
                     LOGGER.info("Sub-directory [" + dir + "] is being read");
                 }
@@ -363,7 +361,7 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
                     FileTime modifiedTime = selectDateTaken(fpath, dateTaken, attr.lastModifiedTime());
                     MediaFile media = new MediaFile(fpath, modifiedTime, parser.getImageFormat(), (dateTaken == null));
 
-                    //System.out.printf("Date/Time: %s\n", dateTaken);
+                    // System.out.printf("Date/Time: %s\n", dateTaken);
                     System.out.printf("%s%n", parser.formatDiagnosticString());
 
                     imageSet.add(media);
@@ -379,20 +377,9 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
                  * NullPointerException (RuntimeException)
                  * IllegalArgumentException (RuntimeException)
                  */
-                catch (IOException exc)
+                catch (Exception exc)
                 {
                     LOGGER.error(exc.getMessage(), exc);
-
-                    System.err.printf("ERROR DETECTED: %s\n", exc.getMessage());
-                }
-
-                catch (RuntimeException exc)
-                {
-                    LOGGER.error("Unexpected runtime error processing [" + fpath + "]: " + exc.getMessage(), exc);
-
-                    // Temporary for debugging only
-                    exc.printStackTrace();
-
                 }
 
                 return FileVisitResult.CONTINUE;
@@ -411,10 +398,10 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
     {
         try
         {
-            String logFilePath = Paths.get(settings.getTarget().toAbsolutePath().toString(), "batchlog_" + SystemInfo.getHostname() + ".log").toString();
+            String logFilePath = Paths.get(config.getTarget().toAbsolutePath().toString(), "batchlog_" + SystemInfo.getHostname() + ".log").toString();
 
             LOGGER.configure(logFilePath);
-            LOGGER.setDebug(settings.isDebug());
+            LOGGER.setDebug(config.isDebug());
             LOGGER.setTrace(false);
 
             // Log some information about the logging setup
