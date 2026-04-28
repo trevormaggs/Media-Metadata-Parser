@@ -24,6 +24,9 @@ import xmp.XmpHandler;
  * linked list of Image File Directories (IFDs). It supports standard tags, custom extensions, and
  * nested sub-directories such as EXIF.
  * </p>
+ * 
+ * Example of obtaining detailed metadata values from exiftool:
+ * exiftool -G1 -a -s -u  image.jpg
  *
  * @see <a href="https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf">TIFF 6.0
  *      Specification</a>
