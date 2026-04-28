@@ -20,7 +20,13 @@ import util.ProjectBuildInfo;
 import webp.WebPDatePatcher;
 
 /**
- * The primary entry point for the batch processing engine.
+ * The primary Command Line Interface (CLI) entry point for the batch processing engine.
+ *
+ * <p>
+ * This class provides a terminal-based implementation of the {@link BatchExecutor}, allowing users
+ * to interact with the engine via a console environment. It manages the execution lifecycle, from
+ * parsing input parameters to displaying real-time progress updates to the user.
+ * </p>
  *
  * <p>
  * Processes a collection of media files by copying them from a source directory to a target
@@ -161,13 +167,18 @@ public final class BatchConsole extends BatchExecutor
     }
 
     /**
-     * Handles the logic for naming video vs images.
+     * Generates a target file name based on the media type.
+     * 
+     * <p>
+     * If the media is a video, the original filename is returned in lowercase. If the media is an
+     * image, the name is constructed as: {@code {prefix}{index}{timestamp}.{extension}}
+     * </p>
      *
      * @param media
-     *        the MediaFile object to query
+     *        the MediaFile object to rename
      * @param index
-     *        the counter number identifying the order of the file based on its creation date
-     * @return the newly generated file name
+     *        a sequence number for ordering
+     * @return the formatted target file name
      */
     private String generateTargetName(MediaFile media, int index)
     {
@@ -176,7 +187,7 @@ public final class BatchConsole extends BatchExecutor
             return media.getPath().getFileName().toString().toLowerCase();
         }
 
-        String prefix = getPrefix();
+        String prefix = getPrefix() == null ? "" : getPrefix();
         String suffix = embedDateTime() ? DF.format(media.getTimestamp()) : "";
 
         if (prefix != null && !prefix.isEmpty() && !prefix.endsWith("-") && !prefix.endsWith("_"))
