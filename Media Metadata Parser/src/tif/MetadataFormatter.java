@@ -9,9 +9,7 @@ import common.AbstractImageParser;
 import common.Metadata;
 import common.MetadataConstants;
 import tif.DirectoryIFD.EntryIFD;
-import xmp.XmpDirectory;
 import xmp.XmpDirectory.XmpRecord;
-import xmp.XmpProperty;
 
 public final class MetadataFormatter
 {
@@ -21,7 +19,7 @@ public final class MetadataFormatter
     /**
      * Formats an XMP record to match the exiftool -G1 -s style.
      */
-  
+
 
     /**
      * Complete Emulation: exiftool -G1 -a -s -u
@@ -35,7 +33,7 @@ public final class MetadataFormatter
         {
             for (EntryIFD entry : ifd)
             {
-                sb.append(toExifToolString(entry)).append(System.lineSeparator());
+                //sb.append(toExifToolString(entry)).append(System.lineSeparator());
             }
         }
 
@@ -44,7 +42,7 @@ public final class MetadataFormatter
         {
             for (XmpRecord record : metadata.getXmpDirectory())
             {
-                sb.append(toExifToolString(record)).append(System.lineSeparator());
+                //sb.append(toExifToolString(record)).append(System.lineSeparator());
             }
         }
 
