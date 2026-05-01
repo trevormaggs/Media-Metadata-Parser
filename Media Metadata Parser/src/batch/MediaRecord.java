@@ -8,8 +8,12 @@ import common.DigitalSignature;
 import common.Metadata;
 
 /**
- * Represents metadata for a single media file, including the file path, capture date, file format,
- * and metadata availability.
+ * Represents an immutable snapshot of a media file's properties read during a scan.
+ * 
+ * <p>
+ * This record encapsulates the physical location, raw metadata container, verified digital format,
+ * and chronological "truth" (Natural Date) of the file.
+ * </p>
  * 
  * <p>
  * This class is designed to be immutable, ensuring thread safety when shared across batch
@@ -17,24 +21,24 @@ import common.Metadata;
  * </p>
  * 
  * @author Trevor Maggs
- * @version 1.0
- * @since 13 August 2025
+ * @version 1.1
+ * @since 1 May 2026
  */
-public final class MediaFile2
+public final class MediaRecord
 {
     private final Path mediaFile;
     private final Metadata<?> metadata;
-    private final boolean hasNoMetadata;
     private final DigitalSignature mediaFormat;
     private final FileTime fileSystemDate;
+    private final boolean hasMetadataContainer;
 
-    public MediaFile2(Path fpath, Metadata<?> meta, DigitalSignature sig, FileTime ft)
+    public MediaRecord(Path fpath, Metadata<?> meta, DigitalSignature sig, FileTime ft)
     {
         this.mediaFile = fpath;
         this.metadata = meta;
         this.mediaFormat = sig;
-        this.hasNoMetadata = (meta == null || meta.extractZonedDateTime() == null);
         this.fileSystemDate = ft;
+        this.hasMetadataContainer = (meta != null && meta.hasMetadata());
     }
 
     /**
@@ -64,18 +68,18 @@ public final class MediaFile2
     }
 
     /**
-     * Indicates whether this media file lacks embedded metadata (for example, EXIF). This is
-     * used to determine whether metadata should be added or inferred from the file system.
+     * Indicates whether this media file lacks a valid embedded metadata container, such as EXIF or
+     * XMP.
      *
      * @return true if the file lacks metadata, otherwise false
      */
     public boolean isMetadataEmpty()
     {
-        return hasNoMetadata;
+        return !hasMetadataContainer;
     }
 
     /**
-     * Returns whether this media file is in JPG format.
+     * Checks if the media file's digital signature matches the expected JPG standard.
      *
      * @return true if JPG, otherwise false
      */
@@ -85,8 +89,8 @@ public final class MediaFile2
     }
 
     /**
-     * Returns whether this media file is in PNG format.
-     *
+     * Checks if the media file's digital signature matches the expected PNG standard.
+     * 
      * @return true if PNG, otherwise false
      */
     public boolean isPNG()
@@ -95,8 +99,8 @@ public final class MediaFile2
     }
 
     /**
-     * Returns whether this media file is in TIFF format.
-     *
+     * Checks if the media file's digital signature matches the expected TIFF standard.
+     * 
      * @return true if TIFF, otherwise false
      */
     public boolean isTIF()
@@ -105,7 +109,7 @@ public final class MediaFile2
     }
 
     /**
-     * Returns whether this media file is in HEIC format.
+     * Checks if the media file's digital signature matches the expected HEIC standard.
      *
      * @return true if HEIC, otherwise false
      */
@@ -115,7 +119,7 @@ public final class MediaFile2
     }
 
     /**
-     * Returns whether this media file is in WebP format.
+     * Checks if the media file's digital signature matches the expected WebP standard.
      *
      * @return true if isWebP, otherwise false
      */
@@ -143,43 +147,31 @@ public final class MediaFile2
     {
         return fileSystemDate;
     }
-    
-    /*
-     * long offset = 0;
-     * for (MediaFile2 media : scanner) {
-     * FileTime targetDate = media.getEffectiveDate(config, offset);
-     * // ... execute copy/rename
-     * offset += 10_000; // Increment for next file
-     * }
+
+    /**
+     * Resolves the "chronological truth" for this file. Prioritises embedded metadata timestamps
+     * before falling back to the file system's last modified time.
+     * 
+     * @return the most accurate timestamp available for this media
      */
-    public FileTime getEffectiveDate(BatchConfiguration config, long offsetMillis)
+    public FileTime getNaturalDate()
     {
-        // Priority 1: User explicitly wants to override everything
-        if (config.isForceDateChange() && config.getUserDate() != null)
+        if (hasMetadataContainer)
         {
-            return FileTime.from(config.getUserDate().toInstant().plusMillis(offsetMillis));
+            ZonedDateTime metaDate = metadata.extractZonedDateTime();
+
+            if (metaDate != null)
+            {
+                return FileTime.from(metaDate.toInstant());
+            }
         }
 
-        // Priority 2: Trust the internal metadata if it exists
-        ZonedDateTime metaDate = (metadata != null ? metadata.extractZonedDateTime() : null);
-        
-        if (metaDate != null)
-        {
-            return FileTime.from(metaDate.toInstant());
-        }
-
-        // Priority 3: Metadata is missing; use the User Date as a baseline + sequence offset
-        if (config.getUserDate() != null)
-        {
-            return FileTime.from(config.getUserDate().toInstant().plusMillis(offsetMillis));
-        }
-
-        // Ultimate fallback: The OS file system time
         return this.fileSystemDate;
     }
 
     /**
-     * Compares this MediaFile instance with another for equality.
+     * Compares this record with another object. Two records are considered equal if they point to
+     * the same path and share the same metadata and format state.
      *
      * @param other
      *        the object to compare
@@ -194,19 +186,22 @@ public final class MediaFile2
             return true;
         }
 
-        if (!(other instanceof MediaFile2))
+        if (!(other instanceof MediaRecord))
         {
             return false;
         }
 
-        MediaFile2 meta = (MediaFile2) other;
+        MediaRecord meta = (MediaRecord) other;
 
-        return hasNoMetadata == meta.hasNoMetadata && mediaFormat == meta.mediaFormat
-                && Objects.equals(metadata, meta.metadata) && Objects.equals(mediaFile, meta.mediaFile);
+        return hasMetadataContainer == meta.hasMetadataContainer
+                && mediaFormat == meta.mediaFormat
+                && Objects.equals(metadata, meta.metadata)
+                && Objects.equals(mediaFile, meta.mediaFile);
     }
 
     /**
-     * Computes a hash code based on the media path, capture date, format, and metadata status.
+     * Computes a hash code based on the file path, metadata state, and digital signature to ensure
+     * stable behaviour in hashed collections.
      *
      * @return the hash code for this object
      */
@@ -218,11 +213,17 @@ public final class MediaFile2
         result = 31 * result + mediaFile.hashCode();
         result = 31 * result + metadata.hashCode();
         result = 31 * result + mediaFormat.hashCode();
-        result = 31 * result + Boolean.hashCode(hasNoMetadata);
+        result = 31 * result + Boolean.hashCode(hasMetadataContainer);
 
         return result;
     }
 
+    /**
+     * Returns a formatted string representation of the media record, suitable for CLI display or
+     * debug logging.
+     *
+     * @return a multi-line formatted string containing file details
+     */
     @Override
     public String toString()
     {
@@ -230,7 +231,7 @@ public final class MediaFile2
         line.append(String.format("  %-30s %s%n", "[Media File]", mediaFile));
         line.append(String.format("  %-30s %s%n", "[Metadata]", metadata));
         line.append(String.format("  %-30s %s%n", "[Format]", mediaFormat));
-        line.append(String.format("  %-30s %s%n", "[Empty Metadata]", hasNoMetadata));
+        line.append(String.format("  %-30s %s%n", "[Empty Metadata]", !hasMetadataContainer));
 
         return line.toString();
     }

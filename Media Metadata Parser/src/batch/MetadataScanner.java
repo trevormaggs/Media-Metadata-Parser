@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Set;
@@ -18,11 +19,11 @@ import common.Metadata;
 import logger.LogFactory;
 import util.SystemInfo;
 
-public class MetadataScanner implements Iterable<MediaFile2>
+public class MetadataScanner implements Iterable<MediaRecord>
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(MetadataScanner.class);
     private static final FileVisitor<Path> DELETE_VISITOR;
-    private final Set<MediaFile2> imageSet;
+    private final Set<MediaRecord> imageSet;
     private final BatchConfiguration config;
 
     public static final String DEFAULT_SOURCE_DIRECTORY = ".";
@@ -74,28 +75,29 @@ public class MetadataScanner implements Iterable<MediaFile2>
     {
         this.config = settings;
 
-        this.imageSet = new TreeSet<>(new Comparator<MediaFile2>()
+        this.imageSet = new TreeSet<>(new Comparator<MediaRecord>()
         {
             @Override
-            public int compare(MediaFile2 o1, MediaFile2 o2)
+            public int compare(MediaRecord o1, MediaRecord o2)
             {
-                // Use the file system date for a stable, initial sort
-
-                // TODO, comparison should be based on the Effective Date. Fix it later
                 int cmp;
+                FileTime d1 = o1.getNaturalDate();
+                FileTime d2 = o2.getNaturalDate();
 
                 if (config.isDescending())
                 {
-                    cmp = o2.getFileSystemDate().compareTo(o1.getFileSystemDate());
+                    cmp = d2.compareTo(d1);
                 }
 
                 else
                 {
-                    cmp = o1.getFileSystemDate().compareTo(o2.getFileSystemDate());
+                    cmp = d1.compareTo(d2);
                 }
 
-                // If timestamps are identical, sort by Path to prevent the
-                // TreeSet from discarding one of the files.
+                /*
+                 * If both timestamps equal, then compare the Path.
+                 * It is a Tie-breaker.
+                 */
                 if (cmp == 0)
                 {
                     cmp = o1.getPath().compareTo(o2.getPath());
@@ -122,7 +124,7 @@ public class MetadataScanner implements Iterable<MediaFile2>
      * @return an Iterator for navigating the media file set
      */
     @Override
-    public Iterator<MediaFile2> iterator()
+    public Iterator<MediaRecord> iterator()
     {
         return imageSet.iterator();
     }
@@ -191,7 +193,7 @@ public class MetadataScanner implements Iterable<MediaFile2>
      *
      * @return the count of processed images
      */
-    protected int getImageCount()
+    protected int getRecordCount()
     {
         return imageSet.size();
     }
@@ -235,6 +237,12 @@ public class MetadataScanner implements Iterable<MediaFile2>
             {
                 LOGGER.info("Original file [" + fpath + "] registered for processing");
 
+                // TEST IT FIRST
+                if (!config.getFileSet().isEmpty() && !config.getFileSet().contains(fpath.getFileName().toString()))
+                {
+                    return FileVisitResult.CONTINUE;
+                }
+
                 try
                 {
                     AbstractImageParser parser = ImageParserFactory.getParser(fpath);
@@ -242,7 +250,7 @@ public class MetadataScanner implements Iterable<MediaFile2>
                     parser.readMetadata();
 
                     Metadata<?> meta = parser.getMetadata();
-                    MediaFile2 media = new MediaFile2(fpath, meta, parser.getImageFormat(), attr.lastModifiedTime());
+                    MediaRecord media = new MediaRecord(fpath, meta, parser.getImageFormat(), attr.lastModifiedTime());
 
                     imageSet.add(media);
                 }

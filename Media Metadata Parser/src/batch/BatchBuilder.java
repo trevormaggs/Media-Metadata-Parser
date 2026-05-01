@@ -244,6 +244,15 @@ public final class BatchBuilder
         return console;
     }
 
+    public MediaMetadataConsole newBuild() throws BatchErrorException
+    {
+        MediaMetadataConsole console = new MediaMetadataConsole(buildConfig());
+
+        console.run();
+
+        return console;
+    }
+
     /**
      * Validates the current configuration and returns an immutable {@link BatchConfiguration}
      * snapshot.

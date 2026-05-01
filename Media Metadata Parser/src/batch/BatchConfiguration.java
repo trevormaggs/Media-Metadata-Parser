@@ -132,17 +132,4 @@ public final class BatchConfiguration
     {
         return debug;
     }
-
-    /**
-     * Determines if a file should be included in the batch based on the user-defined whitelist. If
-     * the set is empty, all files are accepted.
-     * 
-     * @param fileName
-     *        the name of the file to check
-     * @return {@code true} if the file matches the filter or no filter is defined
-     */
-    public boolean shouldProcessFile(String fileName)
-    {
-        return fileSet.isEmpty() || fileSet.contains(fileName);
-    }
 }
