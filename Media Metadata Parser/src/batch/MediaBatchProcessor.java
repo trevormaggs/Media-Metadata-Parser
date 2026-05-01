@@ -131,10 +131,12 @@ public final class MediaBatchProcessor
         {
             if (Files.exists(config.getTarget()) && Files.isSameFile(config.getSource(), config.getTarget()))
             {
-                throw new BatchErrorException("Target directory cannot be the same as Source directory.");
+                throw new BatchErrorException("Target directory [" + config.getTarget() + "] cannot be the same location as source directory");
             }
+
             Files.createDirectories(config.getTarget());
         }
+
         catch (IOException exc)
         {
             throw new BatchErrorException("Target directory preparation failed: " + config.getTarget(), exc);
@@ -147,15 +149,17 @@ public final class MediaBatchProcessor
         {
             String logName = "batchlog_" + SystemInfo.getHostname() + ".log";
             Path logPath = config.getTarget().resolve(logName);
-            LOGGER.configure(logPath.toString());
 
-            LOGGER.info("MediaBatchProcessor Initialised.");
-            LOGGER.info("Source: " + config.getSource().toAbsolutePath());
-            LOGGER.info("Target: " + config.getTarget().toAbsolutePath());
+            LOGGER.configure(logPath.toString());
+            LOGGER.setDebug(config.isDebug());
+            LOGGER.setTrace(false);
+            LOGGER.info("Source directory set to [" + config.getSource().toAbsolutePath() + "]");
+            LOGGER.info("Target directory set to [" + config.getTarget().toAbsolutePath() + "]");
         }
+
         catch (IOException exc)
         {
-            throw new BatchErrorException("Logging system failed to start.", exc);
+            throw new BatchErrorException("Unable to start logging. Program terminated", exc);
         }
     }
 }
