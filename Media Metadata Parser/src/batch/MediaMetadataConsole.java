@@ -207,13 +207,13 @@ public final class MediaMetadataConsole
         if (config.isShowMetadata())
         {
             // DisplayMetadata.print(scanner);
-            System.out.printf("LOOK: %s\n", "DisplayMetadata.print(scanner)");
+            System.out.printf("%s\n", "DisplayMetadata.print(scanner)");
         }
 
         else
         {
             // new BatchExecutor(config, scanner).execute();
-            System.out.printf("LOOK: %s\n", "new BatchExecutor(config, scanner).execute()");
+            System.out.printf("%s\n", "new BatchExecutor(config, scanner).execute()");
         }
     }
 
