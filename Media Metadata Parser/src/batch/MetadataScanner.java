@@ -5,7 +5,6 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
@@ -16,54 +15,11 @@ import java.util.TreeSet;
 import common.AbstractImageParser;
 import common.ImageParserFactory;
 import common.Metadata;
-import logger.LogFactory;
-import util.SystemInfo;
 
 public class MetadataScanner implements Iterable<MediaRecord>
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(MetadataScanner.class);
-    private static final FileVisitor<Path> DELETE_VISITOR;
     private final Set<MediaRecord> imageSet;
     private final BatchConfiguration config;
-
-    public static final String DEFAULT_SOURCE_DIRECTORY = ".";
-    public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
-    public static final String DEFAULT_IMAGE_PREFIX = "image";
-
-    static
-    {
-        DELETE_VISITOR = new SimpleFileVisitor<Path>()
-        {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException
-            {
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
-            {
-                Files.delete(file);
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException
-            {
-                if (exc == null)
-                {
-                    Files.delete(dir);
-                }
-
-                else
-                {
-                    throw exc;
-                }
-
-                return FileVisitResult.CONTINUE;
-            }
-        };
-    }
 
     /**
      * Constructs a new Executor using the specified configuration.
@@ -106,16 +62,6 @@ public class MetadataScanner implements Iterable<MediaRecord>
                 return cmp;
             }
         });
-
-        if (config.isDescending())
-        {
-            LOGGER.info("Sorted scanned images in descending order");
-        }
-
-        else
-        {
-            LOGGER.info("Sorted scanned images in ascending order");
-        }
     }
 
     /**
@@ -135,29 +81,6 @@ public class MetadataScanner implements Iterable<MediaRecord>
 
         try
         {
-            if (Files.exists(config.getTarget()))
-            {
-                /*
-                 * Prevents the user from accidentally pointing targetDir as the source directory.
-                 */
-                if (Files.isSameFile(config.getSource().toAbsolutePath(), config.getTarget().toAbsolutePath()))
-                {
-                    throw new BatchErrorException("Target directory [" + config.getTarget() + "] cannot be the same location as source directory [" + config.getSource() + "]");
-                }
-
-                /*
-                 * Permanently deletes the target directory and all of its contents.
-                 * This operation is destructive and cannot be undone.
-                 */
-                Files.walkFileTree(config.getTarget(), DELETE_VISITOR);
-
-                LOGGER.warn("Old files within directory [" + config.getTarget() + "] deleted");
-            }
-
-            Files.createDirectories(config.getTarget());
-
-            startLogging();
-
             if (config.getFileSet().size() > 0)
             {
                 for (String fileName : config.getFileSet())
@@ -167,11 +90,6 @@ public class MetadataScanner implements Iterable<MediaRecord>
                     if (Files.exists(fpath) && Files.isRegularFile(fpath))
                     {
                         visitor.visitFile(fpath, Files.readAttributes(fpath, BasicFileAttributes.class));
-                    }
-
-                    else
-                    {
-                        LOGGER.info("Skipping non-regular file [" + fpath + "]");
                     }
                 }
             }
@@ -203,7 +121,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      *
      * <p>
      * The visitor analyses each file, extracts metadata segments, and determines the
-     * {@code Date Taken} time-stamp. Each file is then wrapped in a {@link MediaFile} object and
+     * {@code Date Taken} time-stamp. Each file is then wrapped in a {@link MediaRecord} object and
      * added to the internal set for later processing.
      * </p>
      *
@@ -226,7 +144,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
             {
                 if (!dir.equals(config.getSource()))
                 {
-                    LOGGER.info("Sub-directory [" + dir + "] is being read");
+                    // Nothing to do
                 }
 
                 return FileVisitResult.CONTINUE;
@@ -235,8 +153,6 @@ public class MetadataScanner implements Iterable<MediaRecord>
             @Override
             public FileVisitResult visitFile(Path fpath, BasicFileAttributes attr) throws IOException
             {
-                LOGGER.info("Original file [" + fpath + "] registered for processing");
-
                 // TEST IT FIRST
                 if (!config.getFileSet().isEmpty() && !config.getFileSet().contains(fpath.getFileName().toString()))
                 {
@@ -267,39 +183,11 @@ public class MetadataScanner implements Iterable<MediaRecord>
                  */
                 catch (Exception exc)
                 {
-                    LOGGER.error(exc.getMessage(), exc);
+                    // Nothing to do
                 }
 
                 return FileVisitResult.CONTINUE;
             }
         };
-    }
-
-    /**
-     * Begins the logging system and writes configuration details to a log file. This method is
-     * for internal setup and is not intended for external use.
-     *
-     * @throws BatchErrorException
-     *         if the logging service cannot be established
-     */
-    private void startLogging() throws BatchErrorException
-    {
-        try
-        {
-            String logFilePath = Paths.get(config.getTarget().toAbsolutePath().toString(), "batchlog_" + SystemInfo.getHostname() + ".log").toString();
-
-            LOGGER.configure(logFilePath);
-            LOGGER.setDebug(config.isDebug());
-            LOGGER.setTrace(false);
-
-            // Log some information about the logging setup
-            LOGGER.info("Source directory set to [" + config.getSource().toAbsolutePath() + "] with original images");
-            LOGGER.info("Target directory set to [" + config.getTarget().toAbsolutePath() + "] for copied images");
-        }
-
-        catch (SecurityException | IOException exc)
-        {
-            throw new BatchErrorException("Unable to enable logging. Program terminated", exc);
-        }
     }
 }

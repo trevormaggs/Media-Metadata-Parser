@@ -47,6 +47,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      * (such as a String, Integer, or RationalNumber).
      * </p>
      *
+     * <p>
      * Instances of this class are immutable. Internal byte arrays are defensively copied to
      * maintain data integrity.
      * </p>

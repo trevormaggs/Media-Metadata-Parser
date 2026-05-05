@@ -6,13 +6,14 @@ import java.time.ZonedDateTime;
 /**
  * <p>
  * Implements the Builder design pattern for the construction and validation of
- * {@link BatchExecutor} configurations.
+ * {@link MediaBatchProcessor} configurations.
  * </p>
  * 
  * <p>
  * This class serves as the central gateway for defining batch parameters. It can produce a
- * self-initiating {@link BatchConsole} via {@link #build()} for CLI applications, or an immutable
- * {@link BatchConfiguration} via {@link #buildConfig()} for custom implementations such as GUI.
+ * self-initiating {@link MediaMetadataConsole} via {@link #build()} for CLI applications, or an
+ * immutable {@link BatchConfiguration} via {@link #buildConfig()} for custom implementations such
+ * as GUI.
  * </p>
  * 
  * <p>
@@ -49,9 +50,9 @@ import java.time.ZonedDateTime;
  */
 public final class BatchBuilder
 {
-    private String bd_sourceDir = BatchExecutor.DEFAULT_SOURCE_DIRECTORY;
-    private String bd_prefix = BatchExecutor.DEFAULT_IMAGE_PREFIX;
-    private String bd_target = BatchExecutor.DEFAULT_TARGET_DIRECTORY;
+    private String bd_sourceDir = MediaBatchProcessor.DEFAULT_SOURCE_DIRECTORY;
+    private String bd_prefix = MediaBatchProcessor.DEFAULT_IMAGE_PREFIX;
+    private String bd_target = MediaBatchProcessor.DEFAULT_TARGET_DIRECTORY;
     private boolean bd_embedDateTime = false;
     private String bd_userDate = "";
     private boolean bd_force = false;
@@ -113,7 +114,8 @@ public final class BatchBuilder
     }
 
     /**
-     * Sets a specific date and time used to override the {@code Date Taken} attribute.
+     * Sets a specific date used to override both the EXIF {@code Date Taken} metadata and the file
+     * system modification timestamp.
      *
      * @param d
      *        the date and time string to be used for processing
@@ -227,28 +229,13 @@ public final class BatchBuilder
     }
 
     /**
-     * Validates configuration constraints and returns a new {@link BatchConsole} object.
+     * Validates configuration constraints and instantiates the console application.
      * 
-     * @return a new {@code BatchConsole} instance
-     * 
-     * @throws IllegalStateException
-     *         if validation rules are violated
-     * @throws BatchErrorException
-     *         if there is an I/O error during the initial source directory scan
+     * @return a new {@code MediaMetadataConsole} instance
      */
-    public BatchConsole build() throws BatchErrorException
-    {
-        BatchConsole console = new BatchConsole(buildConfig());
-
-        console.start();
-        return console;
-    }
-
-    public MediaMetadataConsole newBuild() throws BatchErrorException
+    public MediaMetadataConsole build()
     {
         MediaMetadataConsole console = new MediaMetadataConsole(buildConfig());
-
-        console.run();
 
         return console;
     }
@@ -265,6 +252,7 @@ public final class BatchBuilder
     public BatchConfiguration buildConfig()
     {
         validate();
+
         ZonedDateTime parsedDate = util.SmartDateParser.convertToZonedDateTime(bd_userDate);
 
         return new BatchConfiguration(Paths.get(bd_sourceDir), Paths.get(bd_target),
@@ -297,11 +285,6 @@ public final class BatchBuilder
         if (bd_force && (bd_userDate == null || bd_userDate.trim().isEmpty()))
         {
             throw new IllegalStateException("Force flag (-f) requires a target date (-m)");
-        }
-
-        if (bd_sourceDir == null || bd_sourceDir.trim().isEmpty())
-        {
-            throw new IllegalStateException("Source directory must be specified");
         }
     }
 }

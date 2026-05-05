@@ -208,7 +208,7 @@ public final class PngDatePatcher
                     writer.writeBytes(payload);
 
                     updateChunkCRC(writer, exifChunk, payload);
-                    LOGGER.info("Surgically patched eXIf chunk with optimized single-write I/O.");
+                    LOGGER.info("Surgically patched eXIf chunk with optimised single-write I/O");
                 }
             }
 

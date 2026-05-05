@@ -9,11 +9,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.attribute.FileTime;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import org.apache.commons.imaging.Imaging;
 import org.apache.commons.imaging.ImagingException;
@@ -217,66 +214,6 @@ public final class BatchMetadataUtils
         }
     }
 
-    // TESTING
-
-    /**
-     * Converts the input date string to a Date object by attempting to parse it against a
-     * predefined set of common date and time formats.
-     *
-     * @param input
-     *        the input date string
-     *
-     * @return the converted Date object
-     *
-     * @throws NullPointerException
-     *         if the input is null
-     * @throws IllegalArgumentException
-     *         if the date format is invalid or not supported
-     */
-    public static Date convertToDate2(String input)
-    {
-        if (input == null)
-        {
-            throw new NullPointerException("Date input is null");
-        }
-
-        // Define a comprehensive list of date-time formats to try
-        // Prioritise common formats first for efficiency
-        List<String> validFormats = Arrays.asList(
-                "yyyy:MM:dd HH:mm:ss",
-                "yyyy-MM-dd HH:mm:ss",
-                "yyyy/MM/dd HH:mm:ss",
-                "dd/MM/yyyy HH:mm:ss",
-                "dd-MM-yyyy HH:mm:ss",
-                "MM/dd/yyyy HH:mm:ss",
-                "MM-dd-yyyy HH:mm:ss",
-                "yyyy:MM:dd",
-                "yyyy-MM-dd",
-                "yyyy/MM/dd",
-                "dd/MM/yyyy",
-                "dd-MM-yyyy");
-
-        for (String format : validFormats)
-        {
-            try
-            {
-                // Use a non-lenient parser for strict format matching
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
-                simpleDateFormat.setLenient(false);
-
-                return simpleDateFormat.parse(input.trim());
-            }
-
-            catch (ParseException exc)
-            {
-                // Ignore and try the next format
-            }
-        }
-
-        // If no format matched, throw an exception
-        throw new IllegalArgumentException("Date [" + input + "] is in an invalid or unsupported format");
-    }
-
     /**
      * Reads a source WebP file, updates a specific Exif metadata tag, and writes the
      * result to a new destination WebP file.
@@ -327,7 +264,7 @@ public final class BatchMetadataUtils
         exifDirectory.removeField(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL);
         exifDirectory.add(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL, dateTaken);
 
-        File outputFile = destFile; //new File("output.webp");
+        File outputFile = destFile; // new File("output.webp");
 
         try (OutputStream os = new FileOutputStream(outputFile))
         {

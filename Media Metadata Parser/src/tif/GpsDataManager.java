@@ -66,11 +66,9 @@ public final class GpsDataManager
     /**
      * Formats GPS-specific rational arrays into human-readable DMS strings.
      * 
-     * @param rationals
-     *        the coordinate components (degrees, minutes, seconds)
      * @param tag
      *        the specific GPS tag (Latitude or Longitude)
-     * @param parentDir
+     * @param gpsDir
      *        the directory context for reference lookups (e.g., 'N', 'S', 'E', 'W')
      * @return a formatted coordinate string
      */

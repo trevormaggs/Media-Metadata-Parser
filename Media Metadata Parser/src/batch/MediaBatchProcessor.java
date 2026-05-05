@@ -1,101 +1,242 @@
 package batch;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.ZonedDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import heif.HeifDatePatcher;
+import jpg.JpgDatePatcher;
 import logger.LogFactory;
+import png.PngDatePatcher;
+import tif.TiffDatePatcher;
 import util.SystemInfo;
+import webp.WebPDatePatcher;
 
 /**
- * Executes the "surgical" batch processing of media files.
+ * Automates the batch processing of image files by copying, renaming, and chronologically sorting
+ * them, typically based on their {@code DateTimeOriginal} EXIF metadata.
+ * 
+ * <p>
+ * This processor implements a "surgical" strategy: it never modifies source files. Instead, it
+ * creates a renamed copy in the target directory and applies binary patches to the metadata
+ * segments of the copy to ensure chronological integrity across JPEG, TIFF, PNG, WebP, and HEIF
+ * formats.
+ * </p>
+ * 
+ * <p>
+ * A built-in 10-second offset is applied to user-defined dates to prevent metadata collisions and
+ * ensure stable sorting in downstream applications (like Windows Photos or Apple Photos).
+ * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
- * @since 1 May 2026
+ * @version 1.1
+ * @since 5 May 2026
  */
 public final class MediaBatchProcessor
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessor.class);
+    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("ddMMMyyyy");
+    private static final long TEN_SECOND_OFFSET = 10L;
+    private static final FileVisitor<Path> DELETE_VISITOR;
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
-    private final DateTimeFormatter nameFormatter;
 
+    public static final String DEFAULT_SOURCE_DIRECTORY = ".";
+    public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
+    public static final String DEFAULT_IMAGE_PREFIX = "image";
+
+    static
+    {
+        DELETE_VISITOR = new SimpleFileVisitor<Path>()
+        {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
+            {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException
+            {
+                if (exc == null)
+                {
+                    Files.delete(dir);
+                }
+                else
+                {
+                    throw exc;
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        };
+    }
+
+    /**
+     * Constructs a new Processor using the specified configuration and media scanner.
+     *
+     * @param config
+     *        the configuration settings used to initialise the executor
+     * @param scanner
+     *        the scanner containing the discovered media records to process
+     */
     public MediaBatchProcessor(BatchConfiguration config, MetadataScanner scanner)
     {
         this.config = config;
         this.scanner = scanner;
-        this.nameFormatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     }
 
-    public void execute() throws BatchErrorException
+    /**
+     * Begins the batch processing workflow by preparing the target directory, setting up logging,
+     * and processing the specified source files or directory.
+     * 
+     * <p>
+     * Note, this method is final to ensure no subclass accidentally overrides the defined critical
+     * logic.
+     * </p>
+     *
+     * @throws BatchErrorException
+     *         if an I/O error has occurred during directory preparation or file processing
+     */
+    public final void execute() throws BatchErrorException
     {
-        prepareTargetDirectory();
-        startLogging();
-
         int index = 1;
         int total = scanner.getRecordCount();
 
-        LOGGER.info("Starting batch process for " + total + " files...");
+        prepareTargetDirectory();
+        startLogging();
+
+        LOGGER.info("Starting batch process for [" + total + "] files...");
 
         for (MediaRecord record : scanner)
         {
             processRecord(record, index++, total);
         }
 
-        LOGGER.info("Batch processing completed successfully.");
+        LOGGER.info("Batch processing completed successfully");
     }
 
     /**
-     * Unifies the processing logic for a single file.
+     * Handles the end-to-end processing of a single media record.
+     * 
+     * <p>
+     * The process follows a strict "copy-then-patch" sequence:
+     * </p>
+     * 
+     * <ol>
+     * <li>Calculate the effective timestamp (Natural vs. User-defined).</li>
+     * <li>Generate a new filename based on configuration.</li>
+     * <li>Copy the source file to the target location.</li>
+     * <li>Apply binary metadata patches to the <b>copy</b> if forced.</li>
+     * <li>Update file-system attributes (Last Modified Time).</li>
+     * </ol>
+     * 
+     * @param record
+     *        the media file record to process
+     * @param index
+     *        the current position in the batch
+     * @param total
+     *        the total number of files in the batch
+     * @throws BatchErrorException
+     *         if file I/O or metadata patching fails
      */
-    private void processRecord(MediaRecord record, int index, int total)
+    private void processRecord(MediaRecord record, int index, int total) throws BatchErrorException
     {
         try
         {
-            // 1. Determine Effective Time (Natural or Forced)
             FileTime effectiveTime = calculateEffectiveTime(record, index);
-
-            // 2. Generate target path
             String newName = generateTargetName(record, index, effectiveTime);
             Path targetPath = config.getTarget().resolve(newName);
 
-            // 3. I/O Operations
-            Files.copy(record.getPath(), targetPath);
+            Files.copy(record.getPath(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
-            // 4. TODO: Surgical Binary Patching
-            // (e.g., using a separate utility to write effectiveTime into EXIF)
+            if (record.isMetadataEmpty())
+            {
+                LOGGER.warn("File [" + record.getPath() + "] contains no metadata. Only file dates were updated");
+            }
 
-            // 5. Update File System Attributes
+            else if (config.isForceDateChange())
+            {
+                if (record.isTIF())
+                {
+                    TiffDatePatcher.patchAllDates(targetPath, effectiveTime, true);
+                }
+
+                else if (record.isJPG())
+                {
+                    JpgDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                }
+
+                else if (record.isPNG())
+                {
+                    PngDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                }
+
+                else if (record.isWebP())
+                {
+                    WebPDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                }
+
+                else if (record.isHEIC())
+                {
+                    HeifDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                }
+            }
+
             Files.setLastModifiedTime(targetPath, effectiveTime);
 
-            LOGGER.info(String.format("[%d/%d] Processed: %s -> %s", index, total, record.getPath(), newName));
+            LOGGER.info(String.format("[%d/%d] Processed: %s -> %s", index, total, record.getPath().getFileName(), newName));
         }
+
         catch (IOException exc)
         {
-            LOGGER.error("Processing failed: " + record.getPath().getFileName() + " -> " + exc.getMessage());
+            String msg = "I/O error detected with [" + record.getPath().getFileName() + "]";
+            LOGGER.error(msg);
+
+            throw new BatchErrorException(msg, exc);
         }
     }
 
     /**
-     * Determines if we use the file's natural date or the user-forced sequence.
+     * Determines the final timestamp for the record, applying increments if the date is
+     * user-defined.
+     * 
+     * @param record
+     *        the media record being processed
+     * @param index
+     *        the current index used to calculate the 10-second offset
+     * @return the calculated FileTime for metadata and file-system updates
      */
     private FileTime calculateEffectiveTime(MediaRecord record, int index)
     {
         if (config.isForceDateChange() && config.getUserDate() != null)
         {
-            // 1. Take the User's ZonedDateTime
-            // 2. Add (index - 1) seconds to create the sequence
-            // 3. Convert directly to an Instant, then to FileTime
-            return FileTime.from(config.getUserDate().plusSeconds(index - 1).toInstant());
+            long secondsToAdd = (index - 1) * TEN_SECOND_OFFSET;
+            return FileTime.from(config.getUserDate().plusSeconds(secondsToAdd).toInstant());
         }
 
         return record.getNaturalDate();
     }
 
+    /**
+     * Constructs the target filename using prefix, date/time embedding, and index padding.
+     * 
+     * @param record
+     *        the media record
+     * @param index
+     *        the batch index for numerical padding, such as 001, 002, etc
+     * @param time
+     *        the timestamp to embed if enabled
+     * @return a formatted string representing the new filename
+     */
     private String generateTargetName(MediaRecord record, int index, FileTime time)
     {
         StringBuilder sb = new StringBuilder();
@@ -108,7 +249,7 @@ public final class MediaBatchProcessor
         if (config.isEmbedDateTime())
         {
             ZonedDateTime zdt = time.toInstant().atZone(ZoneId.systemDefault());
-            sb.append(zdt.format(nameFormatter)).append("_");
+            sb.append(zdt.format(DTF)).append("_");
         }
 
         sb.append(String.format("%03d", index));
@@ -125,13 +266,30 @@ public final class MediaBatchProcessor
         return sb.toString();
     }
 
+    /**
+     * Prepares the target directory by ensuring it exists and is empty.
+     * 
+     * <p>
+     * Safety Check: Throws an exception if the target is identical to the source to prevent
+     * accidental data deletion during the destructive clean phase.
+     * </p>
+     * 
+     * @throws BatchErrorException
+     *         if source/target are identical or directory creation fails
+     */
     private void prepareTargetDirectory() throws BatchErrorException
     {
         try
         {
-            if (Files.exists(config.getTarget()) && Files.isSameFile(config.getSource(), config.getTarget()))
+            if (Files.exists(config.getTarget()))
             {
-                throw new BatchErrorException("Target directory [" + config.getTarget() + "] cannot be the same location as source directory");
+                if (Files.isSameFile(config.getSource(), config.getTarget()))
+                {
+                    throw new BatchErrorException("Target directory cannot be the same as source directory");
+                }
+
+                // Destructive clean to ensure a fresh batch environment
+                Files.walkFileTree(config.getTarget(), DELETE_VISITOR);
             }
 
             Files.createDirectories(config.getTarget());
@@ -139,10 +297,17 @@ public final class MediaBatchProcessor
 
         catch (IOException exc)
         {
-            throw new BatchErrorException("Target directory preparation failed: " + config.getTarget(), exc);
+            throw new BatchErrorException("Cannot prepare target directory [" + config.getTarget() + "] due to an I/O error", exc);
         }
     }
 
+    /**
+     * Begins the logging system and writes configuration details to a log file. This method is for
+     * internal setup and is not intended for external use.
+     *
+     * @throws BatchErrorException
+     *         if the logging service cannot be established
+     */
     private void startLogging() throws BatchErrorException
     {
         try
@@ -153,13 +318,18 @@ public final class MediaBatchProcessor
             LOGGER.configure(logPath.toString());
             LOGGER.setDebug(config.isDebug());
             LOGGER.setTrace(false);
-            LOGGER.info("Source directory set to [" + config.getSource().toAbsolutePath() + "]");
-            LOGGER.info("Target directory set to [" + config.getTarget().toAbsolutePath() + "]");
+
+            LOGGER.info("MediaBatchProcessor Initialised.");
+            LOGGER.info("Source: " + config.getSource().toAbsolutePath());
+            LOGGER.info("Target: " + config.getTarget().toAbsolutePath());
+
+            String sortOrder = config.isDescending() ? "descending" : "ascending";
+            LOGGER.info("Sorted scanned images in " + sortOrder + " order");
         }
 
         catch (IOException exc)
         {
-            throw new BatchErrorException("Unable to start logging. Program terminated", exc);
+            throw new BatchErrorException("Unable to start logging", exc);
         }
     }
 }

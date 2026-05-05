@@ -1,0 +1,129 @@
+INFO:05/05/2026 18.10.02:   MediaBatchProcessor Initialised.
+INFO:05/05/2026 18.10.02:   Source: e:\ImageBatchDir
+INFO:05/05/2026 18.10.02:   Target: E:\git\Media-Metadata-Parser\Media Metadata Parser\PATCHED
+INFO:05/05/2026 18.10.02:   Sorted scanned images in ascending order
+INFO:05/05/2026 18.10.02:   Starting batch process for [38] files...
+INFO:05/05/2026 18.10.02:   [1/38] Processed: babygemma.tif -> misty_001.tif
+INFO:05/05/2026 18.10.02:   Preparing to patch new date in WebP file [PATCHED\misty_002.webp]
+INFO:05/05/2026 18.10.02:   Prepared patch for EXIF tag [IFD_DATE_TIME] with value [2011:10:07 00:00:10]
+INFO:05/05/2026 18.10.02:   Prepared patch for EXIF tag [EXIF_DATE_TIME_ORIGINAL] with value [2011:10:07 00:00:10]
+INFO:05/05/2026 18.10.02:   Prepared patch for EXIF tag [EXIF_DATE_TIME_DIGITIZED] with value [2011:10:07 00:00:10]
+INFO:05/05/2026 18.10.02:   Surgically patched WebP EXIF chunk
+INFO:05/05/2026 18.10.02:   Date [2011:10:07 00:00:10] patched XMP tag [xmp:CreateDate]
+INFO:05/05/2026 18.10.02:   Date [2011:10:07 00:00:10] patched XMP tag [xmp:ModifyDate]
+INFO:05/05/2026 18.10.02:   Date [2011:10:07 00:00:10] patched XMP tag [xmp:MetadataDate]
+INFO:05/05/2026 18.10.02:   Date [2011:10:07 00:00:10] patched XMP tag [photoshop:DateCreated]
+INFO:05/05/2026 18.10.02:   [2/38] Processed: SandroBotticelli.webp -> misty_002.webp
+INFO:05/05/2026 18.10.02:   [3/38] Processed: gemmapreg.tif -> misty_003.tif
+INFO:05/05/2026 18.10.02:   [4/38] Processed: test.jpg -> misty_004.jpg
+WARN:05/05/2026 18.10.02:   Media Data box [mdat] detected but not handled
+WARN:05/05/2026 18.10.02:   Fallback XMP segment found using Item ID [52]
+WARN:05/05/2026 18.10.02:   Fallback XMP segment found using Item ID [52]
+INFO:05/05/2026 18.10.02:   [5/38] Processed: IMG_0820.HEIC -> misty_005.heic
+WARN:05/05/2026 18.10.02:   Media Data box [mdat] detected but not handled
+WARN:05/05/2026 18.10.02:   Fallback XMP segment found using Item ID [52]
+WARN:05/05/2026 18.10.02:   Fallback XMP segment found using Item ID [52]
+INFO:05/05/2026 18.10.02:   [6/38] Processed: IMG_0824.HEIC -> misty_006.heic
+WARN:05/05/2026 18.10.02:   Media Data box [mdat] detected but not handled
+WARN:05/05/2026 18.10.02:   Fallback XMP segment found using Item ID [52]
+WARN:05/05/2026 18.10.02:   Fallback XMP segment found using Item ID [52]
+INFO:05/05/2026 18.10.02:   [7/38] Processed: IMG_0825.HEIC -> misty_007.heic
+WARN:05/05/2026 18.10.02:   Media Data box [mdat] detected but not handled
+WARN:05/05/2026 18.10.02:   Fallback XMP segment found using Item ID [52]
+WARN:05/05/2026 18.10.02:   Fallback XMP segment found using Item ID [52]
+INFO:05/05/2026 18.10.02:   [8/38] Processed: IMG_0827.HEIC -> misty_008.heic
+WARN:05/05/2026 18.10.02:   Media Data box [mdat] detected but not handled
+WARN:05/05/2026 18.10.02:   Fallback XMP segment found using Item ID [52]
+WARN:05/05/2026 18.10.02:   Fallback XMP segment found using Item ID [52]
+INFO:05/05/2026 18.10.02:   [9/38] Processed: IMG_0831.HEIC -> misty_009.heic
+WARN:05/05/2026 18.10.02:   Media Data box [mdat] detected but not handled
+INFO:05/05/2026 18.10.02:   Patched XMP tag [xmp:CreateDate] at: 9372
+INFO:05/05/2026 18.10.02:   Patched XMP tag [xmp:ModifyDate] at: 9557
+INFO:05/05/2026 18.10.02:   Patched XMP tag [xmp:MetadataDate] at: 9494
+INFO:05/05/2026 18.10.02:   Patched XMP tag [exif:DateTimeOriginal] at: 6057
+INFO:05/05/2026 18.10.02:   Patched XMP tag [exif:DateTimeDigitized] at: 5981
+INFO:05/05/2026 18.10.02:   [10/38] Processed: IMG_0830.HEIC -> misty_010.heic
+WARN:05/05/2026 18.10.02:   Media Data box [mdat] detected but not handled
+INFO:05/05/2026 18.10.02:   Patched XMP tag [xmp:CreateDate] at: 9440
+INFO:05/05/2026 18.10.02:   Patched XMP tag [xmp:ModifyDate] at: 9625
+INFO:05/05/2026 18.10.02:   Patched XMP tag [xmp:MetadataDate] at: 9562
+INFO:05/05/2026 18.10.02:   Patched XMP tag [exif:DateTimeOriginal] at: 6125
+INFO:05/05/2026 18.10.02:   Patched XMP tag [exif:DateTimeDigitized] at: 6049
+INFO:05/05/2026 18.10.02:   [11/38] Processed: IMG_0830_properties_13Jan26.heic -> misty_011.heic
+INFO:05/05/2026 18.10.03:   [12/38] Processed: pool19.JPG -> misty_012.jpg
+INFO:05/05/2026 18.10.03:   [13/38] Processed: pool20.JPG -> misty_013.jpg
+INFO:05/05/2026 18.10.03:   [14/38] Processed: pool21.jpg -> misty_014.jpg
+INFO:05/05/2026 18.10.03:   [15/38] Processed: pool22.jpg -> misty_015.jpg
+WARN:05/05/2026 18.10.03:   File [e:\ImageBatchDir\image2.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.03:   [16/38] Processed: image2.jpg -> misty_016.jpg
+WARN:05/05/2026 18.10.03:   File [e:\ImageBatchDir\image3.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.03:   [17/38] Processed: image3.jpg -> misty_017.jpg
+WARN:05/05/2026 18.10.03:   File [e:\ImageBatchDir\main.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.03:   [18/38] Processed: main.jpg -> misty_018.jpg
+WARN:05/05/2026 18.10.03:   File [e:\ImageBatchDir\pool6.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.03:   [19/38] Processed: pool6.jpg -> misty_019.png
+WARN:05/05/2026 18.10.03:   File [e:\ImageBatchDir\pool4.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.03:   [20/38] Processed: pool4.jpg -> misty_020.png
+WARN:05/05/2026 18.10.04:   File [e:\ImageBatchDir\pool5.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.04:   [21/38] Processed: pool5.jpg -> misty_021.png
+WARN:05/05/2026 18.10.04:   File [e:\ImageBatchDir\pool1.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.04:   [22/38] Processed: pool1.jpg -> misty_022.png
+WARN:05/05/2026 18.10.04:   File [e:\ImageBatchDir\pool12.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.04:   [23/38] Processed: pool12.jpg -> misty_023.png
+WARN:05/05/2026 18.10.05:   File [e:\ImageBatchDir\pool2.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.05:   [24/38] Processed: pool2.jpg -> misty_024.png
+WARN:05/05/2026 18.10.05:   File [e:\ImageBatchDir\pool3.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.05:   [25/38] Processed: pool3.jpg -> misty_025.png
+WARN:05/05/2026 18.10.06:   File [e:\ImageBatchDir\pool16.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.06:   [26/38] Processed: pool16.jpg -> misty_026.png
+WARN:05/05/2026 18.10.06:   File [e:\ImageBatchDir\pool18.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.06:   [27/38] Processed: pool18.jpg -> misty_027.png
+WARN:05/05/2026 18.10.06:   File [e:\ImageBatchDir\pool13.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.06:   [28/38] Processed: pool13.jpg -> misty_028.png
+WARN:05/05/2026 18.10.06:   File [e:\ImageBatchDir\pool14.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.06:   [29/38] Processed: pool14.jpg -> misty_029.png
+WARN:05/05/2026 18.10.07:   File [e:\ImageBatchDir\pool15.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.07:   [30/38] Processed: pool15.jpg -> misty_030.png
+WARN:05/05/2026 18.10.07:   File [e:\ImageBatchDir\pool17.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.07:   [31/38] Processed: pool17.jpg -> misty_031.png
+WARN:05/05/2026 18.10.07:   File [e:\ImageBatchDir\pool7.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.07:   [32/38] Processed: pool7.jpg -> misty_032.png
+WARN:05/05/2026 18.10.08:   File [e:\ImageBatchDir\pool10.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.08:   [33/38] Processed: pool10.jpg -> misty_033.png
+WARN:05/05/2026 18.10.09:   File [e:\ImageBatchDir\pool11.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.09:   [34/38] Processed: pool11.jpg -> misty_034.png
+WARN:05/05/2026 18.10.09:   File [e:\ImageBatchDir\pool8.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.09:   [35/38] Processed: pool8.jpg -> misty_035.png
+WARN:05/05/2026 18.10.09:   File [e:\ImageBatchDir\pool9.jpg] contains no metadata. Only file dates were updated
+INFO:05/05/2026 18.10.09:   [36/38] Processed: pool9.jpg -> misty_036.png
+INFO:05/05/2026 18.10.09:   Preparing to patch new date in PNG file [PATCHED\misty_037.png]
+INFO:05/05/2026 18.10.09:   Prepared patch for EXIF tag [IFD_DATE_TIME] with value [2011:10:07 00:06:00]
+INFO:05/05/2026 18.10.09:   Prepared patch for EXIF tag [EXIF_DATE_TIME_ORIGINAL] with value [2011:10:07 00:06:00]
+INFO:05/05/2026 18.10.09:   Prepared patch for EXIF tag [EXIF_DATE_TIME_DIGITIZED] with value [2011:10:07 00:06:00]
+INFO:05/05/2026 18.10.09:   CRC [0x71F88B7C] updated in eXIf chunk
+INFO:05/05/2026 18.10.09:   Surgically patched eXIf chunk with optimized single-write I/O.
+INFO:05/05/2026 18.10.09:   CRC [0x3510C1D2] updated in tIME chunk
+INFO:05/05/2026 18.10.09:   Date [2011:10:07 00:06:00] patched in chunk [tIME (ModifyDate)]
+INFO:05/05/2026 18.10.09:   CRC [0xC2554543] updated in tEXt chunk
+INFO:05/05/2026 18.10.09:   Date [2011:10:07 00:06:00] patched for keyword [Creation Time] in chunk [tEXt]
+INFO:05/05/2026 18.10.09:   CRC [0x5CED4241] updated in tEXt chunk
+INFO:05/05/2026 18.10.09:   Date [2011:10:07 00:06:00] patched for keyword [create-date] in chunk [tEXt]
+INFO:05/05/2026 18.10.09:   [37/38] Processed: testPNGimage.png -> misty_037.png
+INFO:05/05/2026 18.10.11:   Preparing to patch new date in PNG file [PATCHED\misty_038.png]
+INFO:05/05/2026 18.10.11:   Prepared patch for EXIF tag [IFD_DATE_TIME] with value [2011:10:07 00:06:10]
+INFO:05/05/2026 18.10.11:   Prepared patch for EXIF tag [EXIF_DATE_TIME_ORIGINAL] with value [2011:10:07 00:06:10]
+INFO:05/05/2026 18.10.11:   Prepared patch for EXIF tag [EXIF_DATE_TIME_DIGITIZED] with value [2011:10:07 00:06:10]
+INFO:05/05/2026 18.10.11:   CRC [0x2E357AE1] updated in eXIf chunk
+INFO:05/05/2026 18.10.11:   Surgically patched eXIf chunk with optimized single-write I/O.
+INFO:05/05/2026 18.10.11:   Date [2011:10:07 00:06:10] patched XMP tag [xmp:CreateDate]
+INFO:05/05/2026 18.10.11:   Date [2011:10:07 00:06:10] patched XMP tag [xmp:ModifyDate]
+INFO:05/05/2026 18.10.11:   Date [2011:10:07 00:06:10] patched XMP tag [exif:DateTimeOriginal]
+INFO:05/05/2026 18.10.11:   CRC [0x450DFEF2] updated in iTXt chunk
+INFO:05/05/2026 18.10.11:   CRC [0xD5C528CC] updated in tIME chunk
+INFO:05/05/2026 18.10.11:   Date [2011:10:07 00:06:10] patched in chunk [tIME (ModifyDate)]
+INFO:05/05/2026 18.10.11:   CRC [0xDB4E7402] updated in tEXt chunk
+INFO:05/05/2026 18.10.11:   Date [2011:10:07 00:06:10] patched for keyword [Creation Time] in chunk [tEXt]
+INFO:05/05/2026 18.10.11:   CRC [0x45F67300] updated in tEXt chunk
+INFO:05/05/2026 18.10.11:   Date [2011:10:07 00:06:10] patched for keyword [create-date] in chunk [tEXt]
+INFO:05/05/2026 18.10.11:   [38/38] Processed: XMPimage.png -> misty_038.png
+INFO:05/05/2026 18.10.11:   Batch processing completed successfully

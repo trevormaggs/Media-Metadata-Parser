@@ -16,8 +16,8 @@ import util.ProjectBuildInfo;
  *
  * <p>
  * Depending on the configuration, this console either provides a detailed diagnostic view of media
- * metadata via {@link DisplayMetadata} or delegates to the {@link BatchExecutor} for chronological
- * renaming and file processing.
+ * metadata via {@link DisplayMetadata} or delegates to the {@link MediaBatchProcessor} for
+ * chronological renaming and file processing.
  * </p>
  *
  * @author Trevor Maggs
@@ -41,9 +41,6 @@ public final class MediaMetadataConsole
      * @param config
      *        the immutable configuration object containing the validated parameters required to
      *        execute the batch
-     *
-     * @throws BatchErrorException
-     *         if any metadata-related reading error occurs during initialisation
      */
     public MediaMetadataConsole(BatchConfiguration config)
     {
@@ -178,7 +175,8 @@ public final class MediaMetadataConsole
 
         try
         {
-            builder.newBuild();
+            MediaMetadataConsole console = builder.build();
+            console.run();
         }
 
         catch (BatchErrorException exc)
@@ -209,11 +207,9 @@ public final class MediaMetadataConsole
             // DisplayMetadata.print(scanner);
             System.out.printf("%s\n", "DisplayMetadata.print(scanner)");
         }
-
         else
         {
-            // new BatchExecutor(config, scanner).execute();
-            System.out.printf("%s\n", "new BatchExecutor(config, scanner).execute()");
+            new MediaBatchProcessor(config, scanner).execute();
         }
     }
 
