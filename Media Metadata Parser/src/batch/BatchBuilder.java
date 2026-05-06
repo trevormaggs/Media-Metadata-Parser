@@ -235,9 +235,7 @@ public final class BatchBuilder
      */
     public MediaMetadataConsole build()
     {
-        MediaMetadataConsole console = new MediaMetadataConsole(buildConfig());
-
-        return console;
+        return new MediaMetadataConsole(buildConfig());
     }
 
     /**

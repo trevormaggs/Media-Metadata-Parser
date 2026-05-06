@@ -1,8 +1,14 @@
 package batch;
 
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Iterator;
 import cli.CommandFlagParser;
 import cli.FlagType;
 import logger.LogFactory;
+import progressbar.ConsoleProgressBar;
 import util.ProjectBuildInfo;
 
 /**
@@ -16,7 +22,7 @@ import util.ProjectBuildInfo;
  *
  * <p>
  * Depending on the configuration, this console either provides a detailed diagnostic view of media
- * metadata via {@link DisplayMetadata} or delegates to the {@link MediaBatchProcessor} for
+ * metadata via {@code DisplayMetadata} or delegates to the {@link MediaBatchProcessor} for
  * chronological renaming and file processing.
  * </p>
  *
@@ -31,16 +37,15 @@ public final class MediaMetadataConsole
     private final MetadataScanner scanner;
 
     /**
-     * Constructs a console interface using a {@link BatchConfiguration} configuration.
+     * Constructs a console interface using a validated configuration.
      *
      * <p>
-     * This constructor is invoked via {@link BatchBuilder#build()} to ensure all configuration
-     * constraints are validated before instantiation.
+     * This constructor is typically invoked via {@link BatchBuilder#build()} to ensure all
+     * configuration constraints and path validations are satisfied before instantiation.
      * </p>
      *
      * @param config
-     *        the immutable configuration object containing the validated parameters required to
-     *        execute the batch
+     *        the immutable configuration object containing the validated parameters
      */
     public MediaMetadataConsole(BatchConfiguration config)
     {
@@ -52,14 +57,13 @@ public final class MediaMetadataConsole
      * Configures the supported command-line flags and definitions.
      *
      * <p>
-     * This method defines the grammar for the CLI, including optional arguments, blank flags, and
-     * separators. It ensures the raw input is structured into a {@link CommandFlagParser} before
-     * being consumed by the {@link BatchBuilder}.
+     * This method defines the CLI grammar, including argument types and separators. It ensures raw
+     * input is correctly mapped into a {@link CommandFlagParser}.
      * </p>
      *
      * @param arguments
-     *        the raw command-line strings from the terminal
-     * @return a parsed and validated CommandFlagParser
+     *        the raw command-line strings from the terminal environment
+     * @return a configured {@link CommandFlagParser} ready for interrogation
      */
     private static CommandFlagParser scanArguments(String[] arguments)
     {
@@ -187,32 +191,100 @@ public final class MediaMetadataConsole
     }
 
     /**
-     * Executes the requested media operation.
+     * Determines the number of supported image files within a specific directory.
      * 
      * <p>
-     * This method initiates the directory scan to build a sorted set of {@link MediaRecord}
-     * entries. Once discovery is complete, it routes the flow to either displaying the metadata or
-     * activating the batch renaming engine based on the selected date/time attributes.
+     * This method provides a "Pass 1" count using a high-performance {@link DirectoryStream}
+     * filtered by common image extensions (.jpg, .png, .heic, .webp).
      * </p>
      * 
+     * @param dir
+     *        the directory path to analyse
+     * @return the count of files matching the image criteria
+     * @throws IOException
+     *         if the directory is inaccessible
+     */
+    @SuppressWarnings("unused")
+    private int countImages(Path dir) throws IOException
+    {
+        int count = 0;
+
+        DirectoryStream.Filter<Path> filter = new DirectoryStream.Filter<Path>()
+        {
+            @Override
+            public boolean accept(Path entry) throws IOException
+            {
+                String name = entry.getFileName().toString().toLowerCase();
+
+                return name.endsWith(".jpg") || name.endsWith(".png") || name.endsWith(".heic") || name.endsWith(".webp");
+            }
+        };
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, filter))
+        {
+            Iterator<Path> iter = stream.iterator();
+
+            while (iter.hasNext())
+            {
+                iter.next();
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /**
+     * Facilitates the media operation defined by the user configuration.
+     * 
+     * <p>
+     * The execution flow follows a two-stage process:
+     * </p>
+     * 
+     * <ol>
+     * <li><b>Discovery:</b> The {@link MetadataScanner} traverses the source to build a sorted set
+     * of media records.</li>
+     * <li><b>Execution:</b> Depending on flags, the system either displays metadata diagnostics or
+     * initiates a {@link MediaBatchProcessor} to perform file operations.</li>
+     * </ol>
+     * 
      * @throws BatchErrorException
-     *         if the scan or subsequent task fails
+     *         if an unrecoverable error occurs during scanning or file processing
      */
     public void run() throws BatchErrorException
     {
         scanner.start();
+
+        int total = scanner.getRecordCount();
 
         if (config.isShowMetadata())
         {
             // DisplayMetadata.print(scanner);
             System.out.printf("%s\n", "DisplayMetadata.print(scanner)");
         }
+
+        else if (total > 0)
+        {
+            MediaBatchProcessor processor = new MediaBatchProcessor(config, scanner);
+
+            processor.addProgressListener(new ConsoleProgressBar(0, total));
+            processor.execute();
+
+            System.out.println("Done");
+        }
+
         else
         {
-            new MediaBatchProcessor(config, scanner).execute();
+            System.out.println("No valid media files found in [" + config.getSource() + "]");
         }
     }
 
+    /**
+     * Entry point for the application.
+     * 
+     * @param args
+     *        command-line arguments provided at runtime
+     */
     public static void main(String[] args)
     {
         MediaMetadataConsole.execute(args);

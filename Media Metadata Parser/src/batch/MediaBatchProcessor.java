@@ -12,10 +12,13 @@ import java.nio.file.attribute.FileTime;
 import java.time.ZonedDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import heif.HeifDatePatcher;
 import jpg.JpgDatePatcher;
 import logger.LogFactory;
 import png.PngDatePatcher;
+import progressbar.ProgressListener;
 import tif.TiffDatePatcher;
 import util.SystemInfo;
 import webp.WebPDatePatcher;
@@ -46,6 +49,7 @@ public final class MediaBatchProcessor
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("ddMMMyyyy");
     private static final long TEN_SECOND_OFFSET = 10L;
     private static final FileVisitor<Path> DELETE_VISITOR;
+    private final List<ProgressListener> listeners;
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
 
@@ -71,10 +75,12 @@ public final class MediaBatchProcessor
                 {
                     Files.delete(dir);
                 }
+
                 else
                 {
                     throw exc;
                 }
+
                 return FileVisitResult.CONTINUE;
             }
         };
@@ -92,6 +98,21 @@ public final class MediaBatchProcessor
     {
         this.config = config;
         this.scanner = scanner;
+        this.listeners = new ArrayList<ProgressListener>();
+    }
+
+    /**
+     * Registers a listener used to respond to progress updates during the batch execution.
+     *
+     * @param listener
+     *        the progress listener to add
+     */
+    public void addProgressListener(ProgressListener listener)
+    {
+        if (listener != null)
+        {
+            this.listeners.add(listener);
+        }
     }
 
     /**
@@ -118,10 +139,28 @@ public final class MediaBatchProcessor
 
         for (MediaRecord record : scanner)
         {
-            processRecord(record, index++, total);
+            processRecord(record, index, total);
+            notifyListeners(index, total);
+            index++;
         }
 
         LOGGER.info("Batch processing completed successfully");
+    }
+
+    /**
+     * Iterates through registered listeners to broadcast the current progress.
+     *
+     * @param current
+     *        the number of files processed
+     * @param total
+     *        the total number of files in the batch
+     */
+    private void notifyListeners(int current, int total)
+    {
+        for (ProgressListener listener : listeners)
+        {
+            listener.onProgressUpdate(current, total);
+        }
     }
 
     /**
@@ -156,7 +195,7 @@ public final class MediaBatchProcessor
             String newName = generateTargetName(record, index, effectiveTime);
             Path targetPath = config.getTarget().resolve(newName);
 
-            Files.copy(record.getPath(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(record.getPath(), targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
 
             if (record.isMetadataEmpty())
             {
