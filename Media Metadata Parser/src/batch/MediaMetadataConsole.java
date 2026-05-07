@@ -15,15 +15,14 @@ import util.ProjectBuildInfo;
  * The primary Command Line Interface (CLI) entry point for media metadata operations.
  *
  * <p>
- * This class acts as the system orchestrator, managing the application lifecycle from initial
- * argument parsing to task dispatching. It leverages a {@link MetadataScanner} to discover media
- * and routes the execution flow based on user intent.
+ * This class coordinates the application lifecycle from initial argument parsing to task
+ * dispatching. It leverages a {@link MetadataScanner} to discover media and routes the execution
+ * flow based on user intent.
  * </p>
  *
  * <p>
- * Depending on the configuration, this console either provides a detailed diagnostic view of media
- * metadata via {@code DisplayMetadata} or delegates to the {@link MediaBatchProcessor} for
- * chronological renaming and file processing.
+ * Depending on the configuration, this console either provides a detailed view of media metadata or
+ * delegates to the {@link MediaBatchProcessor} for chronological renaming and file processing.
  * </p>
  *
  * @author Trevor Maggs
@@ -57,12 +56,12 @@ public final class MediaMetadataConsole
      * Configures the supported command-line flags and definitions.
      *
      * <p>
-     * This method defines the CLI grammar, including argument types and separators. It ensures raw
-     * input is correctly mapped into a {@link CommandFlagParser}.
+     * This method establishes the validation rules for the CLI, defining which flags require
+     * values, which act as switches, and how separators should be handled.
      * </p>
      *
      * @param arguments
-     *        the raw command-line strings from the terminal environment
+     *        the raw command-line strings provided at runtime
      * @return a configured {@link CommandFlagParser} ready for interrogation
      */
     private static CommandFlagParser scanArguments(String[] arguments)
@@ -133,16 +132,16 @@ public final class MediaMetadataConsole
     }
 
     /**
-     * Begins the execution process by reading arguments from the command line and triggering the
+     * Begins the execution process by reading arguments from the command line and initialising the
      * configuration builder.
-     * 
+     *
      * <p>
-     * This method handles top-level CLI interrupts (Help/Version), maps parsed flags to the
-     * {@link BatchBuilder} API, and invokes the terminal run state.
+     * This method handles the mapping of parsed flags to the {@link BatchBuilder} API and invokes
+     * the terminal run state.
      * </p>
      *
      * @param arguments
-     *        raw command-line arguments
+     *        the raw command-line arguments provided at runtime
      */
     private static void execute(String[] arguments)
     {
@@ -192,12 +191,12 @@ public final class MediaMetadataConsole
 
     /**
      * Determines the number of supported image files within a specific directory.
-     * 
+     *
      * <p>
      * This method provides a "Pass 1" count using a high-performance {@link DirectoryStream}
      * filtered by common image extensions (.jpg, .png, .heic, .webp).
      * </p>
-     * 
+     *
      * @param dir
      *        the directory path to analyse
      * @return the count of files matching the image criteria
@@ -236,20 +235,20 @@ public final class MediaMetadataConsole
 
     /**
      * Facilitates the media operation defined by the user configuration.
-     * 
+     *
      * <p>
      * The execution flow follows a two-stage process:
      * </p>
-     * 
+     *
      * <ol>
      * <li><b>Discovery:</b> The {@link MetadataScanner} traverses the source to build a sorted set
      * of media records.</li>
-     * <li><b>Execution:</b> Depending on flags, the system either displays metadata diagnostics or
-     * initiates a {@link MediaBatchProcessor} to perform file operations.</li>
+     * <li><b>Execution:</b> Depending on configuration, the system either lists extracted metadata
+     * for inspection or initiates a {@link MediaBatchProcessor} to perform file operations.</li>
      * </ol>
-     * 
+     *
      * @throws BatchErrorException
-     *         if an unrecoverable error occurs during scanning or file processing
+     *         if the scan or subsequent task fails
      */
     public void run() throws BatchErrorException
     {
@@ -259,8 +258,7 @@ public final class MediaMetadataConsole
 
         if (config.isShowMetadata())
         {
-            // DisplayMetadata.print(scanner);
-            System.out.printf("%s\n", "DisplayMetadata.print(scanner)");
+            DisplayMetadata display = new DisplayMetadata(scanner);
         }
 
         else if (total > 0)

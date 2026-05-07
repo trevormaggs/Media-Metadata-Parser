@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.ZonedDateTime;
@@ -139,28 +140,24 @@ public final class MediaBatchProcessor
 
         for (MediaRecord record : scanner)
         {
+            if (record.isVideoFormat() && config.isSkipVideo())
+            {
+                LOGGER.info("File [" + record.getPath() + "] skipped");
+                continue;
+            }
+
             processRecord(record, index, total);
-            notifyListeners(index, total);
+
+            /* Iterates through registered listeners to broadcast the current progress. */
+            for (ProgressListener listener : listeners)
+            {
+                listener.onProgressUpdate(index, total);
+            }
+
             index++;
         }
 
         LOGGER.info("Batch processing completed successfully");
-    }
-
-    /**
-     * Iterates through registered listeners to broadcast the current progress.
-     *
-     * @param current
-     *        the number of files processed
-     * @param total
-     *        the total number of files in the batch
-     */
-    private void notifyListeners(int current, int total)
-    {
-        for (ProgressListener listener : listeners)
-        {
-            listener.onProgressUpdate(current, total);
-        }
     }
 
     /**
@@ -230,7 +227,8 @@ public final class MediaBatchProcessor
                 }
             }
 
-            Files.setLastModifiedTime(targetPath, effectiveTime);
+            BasicFileAttributeView attr = Files.getFileAttributeView(targetPath, BasicFileAttributeView.class);
+            attr.setTimes(effectiveTime, effectiveTime, effectiveTime);
 
             LOGGER.info(String.format("[%d/%d] Processed: %s -> %s", index, total, record.getPath().getFileName(), newName));
         }
