@@ -8,7 +8,6 @@ import java.util.Iterator;
 import cli.CommandFlagParser;
 import cli.FlagType;
 import logger.LogFactory;
-import progressbar.ConsoleProgressBar;
 import util.ProjectBuildInfo;
 
 /**
@@ -265,10 +264,10 @@ public final class MediaMetadataConsole
         {
             MediaBatchProcessor processor = new MediaBatchProcessor(config, scanner);
 
-            processor.addProgressListener(new ConsoleProgressBar(0, total));
+            //processor.addProgressListener(new ConsoleProgressBar(0, total));
             processor.execute();
 
-            System.out.println("Done");
+            //System.out.println("Done");
         }
 
         else
@@ -279,7 +278,7 @@ public final class MediaMetadataConsole
 
     /**
      * Entry point for the application.
-     * 
+     *
      * @param args
      *        command-line arguments provided at runtime
      */

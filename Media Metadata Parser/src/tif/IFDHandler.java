@@ -178,6 +178,9 @@ public class IFDHandler implements ImageHandler, AutoCloseable
             boolean hasThumbnailTag = firstIFD.hasTag(TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT)
                     || firstIFD.hasTag(TagIFD_Baseline.IFD_NEW_SUBFILE_TYPE);
 
+            
+            // TODO: Debug this to fix incorrect swapping of IFD0 and Exif SubDir in babygemma.tif
+            
             if (hasThumbnailTag && firstIFD.getDirectoryType() == DirectoryIdentifier.IFD_ROOT_DIRECTORY)
             {
                 LOGGER.debug("Detected IFD1 data in IFD0 slot. Re-ordering directories");
@@ -241,10 +244,12 @@ public class IFDHandler implements ImageHandler, AutoCloseable
         {
             reader.setByteOrder(ByteOrder.LITTLE_ENDIAN);
         }
+
         else if (firstByte == 0x4D && secondByte == 0x4D)
         {
             reader.setByteOrder(ByteOrder.BIG_ENDIAN);
         }
+
         else
         {
             LOGGER.warn(String.format("Unknown byte order: [0x%02X, 0x%02X]", firstByte, secondByte));
