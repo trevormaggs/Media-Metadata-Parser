@@ -60,15 +60,20 @@ public enum DirectoryIdentifier
     }
 
     /**
-     * Retrieves the next sequential directory type in the TIFF chain. For example, moving from IFD0
-     * to IFD1.
-     * 
+     * Retrieves the next sequential directory type in the TIFF chain.
+     *
+     * <p>
+     * This method advances the parser through the primary IFD sequence, such as IFD0 to IFD1. It
+     * relies on the ordinal positioning within the enumeration to determine the successor.
+     * </p>
+     *
      * @param dirType
      *        the current directory type being processed
-     * @return the next {@link DirectoryIdentifier}, or {@code null} if the chain ends
-     * 
+     * @return the next {@link DirectoryIdentifier}, or {@code null} if the sequential chain has
+     *         reached its defined limit
+     *
      * @throws IllegalArgumentException
-     *         if the directory is null or non-sequential
+     *         if the directory is null or is not a member of the primary sequential chain
      */
     public static DirectoryIdentifier getNextDirectoryType(DirectoryIdentifier dirType)
     {

@@ -4,55 +4,54 @@ import common.Metadata;
 import xmp.XmpDirectory;
 
 /**
- * Provides an specialised interface for accessing and managing TIFF-based metadata structures.
- * 
+ * A dedicated interface for accessing and managing TIFF-based metadata structures.
+ *
  * <p>
- * This interface extends the base {@link Metadata} contract to support the unique hierarchical
- * nature of TIFF files, allowing for the retrieval of specific Image File Directories (IFDs) such
- * as EXIF, GPS, or Interoperability sub-directories.
+ * This interface extends the base {@link Metadata} contract to navigate the hierarchical nature of
+ * TIFF files. It provides direct access to specific Image File Directories (IFDs), including EXIF,
+ * GPS, and Interoperability sub-directories.
  * </p>
- * 
+ *
  * <p>
- * Beyond standard IFD structures, this provider also acts as a container for {@link XmpDirectory}
- * segments, which are often embedded within TIFF and JPG files as XML-based metadata packets.
+ * Additionally, this interface serves as a container for {@link XmpDirectory} segments,
+ * consolidating binary IFD tags and XML-based metadata packets into a single management context.
  * </p>
- * 
+ *
  * @author Trevor Maggs
  * @version 1.1
+ * @since 13 August 2025
  * @see DirectoryIFD
  * @see DirectoryIdentifier
  */
 public interface TifMetadataProvider extends Metadata<DirectoryIFD>
 {
     /**
-     * Retrieves a specific Image File Directory (IFD) based on its identity.
+     * Retrieves a specific Image File Directory (IFD) by its identifier.
      *
      * @param dirKey
-     *        the {@link DirectoryIdentifier} representing the directory to find (i.e., IFD0,
-     *        EXIF_SUBIFD, or GPS)
-     * @return the requested {@link DirectoryIFD} instance, or {@code null} if the directory does
-     *         not exist in the current metadata set
+     *        the identity of the directory to retrieve, such as IFD0, EXIF_SUBIFD, or GPS
+     * @return the matching {@link DirectoryIFD}, or {@code null} if the directory is not present
      */
     public DirectoryIFD getDirectory(DirectoryIdentifier dirKey);
 
     /**
-     * Adds an XMP metadata directory.
+     * Integrates an XMP metadata directory for unified access.
      *
      * <p>
-     * In TIFF-based formats, XMP is typically stored in a single global tag (ID 0x02BC). This
-     * method allows the parsed XMP object to be attached to the primary metadata container for
-     * consolidated access.
+     * XMP is often embedded in TIFF-based formats within a global tag (ID 0x02BC). This method
+     * allows the parsed XMP object to be managed alongside standard IFD tags.
      * </p>
-     * 
+     *
      * @param dir
-     *        the {@link XmpDirectory} containing parsed XML metadata
+     *        the {@link XmpDirectory} containing the parsed XML metadata
      */
     public void addXmpDirectory(XmpDirectory dir);
 
     /**
-     * Returns the XMP metadata directory.
-     * 
-     * @return the {@link XmpDirectory} instance, or {@code null} if no XMP data was found or added
+     * Retrieves the attached XMP metadata directory.
+     *
+     * @return the {@link XmpDirectory} instance, or {@code null} if no XMP data exists
      */
     public XmpDirectory getXmpDirectory();
+
 }
