@@ -24,7 +24,6 @@ import com.adobe.internal.xmp.XMPMeta;
 import com.adobe.internal.xmp.XMPMetaFactory;
 import com.adobe.internal.xmp.properties.XMPPropertyInfo;
 import common.ImageHandler;
-import common.ImageReadErrorException;
 import logger.LogFactory;
 
 /**
@@ -65,14 +64,14 @@ public class XmpHandlerOld implements ImageHandler
      * @param inputData
      *        raw XMP segments as a single byte array
      *
-     * @throws ImageReadErrorException
+     * @throws IllegalStateException
      *         if segments are null, empty, or cannot be parsed
      */
-    public XmpHandlerOld(byte[] inputData) throws ImageReadErrorException
+    public XmpHandlerOld(byte[] inputData) throws IllegalStateException
     {
         if (inputData == null || inputData.length == 0)
         {
-            throw new ImageReadErrorException("XMP Data is null or empty");
+            throw new IllegalStateException("XMP Data is null or empty");
         }
 
         this.xmpData = inputData;

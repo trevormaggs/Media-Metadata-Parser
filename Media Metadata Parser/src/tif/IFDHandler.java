@@ -172,23 +172,21 @@ public class IFDHandler implements ImageHandler, AutoCloseable
         }
 
         // Do identity check
-        if (!directoryList.isEmpty())
+        if (directoryList.size() > 1)
         {
-            DirectoryIFD firstIFD = directoryList.get(0);
-            boolean hasThumbnailTag = firstIFD.hasTag(TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT)
-                    || firstIFD.hasTag(TagIFD_Baseline.IFD_NEW_SUBFILE_TYPE);
+            DirectoryIFD first = directoryList.get(0);
+            DirectoryIFD second = directoryList.get(1);
+            boolean hasThumbnailTag = first.hasTag(TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT)
+                    || first.hasTag(TagIFD_Baseline.IFD_NEW_SUBFILE_TYPE);
 
-            
-            // TODO: Debug this to fix incorrect swapping of IFD0 and Exif SubDir in babygemma.tif
-            
-            if (hasThumbnailTag && firstIFD.getDirectoryType() == DirectoryIdentifier.IFD_ROOT_DIRECTORY)
+            if (first.getDirectoryType().isMainChain() && second.getDirectoryType().isMainChain())
             {
-                LOGGER.debug("Detected IFD1 data in IFD0 slot. Re-ordering directories");
-                firstIFD.setDirectoryType(DirectoryIdentifier.IFD_THUMBNAIL_DIRECTORY);
-
-                if (directoryList.size() > 1)
+                if (hasThumbnailTag && first.getDirectoryType() == DirectoryIdentifier.IFD_ROOT_DIRECTORY)
                 {
+                    LOGGER.debug("Detected thumbnail data in IFD0 slot. Re-ordering directories");
+
                     directoryList.get(1).setDirectoryType(DirectoryIdentifier.IFD_DIRECTORY_IFD0);
+                    directoryList.get(0).setDirectoryType(DirectoryIdentifier.IFD_DIRECTORY_IFD1);
                     Collections.swap(directoryList, 0, 1);
                 }
             }
@@ -336,7 +334,7 @@ public class IFDHandler implements ImageHandler, AutoCloseable
              */
             if (totalBytes > ENTRY_MAX_VALUE_LENGTH)
             {
-                if (isInvalidOffset(offset, totalBytes))
+                if (offset < 0 || totalBytes > MAX_METADATA_CHUNK_SIZE || (offset + totalBytes) > reader.length())
                 {
                     LOGGER.error(String.format("Data block for [%s] is too large or out of bounds (%d bytes)", tagEnum, totalBytes));
                     continue;
@@ -399,15 +397,5 @@ public class IFDHandler implements ImageHandler, AutoCloseable
 
         /* Follow the main chain, for example: IFD0 -> IFD1 */
         return navigateImageFileDirectory(DirectoryIdentifier.getNextDirectoryType(dirType), nextOffset);
-    }
-
-    private boolean isInvalidOffset(long offset, long totalBytes)
-    {
-        if (offset < 0 || totalBytes > MAX_METADATA_CHUNK_SIZE)
-        {
-            return true;
-        }
-
-        return (offset + totalBytes) > reader.length();
     }
 }

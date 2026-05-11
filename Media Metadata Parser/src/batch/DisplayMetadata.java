@@ -38,8 +38,7 @@ public final class DisplayMetadata
                 Metadata<?> meta = parser.getMetadata();
 
                 System.out.printf("%s\n", meta.hasExifData());
-                
-                System.out.printf("%s\n", parser.formatDiagnosticString());
+                // System.out.printf("%s\n", parser.formatDiagnosticString());
             }
         }
 

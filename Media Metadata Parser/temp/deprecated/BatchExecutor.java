@@ -371,7 +371,6 @@ public abstract class BatchExecutor implements Iterable<MediaFile>
 
                 /*
                  * IOException
-                 * ImageReadErrorException
                  * NoSuchFileException
                  * UnsupportedOperationException (RuntimeException)
                  * IndexOutOfBoundsException (RuntimeException)
