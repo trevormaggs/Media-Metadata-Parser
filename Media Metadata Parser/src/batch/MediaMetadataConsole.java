@@ -8,7 +8,6 @@ import java.util.Iterator;
 import cli.CommandFlagParser;
 import cli.FlagType;
 import logger.LogFactory;
-import progressbar.ConsoleProgressBar;
 import util.ProjectBuildInfo;
 
 /**
@@ -259,13 +258,15 @@ public final class MediaMetadataConsole
         if (config.isShowMetadata())
         {
             DisplayMetadata display = new DisplayMetadata(scanner);
+
+            display.execute();
         }
 
         else if (total > 0)
         {
             MediaBatchProcessor processor = new MediaBatchProcessor(config, scanner);
 
-            processor.addProgressListener(new ConsoleProgressBar(0, total));
+//            processor.addProgressListener(new ConsoleProgressBar(0, total));
             processor.execute();
 
             System.out.println("Done");

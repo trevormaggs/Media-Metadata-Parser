@@ -14,5 +14,6 @@
 	<classpathentry kind="lib" path="jar/xmpcore-6.1.10.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/Toolbox"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/CLI Parsing"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/FileInspector"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

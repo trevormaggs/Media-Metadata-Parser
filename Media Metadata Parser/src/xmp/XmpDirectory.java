@@ -115,7 +115,6 @@ public final class XmpDirectory implements Directory<XmpRecord>
 
             return sb.toString();
         }
-
     }
 
     /**

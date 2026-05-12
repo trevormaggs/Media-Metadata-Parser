@@ -1,61 +1,148 @@
 package batch;
 
+import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Iterator;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import common.AbstractImageParser;
 import common.ImageParserFactory;
 import common.Metadata;
+import common.MetadataConstants;
+import filesystem.AbstractFileNode;
+import filesystem.FileInspector;
+import png.PngMetadataProvider;
+import tif.DirectoryIFD;
+import tif.IFDHandler;
+import tif.TagValueConverter;
+import tif.TifMetadata;
+import tif.TifMetadataProvider;
+import tif.tagspecs.Taggable;
 
 /**
  * Utility class to print media metadata in a format emulating ExifTool's -G1 -a -s -u output style.
- * 
+ *
  * @author Trevor Maggs
  * @version 1.0
  * @since 5 May 2026
  */
 public final class DisplayMetadata
 {
-    @SuppressWarnings("unused")
-    private static final String COLUMN_FORMAT = "[%-13s] %-31s : %s%n";
+    private static final String COLUMN_FORMAT = "%-16s%-32s: %s%n";
+    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private final MetadataScanner scanner;
 
     public DisplayMetadata(MetadataScanner scanner)
     {
         this.scanner = scanner;
+    }
 
-        Iterator<MediaRecord> iter = scanner.iterator();
-
-        try
+    public void execute()
+    {
+        for (MediaRecord record : scanner)
         {
-            while (iter.hasNext())
+            try
             {
-                Path fpath = iter.next().getPath();
-
-                System.out.printf("%s\n", fpath.getFileName());
-
+                Path fpath = record.getPath();
                 AbstractImageParser parser = ImageParserFactory.getParser(fpath);
+
                 parser.readMetadata();
                 Metadata<?> meta = parser.getMetadata();
 
-                System.out.printf("%s\n", meta.hasExifData());
-                // System.out.printf("%s\n", parser.formatDiagnosticString());
+                displaySystemMetadata(fpath);
+
+                if (meta.hasMetadata())
+                {
+                    if (record.isTIF() && meta instanceof TifMetadataProvider)
+                    {
+                        // System.out.printf("%s\n", parser.formatDiagnosticString());
+                        displayTifMetadata((TifMetadataProvider) meta);
+                    }
+
+                    else if (record.isJPG() && meta instanceof TifMetadata)
+                    {
+                        displayTifMetadata((TifMetadataProvider) meta);
+                    }
+
+                    else if (record.isPNG() && meta instanceof PngMetadataProvider)
+                    {
+                        // displayPngMetadata(pngMeta);
+                    }
+
+                    else if (record.isWebP() && meta instanceof TifMetadataProvider)
+                    {
+                    }
+
+                    else if (record.isHEIC() && meta instanceof TifMetadataProvider)
+                    {
+                    }
+                }
+            }
+
+            catch (Exception exc)
+            {
+                /*
+                 * Possible exceptions may be received:
+                 *
+                 * IOException
+                 * ImageReadErrorException <-- Apache Commons Imaging
+                 * NoSuchFileException
+                 * UnsupportedOperationException (RuntimeException)
+                 * IndexOutOfBoundsException (RuntimeException)
+                 * IllegalStateException (RuntimeException)
+                 * NullPointerException (RuntimeException)
+                 * IllegalArgumentException (RuntimeException)
+                 */
+            }
+        }
+    }
+
+    private void displaySystemMetadata(Path path) throws IOException
+    {
+        String group = "[System]";
+        StringBuilder sb = new StringBuilder();
+        AbstractFileNode node = FileInspector.inspect(path.toString());
+
+        sb.append(String.format(COLUMN_FORMAT, group, "FileName", node.getName()));
+        sb.append(String.format(COLUMN_FORMAT, group, "Directory", "."));
+        sb.append(String.format(COLUMN_FORMAT, group, "FileSize", (node.size() / 1024) + " KB"));
+        sb.append(String.format(COLUMN_FORMAT, group, "FileModifyDate", formatTimestamp(node.lastModifiedTime())));
+        sb.append(String.format(COLUMN_FORMAT, group, "FileAccessDate", formatTimestamp(node.lastAccessTime())));
+        sb.append(String.format(COLUMN_FORMAT, group, "FileCreateDate", formatTimestamp(node.creationTime())));
+        sb.append(String.format(COLUMN_FORMAT, group, "FilePermissions", node.getPermissionsString()));
+
+        System.out.println(sb);
+    }
+
+    /**
+     * Converts a long (milliseconds) to the ExifTool readable date format.
+     */
+    private String formatTimestamp(long millis)
+    {
+        return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault()).format(DTF);
+    }
+
+    private void displayTifMetadata(TifMetadataProvider tif)
+    {
+        for (DirectoryIFD ifd : tif)
+        {
+            String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
+
+            for (DirectoryIFD.EntryIFD entry : ifd)
+            {
+                if (entry.getByteLength() <= IFDHandler.ENTRY_MAX_VALUE_LENGTH)
+                {
+                    System.out.printf(COLUMN_FORMAT, groupName, entry.getTag().getDescription(), ifd.getString(entry.getTag()));
+                }
             }
         }
 
-        catch (Exception exc)
+        // 3. Handle XMP separately if it exists
+        if (tif.getXmpDirectory() != null)
         {
-            /*
-             * Possible exceptions may be received:
-             * 
-             * IOException
-             * ImageReadErrorException <-- Apache Commons Imaging
-             * NoSuchFileException
-             * UnsupportedOperationException (RuntimeException)
-             * IndexOutOfBoundsException (RuntimeException)
-             * IllegalStateException (RuntimeException)
-             * NullPointerException (RuntimeException)
-             * IllegalArgumentException (RuntimeException)
-             */
+            // Logic to iterate XMP key/value pairs
         }
     }
+
 }
