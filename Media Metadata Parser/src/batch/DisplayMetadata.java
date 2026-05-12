@@ -15,6 +15,7 @@ import filesystem.FileInspector;
 import png.PngMetadataProvider;
 import tif.DirectoryIFD;
 import tif.IFDHandler;
+import tif.TagTranslator;
 import tif.TagValueConverter;
 import tif.TifMetadata;
 import tif.TifMetadataProvider;
@@ -50,18 +51,19 @@ public final class DisplayMetadata
                 parser.readMetadata();
                 Metadata<?> meta = parser.getMetadata();
 
-                displaySystemMetadata(fpath);
+                // displaySystemMetadata(fpath);
 
                 if (meta.hasMetadata())
                 {
                     if (record.isTIF() && meta instanceof TifMetadataProvider)
                     {
                         // System.out.printf("%s\n", parser.formatDiagnosticString());
-                        displayTifMetadata((TifMetadataProvider) meta);
+                        // displayTifMetadata((TifMetadataProvider) meta);
                     }
 
                     else if (record.isJPG() && meta instanceof TifMetadata)
                     {
+                        displaySystemMetadata(fpath);
                         displayTifMetadata((TifMetadataProvider) meta);
                     }
 
@@ -102,7 +104,7 @@ public final class DisplayMetadata
     {
         String group = "[System]";
         StringBuilder sb = new StringBuilder();
-        AbstractFileNode node = FileInspector.inspect(path.toString());
+        AbstractFileNode node = FileInspector.inspect(path, true);
 
         sb.append(String.format(COLUMN_FORMAT, group, "FileName", node.getName()));
         sb.append(String.format(COLUMN_FORMAT, group, "Directory", "."));
@@ -112,7 +114,7 @@ public final class DisplayMetadata
         sb.append(String.format(COLUMN_FORMAT, group, "FileCreateDate", formatTimestamp(node.creationTime())));
         sb.append(String.format(COLUMN_FORMAT, group, "FilePermissions", node.getPermissionsString()));
 
-        System.out.println(sb);
+        System.out.print(sb);
     }
 
     /**
@@ -131,10 +133,10 @@ public final class DisplayMetadata
 
             for (DirectoryIFD.EntryIFD entry : ifd)
             {
-                if (entry.getByteLength() <= IFDHandler.ENTRY_MAX_VALUE_LENGTH)
-                {
-                    System.out.printf(COLUMN_FORMAT, groupName, entry.getTag().getDescription(), ifd.getString(entry.getTag()));
-                }
+                String name = TagTranslator.getDisplayName(ifd.getDirectoryType(), entry.getTag());
+                String val = TagTranslator.translate(entry.getTag(), entry.getData());
+
+                System.out.printf(COLUMN_FORMAT, groupName, name, val);
             }
         }
 
@@ -144,5 +146,4 @@ public final class DisplayMetadata
             // Logic to iterate XMP key/value pairs
         }
     }
-
 }

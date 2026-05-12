@@ -67,7 +67,7 @@ public enum TagIFD_Baseline implements Taggable
     IFD_TRANSFER_RANGE(0x0156, DirectoryIdentifier.IFD_ROOT_DIRECTORY, "Transfer Range "),
     IFD_JPEG_PROC(0x0200, DirectoryIdentifier.IFD_ROOT_DIRECTORY, "JPEG Proc"),
     IFD_JPEG_INTERCHANGE_FORMAT(0x0201, DirectoryIdentifier.IFD_ROOT_DIRECTORY, "JPEG Interchange Format"),
-    IFD_JPEG_INTERCHANGE_FORMAT_LNGTH(0x0202, DirectoryIdentifier.IFD_ROOT_DIRECTORY, "JPEG Interchange Format Lngth"),
+    IFD_JPEG_INTERCHANGE_FORMAT_LNGTH(0x0202, DirectoryIdentifier.IFD_ROOT_DIRECTORY, "JPEG Interchange Format Length"),
     IFD_JPEG_RESTART_INTERVAL(0x0203, DirectoryIdentifier.IFD_ROOT_DIRECTORY, "JPEG Restart Interval"),
     IFD_JPEG_LOSSLESS_PREDICTORS(0x0205, DirectoryIdentifier.IFD_ROOT_DIRECTORY, "JPEG Lossless Predictors"),
     IFD_JPEG_POINT_TRANSFORMS(0x0206, DirectoryIdentifier.IFD_ROOT_DIRECTORY, "JPEG Point Transforms"),
