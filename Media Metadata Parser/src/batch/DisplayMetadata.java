@@ -9,17 +9,13 @@ import java.time.format.DateTimeFormatter;
 import common.AbstractImageParser;
 import common.ImageParserFactory;
 import common.Metadata;
-import common.MetadataConstants;
 import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
 import png.PngMetadataProvider;
 import tif.DirectoryIFD;
-import tif.IFDHandler;
 import tif.TagTranslator;
-import tif.TagValueConverter;
 import tif.TifMetadata;
 import tif.TifMetadataProvider;
-import tif.tagspecs.Taggable;
 
 /**
  * Utility class to print media metadata in a format emulating ExifTool's -G1 -a -s -u output style.
