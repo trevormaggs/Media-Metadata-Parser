@@ -75,22 +75,6 @@ public enum TagIFD_Exif implements Taggable
     EXIF_BLACK_LEVEL(0xC61A, "Black Level", TagHint.HINT_DEFAULT),
     EXIF_WHITE_LEVEL(0xC61D, "White Level", TagHint.HINT_DEFAULT),
     EXIF_AS_SHOT_NEUTRAL(0xC628, "As Shot Neutral", TagHint.HINT_DEFAULT),
-
-    /*
-     * Note, these tags can appear in the Exif Sub-IFD, they are almost exclusively written by
-     * Windows and Adobe software into the Root IFD (IFD0).
-     */
-
-    // TODO: CHECK IF TagHint.HINT_UCS2 SHOULD BE USED INSTEAD?
-
-    /*
-     * These tags are written by Windows (UCS-2 encoded) and Adobe
-     * typically into the Root IFD (IFD0).
-     */
-    EXIF_XPTITLE(0x9C9B, "Windows XP Title", TagHint.HINT_UCS2),
-    EXIF_XPCOMMENT(0x9C9C, "Windows XP Comment", TagHint.HINT_UCS2),
-    EXIF_XPKEYWORDS(0x9C9E, "Windows XP Keywords", TagHint.HINT_UCS2),
-    EXIF_XPSUBJECT(0x9C9F, "Windows XP Subject", TagHint.HINT_UCS2),
     EXIF_IMAGE_RATING(0x4746, "Rating (0-5)", TagHint.HINT_DEFAULT),
     EXIF_IMAGE_RATING_PERCENT(0x4749, "Rating Percent", TagHint.HINT_DEFAULT),
     EXIF_INTEROPERABILITY_POINTER(0xA005, "Interoperability Offset", TagHint.HINT_DEFAULT);
