@@ -41,6 +41,7 @@ public final class TagRegistry
          * Populate the registry with all supported tag sets. Note: Tag sets
          * are registered based on their internal DirectoryIdentifier.
          */
+        register(TagIFD_Pointer.values());
         register(TagIFD_Baseline.values());
         register(TagIFD_Extension.values());
         register(TagIFD_Exif.values());
@@ -75,7 +76,19 @@ public final class TagRegistry
     {
         for (Taggable tag : tags)
         {
-            Map<Integer, Taggable> dirMap = TAG_REGISTRY.get(tag.getDirectoryType());
+            DirectoryIdentifier dirType;
+
+            if (tag instanceof TagIFD_Pointer)
+            {
+                dirType = DirectoryIdentifier.IFD_ROOT_DIRECTORY;
+            }
+
+            else
+            {
+                dirType = tag.getDirectoryType();
+            }
+
+            Map<Integer, Taggable> dirMap = TAG_REGISTRY.get(dirType);
 
             if (dirMap != null)
             {

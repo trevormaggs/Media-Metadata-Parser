@@ -8,7 +8,6 @@ public enum TagIFD_Extension implements Taggable
     IFD_BAD_FAX_LINES(0x0146, "Bad Fax Lines"),
     IFD_CLEAN_FAX_DATA(0x0147, "Clean Fax Data", TagHint.HINT_SHORT),
     IFD_CONSECUTIVE_BAD_FAX_LINES(0x0148, "Consecutive Bad Fax Lines"),
-    IFD_IFDSUB_POINTER(0x014A, "SubIFD DataOffset"),
     IFD_CLIP_PATH(0x0157, "Clip Path", TagHint.HINT_BYTE_STREAM),
     IFD_XCLIP_PATH_UNITS(0x0158, "XClip Path Units"),
     IFD_YCLIP_PATH_UNITS(0x0159, "YClip Path Units"),
@@ -26,20 +25,14 @@ public enum TagIFD_Extension implements Taggable
     IFD_STRIP_ROW_COUNTS(0x022F, "Strip Row Counts"),
     IFD_XML_PACKET(0x02BC, "XMP Metadata", TagHint.HINT_BYTE_STREAM),
     IFD_IMAGE_ID(0x800D, "Image ID"),
-    IFD_EXIF_POINTER(0x8769, "Exif Metadata"),
-    IFD_GPS_INFO_POINTER(0x8825, "GPS Metadata"),
     IFD_IMAGE_LAYER(0x87AC, "Image Layer"),
 
-    /*
-     * Note, these tags can appear in the Exif Sub-IFD, they are almost exclusively written by
-     * Windows (UCS-2 encoded) and Adobe software typically into the Root IFD (IFD0).
-     */
+    /* --- Windows Legacy Custom Tags --- */
     IFD_XP_TITLE(0x9C9B, "Windows XP Title", TagHint.HINT_UCS2),
     IFD_XP_COMMENT(0x9C9C, "Windows XP Comment", TagHint.HINT_UCS2),
     IFD_XP_AUTHOR(0x9C9D, "Windows XP Author", TagHint.HINT_UCS2),
     IFD_XP_KEYWORDS(0x9C9E, "Windows XP Keywords", TagHint.HINT_UCS2),
-    IFD_XP_SUBJECT(0x9C9F, "Windows XP Subject", TagHint.HINT_UCS2),
-    IFD_PADDING(0xEA1C, "Microsoft Padding", TagHint.HINT_BYTE_STREAM);
+    IFD_XP_SUBJECT(0x9C9F, "Windows XP Subject", TagHint.HINT_UCS2);
 
     private final int numID;
     private final TagHint hint;

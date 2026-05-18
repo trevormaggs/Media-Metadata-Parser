@@ -5,29 +5,37 @@ import tif.TagHint;
 
 public enum TagIFD_Private implements Taggable
 {
+    /* --- Non-Standard Application Tags --- */
     IFD_PROCESSING_SOFTWARE(0x000B, "Processing Software"),
     IFD_RATING(0x4746, "Rating"),
     IFD_RATING_PERCENT(0x4749, "Rating Percent"),
+    IFD_PHOTOSHOP_SETTINGS(0x8649, "Photoshop Tags", TagHint.HINT_BYTE_STREAM),
+    IFD_ICC_PROFILE(0x8773, "ICC Profile Tags", TagHint.HINT_BYTE_STREAM),
+    IFD_IMAGE_SOURCE_DATA(0x935C, "Image Source Data"),
+    IFD_PRINT_IM(0xC4A5, "Print IM"),
+    IFD_SEAL(0xCEA1, "SEAL"),
+
+    /* --- Mapping & GeoTIFF Extensions --- */
     IFD_PIXEL_SCALE(0x830E, "Pixel Scale"),
     IFD_INTERGRAPH_MATRIX(0x8480, "IntergraphMatrix"),
     IFD_MODEL_TIE_POINT(0x8482, "Model Tie Point"),
     IFD_SEMINFO(0x8546, "SEM Info"),
     IFD_MODEL_TRANSFORM(0x85D8, "Model Transform"),
-    IFD_PHOTOSHOP_SETTINGS(0x8649, "Photoshop Tags"),
-    IFD_ICC_PROFILE(0x8773, "ICC Profile Tags", TagHint.HINT_BYTE_STREAM),
     IFD_GEO_TIFF_DIRECTORY(0x87AF, "Geo Tiff Directory", TagHint.HINT_SHORT),
     IFD_GEO_TIFF_DOUBLE_PARAMS(0x87B0, "Geo Tiff Double Params"),
     IFD_GEO_TIFF_ASCII_PARAMS(0x87B1, "Geo Tiff Ascii Params"),
-    IFD_IMAGE_SOURCE_DATA(0x935C, "Image Source Data"),
     IFD_GDAL_METADATA(0xA480, "GDAL Metadata"),
     IFD_GDAL_NO_DATA(0xA481, "GDAL NoData"),
-    IFD_PRINT_IM(0xC4A5, "Print IM"),
+
+    /* --- Adobe DNG / Raw Sensor Calibration Extensions --- */
     IFD_DNG_VERSION(0xC612, "DNG Version", TagHint.HINT_BYTE),
     IFD_DNG_BACKWARD_VERSION(0xC613, "DNG Backward Version"),
     IFD_UNIQUE_CAMERA_MODEL(0xC614, "Unique Camera Model"),
     IFD_LOCALIZED_CAMERA_MODEL(0xC615, "Localized Camera Model"),
-    IFD_COLOR_MATRIX1(0xC621, "Color Matrix1"),
-    IFD_COLOR_MATRIX2(0xC622, "Color Matrix2"),
+    IFD_BLACK_LEVEL(0xC61A, "Black Level"),
+    IFD_WHITE_LEVEL(0xC61D, "White Level"),
+    IFD_COLOR_MATRIX1(0xC621, "Color Matrix1", TagHint.HINT_RATIONAL),
+    IFD_COLOR_MATRIX2(0xC622, "Color Matrix2", TagHint.HINT_RATIONAL),
     IFD_CAMERA_CALIBRATION1(0xC623, "Camera Calibration1"),
     IFD_CAMERA_CALIBRATION2(0xC624, "Camera Calibration2"),
     IFD_REDUCTION_MATRIX1(0xC625, "Reduction Matrix1"),
@@ -49,9 +57,9 @@ public enum TagIFD_Private implements Taggable
     IFD_RAW_DATA_UNIQUE_ID(0xC65D, "Raw Data Unique ID"),
     IFD_ORIGINAL_RAW_FILE_NAME(0xC68B, "Original Raw File Name"),
     IFD_ORIGINAL_RAW_FILE_DATA(0xC68C, "Original Raw File Data"),
-    IFD_AS_SHOT_ICCPROFILE(0xC68F, "As Shot ICC Profile"),
+    IFD_AS_SHOT_ICCPROFILE(0xC68F, "As Shot ICC Profile", TagHint.HINT_BYTE_STREAM),
     IFD_AS_SHOT_PRE_PROFILE_MATRIX(0xC690, "As Shot Pre Profile Matrix"),
-    IFD_CURRENT_ICCPROFILE(0xC691, "Current ICC Profile"),
+    IFD_CURRENT_ICCPROFILE(0xC691, "Current ICC Profile", TagHint.HINT_BYTE_STREAM),
     IFD_CURRENT_PRE_PROFILE_MATRIX(0xC692, "Current Pre Profile Matrix"),
     IFD_COLORIMETRIC_REFERENCE(0xC6BF, "Colorimetric Reference"),
     IFD_SRAW_TYPE(0xC6C5, "SRaw Type"),
@@ -68,8 +76,8 @@ public enum TagIFD_Private implements Taggable
     IFD_PROFILE_TONE_CURVE(0xC6FC, "Profile Tone Curve"),
     IFD_PROFILE_EMBED_POLICY(0xC6FD, "Profile Embed Policy"),
     IFD_PROFILE_COPYRIGHT(0xC6FE, "Profile Copyright"),
-    IFD_FORWARD_MATRIX1(0xC714, "Forward Matrix1"),
-    IFD_FORWARD_MATRIX2(0xC715, "Forward Matrix2"),
+    IFD_FORWARD_MATRIX1(0xC714, "Forward Matrix1", TagHint.HINT_RATIONAL),
+    IFD_FORWARD_MATRIX2(0xC715, "Forward Matrix2", TagHint.HINT_RATIONAL),
     IFD_PREVIEW_APPLICATION_NAME(0xC716, "Preview Application Name"),
     IFD_PREVIEW_APPLICATION_VERSION(0xC717, "Preview Application Version"),
     IFD_PREVIEW_SETTINGS_NAME(0xC718, "Preview Settings Name"),
@@ -102,8 +110,8 @@ public enum TagIFD_Private implements Taggable
     IFD_ENHANCE_PARAMS(0xC7EE, "Enhance Params"),
     IFD_CALIBRATION_ILLUMINANT3(0xCD31, "Calibration Illuminant3"),
     IFD_CAMERA_CALIBRATION3(0xCD32, "Camera Calibration3"),
-    IFD_COLOR_MATRIX3(0xCD33, "Color Matrix3"),
-    IFD_FORWARD_MATRIX3(0xCD34, "Forward Matrix3"),
+    IFD_COLOR_MATRIX3(0xCD33, "Color Matrix3", TagHint.HINT_RATIONAL),
+    IFD_FORWARD_MATRIX3(0xCD34, "Forward Matrix3", TagHint.HINT_RATIONAL),
     IFD_ILLUMINANT_DATA1(0xCD35, "Illuminant Data1"),
     IFD_ILLUMINANT_DATA2(0xCD36, "Illuminant Data2"),
     IFD_ILLUMINANT_DATA3(0xCD37, "Illuminant Data3"),
@@ -117,11 +125,9 @@ public enum TagIFD_Private implements Taggable
     IFD_PROFILE_GROUP_NAME(0xCD48, "Profile Group Name"),
     IFD_JXL_DISTANCE(0xCD49, "JXL Distance"),
     IFD_JXL_EFFORT(0xCD4A, "JXL Effort"),
-    IFD_JXL_DECODE_SPEED(0xCD4B, "JXL Decode Speed"),
-    IFD_SEAL(0xCEA1, "SEAL");
+    IFD_JXL_DECODE_SPEED(0xCD4B, "JXL Decode Speed");
 
     private final int numID;
-    //private final DirectoryIdentifier directory;
     private final TagHint hint;
     private final String desc;
 

@@ -158,13 +158,11 @@ public class PngParser extends AbstractImageParser
      * @see <a href="https://www.w3.org/TR/png/#11keywords">www.w3.org/TR/png/#11keywords - for more
      *      information.</a>
      *
-     * @return true once at least one metadata segment has been successfully parsed, otherwise false
-     *
      * @throws IOException
      *         if the file reading error occurs during the parsing
      */
     @Override
-    public boolean readMetadata() throws IOException
+    public void readMetadata() throws IOException
     {
         EnumSet<ChunkType> chunkSet = EnumSet.of(ChunkType.tEXt, ChunkType.zTXt, ChunkType.iTXt, ChunkType.eXIf, ChunkType.tIME);
 
@@ -249,7 +247,6 @@ public class PngParser extends AbstractImageParser
             else
             {
                 LOGGER.warn("No metadata information found in file [" + getImageFile() + "]");
-                return false;
             }
         }
 
@@ -257,8 +254,6 @@ public class PngParser extends AbstractImageParser
         {
             LOGGER.error("Unable to parse XMP directory payload [" + exc.getMessage() + "]", exc);
         }
-
-        return metadata.hasMetadata();
     }
 
     /**

@@ -44,13 +44,13 @@ public class TifMetadata implements TifMetadataProvider
      * Constructs a new {@code TifMetadata} object with the specified byte order for interpreting
      * multi-byte raw data correctly.
      *
-     * @param byteOrder
+     * @param order
      *        either {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
      *
      * @throws NullPointerException
      *         if the byte order is null
      */
-    public TifMetadata(ByteOrder byteOrder)
+    public TifMetadata(ByteOrder order)
     {
         this();
 
@@ -59,7 +59,7 @@ public class TifMetadata implements TifMetadataProvider
             throw new NullPointerException("ByteOrder is null");
         }
 
-        this.byteOrder = byteOrder;
+        setByteOrder(order);
     }
 
     /**
@@ -120,6 +120,11 @@ public class TifMetadata implements TifMetadataProvider
     public boolean isEmpty()
     {
         return !hasMetadata();
+    }
+
+    public void setByteOrder(ByteOrder order)
+    {
+        byteOrder = order;
     }
 
     /**

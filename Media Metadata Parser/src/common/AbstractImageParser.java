@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
 /**
  * An abstract base for image file parsers. Subclasses implement decoding logic for specific formats
@@ -37,17 +38,12 @@ public abstract class AbstractImageParser
      */
     public AbstractImageParser(Path fpath) throws IOException
     {
-        if (fpath == null)
-        {
-            throw new NullPointerException("Image file path cannot be null");
-        }
+        this.imageFile = Objects.requireNonNull(fpath);
 
-        if (Files.notExists(fpath) || !Files.isRegularFile(fpath))
+        if (Files.notExists(imageFile) || !Files.isRegularFile(imageFile))
         {
-            throw new IOException("File [" + fpath + "] does not exist or is not a regular file");
+            throw new IOException("File [" + imageFile + "] does not exist or is not a regular file");
         }
-
-        this.imageFile = fpath;
     }
 
     /**
@@ -102,7 +98,7 @@ public abstract class AbstractImageParser
         String targetExt = getImageFormat().getFileExtensionName();
 
         /*
-         * Special Case: If the filename is the extension itself (e.g., file named "tif") 
+         * Special Case: If the filename is the extension itself (e.g., file named "tif")
          * or if it's an extension-only hidden file (e.g., ".tif").
          */
         if (baseName.equalsIgnoreCase(targetExt) || filename.equalsIgnoreCase("." + targetExt))
@@ -121,7 +117,7 @@ public abstract class AbstractImageParser
      * @throws IOException
      *         if a file reading error occurs during parsing
      */
-    public abstract boolean readMetadata() throws IOException;
+    public abstract void readMetadata() throws IOException;
 
     /**
      * Retrieves the extracted metadata.

@@ -79,13 +79,11 @@ public class HeifParser extends AbstractImageParser
      * are parsed internally, they are not returned or exposed.
      * </p>
      *
-     * @return true once at least one metadata segment has been successfully parsed, otherwise false
-     *
      * @throws IOException
      *         if a file reading error occurs during the parsing
      */
     @Override
-    public boolean readMetadata() throws IOException
+    public void readMetadata() throws IOException
     {
         metadata = new TifMetadata();
 
@@ -121,8 +119,6 @@ public class HeifParser extends AbstractImageParser
                 // handler.displayHierarchy();
             }
         }
-
-        return metadata.hasMetadata();
     }
 
     /**

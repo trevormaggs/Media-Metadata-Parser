@@ -64,7 +64,7 @@ public enum TagIFD_GPS implements Taggable
     @Override
     public DirectoryIdentifier getDirectoryType()
     {
-        return IFD_GPS_DIRECTORY;
+        return IFD_GPS_SUBIFD_DIRECTORY;
     }
     
     @Override

@@ -90,6 +90,7 @@ public class JpgParser extends AbstractImageParser
             return Optional.ofNullable(icc);
         }
 
+        @SuppressWarnings("unused")
         private boolean hasMetadata()
         {
             return ((exif != null && exif.length > 0) ||
@@ -139,21 +140,16 @@ public class JpgParser extends AbstractImageParser
      * present), and uses the extracted data to initialise the necessary metadata object for later
      * data retrieval.
      *
-     * @return true if at least one supported metadata segment (EXIF, XMP, or ICC) was found and
-     *         extracted
-     *
      * @throws IOException
      *         if a file reading error occurs during the parsing
      */
     @Override
-    public boolean readMetadata() throws IOException
+    public void readMetadata() throws IOException
     {
         try (ImageRandomAccessReader reader = new ImageRandomAccessReader(getImageFile()))
         {
             segmentData = readMetadataSegments(reader);
         }
-
-        return segmentData.hasMetadata();
     }
 
     /**

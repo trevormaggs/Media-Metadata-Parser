@@ -144,13 +144,11 @@ public class WebpParser extends AbstractImageParser
      * valid byte stream.
      * </p>
      *
-     * @return true if at least one metadata segment (EXIF or XMP) was successfully parsed
-     * 
      * @throws IOException
      *         if a low-level I/O error occurs during stream reading
      */
     @Override
-    public boolean readMetadata() throws IOException
+    public void readMetadata() throws IOException
     {
         metadata = new TifMetadata();
 
@@ -205,8 +203,6 @@ public class WebpParser extends AbstractImageParser
                 }
             }
         }
-
-        return metadata.hasMetadata();
     }
 
     /**

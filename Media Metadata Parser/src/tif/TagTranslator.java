@@ -92,7 +92,7 @@ public class TagTranslator
 
             else if (tag instanceof TagIFD_Private)
             {
-                // return translatePrivate((TagIFD_Private) tag, value);
+                return translatePrivate((TagIFD_Private) tag, value);
             }
 
             return String.valueOf(value);
@@ -160,7 +160,7 @@ public class TagTranslator
     }
 
     /**
-     * Translates the ResolutionUnit tag (0x0128). Defines the measurement unit for XResolution and
+     * Translates the Resolution Unit tag (0x0128). Defines the measurement unit for XResolution and
      * YResolution.
      *
      * @param val
@@ -199,7 +199,7 @@ public class TagTranslator
         switch (num)
         {
             case 1:
-                return "Uncompressed";
+                return "Uncompressed";// default
             case 2:
                 return "CCITT 1D";
             case 3:
@@ -222,12 +222,12 @@ public class TagTranslator
     }
 
     /**
-     * Translates the YCbCrPositioning tag (0x0213). Defines the position of chroma components
+     * Translates the YCbCr Positioning tag (0x0213). Defines the position of chroma components
      * relative to luma samples.
      *
      * @param val
      *        the raw value as a Number
-     * @return "Centered", "Co-sited", or the raw value
+     * @return "Centered" (default), "Co-sited", or the raw value
      */
     private static String translateYCbCr(Object val)
     {
@@ -237,7 +237,7 @@ public class TagTranslator
     }
 
     /**
-     * Translates the PhotometricInterpretation tag (0x0106). This tag describes the color space of
+     * Translates the Photometric Interpretation tag (0x0106). This tag describes the color space of
      * the image data.
      *
      * @param val
@@ -293,7 +293,8 @@ public class TagTranslator
      * 
      * @param val
      *        the raw value as a Number
-     * @return either "Chunky", "Planar", or the raw value if unknown. Note "Chunky" is Default
+     * @return either "Chunky" (default), "Planar", or the raw value if unknown. Note "Chunky" is
+     *         Default
      */
     private static String translatePlanarConfig(Object val)
     {
@@ -360,6 +361,98 @@ public class TagTranslator
         int num = (val instanceof Number ? ((Number) val).intValue() : convertToInt(val));
 
         return (num == 1 ? "Indexed" : "Not indexed");
+    }
+
+    /**
+     * Decodes Windows-specific {@code XP} tags, for example: {@code XPTitle, XPAuthor, XPSubject}.
+     * 
+     * <p>
+     * These tags are unique outliers in the TIFF specification. While standard TIFF strings use
+     * ASCII, Microsoft encodes these as <b>UTF-16LE</b>. Furthermore, they are stored as
+     * {@code BYTE} types rather than {@code ASCII} types, which often results in binary-level
+     * quirks handled here:
+     * </p>
+     * 
+     * <ul>
+     * <li><b>Type Casting:</b> Converts {@code int[]} back to {@code byte[]} using
+     * {@link ByteValueConverter#castToByteArray}, reversing the expansion performed by the IFD
+     * parser for unsigned bytes.</li>
+     * <li><b>The Dangling Byte:</b> Because UTF-16LE requires 2 bytes per character, an
+     * odd-lengthed array (often caused by single-byte padding) is malformed. This method truncates
+     * the "dangling" byte to prevent the insertion of replacement characters ({@code \uFFFD}).</li>
+     * <li><b>Null Termination:</b> Unlike standard Java strings, these decoded buffers often
+     * contain trailing null characters ({@code \0}) followed by random padding data. This method
+     * performs a double-cleanup by truncating at the first null and then trimming whitespace.</li>
+     * </ul>
+     * 
+     * @param val
+     *        the raw tag value (expected as {@code byte[]} or {@code int[]})
+     * @return a sanitised, human-readable string, or {@code String.valueOf(val)} if the input is
+     *         not a byte-based array
+     */
+    private static String translateXPString(Object val)
+    {
+        byte[] bytes;
+
+        if (val instanceof byte[])
+        {
+            bytes = (byte[]) val;
+        }
+
+        else if (val instanceof int[])
+        {
+            bytes = ByteValueConverter.castToByteArray((int[]) val);
+        }
+
+        else
+        {
+            return String.valueOf(val);
+        }
+
+        int length = bytes.length;
+
+        if (length % 2 != 0)
+        {
+            length--;
+        }
+
+        String decoded = new String(bytes, 0, length, StandardCharsets.UTF_16LE);
+
+        // Windows often leaves multiple null terminators or junk after the null.
+        // Standard String.trim() ignores characters > U+0020, so we manually
+        // find the first logical null character.
+        int nullIdx = decoded.indexOf('\0');
+
+        if (nullIdx != -1)
+        {
+            decoded = decoded.substring(0, nullIdx);
+        }
+
+        return decoded.trim();
+    }
+
+    /* ---------- IFD Private Tags ---------- */
+
+    private static String translatePrivate(TagIFD_Private tag, Object val)
+    {
+        switch (tag)
+        {
+            case IFD_DNG_VERSION:
+            case IFD_DNG_BACKWARD_VERSION:
+                //return translateDngVersion(val);
+            case IFD_PROFILE_EMBED_POLICY:
+                //return translateProfileEmbedPolicy(val);
+            case IFD_PREVIEW_COLOR_SPACE:
+                //return translatePreviewColorSpace(val);
+            case IFD_DEPTH_UNITS:
+                //return translateDepthUnits(val);
+            case IFD_DEPTH_MEASURE_TYPE:
+                //return translateDepthMeasureType(val);
+            default:
+            break;
+        }
+
+        return String.valueOf(val);
     }
 
     /* ---------- Helper Utilities ---------- */
@@ -452,7 +545,6 @@ public class TagTranslator
             return String.format("%d", (long) d);
         }
 
-        // Do sanitisation
         return String.format("%.4f", d).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
@@ -520,73 +612,5 @@ public class TagTranslator
         int i = convertToInt(val);
 
         return (i != -1) ? (double) i : Double.NaN;
-    }
-
-    /**
-     * Decodes Windows-specific {@code XP} tags, for example: {@code XPTitle, XPAuthor, XPSubject}.
-     * 
-     * <p>
-     * These tags are unique outliers in the TIFF specification. While standard TIFF strings use
-     * ASCII, Microsoft encodes these as <b>UTF-16LE</b>. Furthermore, they are stored as
-     * {@code BYTE} types rather than {@code ASCII} types, which often results in binary-level
-     * quirks handled here:
-     * </p>
-     * 
-     * <ul>
-     * <li><b>Type Casting:</b> Converts {@code int[]} back to {@code byte[]} using
-     * {@link ByteValueConverter#castToByteArray}, reversing the expansion performed by the IFD
-     * parser for unsigned bytes.</li>
-     * <li><b>The Dangling Byte:</b> Because UTF-16LE requires 2 bytes per character, an
-     * odd-lengthed array (often caused by single-byte padding) is malformed. This method truncates
-     * the "dangling" byte to prevent the insertion of replacement characters ({@code \uFFFD}).</li>
-     * <li><b>Null Termination:</b> Unlike standard Java strings, these decoded buffers often
-     * contain trailing null characters ({@code \0}) followed by random padding data. This method
-     * performs a double-cleanup by truncating at the first null and then trimming whitespace.</li>
-     * </ul>
-     * 
-     * @param val
-     *        the raw tag value (expected as {@code byte[]} or {@code int[]})
-     * @return a sanitised, human-readable string, or {@code String.valueOf(val)} if the input is
-     *         not a byte-based array
-     */
-    private static String translateXPString(Object val)
-    {
-        byte[] bytes;
-
-        if (val instanceof byte[])
-        {
-            bytes = (byte[]) val;
-        }
-
-        else if (val instanceof int[])
-        {
-            bytes = ByteValueConverter.castToByteArray((int[]) val);
-        }
-
-        else
-        {
-            return String.valueOf(val);
-        }
-
-        int length = bytes.length;
-
-        if (length % 2 != 0)
-        {
-            length--;
-        }
-
-        String decoded = new String(bytes, 0, length, StandardCharsets.UTF_16LE);
-
-        // Windows often leaves multiple null terminators or junk after the null.
-        // Standard String.trim() ignores characters > U+0020, so we manually
-        // find the first logical null character.
-        int nullIdx = decoded.indexOf('\0');
-
-        if (nullIdx != -1)
-        {
-            decoded = decoded.substring(0, nullIdx);
-        }
-
-        return decoded.trim();
     }
 }

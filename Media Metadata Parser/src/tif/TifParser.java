@@ -25,27 +25,25 @@ import xmp.XmpHandler;
  * nested sub-directories such as EXIF.
  * </p>
  * 
- * Example of obtaining detailed metadata values from exiftool:
- * exiftool -G1 -a -s -u  image.jpg
- *
  * @see <a href="https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf">TIFF 6.0
  *      Specification</a>
  * 
  * @author Trevor Maggs
- * @version 1.0
+ * @version 1.1
  * @since 13 August 2025
  */
 public class TifParser extends AbstractImageParser
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(TifParser.class);
-    private TifMetadata metadata;
+    private final TifMetadata metadata;
+    private boolean isParsed;
 
     /**
      * Creates an instance intended for parsing the specified TIFF image file.
      *
      * @param fpath
      *        the path to the TIFF file
-     *
+     * 
      * @throws IOException
      *         if the file is not a regular type or does not exist
      */
@@ -59,6 +57,9 @@ public class TifParser extends AbstractImageParser
         {
             LOGGER.warn(formatExtensionErrorMessage());
         }
+
+        this.isParsed = false;
+        this.metadata = new TifMetadata();
     }
 
     /**
@@ -66,7 +67,7 @@ public class TifParser extends AbstractImageParser
      *
      * @param file
      *        the path to the TIFF file
-     *
+     * 
      * @throws IOException
      *         if an I/O error occurs
      */
@@ -78,7 +79,7 @@ public class TifParser extends AbstractImageParser
     /**
      * Parses TIFF metadata from a byte array, assuming it is a valid TIFF or EXIF payload,
      * including the 8-byte header length.
-     *
+     * 
      * <p>
      * Optimised for cases where TIFF data, particularly an embedded EXIF segment, is already
      * present in memory. This avoids redundant disk I/O.
@@ -86,120 +87,84 @@ public class TifParser extends AbstractImageParser
      *
      * @param payload
      *        the byte array containing TIFF-formatted data
-     * @return a {@link TifMetadata} object, it guarantees non-null even if parsing fails
+     * @return a {@link TifMetadata} object, guaranteed non-null even if parsing fails
      */
     public static TifMetadata parseTiffMetadataFromBytes(byte[] payload)
     {
+        TifMetadata tif = new TifMetadata();
+
         try (IFDHandler handler = new IFDHandler(payload))
         {
             if (handler.parseMetadata())
             {
-                TifMetadata metadata = new TifMetadata(handler.getTifByteOrder());
-
-                for (DirectoryIFD ifd : handler.getDirectories())
-                {
-                    metadata.addDirectory(ifd);
-                }
-
-                return metadata;
+                populateMetadata(tif, handler);
+                return tif;
             }
 
-            LOGGER.warn("IFD segment parsing failed. Fallback to an empty TifMetadata");
+            LOGGER.error("Parsing for memory payload block in IFD segment failed");
         }
 
         catch (IOException exc)
         {
-            LOGGER.error("Data corruption detected in byte array. [" + exc.getMessage() + "]");
+            LOGGER.error("Data corruption or parsing exception detected. [" + exc.getMessage() + "]", exc);
         }
 
-        return new TifMetadata();
+        return tif;
     }
 
     /**
      * Parses TIFF and XMP metadata from the image file.
      * 
-     * <p>
-     * Performs a reverse traversal of IFDs to honour the "last-one-wins" XMP strategy. This ensures
-     * that the most recently encountered {@code IFD_XML_PACKET} takes precedence in the final
-     * metadata container.
-     * </p>
-     *
-     * @return {@code true} if metadata was successfully populated
-     * 
      * @throws IOException
      *         if data corruption or I/O errors occur during traversal
      */
     @Override
-    public boolean readMetadata() throws IOException
+    public void readMetadata() throws IOException
     {
-        try (IFDHandler handler = new IFDHandler(getImageFile()))
+        if (!isParsed)
         {
-            if (handler.parseMetadata())
+            try (IFDHandler handler = new IFDHandler(getImageFile()))
             {
-                List<DirectoryIFD> ifd = handler.getDirectories();
-                metadata = new TifMetadata(handler.getTifByteOrder());
-
-                // Traverse in reverse to honour the "last-one-wins" XMP strategy
-                for (int i = ifd.size() - 1; i >= 0; i--)
+                if (handler.parseMetadata())
                 {
-                    DirectoryIFD dir = ifd.get(i);
+                    populateMetadata(metadata, handler);
 
-                    metadata.addDirectory(dir);
-
-                    if (!metadata.hasXmpData() && dir.hasTag(TagIFD_Extension.IFD_XML_PACKET))
+                    if (!metadata.hasXmpData())
                     {
-                        byte[] rawXmp = dir.getRawByteArray(TagIFD_Extension.IFD_XML_PACKET);
-
-                        try
-                        {
-                            XmpDirectory xmpDir = XmpHandler.addXmpDirectory(rawXmp);
-                            metadata.addXmpDirectory(xmpDir);
-                        }
-
-                        catch (XMPException exc)
-                        {
-                            LOGGER.error("Unable to parse XMP directory payload", exc);
-                        }
+                        LOGGER.debug("No XMP payload found");
                     }
+
+                    isParsed = true;
                 }
 
-                if (!metadata.hasXmpData())
+                else
                 {
-                    LOGGER.debug("No XMP payload found");
+                    throw new IOException("IFD segment parsing failed");
                 }
             }
 
-            else
+            catch (IOException exc)
             {
-                metadata = new TifMetadata();
-                LOGGER.warn("IFD segment parsing failed. Fallback to an empty TifMetadata");
+                LOGGER.error("Data corruption or access error detected", exc);
+                throw exc;
             }
         }
-
-        catch (IOException exc)
-        {
-            LOGGER.error("Data corruption or I/O error detected", exc);
-            throw exc;
-        }
-
-        /* metadata is already guaranteed non-null */
-        return metadata.hasMetadata();
     }
+
     /**
-     * Retrieves the extracted metadata, or a safe fallback if unavailable.
+     * Retrieves the extracted metadata container.
      *
-     * @return a {@link TifMetadata} object containing the extracted IFDs, or a new empty
-     *         {@link TifMetadata} object if parsing has not occurred
+     * @return the TIFF metadata container
+     * 
+     * @throws IllegalStateException
+     *         if parsing has not yet been executed
      */
     @Override
     public Metadata<DirectoryIFD> getMetadata()
     {
-        if (metadata == null)
+        if (!isParsed)
         {
-            LOGGER.warn("No metadata information has been parsed yet");
-
-            /* Fallback to empty metadata */
-            return new TifMetadata();
+            throw new IllegalStateException("Metadata has not been parsed yet. Call readMetadata() first");
         }
 
         return metadata;
@@ -220,60 +185,83 @@ public class TifParser extends AbstractImageParser
      * Generates a human-readable diagnostic string containing metadata segment details.
      *
      * @return a formatted string suitable for diagnostics, logging, or inspection
+     * 
+     * @throws IOException
+     *         if there is a problem reading the file
      */
     @Override
-    public String formatDiagnosticString()
+    public String formatDiagnosticString() throws IOException
     {
-        StringBuilder sb = new StringBuilder();
-        Metadata<DirectoryIFD> meta = getMetadata();
-
-        try
+        if (!isParsed)
         {
-            sb.append("\t\t\tTIF Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
-            sb.append(super.formatDiagnosticString());
+            readMetadata();
+        }
 
-            if (meta instanceof TifMetadata)
+        StringBuilder sb = new StringBuilder();
+        sb.append("\t\t\tTIF Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
+        sb.append(super.formatDiagnosticString());
+
+        if (metadata.hasMetadata())
+        {
+            for (DirectoryIFD ifd : metadata)
             {
-                TifMetadata tif = (TifMetadata) meta;
-
-                if (tif.hasMetadata())
-                {
-                    for (DirectoryIFD ifd : tif)
-                    {
-                        sb.append(ifd);
-                    }
-                }
-
-                else
-                {
-                    sb.append("No TIFF metadata found").append(System.lineSeparator());
-                }
-
-                if (tif.hasXmpData())
-                {
-                    sb.append(tif.getXmpDirectory());
-                }
-
-                else
-                {
-                    sb.append("No XMP metadata found").append(System.lineSeparator());
-                }
-
-                sb.append(MetadataConstants.DIVIDER);
+                sb.append(ifd);
             }
         }
 
-        catch (Exception exc)
+        else
         {
-            LOGGER.error("Diagnostics failed for file [" + getImageFile() + "]", exc);
-
-            sb.append("Error generating diagnostics [")
-                    .append(exc.getClass().getSimpleName())
-                    .append("]: ")
-                    .append(exc.getMessage())
-                    .append(System.lineSeparator());
+            sb.append("No TIFF metadata found").append(System.lineSeparator());
         }
 
+        if (metadata.hasXmpData())
+        {
+            sb.append(metadata.getXmpDirectory());
+        }
+
+        else
+        {
+            sb.append("No XMP metadata found").append(System.lineSeparator());
+        }
+
+        sb.append(MetadataConstants.DIVIDER);
+
         return sb.toString();
+    }
+
+    /**
+     * Shared helper to process and map standard directory segments and embedded XMP streams.
+     */
+    private static void populateMetadata(TifMetadata target, IFDHandler handler)
+    {
+        target.setByteOrder(handler.getTifByteOrder());
+        List<DirectoryIFD> directories = handler.getDirectories();
+
+        for (DirectoryIFD dir : directories)
+        {
+            target.addDirectory(dir);
+        }
+
+        // Traverse in reverse to honour the "last-one-wins" XMP strategy
+        for (int i = directories.size() - 1; i >= 0; i--)
+        {
+            DirectoryIFD dir = directories.get(i);
+
+            if (!target.hasXmpData() && dir.hasTag(TagIFD_Extension.IFD_XML_PACKET))
+            {
+                byte[] rawXmp = dir.getRawByteArray(TagIFD_Extension.IFD_XML_PACKET);
+
+                try
+                {
+                    XmpDirectory xmpDir = XmpHandler.addXmpDirectory(rawXmp);
+                    target.addXmpDirectory(xmpDir);
+                }
+
+                catch (XMPException exc)
+                {
+                    LOGGER.error("Unable to parse XMP directory payload", exc);
+                }
+            }
+        }
     }
 }
