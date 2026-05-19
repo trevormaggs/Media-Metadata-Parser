@@ -526,7 +526,7 @@ public class TagTranslator
      * Formats floating-point values to a maximum of 4 decimal places, stripping trailing zeros and
      * decimal points to match professional metadata tools like ExifTool.
      *
-     * @param d
+     * @param val
      *        the double-precision value to format
      * @return a clean string representation of the number
      */
@@ -585,6 +585,10 @@ public class TagTranslator
     /**
      * Extracts a double from various object types (Number, RationalNumber, arrays).
      * Useful for tags that require decimal precision like FNumber or GPS coordinates.
+     * 
+     * @param val
+     *        the raw object value to resolve
+     * @return the resolved double value 
      */
     private static double convertToDouble(Object val)
     {

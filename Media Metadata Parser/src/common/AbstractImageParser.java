@@ -112,8 +112,6 @@ public abstract class AbstractImageParser
     /**
      * Extracts metadata from the image file.
      *
-     * @return {@code true} if parsing was successful
-     * 
      * @throws IOException
      *         if a file reading error occurs during parsing
      */

@@ -30,15 +30,11 @@ import tif.tagspecs.Taggable;
  *
  * <p>
  * <strong>Note:</strong> While this handler detects BigTIFF (version 43), it currently supports
- * only Standard TIFF (version 42). This class focuses exclusively on IFD-based metadata, other
- * formats, such as XMP or ICC profiles, should be managed by a separate Image Parser.
+ * only Standard TIFF (version 42). This class focuses exclusively on IFD-based metadata.
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
- * @since 5 September 2025
- * @see <a href="https://partners.adobe.com/public/developer/en/tiff/TIFF6.pdf">TIFF 6.0
- *      Specification</a>
+ * @version 1.4
  */
 public class IFDHandler implements ImageHandler, AutoCloseable
 {
@@ -73,7 +69,6 @@ public class IFDHandler implements ImageHandler, AutoCloseable
      *
      * @param fpath
      *        the path to the image file
-     *
      * @throws IOException
      *         if the file is inaccessible
      */
@@ -152,7 +147,7 @@ public class IFDHandler implements ImageHandler, AutoCloseable
             return false;
         }
 
-        if (!navigateImageFileDirectory(DirectoryIdentifier.IFD_ROOT_DIRECTORY, firstIFDoffset))
+        if (!navigateImageFileDirectory(DirectoryIdentifier.IFD_DIRECTORY_IFD0, firstIFDoffset))
         {
             directoryList.clear();
             return false;
@@ -168,7 +163,7 @@ public class IFDHandler implements ImageHandler, AutoCloseable
 
             if (first.getDirectoryType().isMainChain() && second.getDirectoryType().isMainChain())
             {
-                if (hasThumbnailTag && first.getDirectoryType() == DirectoryIdentifier.IFD_ROOT_DIRECTORY)
+                if (hasThumbnailTag && first.getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
                 {
                     LOGGER.debug("Detected thumbnail data in IFD0 slot. Re-ordering directories");
 
@@ -215,7 +210,6 @@ public class IFDHandler implements ImageHandler, AutoCloseable
      *
      * @return the absolute offset to IFD0, or {@code 0L} if the header is malformed or unsupported,
      *         for example: BigTIFF
-     *
      * @throws IOException
      *         if an I/O error occurs
      */
@@ -228,10 +222,12 @@ public class IFDHandler implements ImageHandler, AutoCloseable
         {
             reader.setByteOrder(ByteOrder.LITTLE_ENDIAN);
         }
+
         else if (firstByte == 0x4D && secondByte == 0x4D)
         {
             reader.setByteOrder(ByteOrder.BIG_ENDIAN);
         }
+
         else
         {
             LOGGER.warn(String.format("Unknown byte order: [0x%02X, 0x%02X]", firstByte, secondByte));
@@ -246,6 +242,7 @@ public class IFDHandler implements ImageHandler, AutoCloseable
             LOGGER.warn("BigTIFF (version 43) not supported yet");
             return 0L;
         }
+
         else if (tiffVer != TIFF_STANDARD_VERSION)
         {
             LOGGER.error(String.format("Undefined TIFF magic number [%d].", tiffVer));
@@ -267,8 +264,8 @@ public class IFDHandler implements ImageHandler, AutoCloseable
      * Recursively traverses a physical IFD and its linked sub-directories.
      *
      * <p>
-     * Each IFD is parsed as a 2-byte entry count, followed by a sequence of 12-byte
-     * entries, and a 4-byte pointer to the next IFD in the main chain.
+     * Each IFD is parsed as a 2-byte entry count, followed by a sequence of 12-byte entries, and a
+     * 4-byte pointer to the next IFD in the main chain.
      * </p>
      *
      * @param dirType
@@ -276,7 +273,7 @@ public class IFDHandler implements ImageHandler, AutoCloseable
      * @param startOffset
      *        the file offset where the IFD block begins
      * @return {@code true} if the directory and all linked IFDs were successfully parsed
-     *
+     * 
      * @throws IOException
      *         if an I/O error occurs
      */
@@ -324,6 +321,7 @@ public class IFDHandler implements ImageHandler, AutoCloseable
 
                 data = reader.peek(valueOrOffset, (int) totalBytes);
             }
+
             else
             {
                 data = valueBytes;
@@ -339,23 +337,21 @@ public class IFDHandler implements ImageHandler, AutoCloseable
         directoryList.add(ifd);
         LOGGER.debug(String.format("Successfully parsed and added directory [%s]", dirType));
 
-        /*
-         * Read the primary link chain offset pointer (e.g., IFD0 -> IFD1) immediately.
-         * The reader stream position is currently perfectly aligned at the end of the entries block,
-         * so we safely capture nextOffset before recursive sub-directory processing moves the pointer.
-         */
         long nextOffset = reader.readUnsignedInteger();
+        long currentOffset = reader.getCurrentPosition();
 
-        /* Process sub-directories (EXIF, GPS, etc.) using explicit absolute seeks */
         for (EntryIFD entry : ifd)
         {
             Taggable tag = entry.getTag();
 
             if (tag instanceof TagIFD_Pointer)
             {
-                // For pointer tags (<= 4 bytes inline), getOffset() holds the absolute data pointer location
+                /**
+                 * For pointer tags (<= 4 bytes inline), getOffset() holds
+                 * the absolute data pointer location.
+                 */
                 long subIfdOffset = entry.getOffset();
-                DirectoryIdentifier nextDir = tag.getDirectoryType();
+                DirectoryIdentifier nextDir = ((TagIFD_Pointer) tag).getTargetDirectory();
 
                 LOGGER.debug(String.format("Following Sub-IFD pointer [%s] to absolute offset 0x%04X", tag, subIfdOffset));
 
@@ -366,7 +362,9 @@ public class IFDHandler implements ImageHandler, AutoCloseable
             }
         }
 
-        // Loop termination: No subsequent main-chain directory linked
+        // Restore this offset to maintain positional integrity
+        reader.seek(currentOffset);
+
         if (nextOffset == 0x0000L)
         {
             return true;
@@ -378,10 +376,12 @@ public class IFDHandler implements ImageHandler, AutoCloseable
             return false;
         }
 
-        /*
-         * Unwind cleanly and advance along the primary link chain.
-         * The downstream call will handle its own stream alignment via seek(nextOffset).
-         */
-        return navigateImageFileDirectory(DirectoryIdentifier.getNextDirectoryType(dirType), nextOffset);
+        // Traverses to the next contiguous directory in the main chain
+        if (dirType.isMainChain())
+        {
+            return navigateImageFileDirectory(DirectoryIdentifier.getNextDirectoryType(dirType), nextOffset);
+        }
+
+        return true;
     }
 }

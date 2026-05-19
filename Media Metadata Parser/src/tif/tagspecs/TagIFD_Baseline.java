@@ -58,7 +58,7 @@ public enum TagIFD_Baseline implements Taggable
     IFD_INK_SET(0x014C, "Ink Set"),
     IFD_INK_NAMES(0x014D, "Ink Names"),
     IFD_NUMBER_OF_INKS(0x014E, "Number Of Inks"),
-    IFD_DOT_RANGE(0x0150, "Dot Range", TagHint.HINT_BYTE),
+    IFD_DOT_RANGE(0x0150, "Dot Range", TagHint.HINT_SHORT),
     IFD_TARGET_PRINTER(0x0151, "Target Printer"),
     IFD_EXTRA_SAMPLES(0x0152, "Extra Samples"),
     IFD_SAMPLE_FORMAT(0x0153, "Sample Format"),
@@ -75,7 +75,7 @@ public enum TagIFD_Baseline implements Taggable
     IFD_JPEG_DC_TABLES(0x0208, "JPEG DC Tables"),
     IFD_JPEG_AC_TABLES(0x0209, "JPEG AC Tables"),
     IFD_YCBCR_COEFFICIENTS(0x0211, "YCbCr Coefficients"),
-    IFD_YCBCR_SUB_SAMPLING(0x0212, "YCbCr Sub Sampling"),
+    IFD_YCBCR_SUB_SAMPLING(0x0212, "YCbCr Sub Sampling", TagHint.HINT_SHORT),
     IFD_YCB_CR_POSITIONING(0x0213, "YCbCr Positioning"),
     IFD_REFERENCE_BLACK_WHITE(0x0214, "Reference Black White"),
     IFD_COPYRIGHT(0x8298, "Copyright");

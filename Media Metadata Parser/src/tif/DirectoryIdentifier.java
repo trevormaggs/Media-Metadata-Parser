@@ -79,7 +79,7 @@ public enum DirectoryIdentifier
     {
         if (dirType == null || !dirType.isMainChain())
         {
-            String desc = (dirType == null) ? "null" : dirType.getDescription();
+            String desc = (dirType == null ? "null" : dirType.getDescription());
 
             throw new IllegalArgumentException(String.format("Directory %s is not part of the sequential chain", desc));
         }

@@ -1,5 +1,6 @@
 package tif;
 
+import java.nio.ByteOrder;
 import common.Metadata;
 import xmp.XmpDirectory;
 
@@ -20,8 +21,6 @@ import xmp.XmpDirectory;
  * @author Trevor Maggs
  * @version 1.1
  * @since 13 August 2025
- * @see DirectoryIFD
- * @see DirectoryIdentifier
  */
 public interface TifMetadataProvider extends Metadata<DirectoryIFD>
 {
@@ -32,7 +31,20 @@ public interface TifMetadataProvider extends Metadata<DirectoryIFD>
      *        the identity of the directory to retrieve, such as IFD0, EXIF_SUBIFD, or GPS
      * @return the matching {@link DirectoryIFD}, or {@code null} if the directory is not present
      */
-    public DirectoryIFD getDirectory(DirectoryIdentifier dirKey);
+    DirectoryIFD getDirectory(DirectoryIdentifier dirKey);
+
+    /**
+     * Sets the specified byte order used to interpret multi-byte raw data correctly.
+     *
+     * @param order
+     *        either {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
+     */
+    void setByteOrder(ByteOrder order);
+
+    /**
+     * Resets the metadata container to an entirely empty state.
+     */
+    void clear();
 
     /**
      * Integrates an XMP metadata directory for unified access.
@@ -45,13 +57,12 @@ public interface TifMetadataProvider extends Metadata<DirectoryIFD>
      * @param dir
      *        the {@link XmpDirectory} containing the parsed XML metadata
      */
-    public void addXmpDirectory(XmpDirectory dir);
+    void addXmpDirectory(XmpDirectory dir);
 
     /**
      * Retrieves the attached XMP metadata directory.
      *
      * @return the {@link XmpDirectory} instance, or {@code null} if no XMP data exists
      */
-    public XmpDirectory getXmpDirectory();
-
+    XmpDirectory getXmpDirectory();
 }

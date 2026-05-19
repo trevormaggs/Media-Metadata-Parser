@@ -1,8 +1,8 @@
+
 package tif;
 
 import java.nio.ByteOrder;
 import java.time.ZonedDateTime;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -23,8 +23,7 @@ import xmp.XmpProperty;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.0
- * @since 12 March 2026
+ * @version 1.1
  */
 public class TifMetadata implements TifMetadataProvider
 {
@@ -46,17 +45,16 @@ public class TifMetadata implements TifMetadataProvider
      *
      * @param order
      *        either {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
-     *
      * @throws NullPointerException
-     *         if the byte order is null
+     *         if the byte order argument is null
      */
     public TifMetadata(ByteOrder order)
     {
         this();
 
-        if (byteOrder == null)
+        if (order == null)
         {
-            throw new NullPointerException("ByteOrder is null");
+            throw new NullPointerException("ByteOrder argument cannot be null");
         }
 
         setByteOrder(order);
@@ -67,12 +65,10 @@ public class TifMetadata implements TifMetadataProvider
      *
      * @param directory
      *        the directory to add
-     *
      * @throws NullPointerException
      *         if the directory is null
      * @throws IllegalStateException
-     *         if the byte order is not yet determined. Make sure the parameterised constructor is
-     *         called first
+     *         if the byte order is not yet determined
      */
     @Override
     public void addDirectory(DirectoryIFD directory)
@@ -119,12 +115,7 @@ public class TifMetadata implements TifMetadataProvider
     @Override
     public boolean isEmpty()
     {
-        return !hasMetadata();
-    }
-
-    public void setByteOrder(ByteOrder order)
-    {
-        byteOrder = order;
+        return ifdMap.isEmpty() && !hasXmpData();
     }
 
     /**
@@ -164,6 +155,35 @@ public class TifMetadata implements TifMetadataProvider
     }
 
     /**
+     * Sets the specified byte order used to interpret multi-byte raw data correctly.
+     *
+     * @param order
+     *        either {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
+     */
+    @Override
+    public void setByteOrder(ByteOrder order)
+    {
+        this.byteOrder = order;
+    }
+
+    /**
+     * Resets the metadata container to an entirely empty state.
+     *
+     * <p>
+     * This purges all tracked {@link DirectoryIFD} segments, tears down the embedded XMP directory
+     * model instance, and nullifies the active byte-ordering flag. It is designed to safely permit
+     * data-clearing operations and parsing retries without duplicating state objects.
+     * </p>
+     */
+    @Override
+    public void clear()
+    {
+        ifdMap.clear();
+        xmpDir = null;
+        byteOrder = null;
+    }
+
+    /**
      * Adds a new {@link XmpDirectory} directory to this container.
      *
      * @param dir
@@ -180,12 +200,12 @@ public class TifMetadata implements TifMetadataProvider
             throw new NullPointerException("XMP directory cannot be null");
         }
 
-        this.xmpDir = dir;
+        xmpDir = dir;
     }
 
     /**
      * Retrieves the parsed {@link XmpDirectory} XMP metadata directory.
-     * 
+     *
      * @return the {@link XmpDirectory}, or null if absent. Check {@link #hasXmpData()} first to
      *         avoid null handling
      */
@@ -203,13 +223,13 @@ public class TifMetadata implements TifMetadataProvider
     @Override
     public boolean hasMetadata()
     {
-        return !ifdMap.isEmpty() || hasXmpData();
+        return !isEmpty();
     }
 
     /**
-     * Checks if the collection contains an EXIF sub-directory.
+     * Indicates whether the container holds EXIF metadata.
      *
-     * @return {@code true} if an EXIF sub-IFD directory is present
+     * @return {@code true} if EXIF metadata is present, otherwise {@code false}
      */
     @Override
     public boolean hasExifData()
@@ -226,64 +246,6 @@ public class TifMetadata implements TifMetadataProvider
     public boolean hasXmpData()
     {
         return (xmpDir != null && xmpDir.size() > 0);
-    }
-
-    /**
-     * Extracts the most authoritative creation date available.
-     *
-     * <p>
-     * The extraction follows a priority waterfall:
-     * </p>
-     *
-     * <ol>
-     * <li>EXIF Sub-IFD {@code DateTimeOriginal}</li>
-     * <li>XMP EXIF Schema {@code DateTimeOriginal}</li>
-     * <li>XMP General Schema {@code CreateDate}</li>
-     * </ol>
-     *
-     * @return the extracted {@link Date}, or {@code null} if no valid timestamp is present
-     */
-    @Override
-    public Date extractDate()
-    {
-        if (hasExifData())
-        {
-            DirectoryIFD dir = getDirectory(DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY);
-
-            if (dir != null && dir.hasTag(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL))
-            {
-                return dir.getDate(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL);
-            }
-        }
-
-        if (hasXmpData())
-        {
-            Optional<String> opt = xmpDir.getValueByPath(XmpProperty.EXIF_DATE_TIME_ORIGINAL);
-
-            if (opt.isPresent())
-            {
-                Date date = SmartDateParser.convertToDate(opt.get());
-
-                if (date != null)
-                {
-                    return date;
-                }
-            }
-
-            opt = xmpDir.getValueByPath(XmpProperty.XMP_CREATEDATE);
-
-            if (opt.isPresent())
-            {
-                Date date = SmartDateParser.convertToDate(opt.get());
-
-                if (date != null)
-                {
-                    return date;
-                }
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -308,21 +270,17 @@ public class TifMetadata implements TifMetadataProvider
     @Override
     public ZonedDateTime extractZonedDateTime()
     {
-        if (hasExifData())
-        {
-            DirectoryIFD exifDir = getDirectory(DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY);
+        DirectoryIFD exifDir = getDirectory(DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY);
 
-            if (exifDir.hasTag(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL))
-            {
-                return exifDir.getZonedDateTime(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL);
-            }
+        if (exifDir != null && exifDir.hasTag(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL))
+        {
+            return exifDir.getZonedDateTime(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL);
         }
 
-        if (isDirectoryPresent(DirectoryIdentifier.IFD_DIRECTORY_IFD0))
-        {
-            DirectoryIFD mainDir = getDirectory(DirectoryIdentifier.IFD_DIRECTORY_IFD0);
+        DirectoryIFD mainDir = getDirectory(DirectoryIdentifier.IFD_DIRECTORY_IFD0);
 
-            // Check for 0x9003 (Exif Original) if it was erroneously placed in IFD0
+        if (mainDir != null)
+        {
             if (mainDir.hasTag(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL))
             {
                 return mainDir.getZonedDateTime(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL);
@@ -336,7 +294,6 @@ public class TifMetadata implements TifMetadataProvider
 
         if (hasXmpData())
         {
-            // Check EXIF-specific XMP tag first
             Optional<String> optExif = xmpDir.getValueByPath(XmpProperty.EXIF_DATE_TIME_ORIGINAL);
 
             if (optExif.isPresent())
@@ -349,7 +306,6 @@ public class TifMetadata implements TifMetadataProvider
                 }
             }
 
-            // Check general XMP creation tag second
             Optional<String> optXmp = xmpDir.getValueByPath(XmpProperty.XMP_CREATEDATE);
 
             if (optXmp.isPresent())

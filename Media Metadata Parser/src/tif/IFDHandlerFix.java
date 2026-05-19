@@ -5,9 +5,7 @@ import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import common.ByteStreamReader;
 import common.ByteValueConverter;
 import common.ImageHandler;
@@ -32,38 +30,23 @@ import tif.tagspecs.Taggable;
  *
  * <p>
  * <strong>Note:</strong> While this handler detects BigTIFF (version 43), it currently supports
- * only Standard TIFF (version 42). This class focuses exclusively on IFD-based metadata, other
- * formats, such as XMP or ICC profiles, should be managed by a separate Image Parser.
+ * only Standard TIFF (version 42). This class focuses exclusively on IFD-based metadata.
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.1
- * @since 5 September 2025
- * @see <a href="https://partners.adobe.com/public/developer/en/tiff/TIFF6.pdf">TIFF 6.0
- *      Specification</a>
+ * @version 1.4
  */
-public class IFDHandler3 implements ImageHandler, AutoCloseable
+public class IFDHandlerFix implements ImageHandler, AutoCloseable
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(IFDHandler3.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(IFDHandlerFix.class);
     private static final int MAX_METADATA_CHUNK_SIZE = 64 * 1024 * 1024; // 64MB
     private static final int TIFF_STANDARD_VERSION = 42;
     private static final int TIFF_BIG_VERSION = 43;
     public static final int ENTRY_MAX_VALUE_LENGTH = 4;
-    public static final int ENTRY_MAX_VALUE_LENGTH_BIG = 8;
+
     private final List<DirectoryIFD> directoryList = new ArrayList<>();
-    private static final Map<Taggable, DirectoryIdentifier> subIfdMap;
     private final ByteStreamReader reader;
     private boolean isTiffBig;
-
-    static
-    {
-        /* Linkable directories */
-        subIfdMap = new HashMap<>();
-        subIfdMap.put(TagIFD_Pointer.IFD_SUBIFD_POINTER, DirectoryIdentifier.IFD_SUBIFD_DIRECTORY);
-        subIfdMap.put(TagIFD_Pointer.IFD_EXIF_POINTER, DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY);
-        subIfdMap.put(TagIFD_Pointer.IFD_GPS_INFO_POINTER, DirectoryIdentifier.IFD_GPS_SUBIFD_DIRECTORY);
-        subIfdMap.put(TagIFD_Pointer.EXIF_INTEROPERABILITY_POINTER, DirectoryIdentifier.EXIF_INTEROP_DIRECTORY);
-    }
 
     /**
      * Constructs a handler using an existing byte stream reader.
@@ -71,7 +54,7 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
      * @param reader
      *        the stream reader providing access to TIFF content
      */
-    public IFDHandler3(ByteStreamReader reader)
+    public IFDHandlerFix(ByteStreamReader reader)
     {
         this.reader = reader;
     }
@@ -89,7 +72,7 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
      * @throws IOException
      *         if the file is inaccessible
      */
-    public IFDHandler3(Path fpath) throws IOException
+    public IFDHandlerFix(Path fpath) throws IOException
     {
         this.reader = new ImageRandomAccessReader(fpath);
     }
@@ -100,7 +83,7 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
      * @param payload
      *        byte array containing TIFF-formatted data
      */
-    public IFDHandler3(byte[] payload)
+    public IFDHandlerFix(byte[] payload)
     {
         this.reader = new SequentialByteArrayReader(payload);
     }
@@ -164,13 +147,13 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
             return false;
         }
 
-        if (!navigateImageFileDirectory(DirectoryIdentifier.IFD_ROOT_DIRECTORY, firstIFDoffset))
+        if (!navigateImageFileDirectory(DirectoryIdentifier.IFD_DIRECTORY_IFD0, firstIFDoffset))
         {
             directoryList.clear();
             return false;
         }
 
-        // Do identity check
+        // Handle thumbnail swapping logic safely
         if (directoryList.size() > 1)
         {
             DirectoryIFD first = directoryList.get(0);
@@ -180,7 +163,8 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
 
             if (first.getDirectoryType().isMainChain() && second.getDirectoryType().isMainChain())
             {
-                if (hasThumbnailTag && first.getDirectoryType() == DirectoryIdentifier.IFD_ROOT_DIRECTORY)
+                // Updated comparison target from IFD_ROOT_DIRECTORY to matching context context
+                if (hasThumbnailTag && first.getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
                 {
                     LOGGER.debug("Detected thumbnail data in IFD0 slot. Re-ordering directories");
 
@@ -191,7 +175,6 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
             }
         }
 
-        // IFD0 must exist
         for (DirectoryIFD dir : directoryList)
         {
             if (dir.getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
@@ -228,7 +211,7 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
      *
      * @return the absolute offset to IFD0, or {@code 0L} if the header is malformed or unsupported,
      *         for example: BigTIFF
-     *
+     * 
      * @throws IOException
      *         if an I/O error occurs
      */
@@ -241,19 +224,18 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
         {
             reader.setByteOrder(ByteOrder.LITTLE_ENDIAN);
         }
-
+        
         else if (firstByte == 0x4D && secondByte == 0x4D)
         {
             reader.setByteOrder(ByteOrder.BIG_ENDIAN);
         }
-
+        
         else
         {
             LOGGER.warn(String.format("Unknown byte order: [0x%02X, 0x%02X]", firstByte, secondByte));
             return 0L;
         }
 
-        /* Identify whether this is Standard TIFF (42) or Big TIFF (43) version */
         int tiffVer = reader.readUnsignedShort();
         isTiffBig = (tiffVer == TIFF_BIG_VERSION);
 
@@ -262,14 +244,13 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
             LOGGER.warn("BigTIFF (version 43) not supported yet");
             return 0L;
         }
-
+        
         else if (tiffVer != TIFF_STANDARD_VERSION)
         {
             LOGGER.error(String.format("Undefined TIFF magic number [%d].", tiffVer));
             return 0L;
         }
 
-        /* Advance by offset from base to IFD0 */
         long firstOffset = reader.readUnsignedInteger();
 
         if (firstOffset < 8L || firstOffset >= reader.length())
@@ -285,8 +266,8 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
      * Recursively traverses a physical IFD and its linked sub-directories.
      *
      * <p>
-     * Each IFD is parsed as a 2-byte entry count, followed by a sequence of 12-byte
-     * entries, and a 4-byte pointer to the next IFD in the main chain.
+     * Each IFD is parsed as a 2-byte entry count, followed by a sequence of 12-byte entries, and a
+     * 4-byte pointer to the next IFD in the main chain.
      * </p>
      *
      * @param dirType
@@ -294,7 +275,6 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
      * @param startOffset
      *        the file offset where the IFD block begins
      * @return {@code true} if the directory and all linked IFDs were successfully parsed
-     *
      * @throws IOException
      *         if an I/O error occurs
      */
@@ -307,10 +287,11 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
         }
 
         reader.seek(startOffset);
+
         DirectoryIFD ifd = new DirectoryIFD(dirType);
         int entryCount = reader.readUnsignedShort();
 
-        /* Process all 12-byte entries in this IFD first */
+        /* Process all 12-byte entries in this IFD sequentially */
         for (int i = 0; i < entryCount; i++)
         {
             byte[] data;
@@ -319,7 +300,7 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
             TifFieldType fieldType = TifFieldType.getTiffType(reader.readUnsignedShort());
             long count = reader.readUnsignedInteger();
             byte[] valueBytes = reader.readBytes(4);
-            long offset = ByteValueConverter.toUnsignedInteger(valueBytes, getTifByteOrder());
+            long valueOrOffset = ByteValueConverter.toUnsignedInteger(valueBytes, getTifByteOrder());
             long totalBytes = count * fieldType.getFieldSize();
 
             if (totalBytes == 0L || fieldType == TifFieldType.TYPE_ERROR)
@@ -329,19 +310,19 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
 
             /*
              * A length of the value that is larger than 4 bytes indicates
-             * the entry is an offset outside this directory field.
+             * the entry contains a remote file offset instead of inline data.
              */
             if (totalBytes > ENTRY_MAX_VALUE_LENGTH)
             {
-                if (offset < 0 || totalBytes > MAX_METADATA_CHUNK_SIZE || (offset + totalBytes) > reader.length())
+                if (valueOrOffset < 0 || totalBytes > MAX_METADATA_CHUNK_SIZE || (valueOrOffset + totalBytes) > reader.length())
                 {
                     LOGGER.error(String.format("Data block for [%s] is too large or out of bounds (%d bytes)", tagEnum, totalBytes));
                     continue;
                 }
 
-                data = reader.peek(offset, (int) totalBytes);
+                data = reader.peek(valueOrOffset, (int) totalBytes);
             }
-
+            
             else
             {
                 data = valueBytes;
@@ -350,38 +331,40 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
             /* Make sure the tag ID is known and defined in TIF Specification 6.0 */
             if (TifFieldType.dataTypeinRange(fieldType.getDataType()))
             {
-                ifd.add(new EntryIFD(tagEnum, fieldType, count, offset, data, getTifByteOrder()));
+                ifd.add(new EntryIFD(tagEnum, fieldType, count, valueOrOffset, data, getTifByteOrder()));
             }
         }
 
         directoryList.add(ifd);
-        LOGGER.debug("New directory [" + dirType + "] added");
+        LOGGER.debug(String.format("Successfully parsed and added directory [%s]", dirType));
 
-        /*
-         * Read pointer to the next IFD in the primary chain,
-         * such as the transition from IFD0 to IFD1. This pointer
-         * is always located immediately after the last entry
-         */
         long nextOffset = reader.readUnsignedInteger();
+        long currentOffset = reader.getCurrentPosition(); // Verified matching contract hook
 
         for (EntryIFD entry : ifd)
         {
             Taggable tag = entry.getTag();
 
-            if (subIfdMap.containsKey(tag))
+            if (tag instanceof TagIFD_Pointer)
             {
+                /**
+                 * For pointer tags (<= 4 bytes inline), getOffset() holds
+                 * the absolute data pointer location.
+                 */
                 long subIfdOffset = entry.getOffset();
+                DirectoryIdentifier nextDir = ((TagIFD_Pointer) tag).getTargetDirectory();
 
-                reader.mark();
-                boolean success = navigateImageFileDirectory(subIfdMap.get(tag), subIfdOffset);
-                reader.reset();
+                LOGGER.debug(String.format("Following Sub-IFD pointer [%s] to absolute offset 0x%04X", tag, subIfdOffset));
 
-                if (!success)
+                if (!navigateImageFileDirectory(nextDir, subIfdOffset))
                 {
                     return false;
                 }
             }
         }
+
+        // Restore this offset to maintain positional integrity
+        reader.seek(currentOffset);
 
         if (nextOffset == 0x0000L)
         {
@@ -394,7 +377,12 @@ public class IFDHandler3 implements ImageHandler, AutoCloseable
             return false;
         }
 
-        /* Follow the main chain, for example: IFD0 -> IFD1 */
-        return navigateImageFileDirectory(DirectoryIdentifier.getNextDirectoryType(dirType), nextOffset);
+        // Only interested in IFD0 -> IFD3
+        if (dirType.isMainChain())
+        {
+            return navigateImageFileDirectory(DirectoryIdentifier.getNextDirectoryType(dirType), nextOffset);
+        }
+
+        return true;
     }
 }
