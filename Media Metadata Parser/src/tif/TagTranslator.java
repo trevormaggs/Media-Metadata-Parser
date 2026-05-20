@@ -1,6 +1,7 @@
 package tif;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import common.ByteValueConverter;
 import tif.tagspecs.TagIFD_Baseline;
 import tif.tagspecs.TagIFD_Extension;
@@ -9,7 +10,7 @@ import tif.tagspecs.Taggable;
 
 /**
  * Utility class responsible for translating raw TIFF/EXIF tag values into human-readable strings.
- * *
+ * 
  * <p>
  * This class handles various data types including Windows XP UCS-2 strings, rational numbers, and
  * enumerated constants for standard tags like Orientation, Compression, and GPS data. The output is
@@ -17,7 +18,7 @@ import tif.tagspecs.Taggable;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.0
+ * @version 1.1
  * @since 14 May 2026
  */
 public class TagTranslator
@@ -27,7 +28,7 @@ public class TagTranslator
      * example, JPEG offsets in IFD1 are traditionally labelled as {@code Thumbnail} attributes.
      *
      * @param dir
-     *        The directory identifier where the tag resides
+     *        the directory identifier where the tag resides
      * @param tag
      *        the tag definition
      * @return a localised or descriptive string name for the tag
@@ -62,43 +63,46 @@ public class TagTranslator
      */
     public static String translate(Taggable tag, Object value)
     {
-        if (value != null)
+        if (value == null)
         {
-            // TODO: NEED TO TEST ITS LOGICAL PLACEMENT FOR BLOB DATA BEFORE BASELINE
-            if (tag.getHint() == TagHint.HINT_RATIONAL)
-            {
-                return formatRational(value);
-            }
-
-            else if (tag.getHint() == TagHint.HINT_BYTE_STREAM)
-            {
-                if (value instanceof byte[])
-                {
-                    return String.format("[Binary Data: %d bytes]", ((byte[]) value).length);
-                }
-
-                return "[Binary Data]";
-            }
-
-            if (tag instanceof TagIFD_Baseline)
-            {
-                return translateBaseline((TagIFD_Baseline) tag, value);
-            }
-
-            else if (tag instanceof TagIFD_Extension)
-            {
-                return translateExtension((TagIFD_Extension) tag, value);
-            }
-
-            else if (tag instanceof TagIFD_Private)
-            {
-                return translatePrivate((TagIFD_Private) tag, value);
-            }
-
-            return String.valueOf(value);
+            return "";
         }
 
-        return "";
+        /*
+         * Global structural layout hints are prioritised
+         * first to catch custom/unknown tags safely.
+         */
+        if (tag.getHint() == TagHint.HINT_RATIONAL)
+        {
+            return formatRational(value);
+        }
+
+        else if (tag.getHint() == TagHint.HINT_BYTE_STREAM)
+        {
+            if (value instanceof byte[])
+            {
+                return String.format(Locale.ROOT, "[Binary Data: %d bytes]", ((byte[]) value).length);
+            }
+
+            return "[Binary Data]";
+        }
+
+        if (tag instanceof TagIFD_Baseline)
+        {
+            return translateBaseline((TagIFD_Baseline) tag, value);
+        }
+
+        else if (tag instanceof TagIFD_Extension)
+        {
+            return translateExtension((TagIFD_Extension) tag, value);
+        }
+
+        else if (tag instanceof TagIFD_Private)
+        {
+            return translatePrivate((TagIFD_Private) tag, value);
+        }
+
+        return String.valueOf(value);
     }
 
     private static String translateBaseline(TagIFD_Baseline tag, Object val)
@@ -139,7 +143,7 @@ public class TagTranslator
         switch (num)
         {
             case 1:
-                return "Horizontal (normal)"; // default
+                return "Horizontal (normal)";// default
             case 2:
                 return "Mirror horizontal";
             case 3:
@@ -176,7 +180,7 @@ public class TagTranslator
             case 1:
                 return "None";
             case 2:
-                return "inches"; // default
+                return "inches";// default
             case 3:
                 return "cm";
             default:
@@ -232,7 +236,6 @@ public class TagTranslator
     private static String translateYCbCr(Object val)
     {
         int num = (val instanceof Number ? ((Number) val).intValue() : convertToInt(val));
-
         return (num == 1) ? "Centered" : (num == 2 ? "Co-sited" : String.valueOf(val));
     }
 
@@ -293,13 +296,11 @@ public class TagTranslator
      * 
      * @param val
      *        the raw value as a Number
-     * @return either "Chunky" (default), "Planar", or the raw value if unknown. Note "Chunky" is
-     *         Default
+     * @return either "Chunky" (default), "Planar", or the raw value if unknown.
      */
     private static String translatePlanarConfig(Object val)
     {
         int num = (val instanceof Number ? ((Number) val).intValue() : convertToInt(val));
-
         return (num == 1) ? "Chunky" : (num == 2 ? "Planar" : String.valueOf(val));
     }
 
@@ -321,11 +322,6 @@ public class TagTranslator
                 return translateXPString(val);
             default:
             break;
-        }
-
-        if (tag.getHint() == TagHint.HINT_RATIONAL)
-        {
-            return formatRational(val);
         }
 
         return String.valueOf(val);
@@ -359,7 +355,6 @@ public class TagTranslator
     private static String translateIndexed(Object val)
     {
         int num = (val instanceof Number ? ((Number) val).intValue() : convertToInt(val));
-
         return (num == 1 ? "Indexed" : "Not indexed");
     }
 
@@ -439,15 +434,15 @@ public class TagTranslator
         {
             case IFD_DNG_VERSION:
             case IFD_DNG_BACKWARD_VERSION:
-                //return translateDngVersion(val);
+                // return translateDngVersion(val);
             case IFD_PROFILE_EMBED_POLICY:
-                //return translateProfileEmbedPolicy(val);
+                // return translateProfileEmbedPolicy(val);
             case IFD_PREVIEW_COLOR_SPACE:
-                //return translatePreviewColorSpace(val);
+                // return translatePreviewColorSpace(val);
             case IFD_DEPTH_UNITS:
-                //return translateDepthUnits(val);
+                // return translateDepthUnits(val);
             case IFD_DEPTH_MEASURE_TYPE:
-                //return translateDepthMeasureType(val);
+                // return translateDepthMeasureType(val);
             default:
             break;
         }
@@ -467,59 +462,58 @@ public class TagTranslator
      */
     private static String formatRational(Object val)
     {
-        if (val != null)
+        if (val == null)
         {
-            if (val instanceof Object[])
-            {
-                Object[] arr = (Object[]) val;
-                StringBuilder sb = new StringBuilder();
-
-                for (int i = 0; i < arr.length; i++)
-                {
-                    sb.append(formatRational(arr[i]));
-
-                    if (i < arr.length - 1)
-                    {
-                        sb.append(" ");
-                    }
-                }
-
-                return sb.toString();
-            }
-
-            else if (val instanceof RationalNumber)
-            {
-                RationalNumber r = (RationalNumber) val;
-
-                if (r.hasIntegerValue())
-                {
-                    // Whole number, for example: 72/1 -> 72
-                    return String.valueOf(r.longValue());
-                }
-
-                double d = r.doubleValue();
-
-                // if value too small (i.e., shutter speeds), keep fraction,
-                // otherwise decimal number, for example: 18/10 -> 1.8
-                if (d < 0.1)
-                {
-                    // Fraction is more clearer, i.e., 1/1297
-                    return r.toString();
-                }
-
-                // Otherwise, decimal number is good here, like 1.8 or 2.5
-                return formatNumericValue(d);
-            }
-
-            else if (val instanceof Number)
-            {
-                return formatNumericValue(((Number) val).doubleValue());
-            }
-
-            return String.valueOf(val).replace("/1", "");
+            return "";
         }
 
-        return "";
+        if (val instanceof Object[])
+        {
+            Object[] arr = (Object[]) val;
+            StringBuilder sb = new StringBuilder();
+
+            for (int i = 0; i < arr.length; i++)
+            {
+                sb.append(formatRational(arr[i]));
+
+                if (i < arr.length - 1)
+                {
+                    sb.append(" ");
+                }
+            }
+            return sb.toString();
+        }
+
+        else if (val instanceof RationalNumber)
+        {
+            RationalNumber r = (RationalNumber) val;
+
+            if (r.hasIntegerValue())
+            {
+                // Whole number, for example: 72/1 -> 72
+                return String.valueOf(r.longValue());
+            }
+
+            double d = r.doubleValue();
+
+            // if value too small (i.e., shutter speeds), keep fraction,
+            // otherwise decimal number, for example: 18/10 -> 1.8
+            if (d < 0.1)
+            {
+                // Fraction is more clearer, i.e., 1/1297
+                return r.toString();
+            }
+
+            // Otherwise, decimal number is good here, like 1.8 or 2.5
+            return formatNumericValue(d);
+        }
+
+        else if (val instanceof Number)
+        {
+            return formatNumericValue(((Number) val).doubleValue());
+        }
+
+        return String.valueOf(val).replace("/1", "");
     }
 
     /**
@@ -539,28 +533,20 @@ public class TagTranslator
             return String.valueOf(val);
         }
 
-        // Check if it is a clean integer
         if (d == (long) d)
         {
-            return String.format("%d", (long) d);
+            return String.format(Locale.ROOT, "%d", (long) d);
         }
 
-        return String.format("%.4f", d).replaceAll("0+$", "").replaceAll("\\.$", "");
+        return String.format(Locale.ROOT, "%.4f", d).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
     /**
-     * Normalises data embedded in the specified Object type (such as Number, int[], or byte[]) into
-     * a primary integer value.
-     * 
-     * <p>
-     * This method handles "boxed" single-element arrays—specifically {@code int[]} or
-     * {@code byte[]}, which are often produced by parsers when a tag has a count of one (scalar
-     * type).
-     * </p>
+     * Normalises data embedded in the specified Object type into a primary integer value.
      * 
      * @param val
      *        the raw object value to resolve
-     * @return the resolved integer value, or {@code -1} if the type is null or unsupported
+     * @return the resolved integer value, or {@code -1} if unsupported
      */
     private static int convertToInt(Object val)
     {
@@ -584,11 +570,10 @@ public class TagTranslator
 
     /**
      * Extracts a double from various object types (Number, RationalNumber, arrays).
-     * Useful for tags that require decimal precision like FNumber or GPS coordinates.
      * 
      * @param val
      *        the raw object value to resolve
-     * @return the resolved double value 
+     * @return the resolved double value, or {@code Double.NaN} if unsupported
      */
     private static double convertToDouble(Object val)
     {
@@ -612,9 +597,16 @@ public class TagTranslator
             return ((float[]) val)[0];
         }
 
-        // Fallback for single-element integer/byte arrays
-        int i = convertToInt(val);
+        else if (val instanceof int[] && ((int[]) val).length > 0)
+        {
+            return ((int[]) val)[0];
+        }
 
-        return (i != -1) ? (double) i : Double.NaN;
+        else if (val instanceof byte[] && ((byte[]) val).length > 0)
+        {
+            return ((byte[]) val)[0] & 0xFF;
+        }
+
+        return Double.NaN;
     }
 }

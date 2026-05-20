@@ -36,7 +36,6 @@ public class TifParser extends AbstractImageParser
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(TifParser.class);
     private final TifMetadata metadata;
-    private boolean isParsed;
 
     /**
      * Creates an instance intended for parsing the specified TIFF image file.
@@ -58,7 +57,6 @@ public class TifParser extends AbstractImageParser
             LOGGER.warn(formatExtensionErrorMessage());
         }
 
-        this.isParsed = false;
         this.metadata = new TifMetadata();
     }
 
@@ -98,15 +96,17 @@ public class TifParser extends AbstractImageParser
             if (handler.parseMetadata())
             {
                 populateMetadata(tif, handler);
-                return tif;
             }
 
-            LOGGER.error("Parsing for memory payload block in IFD segment failed");
+            else
+            {
+                LOGGER.error("Parsing for memory payload block in IFD segment failed");
+            }
         }
 
         catch (IOException exc)
         {
-            LOGGER.error("Data corruption or parsing exception detected. [" + exc.getMessage() + "]", exc);
+            LOGGER.error("Data corruption or parsing exception detected. Message: " + exc.getMessage(), exc);
         }
 
         return tif;
@@ -121,7 +121,7 @@ public class TifParser extends AbstractImageParser
     @Override
     public void readMetadata() throws IOException
     {
-        if (!isParsed)
+        if (metadata.isEmpty())
         {
             try (IFDHandler handler = new IFDHandler(getImageFile()))
             {
@@ -133,8 +133,6 @@ public class TifParser extends AbstractImageParser
                     {
                         LOGGER.debug("No XMP payload found");
                     }
-
-                    isParsed = true;
                 }
 
                 else
@@ -162,7 +160,7 @@ public class TifParser extends AbstractImageParser
     @Override
     public Metadata<DirectoryIFD> getMetadata()
     {
-        if (!isParsed)
+        if (metadata.isEmpty())
         {
             throw new IllegalStateException("Metadata has not been parsed yet. Call readMetadata() first");
         }
@@ -192,7 +190,7 @@ public class TifParser extends AbstractImageParser
     @Override
     public String formatDiagnosticString() throws IOException
     {
-        if (!isParsed)
+        if (metadata.isEmpty())
         {
             readMetadata();
         }
@@ -230,7 +228,12 @@ public class TifParser extends AbstractImageParser
     }
 
     /**
-     * Shared helper to process and map standard directory segments and embedded XMP streams.
+     * Populates a metadata container with directories and tags extracted by the TIF handler.
+     * 
+     * @param target
+     *        the {@link TifMetadata} instance to populate
+     * @param handler
+     *        the {@link IFDHandler} containing the successfully parsed structures
      */
     private static void populateMetadata(TifMetadata target, IFDHandler handler)
     {

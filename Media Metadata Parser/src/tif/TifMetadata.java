@@ -163,7 +163,7 @@ public class TifMetadata implements TifMetadataProvider
     @Override
     public void setByteOrder(ByteOrder order)
     {
-        this.byteOrder = order;
+        byteOrder = order;
     }
 
     /**

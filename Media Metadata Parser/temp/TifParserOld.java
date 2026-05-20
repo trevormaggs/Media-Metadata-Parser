@@ -35,9 +35,9 @@ import xmp.XmpHandler;
  * @version 1.0
  * @since 13 August 2025
  */
-public class TifParser2 extends AbstractImageParser
+public class TifParserOld extends AbstractImageParser
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(TifParser2.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(TifParserOld.class);
     private TifMetadata metadata;
 
     /**
@@ -49,7 +49,7 @@ public class TifParser2 extends AbstractImageParser
      * @throws IOException
      *         if the file is not a regular type or does not exist
      */
-    public TifParser2(Path fpath) throws IOException
+    public TifParserOld(Path fpath) throws IOException
     {
         super(fpath);
 
@@ -70,7 +70,7 @@ public class TifParser2 extends AbstractImageParser
      * @throws IOException
      *         if an I/O error occurs
      */
-    public TifParser2(String file) throws IOException
+    public TifParserOld(String file) throws IOException
     {
         this(Paths.get(file));
     }
