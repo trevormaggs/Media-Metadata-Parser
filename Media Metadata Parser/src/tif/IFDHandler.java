@@ -364,10 +364,10 @@ public class IFDHandler implements ImageHandler
                          * Note: if any auxiliary Sub-IFD fails, the whole metadata
                          * information will be cleared to signal users to check
                          */
+                        LOGGER.error(String.format("Parsing failed inside Sub-IFD [%s] pointing from offset 0x%04X", nextDir, currentOffset));
                         return false;
                     }
                 }
-
                 finally
                 {
                     // Always restore this offset to maintain positional integrity
