@@ -324,4 +324,11 @@ public class XmpHandlerOld implements ImageHandler
 
         return propertyValueByPath;
     }
+
+    @Override
+    public void close() throws Exception
+    {
+        // TODO Auto-generated method stub
+        
+    }
 }

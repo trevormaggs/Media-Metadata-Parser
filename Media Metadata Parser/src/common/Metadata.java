@@ -5,13 +5,29 @@ import java.time.ZonedDateTime;
 import java.util.Date;
 
 /**
- * A unified container for image metadata, organised into one or more {@link Directory} objects.
- * This interface provides a standard way to manage, query, and traverse metadata extracted from
- * various image formats, i.e. TIFF, PNG, JPEG, etc.
+ * A unified top-level container for image metadata structured into accessible {@link Directory}
+ * blocks.
+ *
+ * <p>
+ * This interface serves as the foundational contract for managing, traversing, and extracting
+ * metadata from diverse imaging formats, such as TIFF, JPEG, PNG. It models metadata as an iterable
+ * collection of domain-specific directories, where each directory encapsulates related metadata
+ * properties or tags (such as camera settings, geolocation data, or text blocks).
+ * </p>
+ *
+ * <p>
+ * Beyond structural management, this interface acts as a high-level facade for harvesting standard,
+ * cross-format information—such as temporal markers—by abstracting format-specific parsing
+ * complexities behind a unified API.
+ * </p>
  *
  * @param <D>
- *        the specific type of Directory handled by this metadata container, such as
- *        {@code DirectoryIFD} or {@code PngDirectory}
+ *        the specific type of {@link Directory} compiled within this metadata container, such as
+ *        {@code DirectoryIFD} for TIFF or {@code PngDirectory} for PNG images
+ *
+ * @author Trevor Maggs
+ * @version 1.2
+ * @since 13 August 2025
  */
 public interface Metadata<D extends Directory<?>> extends Iterable<D>
 {
@@ -46,7 +62,10 @@ public interface Metadata<D extends Directory<?>> extends Iterable<D>
      * @return either {@link java.nio.ByteOrder#BIG_ENDIAN} or
      *         {@link java.nio.ByteOrder#LITTLE_ENDIAN}
      */
-    ByteOrder getByteOrder();
+    default ByteOrder getByteOrder()
+    {
+        return ByteOrder.BIG_ENDIAN;
+    }
 
     /**
      * Checks if the metadata collection contains any metadata entries.
@@ -79,32 +98,21 @@ public interface Metadata<D extends Directory<?>> extends Iterable<D>
     }
 
     /**
-     * Performs a best-effort extraction of the image's creation or capture date.
-     * 
-     * <p>
-     * Implementations should prioritise high-fidelity sources, i.e. EXIF {@code DateTimeOriginal}
-     * before falling back to less reliable sources, i.e. file modification time.
-     * </p>
-     *
-     * @return the prioritised {@link Date} instance, or {@code null} if no temporal metadata is
-     *         found
-     */
-    default Date extractDate()
-    {
-        return null;
-    }
-
-    /**
      * Extracts the most authoritative creation date available as a modern ZonedDateTime instance.
      * 
      * <p>
-     * This method is preferred over {@link #extractDate()} as it preserves timezone and offset
-     * information often found in XMP segments.
+     * This method preserves timezone and offset information often found in XMP segments.
      * </p>
      * 
      * @return the extracted {@link ZonedDateTime}, or {@code null} if no valid timestamp is found
      */
     default ZonedDateTime extractZonedDateTime()
+    {
+        return null;
+    }
+
+    @Deprecated
+    public default Date extractDate()
     {
         return null;
     }

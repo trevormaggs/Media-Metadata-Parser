@@ -8,18 +8,15 @@ import xmp.XmpDirectory;
  * A dedicated interface for accessing and managing TIFF-based metadata structures.
  *
  * <p>
- * This interface extends the base {@link Metadata} contract to navigate the hierarchical nature of
- * TIFF files. It provides direct access to specific Image File Directories (IFDs), including EXIF,
- * GPS, and Interoperability sub-directories.
- * </p>
- *
- * <p>
- * Additionally, this interface serves as a container for {@link XmpDirectory} segments,
- * consolidating binary IFD tags and XML-based metadata packets into a single management context.
+ * This contract specialises {@link Metadata} to support the segmented architecture of Tagged Image
+ * File Format structures. It handles internal structural links across multiple Image File
+ * Directories (IFDs), including primary, EXIF, and GPS sub-blocks, while unifying traditional
+ * binary
+ * tags and modern, XML-based {@link XmpDirectory} fragments under a single API footprint.
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.1
+ * @version 1.2
  * @since 13 August 2025
  */
 public interface TifMetadataProvider extends Metadata<DirectoryIFD>

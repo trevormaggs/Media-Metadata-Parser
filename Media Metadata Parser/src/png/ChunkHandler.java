@@ -39,7 +39,7 @@ import png.ChunkType.Category;
  * @version 1.2
  * @since 4 February 2026
  */
-public class ChunkHandler implements ImageHandler, AutoCloseable
+public class ChunkHandler implements ImageHandler
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(ChunkHandler.class);
     private static final byte[] PNG_SIGNATURE_BYTES = DigitalSignature.PNG.getMagicNumbers(0);

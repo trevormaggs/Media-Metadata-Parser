@@ -64,13 +64,14 @@ public class XmpHandler implements ImageHandler
      */
     public static XmpDirectory addXmpDirectory(byte[] input) throws XMPException
     {
-        XmpHandler handler = new XmpHandler(input);
-
-        if (handler.parseMetadata())
+        try (XmpHandler handler = new XmpHandler(input))
         {
-            LOGGER.debug(String.format("XMP Data Found. [%d bytes] processed", input.length));
+            if (handler.parseMetadata())
+            {
+                LOGGER.debug(String.format("XMP Data Found. [%d bytes] processed", input.length));
 
-            return handler.getXmpDirectory();
+                return handler.getXmpDirectory();
+            }
         }
 
         return null;
@@ -95,6 +96,15 @@ public class XmpHandler implements ImageHandler
         }
 
         readPropertyData(input);
+    }
+
+    /**
+     * Just to comply with the interface contract.
+     */
+    @Override
+    public void close()
+    {
+        // Do nothing
     }
 
     /**

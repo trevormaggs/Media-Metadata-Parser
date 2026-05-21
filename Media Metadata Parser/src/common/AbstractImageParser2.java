@@ -9,38 +9,41 @@ import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
 /**
- * An abstract base for image file parsers. Subclasses implement decoding logic for specific
- * formats, such as JPEG, PNG, TIFF, to extract metadata structures.
+ * An abstract base for image file parsers. Subclasses implement decoding logic for specific formats
+ * (e.g. JPEG, PNG, TIFF) to extract metadata structures.
  *
  * <p>
- * This class handles file validation configurations and provides utilities for retrieving basic
- * file system attributes and generic diagnostic information.
+ * This class handles file validation and provides utilities for retrieving basic file system
+ * attributes and diagnostic information.
  * </p>
  * 
- * @param <T>
- *        The specific type of {@link Metadata} container returned by this parser execution.
- * 
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.0
  * @since 13 August 2025
  */
-public abstract class AbstractImageParser<T extends Metadata<?>>
+public abstract class AbstractImageParser2
 {
     private final Path imageFile;
 
     /**
-     * Constructs an image parser. File validation checks are deferred to execution runtime to avoid
-     * constructor-level blocking I/O and race conditions.
+     * Constructs an image parser and validates the target file.
      *
      * @param fpath
      *        the path to the image file
-     *
+     * 
      * @throws NullPointerException
      *         if {@code fpath} is null
+     * @throws IOException
+     *         if the file does not exist or is not a regular file
      */
-    protected AbstractImageParser(Path fpath)
+    public AbstractImageParser2(Path fpath) throws IOException
     {
-        this.imageFile = Objects.requireNonNull(fpath, "Image file path cannot be null");
+        this.imageFile = Objects.requireNonNull(fpath);
+
+        if (Files.notExists(imageFile) || !Files.isRegularFile(imageFile))
+        {
+            throw new IOException("File [" + imageFile + "] does not exist or is not a regular file");
+        }
     }
 
     /**
@@ -54,13 +57,12 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
     }
 
     /**
-     * Summarises basic OS-level file attributes for diagnostics. Internal binary attributes (such
-     * as byte order) are handled directly by subclasses.
+     * Summarises basic file attributes and metadata status for diagnostics.
      *
-     * @return a formatted string containing general file metrics
-     *
+     * @return a formatted string containing file metrics and detected formats
+     * 
      * @throws IOException
-     *         if the file attributes cannot be read from disk
+     *         if the file attributes cannot be read
      */
     public String formatDiagnosticString() throws IOException
     {
@@ -77,22 +79,10 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
         sb.append(String.format(MetadataConstants.FORMATTER, "Last Access Time", df.format(attr.lastAccessTime().toInstant())));
         sb.append(String.format(MetadataConstants.FORMATTER, "Last Modified Time", df.format(attr.lastModifiedTime().toInstant())));
         sb.append(String.format(MetadataConstants.FORMATTER, "Image Format Type", getImageFormat().getFileExtensionName()));
+        sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", getMetadata().getByteOrder()));
+        sb.append(System.lineSeparator());
 
         return sb.toString();
-    }
-
-    /**
-     * Validates that the target file exists and is a regular file before proceeding to parse.
-     * 
-     * @throws IOException
-     *         if the file does not exist or is not a regular file
-     */
-    protected void validateFileState() throws IOException
-    {
-        if (Files.notExists(imageFile) || !Files.isRegularFile(imageFile))
-        {
-            throw new IOException("File [" + imageFile + "] does not exist or is not a regular file");
-        }
     }
 
     /**
@@ -130,9 +120,9 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
     /**
      * Retrieves the extracted metadata.
      * 
-     * @return the extracted {@link Metadata} container execution context
+     * @return the extracted {@link Metadata} container
      */
-    public abstract T getMetadata();
+    public abstract Metadata<?> getMetadata();
 
     /**
      * Returns the detected image format, such as {@code TIFF}, {@code PNG}, or {@code JPG}.

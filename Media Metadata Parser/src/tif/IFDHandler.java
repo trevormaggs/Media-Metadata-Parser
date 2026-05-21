@@ -36,27 +36,26 @@ import tif.tagspecs.Taggable;
  * @author Trevor Maggs
  * @version 1.4
  */
-public class IFDHandler implements ImageHandler, AutoCloseable
+public class IFDHandler implements ImageHandler
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(IFDHandler.class);
     private static final int MAX_METADATA_CHUNK_SIZE = 64 * 1024 * 1024; // 64MB
     private static final int TIFF_STANDARD_VERSION = 42;
     private static final int TIFF_BIG_VERSION = 43;
     public static final int ENTRY_MAX_VALUE_LENGTH = 4;
-
     private final List<DirectoryIFD> directoryList = new ArrayList<>();
     private final ByteStreamReader reader;
     private boolean isTiffBig;
 
     /**
-     * Constructs a handler using an existing byte stream reader.
+     * Constructs a handler internally using an existing byte stream reader.
      *
      * @param reader
      *        the stream reader providing access to TIFF content
      */
-    public IFDHandler(ByteStreamReader reader)
+    private IFDHandler(ByteStreamReader reader)
     {
-        this.reader = reader;
+        this.reader = java.util.Objects.requireNonNull(reader, "Byte stream reader cannot be null");
     }
 
     /**
@@ -74,7 +73,7 @@ public class IFDHandler implements ImageHandler, AutoCloseable
      */
     public IFDHandler(Path fpath) throws IOException
     {
-        this.reader = new ImageRandomAccessReader(fpath);
+        this(new ImageRandomAccessReader(fpath));
     }
 
     /**
@@ -85,7 +84,7 @@ public class IFDHandler implements ImageHandler, AutoCloseable
      */
     public IFDHandler(byte[] payload)
     {
-        this.reader = new SequentialByteArrayReader(payload);
+        this(new SequentialByteArrayReader(payload));
     }
 
     /**
@@ -174,6 +173,7 @@ public class IFDHandler implements ImageHandler, AutoCloseable
             }
         }
 
+        // IFD0 must exist
         for (DirectoryIFD dir : directoryList)
         {
             if (dir.getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
@@ -334,11 +334,10 @@ public class IFDHandler implements ImageHandler, AutoCloseable
             }
         }
 
+        long nextOffset = reader.readUnsignedInteger();
+
         directoryList.add(ifd);
         LOGGER.debug(String.format("Successfully parsed and added directory [%s]", dirType));
-
-        long nextOffset = reader.readUnsignedInteger();
-        long currentOffset = reader.getCurrentPosition();
 
         for (EntryIFD entry : ifd)
         {
@@ -355,15 +354,27 @@ public class IFDHandler implements ImageHandler, AutoCloseable
 
                 LOGGER.debug(String.format("Following Sub-IFD pointer [%s] to absolute offset 0x%04X", tag, subIfdOffset));
 
-                if (!navigateImageFileDirectory(nextDir, subIfdOffset))
+                long currentOffset = reader.getCurrentPosition();
+
+                try
                 {
-                    return false;
+                    if (!navigateImageFileDirectory(nextDir, subIfdOffset))
+                    {
+                        /*
+                         * Note: if any auxiliary Sub-IFD fails, the whole metadata
+                         * information will be cleared to signal users to check
+                         */
+                        return false;
+                    }
+                }
+
+                finally
+                {
+                    // Always restore this offset to maintain positional integrity
+                    reader.seek(currentOffset);
                 }
             }
         }
-
-        // Restore this offset to maintain positional integrity
-        reader.seek(currentOffset);
 
         if (nextOffset == 0x0000L)
         {

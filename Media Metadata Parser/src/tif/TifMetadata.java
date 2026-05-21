@@ -1,4 +1,3 @@
-
 package tif;
 
 import java.nio.ByteOrder;
@@ -6,6 +5,7 @@ import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import tif.tagspecs.TagIFD_Baseline;
 import tif.tagspecs.TagIFD_Exif;
@@ -23,7 +23,8 @@ import xmp.XmpProperty;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.1
+ * @version 1.2
+ * @since 13 August 2025
  */
 public class TifMetadata implements TifMetadataProvider
 {
@@ -40,24 +41,18 @@ public class TifMetadata implements TifMetadataProvider
     }
 
     /**
-     * Constructs a new {@code TifMetadata} object with the specified byte order for interpreting
-     * multi-byte raw data correctly.
+     * Constructs a new metadata container with the specified byte order for interpreting multi-byte
+     * raw data correctly.
      *
      * @param order
-     *        either {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
-     * @throws NullPointerException
-     *         if the byte order argument is null
+     *        either {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN} @throws
+     *        NullPointerException if {@code order} is {@code null}
      */
     public TifMetadata(ByteOrder order)
     {
         this();
 
-        if (order == null)
-        {
-            throw new NullPointerException("ByteOrder argument cannot be null");
-        }
-
-        setByteOrder(order);
+        setByteOrder(Objects.requireNonNull(order, "Byte order cannot be null"));
     }
 
     /**
@@ -65,6 +60,7 @@ public class TifMetadata implements TifMetadataProvider
      *
      * @param directory
      *        the directory to add
+     * 
      * @throws NullPointerException
      *         if the directory is null
      * @throws IllegalStateException
@@ -89,22 +85,19 @@ public class TifMetadata implements TifMetadataProvider
     /**
      * Removes a {@link DirectoryIFD} from the container.
      *
-     * @param directory
+     * @param dir
      *        the {@link DirectoryIFD} to remove
      * @return {@code true} if the directory was successfully removed
      *
      * @throws NullPointerException
-     *         if the provided directory is null
+     *         if the specified directory is null
      */
     @Override
-    public boolean removeDirectory(DirectoryIFD directory)
+    public boolean removeDirectory(DirectoryIFD dir)
     {
-        if (directory == null)
-        {
-            throw new NullPointerException("Directory cannot be null");
-        }
+        Objects.requireNonNull(dir, "Directory cannot be null");
 
-        return (ifdMap.remove(directory.getDirectoryType()) != null);
+        return (ifdMap.remove(dir.getDirectoryType()) != null);
     }
 
     /**
@@ -115,7 +108,7 @@ public class TifMetadata implements TifMetadataProvider
     @Override
     public boolean isEmpty()
     {
-        return ifdMap.isEmpty() && !hasXmpData();
+        return (ifdMap.isEmpty() && xmpDir == null);
     }
 
     /**
@@ -146,7 +139,7 @@ public class TifMetadata implements TifMetadataProvider
      *
      * @param key
      *        the {@link DirectoryIdentifier} of the directory to retrieve
-     * @return the {@link DirectoryIFD} associated with the key, or null if not found
+     * @return the {@link DirectoryIFD} associated with the key, or {@code null} if not found
      */
     @Override
     public DirectoryIFD getDirectory(DirectoryIdentifier key)
@@ -167,13 +160,9 @@ public class TifMetadata implements TifMetadataProvider
     }
 
     /**
-     * Resets the metadata container to an entirely empty state.
-     *
-     * <p>
-     * This purges all tracked {@link DirectoryIFD} segments, tears down the embedded XMP directory
-     * model instance, and nullifies the active byte-ordering flag. It is designed to safely permit
-     * data-clearing operations and parsing retries without duplicating state objects.
-     * </p>
+     * Resets the metadata container to an entirely empty state, purging all tracked
+     * {@link DirectoryIFD} segments, sweeping away the embedded XMP directory instance and clearing
+     * the active byte-ordering flag. This aims to cleanly restart parsing operations from scratch.
      */
     @Override
     public void clear()
@@ -195,10 +184,7 @@ public class TifMetadata implements TifMetadataProvider
     @Override
     public void addXmpDirectory(XmpDirectory dir)
     {
-        if (dir == null)
-        {
-            throw new NullPointerException("XMP directory cannot be null");
-        }
+        Objects.requireNonNull(dir, "XMP Directory cannot be null");
 
         xmpDir = dir;
     }
@@ -245,7 +231,7 @@ public class TifMetadata implements TifMetadataProvider
     @Override
     public boolean hasXmpData()
     {
-        return (xmpDir != null && xmpDir.size() > 0);
+        return (xmpDir != null);
     }
 
     /**

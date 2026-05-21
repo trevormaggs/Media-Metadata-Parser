@@ -1,6 +1,7 @@
 package png;
 
 import static tif.tagspecs.TagIFD_Exif.*;
+import java.io.IOException;
 import java.nio.ByteOrder;
 import java.util.Date;
 import java.util.HashMap;
@@ -228,7 +229,18 @@ public class PngMetadata implements PngMetadataProvider
         {
             PngDirectory dir = getDirectory(Category.MISC);
             PngChunk chunk = dir.getFirstChunk(ChunkType.eXIf);
-            TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
+            TifMetadata exif;
+
+            try
+            {
+                exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
+            }
+
+            catch (IOException exc)
+            {
+                exif = new TifMetadata();
+            }
+
             DirectoryIFD ifd = exif.getDirectory(DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY);
 
             if (ifd != null && ifd.hasTag(EXIF_DATE_TIME_ORIGINAL))
