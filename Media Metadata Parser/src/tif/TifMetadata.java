@@ -51,7 +51,6 @@ public class TifMetadata implements TifMetadataProvider
     public TifMetadata(ByteOrder order)
     {
         this();
-
         setByteOrder(Objects.requireNonNull(order, "Byte order cannot be null"));
     }
 

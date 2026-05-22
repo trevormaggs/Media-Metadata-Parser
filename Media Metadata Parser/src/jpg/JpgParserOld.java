@@ -9,12 +9,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
 import common.DigitalSignature;
 import common.ImageRandomAccessReader;
+import common.Metadata;
 import common.MetadataConstants;
 import common.Utils;
 import logger.LogFactory;
@@ -46,15 +48,13 @@ import xmp.XmpHandler;
  * @version 1.5
  * @since 30 September 2025
  */
-public class JpgParser2 extends AbstractImageParser<TifMetadata>
+public class JpgParserOld extends AbstractImageParser<TifMetadata>
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(JpgParser2.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(JpgParserOld.class);
     private static final int PADDING_LIMIT = 64;
-    
     public static final byte[] EXIF_IDENTIFIER = "Exif\0\0".getBytes(StandardCharsets.UTF_8);
     public static final byte[] ICC_IDENTIFIER = "ICC_PROFILE\0".getBytes(StandardCharsets.UTF_8);
     public static final byte[] XMP_IDENTIFIER = "http://ns.adobe.com/xap/1.0/\0".getBytes(StandardCharsets.UTF_8);
-    
     private TifMetadata metadata;
     private JpgSegmentData segmentData;
 
@@ -108,7 +108,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
      * @throws IOException
      *         if the file cannot be opened or read
      */
-    public JpgParser2(String file) throws IOException
+    public JpgParserOld(String file) throws IOException
     {
         this(Paths.get(file));
     }
@@ -122,7 +122,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
      * @throws IOException
      *         if the file cannot be opened or read
      */
-    public JpgParser2(Path fpath) throws IOException
+    public JpgParserOld(Path fpath) throws IOException
     {
         super(fpath);
 
@@ -146,7 +146,6 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
     @Override
     public void readMetadata() throws IOException
     {
-        validateFileState();
         try (ImageRandomAccessReader reader = new ImageRandomAccessReader(getImageFile()))
         {
             segmentData = readMetadataSegments(reader);
@@ -164,7 +163,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
      * segment is present, an empty {@link TifMetadata} object is returned as a fallback.
      * </p>
      *
-     * @return a TifMetadata object, populated with EXIF data or empty
+     * @return a MetadataStrategy object, populated with EXIF data or empty
      */
     @Override
     public TifMetadata getMetadata()
@@ -174,27 +173,20 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
             return metadata;
         }
 
-        if (segmentData == null)
-        {
-            LOGGER.warn("getMetadata() invoked before readMetadata() execution tracker cleared; returning empty container.");
-            return new TifMetadata();
-        }
-
-        // Handle raw EXIF byte parsing safely inside lazy initialisation block
-        if (segmentData.getExif().isPresent())
+        else if (segmentData.getExif().isPresent())
         {
             try
             {
                 metadata = TifParser.parseTiffMetadataFromBytes(segmentData.getExif().get());
             }
-            
+
             catch (IOException exc)
             {
                 LOGGER.error("Corrupt or invalid EXIF payload encountered inside APP1 layout structure; falling back to clean structure", exc);
                 metadata = new TifMetadata();
             }
         }
-        
+
         else if (segmentData.getXmp().isPresent())
         {
             /*
@@ -203,14 +195,12 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
              */
             metadata = new TifMetadata(ByteOrder.BIG_ENDIAN);
         }
-        
+
         else
         {
-            metadata = new TifMetadata();
-            return metadata;
+            return new TifMetadata();
         }
 
-        // Process associated XMP metadata properties safely
         if (segmentData.getXmp().isPresent())
         {
             try
@@ -218,7 +208,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
                 XmpDirectory xmpDir = XmpHandler.addXmpDirectory(segmentData.getXmp().get());
                 metadata.addXmpDirectory(xmpDir);
             }
-            
+
             catch (XMPException exc)
             {
                 LOGGER.error("Unable to parse XMP payload in file [" + getImageFile() + "] due to an error", exc);
@@ -227,7 +217,6 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
 
         return metadata;
     }
-
     /**
      * Returns the detected {@code JPG} format.
      *
@@ -243,13 +232,11 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
      * Generates a human-readable diagnostic string containing metadata details.
      *
      * @return a formatted string suitable for diagnostics, logging, or inspection
-     * @throws IOException 
-     *         if basic underlying file properties cannot be resolved
      */
     @Override
-    public String formatDiagnosticString() throws IOException
+    public String formatDiagnosticString()
     {
-        TifMetadata meta = getMetadata();
+        Metadata<DirectoryIFD> meta = getMetadata();
         StringBuilder sb = new StringBuilder();
 
         try
@@ -257,46 +244,56 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
             sb.append("\t\t\tJPG Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
 
-            if (meta.hasMetadata())
+            if (meta instanceof TifMetadata)
             {
-                for (DirectoryIFD ifd : meta)
+                TifMetadata tif = (TifMetadata) meta;
+
+                if (tif.hasMetadata())
                 {
-                    sb.append(ifd);
+                    for (DirectoryIFD ifd : tif)
+                    {
+                        sb.append(ifd);
+                    }
                 }
-            }
-            else
-            {
-                sb.append("No EXIF metadata found.").append(System.lineSeparator());
-            }
 
-            sb.append(System.lineSeparator()).append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+                else
+                {
+                    sb.append("No EXIF metadata found.").append(System.lineSeparator());
+                }
 
-            if (meta.hasXmpData())
-            {
-                sb.append(meta.getXmpDirectory());
-            }
-            else
-            {
-                sb.append("No XMP metadata found").append(System.lineSeparator());
-            }
+                sb.append(System.lineSeparator()).append(MetadataConstants.DIVIDER).append(System.lineSeparator());
 
-            sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+                if (tif.hasXmpData())
+                {
+                    sb.append(tif.getXmpDirectory());
+                }
 
-            if (segmentData != null && segmentData.getIcc().isPresent())
-            {
-                sb.append("Parser has concatenated all ICC segments, ");
-                sb.append(String.format("totalling [%d] bytes of ICC Data.", segmentData.getIcc().get().length)).append(System.lineSeparator());
-            }
-            else
-            {
-                sb.append("No ICC Profile found.").append(System.lineSeparator());
-            }
+                else
+                {
+                    sb.append("No XMP metadata found").append(System.lineSeparator());
+                }
 
-            sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+                sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+
+                if (segmentData.getIcc().isPresent())
+                {
+                    sb.append("Parser has concatenated all ICC segments, ");
+                    sb.append(String.format("totalling [%d] bytes of ICC Data.", segmentData.getIcc().get().length)).append(System.lineSeparator());
+                }
+
+                else
+                {
+                    sb.append("No ICC Profile found.").append(System.lineSeparator());
+                }
+
+                sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+            }
         }
+
         catch (Exception exc)
         {
             LOGGER.error("Diagnostics failed for file [" + getImageFile() + "]", exc);
+
             sb.append("Error generating diagnostics [")
                     .append(exc.getClass().getSimpleName())
                     .append("]: ")
@@ -317,10 +314,11 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
      */
     public static byte[] stripExifPreamble(byte[] data)
     {
-        if (data.length >= JpgParser2.EXIF_IDENTIFIER.length && Arrays.equals(Arrays.copyOf(data, JpgParser2.EXIF_IDENTIFIER.length), JpgParser2.EXIF_IDENTIFIER))
+        if (data.length >= JpgParserOld.EXIF_IDENTIFIER.length && Arrays.equals(Arrays.copyOf(data, JpgParserOld.EXIF_IDENTIFIER.length), JpgParserOld.EXIF_IDENTIFIER))
         {
-            return Arrays.copyOfRange(data, JpgParser2.EXIF_IDENTIFIER.length, data.length);
+            return Arrays.copyOfRange(data, JpgParserOld.EXIF_IDENTIFIER.length, data.length);
         }
+
         return data;
     }
 
@@ -350,7 +348,10 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
 
             while (true)
             {
-                int marker = reader.readUnsignedByte();
+                int marker;
+                int flag;
+
+                marker = reader.readUnsignedByte();
 
                 if (marker != 0xFF)
                 {
@@ -358,7 +359,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
                     continue;
                 }
 
-                int flag = reader.readUnsignedByte();
+                flag = reader.readUnsignedByte();
 
                 /*
                  * In some cases, JPEG allows multiple 0xFF bytes (fill or padding bytes) before the
@@ -379,6 +380,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
                     }
 
                     flag = reader.readUnsignedByte();
+
                 }
 
                 if (LOGGER.isDebugEnabled())
@@ -392,6 +394,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
                 return JpgSegmentConstants.fromBytes(marker, flag);
             }
         }
+
         catch (EOFException eof)
         {
             return null;
@@ -420,6 +423,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
             JpgSegmentConstants segment = fetchNextSegment(reader);
 
             // SOS (Start of Scan) marks the beginning of the compressed image data.
+            // Usually, no metadata exists after this point except the EOI marker.
             if (segment == null || segment == JpgSegmentConstants.END_OF_IMAGE || (segment == JpgSegmentConstants.START_OF_STREAM))
             {
                 break;
@@ -445,7 +449,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
                         // Only one EXIF segment is allowed
                         if (exifSegment == null)
                         {
-                            byte[] strippedPayload = JpgParser2.stripExifPreamble(payload);
+                            byte[] strippedPayload = JpgParserOld.stripExifPreamble(payload);
 
                             if (strippedPayload.length < payload.length)
                             {
@@ -465,6 +469,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
 
                         LOGGER.debug(String.format("Non-EXIF/XMP APP1 segment skipped. Length [%d]", payload.length));
                     }
+
                     else if (segment == JpgSegmentConstants.APP2_SEGMENT)
                     {
                         if (payload.length >= ICC_IDENTIFIER.length && Arrays.equals(Arrays.copyOfRange(payload, 0, ICC_IDENTIFIER.length), ICC_IDENTIFIER))
@@ -476,7 +481,13 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
 
                         LOGGER.debug(String.format("Non-ICC APP2 segment skipped. Length [%d]", payload.length));
                     }
+
+                    else
+                    {
+                        LOGGER.debug(String.format("Unhandled segment [0xFF%02X] skipped. Length [%d]", segment.getFlag(), length));
+                    }
                 }
+
                 else
                 {
                     reader.skip(length);
@@ -490,8 +501,15 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
     /**
      * Reassembles XMP metadata fragments into a single, cohesive byte array for parsing.
      *
+     * <p>
+     * The Extensible Metadata Platform (XMP) specification allows XMP data to be stored across
+     * multiple APP1 segments within a JPEG file. This method reassembles these fragments into a
+     * single, cohesive byte array for parsing.
+     * </p>
+     *
      * @param segments
      *        the list of byte arrays, each representing a raw APP1 segment containing XMP data
+     *
      * @return the concatenated byte array, or returns null if no segments are available
      */
     private byte[] reconstructXmpSegments(List<byte[]> segments)
@@ -506,13 +524,16 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
                 }
 
                 LOGGER.debug(String.format("Successfully reconstructed XMP metadata from [%d] segment(s)", segments.size()));
+
                 return baos.toByteArray();
             }
+
             catch (IOException exc)
             {
                 LOGGER.error("Failed to concatenate XMP segments", exc);
             }
         }
+
         return null;
     }
 
@@ -526,6 +547,10 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
      */
     private byte[] reconstructIccSegments(List<byte[]> segments)
     {
+        /*
+         * The header is 14 bytes: ICC_PROFILE\0 (12 bytes)
+         * + 1 byte sequence number + 1 byte total count
+         */
         int headerLength = ICC_IDENTIFIER.length + 2;
 
         if (segments.isEmpty())
@@ -542,6 +567,9 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
             }
         }
 
+        /*
+         * Get the total number of segments (M) from the first segment's header (byte at index 13)
+         */
         int totalCount = segments.get(0)[ICC_IDENTIFIER.length + 1] & 0xFF;
 
         if (totalCount == 0 || totalCount != segments.size())
@@ -550,6 +578,7 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
             return null;
         }
 
+        /* Make sure all segments share the same total count */
         for (byte[] seg : segments)
         {
             if ((seg[ICC_IDENTIFIER.length + 1] & 0xFF) != totalCount)
@@ -559,8 +588,15 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
             }
         }
 
-        // Refactored to optimized lambda execution block
-        segments.sort((s1, s2) -> Integer.compare(s1[ICC_IDENTIFIER.length] & 0xFF, s2[ICC_IDENTIFIER.length] & 0xFF));
+        /* Using an anonymous class */
+        segments.sort(new Comparator<byte[]>()
+        {
+            @Override
+            public int compare(byte[] s1, byte[] s2)
+            {
+                return Integer.compare(s1[ICC_IDENTIFIER.length] & 0xFF, s2[ICC_IDENTIFIER.length] & 0xFF);
+            }
+        });
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream())
         {
@@ -570,8 +606,10 @@ public class JpgParser2 extends AbstractImageParser<TifMetadata>
             }
 
             LOGGER.debug(String.format("Successfully reconstructed ICC profile from [%d] segment(s)", totalCount));
+
             return baos.toByteArray();
         }
+
         catch (IOException exc)
         {
             LOGGER.error("Failed to concatenate ICC segments", exc);

@@ -42,7 +42,7 @@ public final class DisplayMetadata
             try
             {
                 Path fpath = record.getPath();
-                AbstractImageParser parser = ImageParserFactory.getParser(fpath);
+                AbstractImageParser<?> parser = ImageParserFactory.getParser(fpath);
 
                 parser.readMetadata();
                 Metadata<?> meta = parser.getMetadata();

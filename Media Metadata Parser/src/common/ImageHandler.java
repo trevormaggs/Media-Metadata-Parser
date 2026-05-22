@@ -13,6 +13,8 @@ public interface ImageHandler extends AutoCloseable
     /**
      * Parses the image data and extracts metadata into internal structures.
      * 
+     * @return true if metadata was successfully extracted, otherwise false
+     * 
      * @throws IOException
      *         if low-level I/O errors occur, or if the binary data is corrupt
      */

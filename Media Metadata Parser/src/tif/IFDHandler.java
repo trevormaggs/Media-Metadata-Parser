@@ -368,9 +368,10 @@ public class IFDHandler implements ImageHandler
                         return false;
                     }
                 }
+
                 finally
                 {
-                    // Always restore this offset to maintain positional integrity
+                    /* Always restore this offset to maintain positional integrity */
                     reader.seek(currentOffset);
                 }
             }
@@ -387,9 +388,9 @@ public class IFDHandler implements ImageHandler
             return false;
         }
 
-        // Traverses to the next contiguous directory in the main chain
         if (dirType.isMainChain())
         {
+            /* Traverses to the next contiguous directory in the main chain */
             return navigateImageFileDirectory(DirectoryIdentifier.getNextDirectoryType(dirType), nextOffset);
         }
 
