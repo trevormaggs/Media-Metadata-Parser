@@ -104,14 +104,14 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
     {
         String filename = imageFile.getFileName().toString();
         int lastDot = filename.lastIndexOf('.');
-        String baseName = (lastDot > 0) ? filename.substring(0, lastDot) : filename;
+        String baseName = (lastDot == 0 ? filename : (lastDot > 0 ? filename.substring(0, lastDot) : filename));
         String targetExt = getImageFormat().getFileExtensionName();
 
         /*
          * Special Case: If the filename is the extension itself (e.g., file named "tif")
          * or if it's an extension-only hidden file (e.g., ".tif").
          */
-        if (baseName.equalsIgnoreCase(targetExt) || filename.equalsIgnoreCase("." + targetExt))
+        if (filename.equalsIgnoreCase("." + targetExt) || filename.equalsIgnoreCase(targetExt))
         {
             return String.format("File [%s] has no proper extension, but contains [%s] data", filename, targetExt.toUpperCase());
         }

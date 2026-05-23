@@ -248,8 +248,9 @@ public class TifParser extends AbstractImageParser<TifMetadata>
      */
     private static void populateMetadata(TifMetadata target, IFDHandler handler)
     {
-        target.setByteOrder(handler.getTifByteOrder());
         List<DirectoryIFD> directories = handler.getDirectories();
+        
+        target.setByteOrder(handler.getTifByteOrder());
 
         for (DirectoryIFD dir : directories)
         {

@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import common.ByteStreamReader;
 import common.ByteValueConverter;
 import common.ImageHandler;
@@ -55,7 +56,7 @@ public class IFDHandler implements ImageHandler
      */
     private IFDHandler(ByteStreamReader reader)
     {
-        this.reader = java.util.Objects.requireNonNull(reader, "Byte stream reader cannot be null");
+        this.reader = Objects.requireNonNull(reader, "Byte stream reader cannot be null");
     }
 
     /**
@@ -157,11 +158,12 @@ public class IFDHandler implements ImageHandler
         {
             DirectoryIFD first = directoryList.get(0);
             DirectoryIFD second = directoryList.get(1);
-            boolean hasThumbnailTag = first.hasTag(TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT)
-                    || first.hasTag(TagIFD_Baseline.IFD_NEW_SUBFILE_TYPE);
 
             if (first.getDirectoryType().isMainChain() && second.getDirectoryType().isMainChain())
             {
+                boolean hasThumbnailTag = first.hasTag(TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT)
+                        || first.hasTag(TagIFD_Baseline.IFD_NEW_SUBFILE_TYPE);
+
                 if (hasThumbnailTag && first.getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
                 {
                     LOGGER.debug("Detected thumbnail data in IFD0 slot. Re-ordering directories");
@@ -337,7 +339,6 @@ public class IFDHandler implements ImageHandler
         long nextOffset = reader.readUnsignedInteger();
 
         directoryList.add(ifd);
-        LOGGER.debug(String.format("Successfully parsed and added directory [%s]", dirType));
 
         for (EntryIFD entry : ifd)
         {
@@ -371,7 +372,7 @@ public class IFDHandler implements ImageHandler
 
                 finally
                 {
-                    /* Always restore this offset to maintain positional integrity */
+                    /* Always restore this offset regardless to maintain positional integrity */
                     reader.seek(currentOffset);
                 }
             }

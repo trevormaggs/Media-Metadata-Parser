@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -13,8 +14,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
+import common.ByteValueConverter;
 import common.DigitalSignature;
 import common.ImageRandomAccessReader;
 import common.MetadataConstants;
@@ -58,7 +62,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
     public static final byte[] EXT_XMP_IDENTIFIER = "http://ns.adobe.com/iim/xmp/extension/\0".getBytes(StandardCharsets.UTF_8);
     private final TifMetadata metadata;
     private JpgSegmentData segmentData;
-    private boolean dataLoaded = false;
+    private boolean dataLoaded;
 
     /**
      * A simple immutable data carrier for the raw byte arrays of the different metadata segments
@@ -127,6 +131,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
             LOGGER.warn(formatExtensionErrorMessage());
         }
 
+        this.dataLoaded = false;
         this.metadata = new TifMetadata();
     }
 
@@ -174,7 +179,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                 }
             }
 
-            if (segmentData.getXmp().isPresent() && !metadata.hasXmpData())
+            if (!metadata.hasXmpData() && segmentData.getXmp().isPresent())
             {
                 try
                 {
@@ -214,7 +219,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
 
             catch (IOException exc)
             {
-                throw new UncheckedIOException("Lazy execution of readMetadata() failed downstream", exc);
+                throw new UncheckedIOException("Unable to parse file [" + getImageFile() + "] due to an error downstream", exc);
             }
         }
 
@@ -266,7 +271,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
 
             else
             {
-                sb.append("No EXIF metadata found.").append(System.lineSeparator());
+                sb.append("No EXIF metadata found").append(System.lineSeparator());
             }
 
             sb.append(System.lineSeparator()).append(MetadataConstants.DIVIDER).append(System.lineSeparator());
@@ -285,12 +290,12 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
 
             if (segmentData.getIcc().isPresent())
             {
-                sb.append(String.format("Parser has concatenated all ICC segments, totalling [%d] bytes.", segmentData.getIcc().get().length)).append(System.lineSeparator());
+                sb.append(String.format("Parser has concatenated all ICC segments, totalling [%d] bytes", segmentData.getIcc().get().length)).append(System.lineSeparator());
             }
 
             else
             {
-                sb.append("No ICC Profile found.").append(System.lineSeparator());
+                sb.append("No ICC Profile found").append(System.lineSeparator());
             }
 
             sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
@@ -299,14 +304,15 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
         catch (Exception exc)
         {
             LOGGER.error("Diagnostics failed for file [" + getImageFile() + "]", exc);
-            sb.append("Error generating diagnostics: ").append(exc.getMessage()).append(System.lineSeparator());
+            sb.append(exc.getMessage()).append(System.lineSeparator());
         }
 
         return sb.toString();
     }
 
     /**
-     * Removes the 6-byte {@code Exif\0\0} signature/header required by the JPEG standard before passing the payload to a TIFF parser.
+     * Removes the 6-byte {@code Exif\0\0} signature/header required by the JPEG standard before
+     * passing the payload to a TIFF parser.
      *
      * @param data
      *        the raw EXIF chunk payload
@@ -345,7 +351,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
         try
         {
             int fillCount = 0;
-            
+
             while (true)
             {
                 int marker = reader.readUnsignedByte();
@@ -394,8 +400,9 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
     private JpgSegmentData readMetadataSegments(ImageRandomAccessReader reader) throws IOException
     {
         byte[] exifSegment = null;
+        byte[] standardXmp = null;
         List<byte[]> iccSegments = new ArrayList<>();
-        List<byte[]> xmpSegments = new ArrayList<>();
+        List<byte[]> extendedXmpSegments = new ArrayList<>();
 
         while (reader.getCurrentPosition() < reader.length())
         {
@@ -441,14 +448,19 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                         // Match standard XMP
                         if (payload.length >= XMP_IDENTIFIER.length && Arrays.equals(Arrays.copyOfRange(payload, 0, XMP_IDENTIFIER.length), XMP_IDENTIFIER))
                         {
-                            xmpSegments.add(Arrays.copyOfRange(payload, XMP_IDENTIFIER.length, payload.length));
+                            if (standardXmp == null)
+                            {
+                                standardXmp = Arrays.copyOfRange(payload, XMP_IDENTIFIER.length, payload.length);
+                            }
+
                             continue;
                         }
 
-                        // Handle Extended XMP marker payload boundaries cleanly
+                        // Catch Extended XMP segments (Aggregated into a collection for stitching
+                        // calculations)
                         if (payload.length >= EXT_XMP_IDENTIFIER.length && Arrays.equals(Arrays.copyOfRange(payload, 0, EXT_XMP_IDENTIFIER.length), EXT_XMP_IDENTIFIER))
                         {
-                            LOGGER.debug("Extended XMP segment detected. Skipping processing block for baseline compatibility");
+                            extendedXmpSegments.add(Arrays.copyOfRange(payload, EXT_XMP_IDENTIFIER.length, payload.length));
                             continue;
                         }
                     }
@@ -469,46 +481,274 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
             }
         }
 
-        return new JpgSegmentData(exifSegment, reconstructXmpSegments(xmpSegments), reconstructIccSegments(iccSegments));
+        byte[] unifiedXmp = reconstructExtendedXmpSegments(standardXmp, extendedXmpSegments);
+
+        return new JpgSegmentData(exifSegment, unifiedXmp, reconstructIccSegments(iccSegments));
     }
 
     /**
-     * Reassembles XMP metadata fragments into a single, cohesive byte array for parsing.
-     *
-     * @param segments
-     *        a list of isolated XMP payload byte arrays, with their identification preambles
-     *        already stripped
+     * Reconstructs split Extended XMP metadata fragments from a JPEG stream by validating them
+     * against an anchor GUID and sequentially stitching them back together.
+     * *
+     * <p>
+     * <strong>Why this calculation is necessary:</strong>The JPEG format limits individual marker
+     * segments (like APP1) to 65,535 bytes due to a 16-bit length restriction. Large metadata
+     * packages (e.g., depth maps, edit histories) must be sliced across multiple sequential
+     * segments. This method implements the Adobe XMP Specification (Part 3) to locate, validate,
+     * order, and merge those segments.
+     * </p>
+     * *
+     * <p>
+     * <strong>The Binary Stream Layout (Adobe XMP Specification Part 3):</strong>
+     * </p>
+     * * Each raw byte payload chunk in the segments list must follow this header packet format:
+     * *
      * 
-     * @return the concatenated byte array, or returns null if no segments are available
+     * <pre>
+     * +---------------------------+-------------------------------+--------------------------+------------------------+
+     * | Bytes 0 - 31 (32 Bytes)   | Bytes 32 - 35 (4 Bytes)       | Bytes 36 - 39 (4 Bytes)  | Bytes 40+ (Variable)   |
+     * +---------------------------+-------------------------------+--------------------------+------------------------+
+     * | MD5 GUID Hex Character    | Total Extended Payload Length | Slice Byte Offset        | Raw Extended XML Data  |
+     * | String (Matching Anchor)  | Big-Endian Unsigned 32-bit    | Big-Endian Unsigned 32-bit| Fragment Block Payload|
+     * +---------------------------+-------------------------------+--------------------------+------------------------+
+     * </pre>
+     *
+     * @param standardXmp
+     *        the baseline Standard XMP XML block containing the master anchor token link.
+     * @param segments
+     *        a list of raw byte segments extracted from trailing JPEG APP1 blocks, stripped of the
+     *        namespace prefix string.
+     * @return a consolidated byte array combining the Standard and full Extended XMP packets, or
+     *         the original fallback standardXmp array if validation checks fail
      */
-    private byte[] reconstructXmpSegments(List<byte[]> segments)
+    byte[] reconstructExtendedXmpSegments(byte[] standardXmp, List<byte[]> segments)
     {
-        if (segments.isEmpty())
+        String targetGuid = null;
+        int MAX_ALLOWED_XMP_SIZE = 100 * 1024 * 1024;
+        List<byte[]> validSegments = new ArrayList<>();
+        String decodedXmlText = new String(standardXmp, StandardCharsets.UTF_8);
+        Matcher m = Pattern.compile("xmpNote:HasExtendedXMP=\"([0-9A-Fa-f]{32})\"").matcher(decodedXmlText);
+
+        if (segments.isEmpty() || standardXmp == null)
         {
-            return null;
+            return standardXmp;
         }
 
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream())
+        if (m.find())
         {
-            for (byte[] seg : segments)
+            targetGuid = m.group(1);
+        }
+
+        else
+        {
+            LOGGER.warn("Extended XMP segments detected, but no xmpNote:HasExtendedXMP GUID found in Standard XMP anchor");
+            return standardXmp;
+        }
+
+        for (byte[] fullPayload : segments)
+        {
+            System.out.printf("%s\n", new String(fullPayload));
+
+            /*
+             * GUID (32 bytes) + Total Length (4 bytes) + Offset (4 bytes) = 40 bytes.
+             * See document "XMP SPECIFICATION PART 3 - STORAGE IN FILES" on Page 20
+             * "Extended XMP in JPEG" for details.
+             */
+            if (fullPayload.length < 40)
             {
-                baos.write(seg);
+                LOGGER.error("Malformed Extended XMP segment: too short to contain tracking block headers");
+                continue;
             }
 
-            return baos.toByteArray();
+            String chunkGuid = new String(fullPayload, 0, 32, StandardCharsets.UTF_8);
+
+            if (chunkGuid.equalsIgnoreCase(targetGuid))
+            {
+                validSegments.add(fullPayload);
+            }
         }
 
-        catch (IOException exc)
+        if (validSegments.isEmpty())
         {
-            LOGGER.error("Failed to concatenate XMP segments", exc);
+            return standardXmp;
         }
 
-        return null;
+        // Sort fragments sequentially by their internal 4-Byte Big-Endian Offset (Bytes 36-39)
+        validSegments.sort(new Comparator<byte[]>()
+        {
+            @Override
+            public int compare(byte[] o1, byte[] o2)
+            {
+                long offset1 = ByteValueConverter.toUnsignedInteger(o1, 36, ByteOrder.BIG_ENDIAN);
+                long offset2 = ByteValueConverter.toUnsignedInteger(o2, 36, ByteOrder.BIG_ENDIAN);
+
+                return Long.compare(offset1, offset2);
+            }
+        });
+
+        int totalLength = -1;
+        int totalBytesCopied = 0;
+        byte[] extendedBuffer = null;
+
+        for (byte[] fullPayload : validSegments)
+        {
+            long chunkTotalLength = ByteValueConverter.toUnsignedInteger(fullPayload, 32, ByteOrder.BIG_ENDIAN);
+            long chunkOffset = ByteValueConverter.toUnsignedInteger(fullPayload, 36, ByteOrder.BIG_ENDIAN);
+
+            if (totalLength == -1)
+            {
+                totalLength = (int) chunkTotalLength;
+
+                /* Prevents a potential OutOfMemoryError exception */
+                if (totalLength < 1 || totalLength > MAX_ALLOWED_XMP_SIZE)
+                {
+                    LOGGER.error(String.format("Security rejection or malformed size field: %d bytes", totalLength));
+                    return standardXmp;
+                }
+
+                extendedBuffer = new byte[totalLength];
+            }
+
+            else if (totalLength != (int) chunkTotalLength)
+            {
+                LOGGER.error("Mismatched total extended length values across sibling Extended XMP slices");
+                return standardXmp;
+            }
+
+            int dataLength = fullPayload.length - 40;
+
+            // Strict checking to prevent out-of-bounds corruption or continuous tracking gaps
+            if (chunkOffset != totalBytesCopied)
+            {
+                LOGGER.error(String.format("Malformed layout geometry: Expected offset %d, but found %d", totalBytesCopied, chunkOffset));
+                return standardXmp;
+            }
+
+            else if (chunkOffset + dataLength > totalLength)
+            {
+                LOGGER.error("Malformed layout geometry: Segment slice overflows total defined buffer space");
+                return standardXmp;
+            }
+
+            System.arraycopy(fullPayload, 40, extendedBuffer, (int) chunkOffset, dataLength);
+            totalBytesCopied += dataLength;
+        }
+
+        if (extendedBuffer == null || totalBytesCopied != totalLength)
+        {
+            LOGGER.error("Extended XMP reconstruction failed: data gaps or sizing mismatch detected.");
+            return standardXmp;
+        }
+
+        byte[] combinedResult = new byte[standardXmp.length + totalLength];
+
+        System.arraycopy(standardXmp, 0, combinedResult, 0, standardXmp.length);
+        System.arraycopy(extendedBuffer, 0, combinedResult, standardXmp.length, totalLength);
+
+        return combinedResult;
+    }
+
+    byte[] reconstructExtendedXmpSegments2(byte[] standardXmp, List<byte[]> segments)
+    {
+        if (segments.isEmpty() || standardXmp == null)
+        {
+            return standardXmp;
+        }
+
+        String targetGuid = null;
+        int MAX_ALLOWED_XMP_SIZE = 100 * 1024 * 1024;
+        String decodedXmlText = new String(standardXmp, StandardCharsets.UTF_8);
+        Matcher m = Pattern.compile("xmpNote:HasExtendedXMP=\"([0-9A-Fa-f]{32})\"").matcher(decodedXmlText);
+
+        if (m.find())
+        {
+            targetGuid = m.group(1);
+        }
+
+        else
+        {
+            LOGGER.warn("Extended XMP segments detected, but no xmpNote:HasExtendedXMP GUID found in Standard XMP anchor");
+            return standardXmp;
+        }
+
+        System.out.printf("%s\n", new String(decodedXmlText));
+
+        int totalLength = -1;
+        int totalBytesCopied = 0;
+        byte[] extendedBuffer = null;
+
+        for (byte[] fullPayload : segments)
+        {
+            /*
+             * GUID (32 bytes) + Total Length (4 bytes) + Offset (4 bytes) = 40 bytes.
+             * See document "XMP SPECIFICATION PART 3 - STORAGE IN FILES" on Page 20
+             * "Extended XMP in JPEG" for details.
+             */
+            if (fullPayload.length < 40)
+            {
+                LOGGER.error("Malformed Extended XMP segment: too short to contain tracking block headers");
+                continue;
+            }
+
+            String chunkGuid = new String(fullPayload, 0, 32, StandardCharsets.UTF_8);
+
+            if (!chunkGuid.equalsIgnoreCase(targetGuid))
+            {
+                continue;
+            }
+
+            long chunkTotalLength = ByteValueConverter.toUnsignedInteger(fullPayload, 32, ByteOrder.BIG_ENDIAN);
+            long chunkOffset = ByteValueConverter.toUnsignedInteger(fullPayload, 36, ByteOrder.BIG_ENDIAN);
+
+            if (totalLength == -1)
+            {
+                totalLength = (int) chunkTotalLength;
+
+                /* Prevents a potential OutOfMemoryError exception */
+                if (totalLength < 1 || totalLength > MAX_ALLOWED_XMP_SIZE)
+                {
+                    LOGGER.error(String.format("Security rejection or malformed size field: %d bytes", totalLength));
+                    return standardXmp;
+                }
+
+                extendedBuffer = new byte[totalLength];
+            }
+
+            else if (totalLength != (int) chunkTotalLength)
+            {
+                LOGGER.error("Mismatched total extended length values across sibling Extended XMP slices");
+                return standardXmp;
+            }
+
+            int dataLength = fullPayload.length - 40;
+
+            if (chunkOffset < 0 || chunkOffset + dataLength > totalLength)
+            {
+                LOGGER.error("Malformed layout geometry: Segment slice overflows total defined buffer space");
+                return standardXmp;
+            }
+
+            System.arraycopy(fullPayload, 40, extendedBuffer, (int) chunkOffset, dataLength);
+            totalBytesCopied += dataLength;
+        }
+
+        if (extendedBuffer == null || totalBytesCopied != totalLength)
+        {
+            LOGGER.error("Extended XMP reconstruction failed: data gaps or sizing mismatch detected.");
+            return standardXmp;
+        }
+
+        byte[] combinedResult = new byte[standardXmp.length + totalLength];
+
+        System.arraycopy(standardXmp, 0, combinedResult, 0, standardXmp.length);
+        System.arraycopy(extendedBuffer, 0, combinedResult, standardXmp.length, totalLength);
+
+        return combinedResult;
     }
 
     /**
-     * Reconstruction of a complete ICC metadata block by concatenating multiple ICC profile segments.
-     * Segments are ordered by their sequence number as specified in the header.
+     * Reconstruction of a complete ICC metadata block by concatenating multiple ICC profile
+     * segments. Segments are ordered by their sequence number as specified in the header.
      *
      * @param segments
      *        the list of raw ICC segments
@@ -516,64 +756,63 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
      */
     private byte[] reconstructIccSegments(List<byte[]> segments)
     {
-        int headerLength = ICC_IDENTIFIER.length + 2;
-
-        if (segments.isEmpty())
+        if (!segments.isEmpty())
         {
-            return null;
-        }
+            int headerLength = ICC_IDENTIFIER.length + 2;
 
-        for (byte[] seg : segments)
-        {
-            if (seg.length < headerLength)
-            {
-                LOGGER.error("One or more ICC segments are too short to contain header metrics.");
-                return null;
-            }
-        }
-
-        Collections.sort(segments, new Comparator<byte[]>()
-        {
-            @Override
-            public int compare(byte[] s1, byte[] s2)
-            {
-                return Integer.compare(s1[ICC_IDENTIFIER.length] & 0xFF, s2[ICC_IDENTIFIER.length] & 0xFF);
-            }
-        });
-
-        int totalCount = segments.get(0)[ICC_IDENTIFIER.length + 1] & 0xFF;
-
-        if (totalCount == 0 || totalCount != segments.size())
-        {
-            LOGGER.warn(String.format("ICC segment count mismatch. Expected [%d], found [%d].", totalCount, segments.size()));
-            return null;
-        }
-        // Enforce sequence sequence continuity
-        for (int i = 0; i < segments.size(); i++)
-        {
-            int currentSequence = segments.get(i)[ICC_IDENTIFIER.length] & 0xFF;
-
-            if (currentSequence != (i + 1))
-            {
-                LOGGER.error(String.format("Corrupted sequence order. Segment index %d points to rank %d", i + 1, currentSequence));
-                return null;
-            }
-        }
-
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream())
-        {
             for (byte[] seg : segments)
             {
-                baos.write(Arrays.copyOfRange(seg, headerLength, seg.length));
+                if (seg.length < headerLength)
+                {
+                    LOGGER.error("One or more ICC segments are too short to contain header metrics.");
+                    return null;
+                }
             }
 
-            LOGGER.debug(String.format("Successfully reconstructed ICC profile from [%d] segment(s)", totalCount));
-            return baos.toByteArray();
-        }
+            Collections.sort(segments, new Comparator<byte[]>()
+            {
+                @Override
+                public int compare(byte[] s1, byte[] s2)
+                {
+                    return Integer.compare(s1[ICC_IDENTIFIER.length] & 0xFF, s2[ICC_IDENTIFIER.length] & 0xFF);
+                }
+            });
 
-        catch (IOException exc)
-        {
-            LOGGER.error("Failed to concatenate ICC segments", exc);
+            int totalCount = segments.get(0)[ICC_IDENTIFIER.length + 1] & 0xFF;
+
+            if (totalCount == 0 || totalCount != segments.size())
+            {
+                LOGGER.warn(String.format("ICC segment count mismatch. Expected [%d], found [%d].", totalCount, segments.size()));
+                return null;
+            }
+
+            // Enforce sequence sequence continuity
+            for (int i = 0; i < segments.size(); i++)
+            {
+                int currentSequence = segments.get(i)[ICC_IDENTIFIER.length] & 0xFF;
+
+                if (currentSequence != (i + 1))
+                {
+                    LOGGER.error(String.format("Corrupted sequence order. Segment index %d points to rank %d", i + 1, currentSequence));
+                    return null;
+                }
+            }
+
+            try (ByteArrayOutputStream baos = new ByteArrayOutputStream())
+            {
+                for (byte[] seg : segments)
+                {
+                    baos.write(Arrays.copyOfRange(seg, headerLength, seg.length));
+                }
+
+                LOGGER.debug(String.format("Successfully reconstructed ICC profile from [%d] segment(s)", totalCount));
+                return baos.toByteArray();
+            }
+
+            catch (IOException exc)
+            {
+                LOGGER.error("Failed to concatenate ICC segments", exc);
+            }
         }
 
         return null;

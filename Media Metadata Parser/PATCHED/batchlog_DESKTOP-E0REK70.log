@@ -1,0 +1,7 @@
+INFO:23/05/2026 21.30.12:   MediaBatchProcessor Initialised.
+INFO:23/05/2026 21.30.12:   Source: e:\ImageBatchDir
+INFO:23/05/2026 21.30.12:   Target: E:\git\Media-Metadata-Parser\Media Metadata Parser\PATCHED
+INFO:23/05/2026 21.30.12:   Sorted scanned images in ascending order
+INFO:23/05/2026 21.30.12:   Starting batch process for [1] files...
+INFO:23/05/2026 21.30.12:   [1/1] Processed: pool19.JPG -> test_07Oct2011_001.jpg
+INFO:23/05/2026 21.30.12:   Batch processing completed successfully
