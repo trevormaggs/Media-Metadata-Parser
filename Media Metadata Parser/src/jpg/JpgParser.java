@@ -55,6 +55,7 @@ import xmp.XmpHandler;
 public class JpgParser extends AbstractImageParser<TifMetadata>
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(JpgParser.class);
+    private static final int EXTENDED_XMP_LENGTH = 40;
     private static final int PADDING_LIMIT = 64;
     public static final byte[] EXIF_IDENTIFIER = "Exif\0\0".getBytes(StandardCharsets.UTF_8);
     public static final byte[] ICC_IDENTIFIER = "ICC_PROFILE\0".getBytes(StandardCharsets.UTF_8);
@@ -408,6 +409,10 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
         {
             JpgSegmentConstants segment = fetchNextSegment(reader);
 
+            /*
+             * SOS (Start of Scan) marks the beginning of the compressed image data.
+             * Usually, no metadata exists after this point except the EOI marker.
+             */
             if (segment == null || segment == JpgSegmentConstants.END_OF_IMAGE || segment == JpgSegmentConstants.START_OF_STREAM)
             {
                 break;
@@ -419,162 +424,186 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
 
                 if (length < 0 || (reader.getCurrentPosition() + length) > reader.length())
                 {
-                    LOGGER.error(String.format("Malformed segment size [%d] overflows data limit.", length + 2));
+                    LOGGER.error(String.format("Malformed segment size [%d] overflows data limit", length + 2));
                     break;
                 }
 
-                if (length == 0)
+                // Length must be between 2 and 65535 bytes (unsigned short)
+                if (length > 0)
                 {
-                    continue;
-                }
-
-                if (segment == JpgSegmentConstants.APP1_SEGMENT || segment == JpgSegmentConstants.APP2_SEGMENT)
-                {
-                    byte[] payload = reader.readBytes(length);
-
-                    if (segment == JpgSegmentConstants.APP1_SEGMENT)
+                    // Decision point: Read or Skip?
+                    if (segment == JpgSegmentConstants.APP1_SEGMENT || segment == JpgSegmentConstants.APP2_SEGMENT)
                     {
-                        if (exifSegment == null)
-                        {
-                            byte[] strippedPayload = JpgParser.stripExifPreamble(payload);
+                        byte[] payload = reader.readBytes(length);
 
-                            if (strippedPayload.length < payload.length)
+                        if (segment == JpgSegmentConstants.APP1_SEGMENT)
+                        {
+                            if (exifSegment == null)
                             {
-                                exifSegment = strippedPayload;
+                                byte[] strippedPayload = JpgParser.stripExifPreamble(payload);
+
+                                if (strippedPayload.length < payload.length)
+                                {
+                                    exifSegment = strippedPayload;
+                                    continue;
+                                }
+                            }
+
+                            // Match standard XMP
+                            if (payload.length >= XMP_IDENTIFIER.length && Arrays.equals(Arrays.copyOfRange(payload, 0, XMP_IDENTIFIER.length), XMP_IDENTIFIER))
+                            {
+                                if (standardXmp == null)
+                                {
+                                    standardXmp = Arrays.copyOfRange(payload, XMP_IDENTIFIER.length, payload.length);
+                                }
+
+                                continue;
+                            }
+
+                            // Attach Extended XMP segments
+                            if (payload.length >= EXT_XMP_IDENTIFIER.length && Arrays.equals(Arrays.copyOfRange(payload, 0, EXT_XMP_IDENTIFIER.length), EXT_XMP_IDENTIFIER))
+                            {
+                                extendedXmpSegments.add(Arrays.copyOfRange(payload, EXT_XMP_IDENTIFIER.length, payload.length));
                                 continue;
                             }
                         }
 
-                        // Match standard XMP
-                        if (payload.length >= XMP_IDENTIFIER.length && Arrays.equals(Arrays.copyOfRange(payload, 0, XMP_IDENTIFIER.length), XMP_IDENTIFIER))
+                        else if (segment == JpgSegmentConstants.APP2_SEGMENT)
                         {
-                            if (standardXmp == null)
+                            if (payload.length >= ICC_IDENTIFIER.length && Arrays.equals(Arrays.copyOfRange(payload, 0, ICC_IDENTIFIER.length), ICC_IDENTIFIER))
                             {
-                                standardXmp = Arrays.copyOfRange(payload, XMP_IDENTIFIER.length, payload.length);
+                                iccSegments.add(payload);
                             }
-
-                            continue;
                         }
 
-                        // Catch Extended XMP segments (Aggregated into a collection for stitching
-                        // calculations)
-                        if (payload.length >= EXT_XMP_IDENTIFIER.length && Arrays.equals(Arrays.copyOfRange(payload, 0, EXT_XMP_IDENTIFIER.length), EXT_XMP_IDENTIFIER))
+                        else
                         {
-                            extendedXmpSegments.add(Arrays.copyOfRange(payload, EXT_XMP_IDENTIFIER.length, payload.length));
-                            continue;
+                            LOGGER.debug(String.format("Unhandled segment [0xFF%02X] skipped. Length [%d]", segment.getFlag(), length));
                         }
                     }
 
-                    else if (segment == JpgSegmentConstants.APP2_SEGMENT)
+                    else
                     {
-                        if (payload.length >= ICC_IDENTIFIER.length && Arrays.equals(Arrays.copyOfRange(payload, 0, ICC_IDENTIFIER.length), ICC_IDENTIFIER))
-                        {
-                            iccSegments.add(payload);
-                        }
+                        reader.skip(length);
                     }
-                }
-
-                else
-                {
-                    reader.skip(length);
                 }
             }
         }
 
+        byte[] cleanedIcc = reconstructIccSegments(iccSegments);
         byte[] unifiedXmp = reconstructExtendedXmpSegments(standardXmp, extendedXmpSegments);
 
-        return new JpgSegmentData(exifSegment, unifiedXmp, reconstructIccSegments(iccSegments));
+        return new JpgSegmentData(exifSegment, unifiedXmp, cleanedIcc);
     }
 
     /**
      * Reconstructs split Extended XMP metadata fragments from a JPEG stream by validating them
      * against an anchor GUID and sequentially stitching them back together.
-     * *
-     * <p>
-     * <strong>Why this calculation is necessary:</strong>The JPEG format limits individual marker
-     * segments (like APP1) to 65,535 bytes due to a 16-bit length restriction. Large metadata
-     * packages (e.g., depth maps, edit histories) must be sliced across multiple sequential
-     * segments. This method implements the Adobe XMP Specification (Part 3) to locate, validate,
-     * order, and merge those segments.
-     * </p>
-     * *
-     * <p>
-     * <strong>The Binary Stream Layout (Adobe XMP Specification Part 3):</strong>
-     * </p>
-     * * Each raw byte payload chunk in the segments list must follow this header packet format:
-     * *
      * 
+     * <p>
+     * <strong>References</strong><br>
+     * For full technical requirements on multi-segment layout design, see the section
+     * {@code Extended XMP in JPEG} inside the <strong>Adobe XMP Specification Part 3: Storage in
+     * Files</strong> documentation provided by Adobe Systems Incorporated.
+     * </p>
+     *
+     * <p>
+     * <strong>Technical Summary</strong><br>
+     * The JPEG format limits individual marker segments (like APP1) to 65,535 bytes due to a
+     * 16-bit length restriction. Large metadata packages (e.g., depth maps, edit histories)
+     * must be sliced across multiple sequential segments. This method implements the rules
+     * defined in the <em>Adobe XMP Specification Part 3 (Storage in Files)</em> to locate,
+     * validate, order, and merge those segments.
+     * </p>
+     * 
+     * <p>
+     * <strong>The Binary Stream Layout</strong><br>
+     * Each raw byte payload chunk in the segments list must follow this header packet format:
+     * </p>
+     *
      * <pre>
-     * +---------------------------+-------------------------------+--------------------------+------------------------+
-     * | Bytes 0 - 31 (32 Bytes)   | Bytes 32 - 35 (4 Bytes)       | Bytes 36 - 39 (4 Bytes)  | Bytes 40+ (Variable)   |
-     * +---------------------------+-------------------------------+--------------------------+------------------------+
-     * | MD5 GUID Hex Character    | Total Extended Payload Length | Slice Byte Offset        | Raw Extended XML Data  |
-     * | String (Matching Anchor)  | Big-Endian Unsigned 32-bit    | Big-Endian Unsigned 32-bit| Fragment Block Payload|
-     * +---------------------------+-------------------------------+--------------------------+------------------------+
+     * +--------------------------+-------------------------------+-------------------------------+------------------------+
+     * | Bytes 0 - 31 (32 Bytes)  | Bytes 32 - 35 (4 Bytes)       | Bytes 36 - 39 (4 Bytes)       | Bytes 40+ (Variable)   |
+     * +--------------------------+-------------------------------+-------------------------------+------------------------+
+     * | MD5 GUID Hex Character   | Total Extended Payload Length | Slice Byte Offset             | Raw Extended XML Data  |
+     * | String (Matching Anchor) | Big-Endian Unsigned 32-bit    | Big-Endian Unsigned 32-bit    | Fragment Block Payload |
+     * +--------------------------+-------------------------------+-------------------------------+------------------------+
+     * </pre>
+     * <p>
+     * <strong>Stream Geometry Example</strong><br>
+     * Below illustrates how {@code chunkTotalLength} remains constant across sibling slices to
+     * define the final master buffer scale, while {@code chunkOffset} increments sequentially to
+     * track memory mapping:
+     * </p>
+     *
+     * <pre>
+     * +---------+--------------------+--------------------+----------------+
+     * | Segment |  chunkTotalLength  |    chunkOffset     |   dataLength   |
+     * |         |   (Bytes 32–35)    |   (Bytes 36–39)    | (Payload Size) |
+     * +---------+--------------------+--------------------+----------------+
+     * | Chunk 1 | 153,600 (150 KB)   | 0                  | 65,500 bytes   |
+     * | Chunk 2 | 153,600 (150 KB)   | 65,500             | 65,500 bytes   |
+     * | Chunk 3 | 153,600 (150 KB)   | 131,000            | 22,600 bytes   |
+     * +---------+--------------------+--------------------+----------------+
      * </pre>
      *
      * @param standardXmp
-     *        the baseline Standard XMP XML block containing the master anchor token link.
+     *        the baseline Standard XMP XML block containing the master anchor token link
      * @param segments
      *        a list of raw byte segments extracted from trailing JPEG APP1 blocks, stripped of the
-     *        namespace prefix string.
+     *        namespace prefix string
      * @return a consolidated byte array combining the Standard and full Extended XMP packets, or
      *         the original fallback standardXmp array if validation checks fail
      */
-    byte[] reconstructExtendedXmpSegments(byte[] standardXmp, List<byte[]> segments)
+    private byte[] reconstructExtendedXmpSegments(byte[] standardXmp, List<byte[]> segments)
     {
-        String targetGuid = null;
-        int MAX_ALLOWED_XMP_SIZE = 100 * 1024 * 1024;
-        List<byte[]> validSegments = new ArrayList<>();
-        String decodedXmlText = new String(standardXmp, StandardCharsets.UTF_8);
-        Matcher m = Pattern.compile("xmpNote:HasExtendedXMP=\"([0-9A-Fa-f]{32})\"").matcher(decodedXmlText);
-
         if (segments.isEmpty() || standardXmp == null)
         {
             return standardXmp;
         }
 
-        if (m.find())
-        {
-            targetGuid = m.group(1);
-        }
+        String targetGuid = null;
+        int MAX_ALLOWED_XMP_SIZE = 100 * 1024 * 1024;
+        List<byte[]> segList = new ArrayList<>();
+        String decodedXmlText = new String(standardXmp, StandardCharsets.UTF_8);
+        Matcher m = Pattern.compile("xmpNote:HasExtendedXMP=\"([0-9A-Fa-f]{32})\"").matcher(decodedXmlText);
 
-        else
+        if (!m.find())
         {
             LOGGER.warn("Extended XMP segments detected, but no xmpNote:HasExtendedXMP GUID found in Standard XMP anchor");
             return standardXmp;
         }
 
-        for (byte[] fullPayload : segments)
-        {
-            System.out.printf("%s\n", new String(fullPayload));
+        targetGuid = m.group(1);
 
+        for (byte[] segData : segments)
+        {
             /*
-             * GUID (32 bytes) + Total Length (4 bytes) + Offset (4 bytes) = 40 bytes.
-             * See document "XMP SPECIFICATION PART 3 - STORAGE IN FILES" on Page 20
+             * EXTENDED_XMP_LENGTH is GUID (32 bytes) + Total Length (4 bytes) + Offset (4 bytes) =
+             * 40 bytes. See document "XMP SPECIFICATION PART 3 - STORAGE IN FILES" on Page 20
              * "Extended XMP in JPEG" for details.
              */
-            if (fullPayload.length < 40)
+            if (segData.length < EXTENDED_XMP_LENGTH)
             {
-                LOGGER.error("Malformed Extended XMP segment: too short to contain tracking block headers");
+                LOGGER.error("Extended XMP segment is too short. Likely a malformed entry");
                 continue;
             }
 
-            String chunkGuid = new String(fullPayload, 0, 32, StandardCharsets.UTF_8);
+            String chunkGuid = new String(segData, 0, 32, StandardCharsets.UTF_8);
 
             if (chunkGuid.equalsIgnoreCase(targetGuid))
             {
-                validSegments.add(fullPayload);
+                segList.add(segData);
             }
         }
 
-        if (validSegments.isEmpty())
+        if (segList.isEmpty())
         {
             return standardXmp;
         }
 
         // Sort fragments sequentially by their internal 4-Byte Big-Endian Offset (Bytes 36-39)
-        validSegments.sort(new Comparator<byte[]>()
+        segList.sort(new Comparator<byte[]>()
         {
             @Override
             public int compare(byte[] o1, byte[] o2)
@@ -590,10 +619,10 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
         int totalBytesCopied = 0;
         byte[] extendedBuffer = null;
 
-        for (byte[] fullPayload : validSegments)
+        for (byte[] segData : segList)
         {
-            long chunkTotalLength = ByteValueConverter.toUnsignedInteger(fullPayload, 32, ByteOrder.BIG_ENDIAN);
-            long chunkOffset = ByteValueConverter.toUnsignedInteger(fullPayload, 36, ByteOrder.BIG_ENDIAN);
+            long chunkTotalLength = ByteValueConverter.toUnsignedInteger(segData, 32, ByteOrder.BIG_ENDIAN);
+            long chunkOffset = ByteValueConverter.toUnsignedInteger(segData, 36, ByteOrder.BIG_ENDIAN);
 
             if (totalLength == -1)
             {
@@ -602,7 +631,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                 /* Prevents a potential OutOfMemoryError exception */
                 if (totalLength < 1 || totalLength > MAX_ALLOWED_XMP_SIZE)
                 {
-                    LOGGER.error(String.format("Security rejection or malformed size field: %d bytes", totalLength));
+                    LOGGER.error(String.format("Chunk total length [%d] in bytes out of bounds", totalLength));
                     return standardXmp;
                 }
 
@@ -615,7 +644,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                 return standardXmp;
             }
 
-            int dataLength = fullPayload.length - 40;
+            int dataLength = segData.length - EXTENDED_XMP_LENGTH;
 
             // Strict checking to prevent out-of-bounds corruption or continuous tracking gaps
             if (chunkOffset != totalBytesCopied)
@@ -630,105 +659,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                 return standardXmp;
             }
 
-            System.arraycopy(fullPayload, 40, extendedBuffer, (int) chunkOffset, dataLength);
-            totalBytesCopied += dataLength;
-        }
-
-        if (extendedBuffer == null || totalBytesCopied != totalLength)
-        {
-            LOGGER.error("Extended XMP reconstruction failed: data gaps or sizing mismatch detected.");
-            return standardXmp;
-        }
-
-        byte[] combinedResult = new byte[standardXmp.length + totalLength];
-
-        System.arraycopy(standardXmp, 0, combinedResult, 0, standardXmp.length);
-        System.arraycopy(extendedBuffer, 0, combinedResult, standardXmp.length, totalLength);
-
-        return combinedResult;
-    }
-
-    byte[] reconstructExtendedXmpSegments2(byte[] standardXmp, List<byte[]> segments)
-    {
-        if (segments.isEmpty() || standardXmp == null)
-        {
-            return standardXmp;
-        }
-
-        String targetGuid = null;
-        int MAX_ALLOWED_XMP_SIZE = 100 * 1024 * 1024;
-        String decodedXmlText = new String(standardXmp, StandardCharsets.UTF_8);
-        Matcher m = Pattern.compile("xmpNote:HasExtendedXMP=\"([0-9A-Fa-f]{32})\"").matcher(decodedXmlText);
-
-        if (m.find())
-        {
-            targetGuid = m.group(1);
-        }
-
-        else
-        {
-            LOGGER.warn("Extended XMP segments detected, but no xmpNote:HasExtendedXMP GUID found in Standard XMP anchor");
-            return standardXmp;
-        }
-
-        System.out.printf("%s\n", new String(decodedXmlText));
-
-        int totalLength = -1;
-        int totalBytesCopied = 0;
-        byte[] extendedBuffer = null;
-
-        for (byte[] fullPayload : segments)
-        {
-            /*
-             * GUID (32 bytes) + Total Length (4 bytes) + Offset (4 bytes) = 40 bytes.
-             * See document "XMP SPECIFICATION PART 3 - STORAGE IN FILES" on Page 20
-             * "Extended XMP in JPEG" for details.
-             */
-            if (fullPayload.length < 40)
-            {
-                LOGGER.error("Malformed Extended XMP segment: too short to contain tracking block headers");
-                continue;
-            }
-
-            String chunkGuid = new String(fullPayload, 0, 32, StandardCharsets.UTF_8);
-
-            if (!chunkGuid.equalsIgnoreCase(targetGuid))
-            {
-                continue;
-            }
-
-            long chunkTotalLength = ByteValueConverter.toUnsignedInteger(fullPayload, 32, ByteOrder.BIG_ENDIAN);
-            long chunkOffset = ByteValueConverter.toUnsignedInteger(fullPayload, 36, ByteOrder.BIG_ENDIAN);
-
-            if (totalLength == -1)
-            {
-                totalLength = (int) chunkTotalLength;
-
-                /* Prevents a potential OutOfMemoryError exception */
-                if (totalLength < 1 || totalLength > MAX_ALLOWED_XMP_SIZE)
-                {
-                    LOGGER.error(String.format("Security rejection or malformed size field: %d bytes", totalLength));
-                    return standardXmp;
-                }
-
-                extendedBuffer = new byte[totalLength];
-            }
-
-            else if (totalLength != (int) chunkTotalLength)
-            {
-                LOGGER.error("Mismatched total extended length values across sibling Extended XMP slices");
-                return standardXmp;
-            }
-
-            int dataLength = fullPayload.length - 40;
-
-            if (chunkOffset < 0 || chunkOffset + dataLength > totalLength)
-            {
-                LOGGER.error("Malformed layout geometry: Segment slice overflows total defined buffer space");
-                return standardXmp;
-            }
-
-            System.arraycopy(fullPayload, 40, extendedBuffer, (int) chunkOffset, dataLength);
+            System.arraycopy(segData, EXTENDED_XMP_LENGTH, extendedBuffer, (int) chunkOffset, dataLength);
             totalBytesCopied += dataLength;
         }
 

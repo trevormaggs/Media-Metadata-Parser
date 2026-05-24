@@ -1,16 +1,18 @@
-package jpg;
+package common;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import jpg.JpgParser;
 
 public class JpgParserTest
 {
     public void testExtendedXmpReconstruction() throws IOException
     {
-        // 1. Setup Mock Standard Baseline XMP strictly using the xmpNote:HasExtendedXMP format and Section A
+        // 1. Setup Mock Standard Baseline XMP strictly using the xmpNote:HasExtendedXMP format and
+        // Section A
         String targetGuid = "ABCDEF1234567890ABCDEF1234567890";
         String mockStandardXml = "\n" +
                 "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n" +
@@ -47,29 +49,37 @@ public class JpgParserTest
 
         List<byte[]> segments = new ArrayList<>();
         segments.add(segmentB); // Offset (Part 2) added first
-        segments.add(segmentA); // Offset 0  (Part 1) added second
+        segments.add(segmentA); // Offset 0 (Part 1) added second
 
         // 4. Instantiate parser with dummy file path and run target method
         JpgParser parser = new JpgParser("mockFilePath.jpg");
         byte[] result = parser.reconstructExtendedXmpSegments(standardXmpBytes, segments);
 
         // 5. Native validation checks
-        if (result == null) {
+        if (result == null)
+        {
             throw new RuntimeException("Assertion Failed: Resulting byte array is null!");
         }
-        
+
         String finalOutput = new String(result, StandardCharsets.UTF_8);
 
-        if (!finalOutput.contains(mockStandardXml)) {
+        if (!finalOutput.contains(mockStandardXml))
+        {
             throw new RuntimeException("Assertion Failed: Missing Standard XMP header");
         }
-        if (!finalOutput.contains("<dc:creator>John Doe</dc:creator>")) {
+        
+        if (!finalOutput.contains("<dc:creator>John Doe</dc:creator>"))
+        {
             throw new RuntimeException("Assertion Failed: Section A content missing");
         }
-        if (!finalOutput.contains("<drone:FlightRollDegree>+12.45</drone:FlightRollDegree>")) {
+        
+        if (!finalOutput.contains("<drone:FlightRollDegree>+12.45</drone:FlightRollDegree>"))
+        {
             throw new RuntimeException("Assertion Failed: Custom drone attributes missing or corrupted");
         }
-        if (!finalOutput.contains("<camera:DepthMapData>mQENBF2...</camera:DepthMapData>")) {
+        
+        if (!finalOutput.contains("<camera:DepthMapData>mQENBF2...</camera:DepthMapData>"))
+        {
             throw new RuntimeException("Assertion Failed: Out-of-order custom domain chunks were not stitched cleanly");
         }
     }
@@ -113,6 +123,7 @@ public class JpgParserTest
 
             System.out.println("TEST PASSED SUCCESSFULLY! All custom domain sections stitched and validated perfectly.");
         }
+        
         catch (Throwable t)
         {
             System.err.println("TEST FAILED!");
