@@ -562,7 +562,6 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
             return standardXmp;
         }
 
-        String targetGuid = null;
         int MAX_ALLOWED_XMP_SIZE = 100 * 1024 * 1024;
         List<byte[]> segList = new ArrayList<>();
         String decodedXmlText = new String(standardXmp, StandardCharsets.UTF_8);
@@ -574,7 +573,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
             return standardXmp;
         }
 
-        targetGuid = m.group(1);
+        String targetGuid = m.group(1);
 
         for (byte[] segData : segments)
         {
