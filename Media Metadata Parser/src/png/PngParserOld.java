@@ -99,9 +99,9 @@ import xmp.XmpHandler;
  * @version 1.0
  * @since 13 August 2025
  */
-public class PngParser2 extends AbstractImageParser
+public class PngParserOld extends AbstractImageParser
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(PngParser2.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(PngParserOld.class);
     private PngMetadata metadata;
 
     /**
@@ -113,7 +113,7 @@ public class PngParser2 extends AbstractImageParser
      * @throws IOException
      *         if an I/O problem has occurred
      */
-    public PngParser2(String file) throws IOException
+    public PngParserOld(String file) throws IOException
     {
         this(Paths.get(file));
     }
@@ -127,7 +127,7 @@ public class PngParser2 extends AbstractImageParser
      * @throws IOException
      *         if the file is not a regular type or does not exist
      */
-    public PngParser2(Path fpath) throws IOException
+    public PngParserOld(Path fpath) throws IOException
     {
         super(fpath);
 

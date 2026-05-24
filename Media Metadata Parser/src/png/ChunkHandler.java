@@ -25,8 +25,8 @@ import png.ChunkType.Category;
  * <p>
  * This class provides a structured repository for chunks, facilitating efficient retrieval by
  * {@link ChunkType} or {@link Category}. It serves as the primary data store during the parsing
- * lifecycle, managing subclass instantiation for extended chunks (i.e. {@code iTXt}, {@code eXIf},
- * {@code tIME}, etc) and performing integrity validation via CRC checks.
+ * lifecycle, managing subclass instantiation for extended chunks, such as {@code iTXt},
+ * {@code eXIf} or {@code tIME}, and performing integrity validation via CRC checks.
  * </p>
  *
  * <p>
@@ -36,7 +36,7 @@ import png.ChunkType.Category;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.3
  * @since 4 February 2026
  */
 public class ChunkHandler implements ImageHandler
@@ -58,7 +58,8 @@ public class ChunkHandler implements ImageHandler
      * @param reader
      *        byte reader for raw PNG stream
      * @param requiredChunks
-     *        an optional set of chunk types to be extracted (null means all chunks are selected)
+     *        an optional set of chunk types to be extracted. If {@code null}, all chunks are
+     *        selected
      * @param strict
      *        true to make it strict, otherwise false for a lenient reading process
      */
@@ -129,7 +130,8 @@ public class ChunkHandler implements ImageHandler
      * valid, it begins the parsing.
      * </p>
      *
-     * @return true if chunks were successfully parsed into the internal collection
+     * @return true if the PNG stream layout was successfully parsed up to its terminal marker, even
+     *         if no chunks matched the active filter
      * 
      * @throws IOException
      *         if the signature is missing, invalid, or an I/O error occurs
@@ -150,13 +152,14 @@ public class ChunkHandler implements ImageHandler
             try
             {
                 parseChunks();
+                return true;
             }
 
             catch (IllegalStateException exc)
             {
                 chunks.clear();
                 LOGGER.error(exc.getMessage());
-                LOGGER.error("Parsing was interrupted. Chunk list cleared");
+                return false;
             }
         }
 
@@ -164,8 +167,6 @@ public class ChunkHandler implements ImageHandler
         {
             throw new IOException("Invalid PNG signature [" + ByteValueConverter.toHex(signature) + "] detected in file [" + imageFile + "]");
         }
-
-        return !chunks.isEmpty();
     }
 
     /**
@@ -212,8 +213,8 @@ public class ChunkHandler implements ImageHandler
     /**
      * Retrieves a list of chunks that have been extracted.
      *
-     * @return an {@link Optional} containing an unmodified list of {@link PngChunk} objects if
-     *         found, or {@link Optional#empty()} if no specific chunks are present
+     * @return an {@link Optional} containing an unmodifiable list of extracted {@link PngChunk}
+     *         objects, or {@link Optional#empty()} if no chunks matched the extraction criteria
      */
     public Optional<List<PngChunk>> getChunks()
     {
@@ -343,6 +344,30 @@ public class ChunkHandler implements ImageHandler
     }
 
     /**
+     * Searches for a specific iTXt chunk that contains embedded XMP data payloads and returns it.
+     *
+     * @return an {@link Optional} containing the discovered XMP iTXt chunk, or
+     *         {@link Optional#empty()}
+     */
+    public Optional<PngChunk> getXmpItxtChunk()
+    {
+        for (int i = chunks.size() - 1; i >= 0; i--)
+        {
+            PngChunk chunk = chunks.get(i);
+
+            if (chunk.getType() == ChunkType.iTXt)
+            {
+                if (chunk instanceof TextualChunk && ((TextualChunk) chunk).hasKeyword(TextKeyword.XMP))
+                {
+                    return Optional.of(chunk);
+                }
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    /**
      * Returns a textual representation of all parsed PNG chunks in this file.
      *
      * @return formatted string of all parsed chunk entries
@@ -377,7 +402,7 @@ public class ChunkHandler implements ImageHandler
      *         if the PNG structure violates the IHDR/IEND sequence or if a CRC mismatch is detected
      *         in {@code strictMode}
      * @throws IOException
-     *         if there is an I/O stream error         
+     *         if there is an I/O stream error
      */
     private void parseChunks() throws IOException
     {
@@ -476,6 +501,7 @@ public class ChunkHandler implements ImageHandler
                  * of data plus 4 bytes for the CRC
                  */
                 reader.skip(length + 4);
+
                 LOGGER.warn("Unknown chunk type [" + new String(typeBytes, StandardCharsets.US_ASCII) + "] skipped");
                 LOGGER.debug("Data skipped by length [" + (length + 4) + "] in file [" + imageFile + "] due to an unknown chunk");
             }
