@@ -51,17 +51,18 @@ public class ChunkHandler implements ImageHandler
     private final List<PngChunk> chunks = new ArrayList<>();
 
     /**
-     * Constructs a handler to parse selected chunks from a PNG image file.
+     * Constructs a handler to parse selected chunks from a PNG image file stream.
      *
      * @param fpath
      *        the path to the PNG file for logging purposes
      * @param reader
-     *        byte reader for raw PNG stream
+     *        the byte reader providing access to the raw PNG stream
      * @param requiredChunks
-     *        an optional set of chunk types to be extracted. If {@code null}, all chunks are
+     *        an optional set of chunk types to be extracted; if {@code null}, all chunks are
      *        selected
      * @param strict
-     *        true to make it strict, otherwise false for a lenient reading process
+     *        {@code true} to enforce strict parsing validation, or {@code false} to log structural
+     *        anomalies or CRC mismatches as warnings without interrupting the parsing process
      */
     public ChunkHandler(Path fpath, ByteStreamReader reader, EnumSet<ChunkType> requiredChunks, boolean strict)
     {
@@ -81,15 +82,10 @@ public class ChunkHandler implements ImageHandler
      * {@link #close()} to ensure the underlying file lock is released.
      * </p>
      * 
-     * <p>
-     * <strong>Lenient Mode:</strong> In this mode, structural anomalies or CRC mismatches will be
-     * logged as warnings but will not interrupt the parsing process.
-     * </p>
-     *
      * @param fpath
      *        the {@link Path} to the PNG image file
      * @param requiredChunks
-     *        the set of {@link ChunkType}s to load into memory; if {@code null}, all encountered
+     *        the set of {@link ChunkType}s to load into memory. If {@code null}, all encountered
      *        chunks are extracted
      * 
      * @throws IOException
@@ -123,20 +119,15 @@ public class ChunkHandler implements ImageHandler
     }
 
     /**
-     * Validates the PNG file signature and initiates chunk parsing.
+     * Validates the PNG stream signature and initiates sequential chunk parsing.
      *
-     * <p>
-     * The method first verifies the 8-byte magic signature: {@code 0x89 50 4E 47 0D 0A 1A 0A}. If
-     * valid, it begins the parsing.
-     * </p>
-     *
-     * @return true if the PNG stream layout was successfully parsed up to its terminal marker, even
-     *         if no chunks matched the active filter
+     * @return {@code true} if the PNG stream layout was successfully parsed up to its terminal
+     *         marker, or {@code false} if a malformed structure was encountered in lenient mode
      * 
      * @throws IOException
-     *         if the signature is missing, invalid, or an I/O error occurs
+     *         if the stream signature is invalid, missing, or an I/O error occurs
      * @throws IllegalStateException
-     *         if the internal structure is malformed, for example: IHDR is not first
+     *         if a structural integrity violation is detected while parsing in strict mode
      */
     @Override
     public boolean parseMetadata() throws IOException
@@ -159,7 +150,6 @@ public class ChunkHandler implements ImageHandler
             {
                 chunks.clear();
                 LOGGER.error(exc.getMessage());
-                return false;
             }
         }
 
@@ -167,6 +157,26 @@ public class ChunkHandler implements ImageHandler
         {
             throw new IOException("Invalid PNG signature [" + ByteValueConverter.toHex(signature) + "] detected in file [" + imageFile + "]");
         }
+
+        return false;
+    }
+
+    /**
+     * Returns a textual representation of all parsed PNG chunks in this file.
+     *
+     * @return formatted string of all parsed chunk entries
+     */
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder();
+
+        for (PngChunk chunk : chunks)
+        {
+            sb.append(chunk).append(System.lineSeparator());
+        }
+
+        return sb.toString();
     }
 
     /**
@@ -190,49 +200,12 @@ public class ChunkHandler implements ImageHandler
     }
 
     /**
-     * Checks if a chunk is classified in the specified category, for example: Textual, Header or
-     * Time etc.
+     * Retrieves all extracted chunks matching a specific metadata category.
      *
      * @param cat
-     *        the type of ChunkType.Category enumeration
-     * @return true if the chunk is present
-     */
-    public boolean existsChunkCategory(Category cat)
-    {
-        for (PngChunk chunk : chunks)
-        {
-            if (chunk.getType().getCategory() == cat)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Retrieves a list of chunks that have been extracted.
-     *
-     * @return an {@link Optional} containing an unmodifiable list of extracted {@link PngChunk}
-     *         objects, or {@link Optional#empty()} if no chunks matched the extraction criteria
-     */
-    public Optional<List<PngChunk>> getChunks()
-    {
-        return chunks.isEmpty() ? Optional.empty() : Optional.of(Collections.unmodifiableList(chunks));
-    }
-
-    /**
-     * Retrieves a list of specific chunks based on the specified category.
-     *
-     * <p>
-     * For example, for textual chunks, a list of {@code tEXt}, {@code iTXt}, and {@code zTXt}
-     * chunks, will be collected and returned.
-     * </p>
-     *
-     * @param cat
-     *        the type of ChunkType.Category enumeration
-     * @return an {@link Optional} containing a list of {@link PngChunk} objects if found, or
-     *         {@link Optional#empty()} if no specific chunks are present
+     *        the specific target category to filter by
+     * @return an {@link Optional} containing an unmodifiable list of matching {@link PngChunk}
+     *         objects, or {@link Optional#empty()} if no matching chunks were extracted
      */
     public Optional<List<PngChunk>> getChunks(Category cat)
     {
@@ -368,24 +341,6 @@ public class ChunkHandler implements ImageHandler
     }
 
     /**
-     * Returns a textual representation of all parsed PNG chunks in this file.
-     *
-     * @return formatted string of all parsed chunk entries
-     */
-    @Override
-    public String toString()
-    {
-        StringBuilder sb = new StringBuilder();
-
-        for (PngChunk chunk : chunks)
-        {
-            sb.append(chunk).append(System.lineSeparator());
-        }
-
-        return sb.toString();
-    }
-
-    /**
      * Processes the PNG data stream sequentially.
      * 
      * <p>
@@ -498,7 +453,7 @@ public class ChunkHandler implements ImageHandler
             {
                 /*
                  * Handle UNKNOWN chunk type by skipping the full length
-                 * of data plus 4 bytes for the CRC
+                 * of data plus 4 bytes for the CRC.
                  */
                 reader.skip(length + 4);
 
@@ -516,22 +471,22 @@ public class ChunkHandler implements ImageHandler
     }
 
     /**
-     * Adds a parsed chunk to the internal chunk collection. Special types such as {@code iTXt},
-     * {@code zTXt}, and {@code tEXt} are instantiated into specific subclasses.
+     * Instantiates the appropriate {@link PngChunk} instance and registers it within the internal
+     * collection.
      *
      * @param chunkType
-     *        the identified {@link ChunkType} of the PNG chunk
+     *        the identified type of the PNG chunk
      * @param length
-     *        the length of the data portion of the chunk (excluding type, length, and CRC fields)
+     *        the length of the data portion of the chunk
      * @param typeBytes
-     *        the raw 4-byte chunk type identifier used for CRC calculation
+     *        the raw 4-byte chunk type identifier
      * @param crc32
-     *        the CRC value read from the file for integrity verification
+     *        the CRC value read from the file stream
      * @param data
      *        the raw byte array of the chunk's data payload
      * @param offsetStart
-     *        the absolute physical position in the file where the chunk begins
-     * @return a populated {@link PngChunk} (or specific subclass) instance
+     *        the absolute physical file position where the chunk begins
+     * @return a populated chunk instance matching the requested type
      */
     private PngChunk addChunk(ChunkType chunkType, long length, byte[] typeBytes, int crc32, byte[] data, long offsetStart)
     {
@@ -562,5 +517,39 @@ public class ChunkHandler implements ImageHandler
         chunks.add(newChunk);
 
         return newChunk;
+    }
+
+    /**
+     * Checks if a chunk is classified in the specified category, for example: Textual, Header or
+     * Time etc.
+     *
+     * @param cat
+     *        the type of ChunkType.Category enumeration
+     * @return true if the chunk is present
+     */
+    @Deprecated
+    public boolean existsChunkCategory(Category cat)
+    {
+        for (PngChunk chunk : chunks)
+        {
+            if (chunk.getType().getCategory() == cat)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Retrieves a list of chunks that have been extracted.
+     *
+     * @return an {@link Optional} containing an unmodifiable list of extracted {@link PngChunk}
+     *         objects, or {@link Optional#empty()} if no chunks matched the extraction criteria
+     */
+    @Deprecated
+    public Optional<List<PngChunk>> getChunks()
+    {
+        return chunks.isEmpty() ? Optional.empty() : Optional.of(Collections.unmodifiableList(chunks));
     }
 }
