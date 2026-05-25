@@ -322,7 +322,7 @@ public class ChunkHandler implements ImageHandler
      * @return an {@link Optional} containing the discovered XMP iTXt chunk, or
      *         {@link Optional#empty()}
      */
-    public Optional<PngChunk> getXmpItxtChunk()
+    public Optional<PngChunkITXT> getXmpItxtChunk()
     {
         for (int i = chunks.size() - 1; i >= 0; i--)
         {
@@ -330,9 +330,14 @@ public class ChunkHandler implements ImageHandler
 
             if (chunk.getType() == ChunkType.iTXt)
             {
-                if (chunk instanceof TextualChunk && ((TextualChunk) chunk).hasKeyword(TextKeyword.XMP))
+                if (chunk instanceof PngChunkITXT)
                 {
-                    return Optional.of(chunk);
+                    PngChunkITXT itxtChunk = (PngChunkITXT) chunk;
+
+                    if (itxtChunk.hasKeyword(TextKeyword.XMP))
+                    {
+                        return Optional.of(itxtChunk);
+                    }
                 }
             }
         }

@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
-
 import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
 import common.DigitalSignature;
@@ -75,7 +74,7 @@ import xmp.XmpHandler;
  * <li>Time info: tIME</li>
  * <li>Animation information: acTL, fcTL, fdAT</li>
  * </ul>
- * 
+ *
  * <p>
  * <b>Note:</b> In Windows Explorer, the {@code Date Taken} attribute is often resolved from the
  * {@code Creation Time} textual keyword rather than the embedded EXIF block. This behaviour can
@@ -83,7 +82,7 @@ import xmp.XmpHandler;
  * </p>
  *
  * {@literal
- *  -- For developmental testing --
+ * -- For developmental testing --
  *
  * <u>Some examples of exiftool usages</u>
  *
@@ -118,7 +117,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
         private final List<PngChunk> textualChunks;
         private final PngChunk exif;
         private final PngChunk time;
-        private final PngChunk xmp;
+        private final PngChunkITXT xmp;
 
         private PngChunkData()
         {
@@ -128,11 +127,11 @@ public class PngParser extends AbstractImageParser<PngMetadata>
             this.xmp = null;
         }
 
-        private PngChunkData(List<PngChunk> textualChunks, PngChunk exifChunk, PngChunk timeChunk, PngChunk itxtXmpChunk)
+        private PngChunkData(List<PngChunk> textualChunks, PngChunk exifChunk, PngChunk timeChunk, PngChunkITXT xmpChunk)
         {
             if (textualChunks != null && !textualChunks.isEmpty())
             {
-                this.textualChunks = Collections.unmodifiableList(new ArrayList<PngChunk>(textualChunks));
+                this.textualChunks = Collections.unmodifiableList(new ArrayList<>(textualChunks));
             }
 
             else
@@ -142,7 +141,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
 
             this.exif = exifChunk;
             this.time = timeChunk;
-            this.xmp = itxtXmpChunk;
+            this.xmp = xmpChunk;
         }
 
         private Optional<List<PngChunk>> getTextualChunks()
@@ -160,7 +159,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
             return Optional.ofNullable(time);
         }
 
-        private Optional<PngChunk> getItxtXmpChunk()
+        private Optional<PngChunkITXT> getXmpChunk()
         {
             return Optional.ofNullable(xmp);
         }
@@ -171,6 +170,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
      *
      * @param file
      *        the path to the PNG file as a string
+     * 
      * @throws IOException
      *         if the file cannot be opened or read
      */
@@ -184,6 +184,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
      *
      * @param fpath
      *        the path to the PNG file as an encapsulated object
+     * 
      * @throws IOException
      *         if the file cannot be opened or read
      */
@@ -217,107 +218,64 @@ public class PngParser extends AbstractImageParser<PngMetadata>
             validateFileState();
 
             EnumSet<ChunkType> chunkSet = EnumSet.of(ChunkType.tEXt, ChunkType.zTXt, ChunkType.iTXt, ChunkType.eXIf, ChunkType.tIME);
+            Optional<PngChunkData> optChunk = loadMetadata(chunkSet);
 
-            try (ChunkHandler handler = new ChunkHandler(getImageFile(), chunkSet))
+            if (optChunk.isPresent())
             {
-                if (handler.parseMetadata())
+                dataLoaded = true;
+                chunkData = optChunk.get();
+
+                if (chunkData.getTextualChunks().isPresent())
                 {
-                    List<PngChunk> textList = null;
-                    PngChunk exif = null;
-                    PngChunk time = null;
-                    PngChunk xmp = null;
+                    PngDirectory textualDir = new PngDirectory(Category.TEXTUAL);
 
-                    Optional<List<PngChunk>> optList = handler.getChunks(Category.TEXTUAL);
-
-                    if (optList.isPresent())
-                    {
-                        textList = optList.get();
-                    }
-
-                    Optional<PngChunk> optExif = handler.getFirstChunk(ChunkType.eXIf);
-
-                    if (optExif.isPresent())
-                    {
-                        exif = optExif.get();
-                    }
-
-                    Optional<PngChunk> optTime = handler.getFirstChunk(ChunkType.tIME);
-
-                    if (optTime.isPresent())
-                    {
-                        time = optTime.get();
-                    }
-
-                    // Targeted selective retrieval matching XMP keywords specifically
-                    Optional<PngChunk> optITxt = handler.getXmpItxtChunk();
-
-                    if (optITxt.isPresent())
-                    {
-                        xmp = optITxt.get();
-                    }
-
-                    chunkData = new PngChunkData(textList, exif, time, xmp);
+                    textualDir.addChunkList(chunkData.getTextualChunks().get());
+                    metadata.addDirectory(textualDir);
                 }
 
-                else
+                if (chunkData.getExifChunk().isPresent())
                 {
-                    dataLoaded = true;
-                    chunkData = new PngChunkData(); // Empty object
-                    LOGGER.warn("No metadata information found in file [" + getImageFile() + "]");
+                    PngDirectory exifDir = new PngDirectory(ChunkType.eXIf.getCategory());
 
-                    return;
+                    exifDir.add(chunkData.getExifChunk().get());
+                    metadata.addDirectory(exifDir);
+                }
+
+                if (chunkData.getTimeChunk().isPresent())
+                {
+                    PngDirectory timeDir = new PngDirectory(ChunkType.tIME.getCategory());
+
+                    timeDir.add(chunkData.getTimeChunk().get());
+                    metadata.addDirectory(timeDir);
+                }
+
+                if (chunkData.getXmpChunk().isPresent())
+                {
+                    try
+                    {
+                        String xmlString = chunkData.getXmpChunk().get().getText();
+                        XmpDirectory xmpDir = XmpHandler.addXmpDirectory(xmlString.getBytes(StandardCharsets.UTF_8));
+
+                        metadata.addXmpDirectory(xmpDir);
+                    }
+
+                    catch (XMPException exc)
+                    {
+                        LOGGER.error("Unable to parse XMP directory payload in file [" + getImageFile() + "]", exc);
+                    }
                 }
             }
 
-            // Stage 2: Compile internal structural directories from isolated raw chunks
-            if (chunkData.getTextualChunks().isPresent())
+            else
             {
-                PngDirectory textualDir = new PngDirectory(Category.TEXTUAL);
-
-                textualDir.addChunkList(chunkData.getTextualChunks().get());
-                metadata.addDirectory(textualDir);
+                LOGGER.warn("No metadata information found in file [" + getImageFile() + "]");
             }
-
-            if (chunkData.getExifChunk().isPresent())
-            {
-                PngDirectory exifDir = new PngDirectory(ChunkType.eXIf.getCategory());
-
-                exifDir.add(chunkData.getExifChunk().get());
-                metadata.addDirectory(exifDir);
-            }
-
-            if (chunkData.getTimeChunk().isPresent())
-            {
-                PngDirectory timeDir = new PngDirectory(ChunkType.tIME.getCategory());
-
-                timeDir.add(chunkData.getTimeChunk().get());
-                metadata.addDirectory(timeDir);
-            }
-
-            if (chunkData.getItxtXmpChunk().isPresent())
-            {
-                try
-                {
-                    // Enforce platform default big endian constraints via shared Metadata contract
-                    String xmlString = ((PngChunkITXT) chunkData.getItxtXmpChunk().get()).getText();
-                    XmpDirectory xmpDir = XmpHandler.addXmpDirectory(xmlString.getBytes(StandardCharsets.UTF_8));
-
-                    metadata.addXmpDirectory(xmpDir);
-                }
-
-                catch (XMPException exc)
-                {
-                    LOGGER.error("Unable to parse XMP directory payload in file [" + getImageFile() + "]", exc);
-                }
-            }
-
-            dataLoaded = true;
         }
     }
 
     /**
-     * Retrieves the extracted metadata from the PNG image file. If the metadata has not
-     * been explicitly loaded yet, it triggers lazy execution.
+     * Retrieves the extracted metadata from the PNG image file. If the metadata has not been
+     * explicitly loaded yet, it triggers lazy execution.
      *
      * @return a PngMetadata object populated with extracted directories, or empty
      * @throws UncheckedIOException
@@ -357,7 +315,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
      * Generates a human-readable diagnostic string containing metadata details.
      *
      * @return a formatted string suitable for diagnostics, logging, or inspection
-     * 
+     *
      * @throws IOException
      *         if lower-level filesystem attributes are inaccessible
      */
@@ -379,7 +337,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
 
             if (meta instanceof PngMetadataProvider)
             {
-                PngMetadataProvider png = (PngMetadataProvider) meta;
+                PngMetadataProvider png = meta;
 
                 if (png.hasTextualData())
                 {
@@ -489,5 +447,43 @@ public class PngParser extends AbstractImageParser<PngMetadata>
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Loads the filtered metadata elements from the PNG image file.
+     *
+     * @param chunkFilter
+     *        a filter set of chunk types to allow specific chunks to be processed
+     * @return an {@link Optional} enclosing a {@link PngChunkData} carrier. If no supported
+     *         metadata chunks are detected or parsing fails, an empty data carrier object
+     *         is still returned wrapped within the Optional
+     *         
+     * @throws IOException
+     *         if an unrecoverable issue occurs while accessing the filesystem or reading the stream
+     */
+    private Optional<PngChunkData> loadMetadata(EnumSet<ChunkType> chunkFilter) throws IOException
+    {
+        PngChunkData chunkData = null;
+
+        try (ChunkHandler handler = new ChunkHandler(getImageFile(), chunkFilter))
+        {
+            if (handler.parseMetadata())
+            {
+                List<PngChunk> textList = handler.getChunks(Category.TEXTUAL).orElse(null);
+                PngChunk exif = handler.getFirstChunk(ChunkType.eXIf).orElse(null);
+                PngChunk time = handler.getFirstChunk(ChunkType.tIME).orElse(null);
+                PngChunkITXT xmp = handler.getXmpItxtChunk().orElse(null);
+
+                chunkData = new PngChunkData(textList, exif, time, xmp);
+            }
+
+            else
+            {
+                chunkData = new PngChunkData(); // Empty object
+                LOGGER.warn("No metadata information found in file [" + getImageFile() + "]");
+            }
+        }
+
+        return Optional.ofNullable(chunkData);
     }
 }
