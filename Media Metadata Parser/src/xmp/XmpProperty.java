@@ -101,8 +101,7 @@ public enum XmpProperty
         {
             if (type.schema != NameSpace.UNKNOWN)
             {
-                String key = String.format("%s:%s", type.getSchemaPrefix(), type.getPropertyName()).toLowerCase(Locale.ROOT);
-
+                String key = (type.getSchemaPrefix() + ":" + type.getPropertyName()).toLowerCase(Locale.ROOT);
                 NAME_LOOKUP.put(key, type);
             }
         }
@@ -126,7 +125,7 @@ public enum XmpProperty
     }
 
     /**
-     * Returns the associated namespace constant, for example: DC, XAP, etc.
+     * Returns the associated namespace constant, for example: dc, xmp, etc.
      *
      * @return the schema namespace constant
      */
@@ -138,7 +137,7 @@ public enum XmpProperty
     /**
      * Returns the abbreviated prefix name of the schema.
      *
-     * @return the abbreviated schema name, for example: DC, XAP, etc
+     * @return the abbreviated schema name, for example: dc, xmp, etc
      */
     public String getSchemaPrefix()
     {
@@ -172,7 +171,7 @@ public enum XmpProperty
             return "";
         }
 
-        return String.format("%s:%s", getSchemaPrefix(), getPropertyName());
+        return getSchemaPrefix() + ":" + getPropertyName();
     }
 
     /**

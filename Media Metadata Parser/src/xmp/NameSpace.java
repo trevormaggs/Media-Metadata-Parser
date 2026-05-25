@@ -85,7 +85,7 @@ public enum NameSpace
      * Resolves a {@code NameSpace} constant based on its preferred prefix.
      *
      * @param prefix
-     *        the prefix string to lookup, for example: dc, xap, etc
+     *        the prefix string to lookup, for example: dc, xmp, etc
      * @return the matching {@code NameSpace} constant, or {@link #UNKNOWN} if the prefix is not recognised
      */
     public static NameSpace fromNamespacePrefix(String prefix)

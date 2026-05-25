@@ -472,7 +472,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
                 List<PngChunk> textList = handler.getChunks(Category.TEXTUAL).orElse(null);
                 PngChunk exif = handler.getFirstChunk(ChunkType.eXIf).orElse(null);
                 PngChunk time = handler.getFirstChunk(ChunkType.tIME).orElse(null);
-                PngChunkITXT xmp = handler.getXmpItxtChunk().orElse(null);
+                PngChunkITXT xmp = handler.getXmpChunk().orElse(null);
 
                 chunkData = new PngChunkData(textList, exif, time, xmp);
             }

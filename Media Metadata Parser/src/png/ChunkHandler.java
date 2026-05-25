@@ -322,7 +322,7 @@ public class ChunkHandler implements ImageHandler
      * @return an {@link Optional} containing the discovered XMP iTXt chunk, or
      *         {@link Optional#empty()}
      */
-    public Optional<PngChunkITXT> getXmpItxtChunk()
+    public Optional<PngChunkITXT> getXmpChunk()
     {
         for (int i = chunks.size() - 1; i >= 0; i--)
         {
