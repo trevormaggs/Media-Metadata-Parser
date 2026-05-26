@@ -122,7 +122,7 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
         }
 
         this.dataLoaded = false;
-        this.metadata = new TifMetadata();
+        this.metadata = new TifMetadata(RiffHandler.WEBP_BYTE_ORDER);
     }
 
     /**
@@ -149,8 +149,6 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
         {
             validateFileState();
 
-            //metadata.setByteOrder(RiffHandler.WEBP_BYTE_ORDER);
-
             try (RiffHandler handler = new RiffHandler(getImageFile(), DEFAULT_CHUNK_FILTER))
             {
                 if (handler.parseMetadata())
@@ -164,7 +162,7 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
 
                         // tif is guaranteed non-null
                         TifMetadata tif = TifParser.parseTiffMetadataFromBytes(strippedPayload);
-                        //metadata.setByteOrder(tif.getByteOrder());
+                        metadata.setByteOrder(tif.getByteOrder());
 
                         for (DirectoryIFD dir : tif)
                         {
@@ -269,6 +267,8 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
         {
             sb.append("\t\t\tWebP Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
+            sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", metadata.getByteOrder()));
+            sb.append(System.lineSeparator());
 
             if (tif.hasMetadata())
             {
