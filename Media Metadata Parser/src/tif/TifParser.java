@@ -87,7 +87,9 @@ public class TifParser extends AbstractImageParser<TifMetadata>
 
         try (IFDHandler handler = new IFDHandler(payload))
         {
-            if (handler.parseMetadata())
+            boolean status = handler.parseMetadata();
+
+            if (status)
             {
                 populateMetadata(tif, handler);
             }
@@ -169,7 +171,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
 
             catch (IOException exc)
             {
-                throw new UncheckedIOException("Lazy execution of readMetadata() failed downstream", exc);
+                throw new UncheckedIOException("Unable to parse file [" + getImageFile() + "] due to an error downstream", exc);
             }
         }
 
@@ -249,7 +251,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
     private static void populateMetadata(TifMetadata target, IFDHandler handler)
     {
         List<DirectoryIFD> directories = handler.getDirectories();
-        
+
         target.setByteOrder(handler.getTifByteOrder());
 
         for (DirectoryIFD dir : directories)

@@ -1,7 +1,6 @@
 package heif;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
@@ -30,19 +29,35 @@ import xmp.XmpHandler;
  * @version 1.0
  * @since 13 August 2025
  */
-public class HeifParser extends AbstractImageParser<TifMetadata>
+public class HeifParser2 extends AbstractImageParser
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(HeifParser.class);
-    private final TifMetadata metadata;
-    private boolean dataLoaded;
+    private static final LogFactory LOGGER = LogFactory.getLogger(HeifParser2.class);
+    private TifMetadata metadata;
+
+    /**
+     * Constructs an instance to parse a HEIC/HEIF file.
+     *
+     * @param file
+     *        the image file path as a string
+     *
+     * @throws IOException
+     *         if an I/O error occurs
+     */
+    public HeifParser2(String file) throws IOException
+    {
+        this(Paths.get(file));
+    }
 
     /**
      * Constructs an instance to parse a HEIC/HEIF file.
      *
      * @param fpath
      *        the image file path
+     *
+     * @throws IOException
+     *         if the file is not a regular type or does not exist
      */
-    public HeifParser(Path fpath)
+    public HeifParser2(Path fpath) throws IOException
     {
         super(fpath);
 
@@ -52,25 +67,11 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
         {
             LOGGER.warn(formatExtensionErrorMessage());
         }
-
-        this.dataLoaded = false;
-        this.metadata = new TifMetadata();
     }
 
     /**
-     * Constructs an instance to parse a HEIC/HEIF file.
-     *
-     * @param file
-     *        the image file path as a string
-     */
-    public HeifParser(String file) 
-    {
-        this(Paths.get(file));
-    }
-
-    /**
-     * Reads the HEIC/HEIF image file to extract all supported raw metadata segments, specifically
-     * EXIF and XMP, if present, and uses the extracted data to initialise the necessary metadata
+     * Reads the HEIC/HEIF image file to extract all supported raw metadata segments (specifically
+     * EXIF and XMP, if present), and uses the extracted data to initialise the necessary metadata
      * objects for later data retrieval.
      *
      * <p>
@@ -84,80 +85,59 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
     @Override
     public void readMetadata() throws IOException
     {
-        if (!dataLoaded)
+        metadata = new TifMetadata();
+
+        try (BoxHandler handler = new BoxHandler(getImageFile()))
         {
-            validateFileState();
-
-            try (BoxHandler handler = new BoxHandler(getImageFile()))
+            if (handler.parseMetadata())
             {
-                if (handler.parseMetadata())
+                Optional<byte[]> exif = handler.getExifData();
+
+                if (exif.isPresent())
                 {
-                    Optional<byte[]> exif = handler.getExifData();
-
-                    if (exif.isPresent())
-                    {
-                        TifMetadata tif = TifParser.parseTiffMetadataFromBytes(exif.get());
-
-                        // tif is guaranteed non-null
-                        for (DirectoryIFD ifd : tif)
-                        {
-                            metadata.addDirectory(ifd);
-                        }
-                    }
-
-                    else
-                    {
-                        LOGGER.info("No EXIF metadata present in file [" + getImageFile() + "]");
-                    }
-
-                    Optional<byte[]> xmp = handler.getXmpData();
-
-                    if (xmp.isPresent())
-                    {
-                        processXmpData(xmp.get());
-                    }
-
-                    else
-                    {
-                        LOGGER.info("No XMP metadata present in file [" + getImageFile() + "]");
-                    }
-
-                    dataLoaded = true;
-
-                    // logDebugBoxHierarchy(handler);
-                    // handler.displayHierarchy();
+                    metadata = TifParser.parseTiffMetadataFromBytes(exif.get());
                 }
 
                 else
                 {
-                    throw new IOException("Invalid or corrupt ISOBMFF structural headers detected");
+                    LOGGER.info("No EXIF metadata present in file [" + getImageFile() + "]");
                 }
+
+                Optional<byte[]> xmp = handler.getXmpData();
+
+                if (xmp.isPresent())
+                {
+                    processXmpData(xmp.get());
+                }
+
+                else
+                {
+                    LOGGER.info("No XMP metadata present in file [" + getImageFile() + "]");
+                }
+
+                // logDebugBoxHierarchy(handler);
+                // handler.displayHierarchy();
             }
         }
     }
 
     /**
-     * Retrieves the extracted metadata container from the HEIF image file. If the container has not
-     * been filled, it triggers the lazy-loading operation to ensure availability.
-     * 
+     * Retrieves the extracted metadata from the HEIF image file, or a fallback if unavailable.
+     *
      * @return a {@link Metadata} object
      */
     @Override
-    public TifMetadata getMetadata()
+    public Metadata<DirectoryIFD> getMetadata()
     {
-        if (!dataLoaded)
+        if (metadata == null)
         {
-            try
-            {
-                readMetadata();
-            }
+            LOGGER.warn("No metadata information has been parsed yet");
 
-            catch (IOException exc)
-            {
-                throw new UncheckedIOException("Unable to parse file [" + getImageFile() + "] due to an error downstream", exc);
-            }
+            /* Fallback to empty metadata */
+            return new TifMetadata();
         }
 
+        /* metadata is already guaranteed non-null */
         return metadata;
     }
 
@@ -180,38 +160,43 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
     @Override
     public String formatDiagnosticString()
     {
-        TifMetadata tif = getMetadata();
         StringBuilder sb = new StringBuilder();
+        Metadata<DirectoryIFD> meta = getMetadata();
 
         try
         {
-            sb.append("\t\t\tHEIF Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
+            sb.append("\t\t\tTIF Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
 
-            if (tif.hasMetadata())
+            if (meta instanceof TifMetadata)
             {
-                for (DirectoryIFD ifd : tif)
+                TifMetadata tif = (TifMetadata) meta;
+
+                if (tif.hasMetadata())
                 {
-                    sb.append(ifd);
+                    for (DirectoryIFD ifd : tif)
+                    {
+                        sb.append(ifd);
+                    }
                 }
-            }
 
-            else
-            {
-                sb.append("No EXIF metadata found").append(System.lineSeparator());
-            }
+                else
+                {
+                    sb.append("No EXIF metadata found").append(System.lineSeparator());
+                }
 
-            if (tif.hasXmpData())
-            {
-                sb.append(tif.getXmpDirectory());
-            }
+                if (tif.hasXmpData())
+                {
+                    sb.append(tif.getXmpDirectory());
+                }
 
-            else
-            {
-                sb.append("No XMP metadata found").append(System.lineSeparator());
-            }
+                else
+                {
+                    sb.append("No XMP metadata found").append(System.lineSeparator());
+                }
 
-            sb.append(MetadataConstants.DIVIDER);
+                sb.append(MetadataConstants.DIVIDER);
+            }
         }
 
         catch (Exception exc)
@@ -278,4 +263,5 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
             LOGGER.error("XMP parsing failed for file [" + getImageFile() + "]", exc);
         }
     }
+
 }

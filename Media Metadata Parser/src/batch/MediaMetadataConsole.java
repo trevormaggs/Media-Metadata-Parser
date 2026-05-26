@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import cli.CommandFlagParser;
 import cli.FlagType;
-import logger.LogFactory;
 import progressbar.ConsoleProgressBar;
 import util.ProjectBuildInfo;
 
@@ -31,7 +30,7 @@ import util.ProjectBuildInfo;
  */
 public final class MediaMetadataConsole
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(MediaMetadataConsole.class);
+    //private static final LogFactory LOGGER = LogFactory.getLogger(MediaMetadataConsole.class);
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
 
@@ -184,7 +183,7 @@ public final class MediaMetadataConsole
 
         catch (BatchErrorException exc)
         {
-            LOGGER.error(exc.getMessage());
+            System.err.println(exc.getMessage());
             System.exit(1);
         }
     }

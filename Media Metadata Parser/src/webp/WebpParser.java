@@ -149,6 +149,8 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
         {
             validateFileState();
 
+            //metadata.setByteOrder(RiffHandler.WEBP_BYTE_ORDER);
+
             try (RiffHandler handler = new RiffHandler(getImageFile(), DEFAULT_CHUNK_FILTER))
             {
                 if (handler.parseMetadata())
@@ -159,12 +161,14 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
                     if (optExif.isPresent())
                     {
                         byte[] strippedPayload = JpgParser.stripExifPreamble(optExif.get().getPayloadArray());
-                        TifMetadata tif = TifParser.parseTiffMetadataFromBytes(strippedPayload);
 
                         // tif is guaranteed non-null
-                        for (DirectoryIFD ifd : tif)
+                        TifMetadata tif = TifParser.parseTiffMetadataFromBytes(strippedPayload);
+                        //metadata.setByteOrder(tif.getByteOrder());
+
+                        for (DirectoryIFD dir : tif)
                         {
-                            metadata.addDirectory(ifd);
+                            metadata.addDirectory(dir);
                         }
                     }
 

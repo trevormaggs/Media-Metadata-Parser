@@ -32,7 +32,7 @@ import logger.LogFactory;
  * @version 1.0
  * @since 13 August 2025
  */
-public class WebpHandler implements ImageHandler, AutoCloseable
+public class WebpHandler implements ImageHandler
 {
     /*
      * Note, CHUNK_HEADER_SIZE represents the size of a RIFF chunk header

@@ -153,9 +153,9 @@ public class MetadataScanner implements Iterable<MediaRecord>
             }
         }
 
-        catch (IOException exc)
+        catch (Exception exc)
         {
-            throw new BatchErrorException("An I/O error occurred during directory scanning", exc);
+            throw new BatchErrorException(exc.getMessage(), exc);
         }
     }
 
@@ -255,6 +255,8 @@ public class MetadataScanner implements Iterable<MediaRecord>
                      * NullPointerException (RuntimeException)
                      * IllegalArgumentException (RuntimeException)
                      */
+
+                    throw exc;
                 }
 
                 return FileVisitResult.CONTINUE;

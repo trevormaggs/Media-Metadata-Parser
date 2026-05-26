@@ -1,6 +1,7 @@
 package webp;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.EnumSet;
@@ -93,9 +94,9 @@ import xmp.XmpHandler;
  * @version 1.0
  * @since 13 August 2025
  */
-public class WebpParserOrig extends AbstractImageParser
+public class WebpParser2 extends AbstractImageParser<TifMetadata>
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(WebpParserOrig.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(WebpParser2.class);
     private static final EnumSet<WebPChunkType> DEFAULT_METADATA_CHUNKS = EnumSet.of(WebPChunkType.EXIF, WebPChunkType.XMP);
     private TifMetadata metadata;
 
@@ -108,7 +109,7 @@ public class WebpParserOrig extends AbstractImageParser
      * @throws IOException
      *         if an I/O problem has occurred
      */
-    public WebpParserOrig(String file) throws IOException
+    public WebpParser2(String file) throws IOException
     {
         this(Paths.get(file));
     }
@@ -122,7 +123,7 @@ public class WebpParserOrig extends AbstractImageParser
      * @throws IOException
      *         if the file is not a regular type or does not exist
      */
-    public WebpParserOrig(Path fpath) throws IOException
+    public WebpParser2(Path fpath) throws IOException
     {
         super(fpath);
 
@@ -182,9 +183,11 @@ public class WebpParserOrig extends AbstractImageParser
                 if (handler.existsXmpMetadata())
                 {
                     Optional<WebpChunk> optXmp = handler.getLastChunk(WebPChunkType.XMP);
-
+                    
                     if (optXmp.isPresent())
                     {
+                        System.out.printf("LOOK: %s\n", getImageFile());
+                        
                         try
                         {
                             metadata.addXmpDirectory(XmpHandler.addXmpDirectory(optXmp.get().getPayloadArray()));
@@ -211,14 +214,19 @@ public class WebpParserOrig extends AbstractImageParser
      * @return a {@link Metadata} object
      */
     @Override
-    public Metadata<DirectoryIFD> getMetadata()
+    public TifMetadata getMetadata()
     {
-        if (metadata == null)
+        //if (!dataLoaded)
         {
-            LOGGER.warn("No metadata information has been parsed yet");
+            try
+            {
+                readMetadata();
+            }
 
-            /* Fallback to empty metadata */
-            return new TifMetadata();
+            catch (IOException exc)
+            {
+                throw new UncheckedIOException("Lazy execution of readMetadata() failed downstream", exc);
+            }
         }
 
         return metadata;

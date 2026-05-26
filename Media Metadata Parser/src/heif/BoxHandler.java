@@ -54,7 +54,7 @@ import logger.LogFactory;
  * @version 1.1
  * @since 13 August 2025
  */
-public class BoxHandler implements ImageHandler, AutoCloseable, Iterable<Box>
+public class BoxHandler implements ImageHandler, Iterable<Box>
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(BoxHandler.class);
     private static final String IREF_CDSC = "cdsc";
@@ -383,7 +383,7 @@ public class BoxHandler implements ImageHandler, AutoCloseable, Iterable<Box>
             {
                 ItemInfoEntry infe = iinf.findEntryByType(TYPE_MIME);
 
-                if (isXmpType(infe))
+                if (infe != null && isXmpType(infe))
                 {
                     LOGGER.warn("Fallback XMP segment found using Item ID [" + infe.getItemID() + "]");
                     return (int) infe.getItemID();
@@ -399,7 +399,8 @@ public class BoxHandler implements ImageHandler, AutoCloseable, Iterable<Box>
      *
      * <p>
      * <strong>Fragmented Items:</strong> HEIF allows a single item (like an Exif block) to be split
-     * across multiple non-contiguous physical sections called {@code extents}. This method traverses
+     * across multiple non-contiguous physical sections called {@code extents}. This method
+     * traverses
      * the {@code iloc} (Item Location) box to map the logical {@code logicalOffset} to the correct
      * physical extent.
      * </p>
