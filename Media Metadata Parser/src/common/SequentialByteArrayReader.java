@@ -598,7 +598,7 @@ public class SequentialByteArrayReader implements ByteStreamReader
      * starts at the current position and has the specified length.
      * 
      * <pre>
-     * <strong>Example usage in WebpHandler</strong>
+     * <strong>Example usage in RiffHandler</strong>
         long chunkPayloadSize = reader.readUnsignedInteger();
     
         // Create a restricted reader for just this chunk

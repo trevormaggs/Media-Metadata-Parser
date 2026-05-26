@@ -104,6 +104,7 @@ import xmp.XmpHandler;
 public class PngParser extends AbstractImageParser<PngMetadata>
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(PngParser.class);
+    private static final EnumSet<ChunkType> DEFAULT_CHUNK_FILTER = EnumSet.of(ChunkType.tEXt, ChunkType.zTXt, ChunkType.iTXt, ChunkType.eXIf, ChunkType.tIME);
     private PngChunkData chunkData;
     private boolean dataLoaded;
     private final PngMetadata metadata;
@@ -217,8 +218,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
         {
             validateFileState();
 
-            EnumSet<ChunkType> chunkSet = EnumSet.of(ChunkType.tEXt, ChunkType.zTXt, ChunkType.iTXt, ChunkType.eXIf, ChunkType.tIME);
-            Optional<PngChunkData> optChunk = loadMetadata(chunkSet);
+            Optional<PngChunkData> optChunk = loadMetadata(DEFAULT_CHUNK_FILTER);
 
             if (optChunk.isPresent())
             {
@@ -457,7 +457,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
      * @return an {@link Optional} enclosing a {@link PngChunkData} carrier. If no supported
      *         metadata chunks are detected or parsing fails, an empty data carrier object
      *         is still returned wrapped within the Optional
-     *         
+     * 
      * @throws IOException
      *         if an unrecoverable issue occurs while accessing the filesystem or reading the stream
      */

@@ -1,6 +1,7 @@
 package webp;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.EnumSet;
@@ -9,7 +10,6 @@ import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
 import common.DigitalSignature;
 import common.MetadataConstants;
-import common.Metadata;
 import common.Utils;
 import jpg.JpgParser;
 import logger.LogFactory;
@@ -19,10 +19,14 @@ import tif.TifParser;
 import xmp.XmpHandler;
 
 /**
- * This program aims to read WebP image files and retrieve data structured in a series of RIFF-based
- * chunks. For metadata access, only the EXIF chunk, if present, will be processed. At this stage,
- * XMP metadata is considered for inclusion in this class on a later date.
+ * A concrete implementation of {@link AbstractImageParser} for extracting metadata from WebP image
+ * files using a RIFF container chunk parsing architecture.
  *
+ * <p>
+ * This parser loads metadata by sequentially inspecting RIFF chunks. It extracts EXIF blocks
+ * embedded within TIFF structures and XMP metadata packets.
+ * </p>
+ * 
  * <p>
  * <b>WebP Data Stream</b>
  * </p>
@@ -85,44 +89,28 @@ import xmp.XmpHandler;
  * When the {@code EXIF} chunk is found, its payload is parsed as TIFF/EXIF-formatted metadata. This
  * is commonly used to extract orientation, date, and camera information.
  * </p>
- *
+ * 
  * @see <a href="https://developers.google.com/speed/webp/docs/riff_container">WebP RIFF Container
  *      Specification</a>
  *
  * @author Trevor Maggs
- * @version 1.0
+ * @version 1.2
  * @since 13 August 2025
  */
-public class WebpParser extends AbstractImageParser
+public class WebpParser extends AbstractImageParser<TifMetadata>
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(WebpParser.class);
-    private static final EnumSet<WebPChunkType> DEFAULT_METADATA_CHUNKS = EnumSet.of(WebPChunkType.EXIF, WebPChunkType.XMP);
-    private TifMetadata metadata;
+    private static final EnumSet<WebPChunkType> DEFAULT_CHUNK_FILTER = EnumSet.of(WebPChunkType.EXIF, WebPChunkType.XMP);
+    private final TifMetadata metadata;
+    private boolean dataLoaded;
 
     /**
-     * This constructor creates an instance for processing the specified image file.
-     *
-     * @param file
-     *        specifies the WebP image file to be read
-     *
-     * @throws IOException
-     *         if an I/O problem has occurred
-     */
-    public WebpParser(String file) throws IOException
-    {
-        this(Paths.get(file));
-    }
-
-    /**
-     * This constructor creates an instance for processing the specified image file.
+     * Creates an instance intended for parsing the specified WebP image file.
      *
      * @param fpath
-     *        specifies the WebP file path, encapsulated in a Path object
-     *
-     * @throws IOException
-     *         if the file is not a regular type or does not exist
+     *        the path to the WebP file
      */
-    public WebpParser(Path fpath) throws IOException
+    public WebpParser(Path fpath)
     {
         super(fpath);
 
@@ -132,55 +120,60 @@ public class WebpParser extends AbstractImageParser
         {
             LOGGER.warn(formatExtensionErrorMessage());
         }
+
+        this.dataLoaded = false;
+        this.metadata = new TifMetadata();
     }
 
     /**
-     * Reads the WebP image file to extract all supported raw metadata segments.
-     * 
-     * <p>
-     * This implementation specifically looks for {@code EXIF} and {@code XMP} chunks. Because some
-     * encoders incorrectly wrap the EXIF payload in a JPEG-style preamble (the "Exif\0\0" marker),
-     * this method performs a stripping operation to ensure the underlying TIFF parser receives a
-     * valid byte stream.
-     * </p>
+     * Creates an instance for parsing the specified WebP image file.
      *
+     * @param file
+     *        the path to the WebP file
+     */
+    public WebpParser(String file)
+    {
+        this(Paths.get(file));
+    }
+
+    /**
+     * Parses WebP structural chunks to load EXIF and XMP metadata segments.
+     * 
      * @throws IOException
-     *         if a low-level I/O error occurs during stream reading
+     *         if data corruption or I/O errors occur during chunk traversal
      */
     @Override
     public void readMetadata() throws IOException
     {
-        metadata = new TifMetadata();
-
-        try (WebpHandler handler = new WebpHandler(getImageFile(), DEFAULT_METADATA_CHUNKS))
+        if (!dataLoaded)
         {
-            if (handler.parseMetadata())
+            validateFileState();
+
+            try (RiffHandler handler = new RiffHandler(getImageFile(), DEFAULT_CHUNK_FILTER))
             {
-                if (handler.existsExifMetadata())
+                if (handler.parseMetadata())
                 {
+                    // Processing embedded EXIF chunk
                     Optional<WebpChunk> optExif = handler.getFirstChunk(WebPChunkType.EXIF);
 
                     if (optExif.isPresent())
                     {
-                        /*
-                         * According to research from other sources, it seems sometimes the WebP
-                         * files happen to contain the JPG premable within the TIFF header block for
-                         * some strange reasons, the snippet below makes sure the JPEG segment is
-                         * skipped.
-                         */
                         byte[] strippedPayload = JpgParser.stripExifPreamble(optExif.get().getPayloadArray());
+                        TifMetadata tif = TifParser.parseTiffMetadataFromBytes(strippedPayload);
 
-                        metadata = TifParser.parseTiffMetadataFromBytes(strippedPayload);
+                        // tif is guaranteed non-null
+                        for (DirectoryIFD ifd : tif)
+                        {
+                            metadata.addDirectory(ifd);
+                        }
                     }
 
                     else
                     {
                         LOGGER.debug("No Exif segment found in file [" + getImageFile() + "]");
                     }
-                }
 
-                if (handler.existsXmpMetadata())
-                {
+                    // Processing embedded XMP chunk
                     Optional<WebpChunk> optXmp = handler.getLastChunk(WebPChunkType.XMP);
 
                     if (optXmp.isPresent())
@@ -192,7 +185,7 @@ public class WebpParser extends AbstractImageParser
 
                         catch (XMPException exc)
                         {
-                            LOGGER.error("Unable to parse XMP payload", exc);
+                            LOGGER.error("Unable to parse XMP payload via Adobe XMPCore", exc);
                         }
                     }
 
@@ -200,34 +193,56 @@ public class WebpParser extends AbstractImageParser
                     {
                         LOGGER.debug("No XMP payload found in file [" + getImageFile() + "]");
                     }
+
+                    dataLoaded = true;
                 }
+
+                else
+                {
+                    throw new IOException("Invalid or corrupt WebP structural headers detected");
+                }
+            }
+
+            catch (IOException exc)
+            {
+                LOGGER.error("Data corruption or access error detected within WebP structural container", exc);
+                throw exc;
             }
         }
     }
 
     /**
-     * Retrieves the extracted metadata from the WebP image file, or a fallback if unavailable.
+     * Retrieves the extracted metadata container. If the container has not been filled, it triggers
+     * the lazy-loading operation to ensure availability.
      *
-     * @return a {@link Metadata} object
+     * @return the TIFF metadata container holding WebP payload fields
+     * 
+     * @throws UncheckedIOException
+     *         if an unrecoverable I/O or corruption failure occurs during lazy parsing
      */
     @Override
-    public Metadata<DirectoryIFD> getMetadata()
+    public TifMetadata getMetadata()
     {
-        if (metadata == null)
+        if (!dataLoaded)
         {
-            LOGGER.warn("No metadata information has been parsed yet");
+            try
+            {
+                readMetadata();
+            }
 
-            /* Fallback to empty metadata */
-            return new TifMetadata();
+            catch (IOException exc)
+            {
+                throw new UncheckedIOException("Lazy execution of readMetadata() failed downstream", exc);
+            }
         }
 
         return metadata;
     }
 
     /**
-     * Returns the detected {@code WebP} format.
+     * Returns the detected WebP format.
      *
-     * @return a {@link DigitalSignature} enum constant representing this image format
+     * @return a {@link DigitalSignature} enum class
      */
     @Override
     public DigitalSignature getImageFormat()
@@ -236,54 +251,45 @@ public class WebpParser extends AbstractImageParser
     }
 
     /**
-     * Generates a human-readable diagnostic string containing metadata details.
-     *
-     * <p>
-     * Currently this includes EXIF directory types, entry tags, field types, counts, and values.
-     * </p>
+     * Generates a human-readable diagnostic string containing metadata segment details.
      *
      * @return a formatted string suitable for diagnostics, logging, or inspection
      */
     @Override
     public String formatDiagnosticString()
     {
+        TifMetadata tif = getMetadata();
         StringBuilder sb = new StringBuilder();
-        Metadata<DirectoryIFD> meta = getMetadata();
 
         try
         {
             sb.append("\t\t\tWebP Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
 
-            if (meta instanceof TifMetadata)
+            if (tif.hasMetadata())
             {
-                TifMetadata tif = (TifMetadata) meta;
-
-                if (tif.hasMetadata())
+                for (DirectoryIFD ifd : tif)
                 {
-                    for (DirectoryIFD ifd : tif)
-                    {
-                        sb.append(ifd);
-                    }
+                    sb.append(ifd);
                 }
-
-                else
-                {
-                    sb.append("No EXIF metadata found").append(System.lineSeparator());
-                }
-
-                if (tif.hasXmpData())
-                {
-                    sb.append(tif.getXmpDirectory());
-                }
-
-                else
-                {
-                    sb.append("No XMP metadata found").append(System.lineSeparator());
-                }
-
-                sb.append(MetadataConstants.DIVIDER);
             }
+
+            else
+            {
+                sb.append("No EXIF metadata found").append(System.lineSeparator());
+            }
+
+            if (tif.hasXmpData())
+            {
+                sb.append(tif.getXmpDirectory());
+            }
+
+            else
+            {
+                sb.append("No XMP metadata found").append(System.lineSeparator());
+            }
+
+            sb.append(MetadataConstants.DIVIDER);
         }
 
         catch (Exception exc)

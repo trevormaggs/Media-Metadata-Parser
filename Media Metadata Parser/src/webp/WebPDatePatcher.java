@@ -68,13 +68,13 @@ public final class WebPDatePatcher
         ZonedDateTime zdt = newDate.toInstant().atZone(ZoneId.systemDefault());
         EnumSet<WebPChunkType> chunkSet = EnumSet.of(WebPChunkType.EXIF, WebPChunkType.XMP);
 
-        try (WebpHandler handler = new WebpHandler(imagePath, chunkSet))
+        try (RiffHandler handler = new RiffHandler(imagePath, chunkSet))
         {
             if (handler.parseMetadata())
             {
                 LOGGER.info(String.format("Preparing to patch new date in WebP file [%s]", imagePath));
 
-                try (ImageRandomAccessWriter writer = new ImageRandomAccessWriter(imagePath, WebpHandler.WEBP_BYTE_ORDER))
+                try (ImageRandomAccessWriter writer = new ImageRandomAccessWriter(imagePath, RiffHandler.WEBP_BYTE_ORDER))
                 {
                     processExifSegment(handler, writer, zdt);
                     processXmpSegment(handler, writer, zdt, xmpDump);
@@ -103,7 +103,7 @@ public final class WebPDatePatcher
      * @throws IOException
      *         if an I/O error occurs whilst accessing the file or parsing the TIFF data
      */
-    private static void processExifSegment(WebpHandler handler, ImageRandomAccessWriter writer, ZonedDateTime zdt) throws IOException
+    private static void processExifSegment(RiffHandler handler, ImageRandomAccessWriter writer, ZonedDateTime zdt) throws IOException
     {
         Taggable[] ifdTags = {
                 TagIFD_Baseline.IFD_DATE_TIME, TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL,
@@ -198,7 +198,7 @@ public final class WebPDatePatcher
      * @throws IOException
      *         if an I/O error occurs whilst accessing the file or overwriting data
      */
-    private static void processXmpSegment(WebpHandler handler, ImageRandomAccessWriter writer, ZonedDateTime zdt, boolean xmpDump) throws IOException
+    private static void processXmpSegment(RiffHandler handler, ImageRandomAccessWriter writer, ZonedDateTime zdt, boolean xmpDump) throws IOException
     {
         final String[] xmpTags = {
                 "xmp:CreateDate", "xap:CreateDate", "xmp:ModifyDate", "xap:ModifyDate",

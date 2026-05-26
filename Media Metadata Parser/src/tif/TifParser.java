@@ -51,7 +51,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
 
         String ext = Utils.getFileExtension(getImageFile());
 
-        if (!"tif".equalsIgnoreCase(ext) && !"tiff".equalsIgnoreCase(ext))
+        if (!ext.equalsIgnoreCase("tif") && !ext.equalsIgnoreCase("tiff"))
         {
             LOGGER.warn(formatExtensionErrorMessage());
         }

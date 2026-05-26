@@ -160,17 +160,17 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
             {
                 try
                 {
-                    TifMetadata parsedTif = TifParser.parseTiffMetadataFromBytes(segmentData.getExif().get());
-                    metadata.setByteOrder(parsedTif.getByteOrder());
+                    TifMetadata tif = TifParser.parseTiffMetadataFromBytes(segmentData.getExif().get());
+                    metadata.setByteOrder(tif.getByteOrder());
 
-                    for (DirectoryIFD ifd : parsedTif)
+                    for (DirectoryIFD ifd : tif)
                     {
                         metadata.addDirectory(ifd);
                     }
 
-                    if (parsedTif.hasXmpData())
+                    if (tif.hasXmpData())
                     {
-                        metadata.addXmpDirectory(parsedTif.getXmpDirectory());
+                        metadata.addXmpDirectory(tif.getXmpDirectory());
                     }
                 }
 
@@ -305,7 +305,12 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
         catch (Exception exc)
         {
             LOGGER.error("Diagnostics failed for file [" + getImageFile() + "]", exc);
-            sb.append(exc.getMessage()).append(System.lineSeparator());
+
+            sb.append("Error generating diagnostics [")
+                    .append(exc.getClass().getSimpleName())
+                    .append("]: ")
+                    .append(exc.getMessage())
+                    .append(System.lineSeparator());
         }
 
         return sb.toString();

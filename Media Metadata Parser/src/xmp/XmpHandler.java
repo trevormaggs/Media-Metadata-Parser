@@ -128,6 +128,12 @@ public class XmpHandler implements ImageHandler
 
     /**
      * Uses Adobe XMPCore to iterate through the RDF tree and populate the directory.
+     * 
+     * @param data
+     *        an array of bytes containing raw XMP data
+     *
+     * @throws XMPException
+     *         if parsing fails
      */
     private void readPropertyData(byte[] data) throws XMPException
     {

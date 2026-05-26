@@ -328,16 +328,13 @@ public class ChunkHandler implements ImageHandler
         {
             PngChunk chunk = chunks.get(i);
 
-            if (chunk.getType() == ChunkType.iTXt)
+            if (chunk.getType() == ChunkType.iTXt && chunk instanceof PngChunkITXT)
             {
-                if (chunk instanceof PngChunkITXT)
-                {
-                    PngChunkITXT itxtChunk = (PngChunkITXT) chunk;
+                PngChunkITXT itxtChunk = (PngChunkITXT) chunk;
 
-                    if (itxtChunk.hasKeyword(TextKeyword.XMP))
-                    {
-                        return Optional.of(itxtChunk);
-                    }
+                if (itxtChunk.hasKeyword(TextKeyword.XMP))
+                {
+                    return Optional.of(itxtChunk);
                 }
             }
         }
@@ -476,11 +473,10 @@ public class ChunkHandler implements ImageHandler
     }
 
     /**
-     * Instantiates the appropriate {@link PngChunk} instance and registers it within the internal
-     * collection.
+     * Examines structural data to instantiate and track type-specific PNG chunk containers.
      *
      * @param chunkType
-     *        the identified type of the PNG chunk
+     *        the identified critical or ancillary type of the PNG chunk
      * @param length
      *        the length of the data portion of the chunk
      * @param typeBytes
@@ -491,12 +487,14 @@ public class ChunkHandler implements ImageHandler
      *        the raw byte array of the chunk's data payload
      * @param offsetStart
      *        the absolute physical file position where the chunk begins
-     * @return a populated chunk instance matching the requested type
+     * @return a fully populated, type-specific {@link PngChunk} subclass instance, or a base
+     *         container fallback if the type is unrecognised
      */
     private PngChunk addChunk(ChunkType chunkType, long length, byte[] typeBytes, int crc32, byte[] data, long offsetStart)
     {
         PngChunk newChunk;
 
+        // Simple Factory pattern
         switch (chunkType)
         {
             case tEXt:
@@ -517,9 +515,10 @@ public class ChunkHandler implements ImageHandler
 
             default:
                 newChunk = new PngChunk(length, typeBytes, crc32, data, offsetStart);
+            break;
         }
 
-        chunks.add(newChunk);
+        this.chunks.add(newChunk);
 
         return newChunk;
     }

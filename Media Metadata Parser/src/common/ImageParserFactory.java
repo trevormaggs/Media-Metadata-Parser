@@ -6,7 +6,7 @@ import heif.HeifParser;
 import jpg.JpgParser;
 import png.PngParser;
 import tif.TifParser;
-import webp.WebpParser;
+import webp.WebpParserOrig;
 
 /**
  * A static factory class responsible for returning appropriate image parser instances based on the
@@ -51,28 +51,32 @@ public final class ImageParserFactory
      *
      * @param fpath
      *        the file path of the image to be parsed
-     *
      * @return a concrete implementation of {@link AbstractImageParser}
-     *
+     * 
      * @throws IOException
      *         if an I/O error occurs while reading the file signature
      * @throws UnsupportedOperationException
      *         if the format is unsupported
      */
-    public static AbstractImageParser getParser(Path fpath) throws IOException
+    public static AbstractImageParser<?> getParser(Path fpath) throws IOException
     {
         switch (DigitalSignature.detectFormat(fpath))
         {
             case JPG:
                 return new JpgParser(fpath);
+
             case TIF:
                 return new TifParser(fpath);
+
             case PNG:
                 return new PngParser(fpath);
+
             case HEIF:
                 return new HeifParser(fpath);
+
             case WEBP:
-                return new WebpParser(fpath);
+                return new WebpParserOrig(fpath);
+
             default:
                 throw new UnsupportedOperationException("Unsupported image format detected [" + fpath.getFileName() + "]");
         }
