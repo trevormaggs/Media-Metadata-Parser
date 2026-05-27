@@ -216,7 +216,8 @@ public class PngMetadata implements PngMetadataProvider
      * <li>Embedded <b>EXIF</b> data (most accurate, from {@code DateTimeOriginal})</li>
      * <li>Embedded <b>XMP</b> data (reliable fallback, from {@code CreateDate} or
      * {@code DateTimeOriginal})</li>
-     * <li>Generic <b>Textual</b> data with the 'Creation Time' keyword (final fallback)</li>
+     * <li>Generic <b>Textual</b> data with the 'Creation Time' keyword</li>
+     * <li>Native PNG <b>tIME</b> chunk tracking the last modification marker</li>
      * </ol>
      *
      * @return a {@link Date} object extracted from one of the metadata segments, otherwise null if
@@ -229,23 +230,21 @@ public class PngMetadata implements PngMetadataProvider
         {
             PngDirectory dir = getDirectory(Category.MISC);
             PngChunk chunk = dir.getFirstChunk(ChunkType.eXIf);
-            TifMetadata exif;
 
             try
             {
-                exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
+                TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
+                DirectoryIFD ifd = exif.getDirectory(DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY);
+
+                if (ifd != null && ifd.hasTag(EXIF_DATE_TIME_ORIGINAL))
+                {
+                    return ifd.getDate(EXIF_DATE_TIME_ORIGINAL);
+                }
             }
 
             catch (IOException exc)
             {
-                exif = new TifMetadata();
-            }
-
-            DirectoryIFD ifd = exif.getDirectory(DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY);
-
-            if (ifd != null && ifd.hasTag(EXIF_DATE_TIME_ORIGINAL))
-            {
-                return ifd.getDate(EXIF_DATE_TIME_ORIGINAL);
+                // Exif block possibly corrupt. Just gracefully fall through to alternative blocks
             }
         }
 

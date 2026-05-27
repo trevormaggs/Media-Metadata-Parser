@@ -35,7 +35,7 @@ import logger.LogFactory;
 
 /**
  * Handles parsing of HEIF/HEIC file structures based on the ISO Base Media Format.
- * 
+ * *
  * <p>
  * Supports Exif/XMP extraction, box navigation, and hierarchical parsing.
  * </p>
@@ -152,8 +152,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
             catch (Exception exc)
             {
                 LOGGER.error("Error message received: [" + exc.getMessage() + "]", exc);
-                LOGGER.error("Malformed box structure detected in [" + box.getFourCC() + "]", exc);
-                // exc.printStackTrace();
+                LOGGER.error("Malformed box structure detected in [" + (box != null ? box.getFourCC() : "unknown") + "]", exc);
                 break;
             }
         }
@@ -298,7 +297,6 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
         if (pitm != null && iref != null)
         {
             int pid = (int) pitm.getItemID();
-
             List<Integer> thumbIds = iref.findLinksTo("thmb", pid);
 
             if (!thumbIds.isEmpty())
@@ -400,13 +398,12 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      * <p>
      * <strong>Fragmented Items:</strong> HEIF allows a single item (like an Exif block) to be split
      * across multiple non-contiguous physical sections called {@code extents}. This method
-     * traverses
-     * the {@code iloc} (Item Location) box to map the logical {@code logicalOffset} to the correct
-     * physical extent.
+     * traverses the {@code iloc} (Item Location) box to map the logical {@code logicalOffset} to
+     * the correct physical extent.
      * </p>
      * 
-     * @param itemID
-     *        the HEIF item ID
+     * * @param itemID the HEIF item ID
+     * 
      * @param logicalOffset
      *        the offset relative to the start of the item's data
      * @param type
@@ -546,7 +543,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
     /**
      * Gets the {@link ItemInformationBox}, if present.
      *
-     * @return the {@link ItemInformationBox}, or nullif not found
+     * @return the {@link ItemInformationBox}, or null if not found
      */
     public ItemInformationBox getIINF()
     {
@@ -699,7 +696,6 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
             }
 
             byte[] data = new byte[length];
-
             System.arraycopy(fullData, (int) offset, data, 0, length);
 
             return data;
@@ -708,14 +704,14 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
         else
         {
             // Method 0: Absolute File Offset
-            long absolteOffset = extent.getAbsoluteOffset();
+            long absoluteOffset = extent.getAbsoluteOffset();
 
-            if (absolteOffset + length > reader.length())
+            if (absoluteOffset + length > reader.length())
             {
                 throw new IOException("Extent points beyond the end of the file structure");
             }
 
-            return reader.peek(absolteOffset, length);
+            return reader.peek(absoluteOffset, length);
         }
     }
 
@@ -732,6 +728,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      * 
      * @param infe
      *        the reference to the {@code ItemInfoEntry} resource
+     * 
      * @return boolean true if the entry contains the valid content type in relation to XMP metadata
      */
     private boolean isXmpType(ItemInfoEntry infe)

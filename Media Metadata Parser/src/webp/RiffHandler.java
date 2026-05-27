@@ -20,7 +20,7 @@ import logger.LogFactory;
 
 /**
  * Handles the sequential parsing of WebP RIFF containers.
- * *
+ * 
  * <p>
  * This handler manages the top-level RIFF header, the WEBP signature, and subsequent data chunks
  * such as VP8, EXIF, and XMP. It ensures data integrity by validating signatures and enforcing RIFF
@@ -119,7 +119,7 @@ public class RiffHandler implements ImageHandler
     }
 
     /**
-     * Parses the WebP file and extracts selected chunks into memory.
+     * Parses the WebP file and extracts filtered chunks into memory.
      *
      * @return {@code true} if chunks were successfully extracted
      * 
@@ -136,7 +136,7 @@ public class RiffHandler implements ImageHandler
 
         if (totalChunkSize <= 0)
         {
-            throw new IllegalStateException("Invalid WebP header: reported size is 0");
+            throw new IllegalStateException("WebP header has invalid size. Found [" + totalChunkSize + "]");
         }
 
         if (filesize > 0 && filesize < totalChunkSize)
@@ -310,8 +310,9 @@ public class RiffHandler implements ImageHandler
      */
     private void parseChunks(ByteStreamReader reader, long totalChunkSize) throws IOException
     {
-        chunks.clear();
         boolean firstChunk = true;
+        
+        chunks.clear();
 
         while (reader.getCurrentPosition() + CHUNK_HEADER_SIZE <= totalChunkSize)
         {

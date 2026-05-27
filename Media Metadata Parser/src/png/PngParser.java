@@ -105,9 +105,8 @@ public class PngParser extends AbstractImageParser<PngMetadata>
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(PngParser.class);
     private static final EnumSet<ChunkType> DEFAULT_CHUNK_FILTER = EnumSet.of(ChunkType.tEXt, ChunkType.zTXt, ChunkType.iTXt, ChunkType.eXIf, ChunkType.tIME);
-    private PngChunkData chunkData;
-    private boolean dataLoaded;
     private final PngMetadata metadata;
+    private boolean dataLoaded;
 
     /**
      * An immutable data carrier for the raw metadata chunk layouts extracted
@@ -167,20 +166,6 @@ public class PngParser extends AbstractImageParser<PngMetadata>
     }
 
     /**
-     * Constructs a new instance from a file path string.
-     *
-     * @param file
-     *        the path to the PNG file as a string
-     * 
-     * @throws IOException
-     *         if the file cannot be opened or read
-     */
-    public PngParser(String file) throws IOException
-    {
-        this(Paths.get(file));
-    }
-
-    /**
      * Constructs a new instance with the specified file path.
      *
      * @param fpath
@@ -205,6 +190,20 @@ public class PngParser extends AbstractImageParser<PngMetadata>
     }
 
     /**
+     * Constructs a new instance from a file path string.
+     *
+     * @param file
+     *        the path to the PNG file as a string
+     * 
+     * @throws IOException
+     *         if the file cannot be opened or read
+     */
+    public PngParser(String file) throws IOException
+    {
+        this(Paths.get(file));
+    }
+
+    /**
      * Reads the PNG file to extract supported metadata chunks, including EXIF, textual properties,
      * and embedded XMP data payloads. This method fully populates internal directories.
      *
@@ -216,6 +215,8 @@ public class PngParser extends AbstractImageParser<PngMetadata>
     {
         if (!dataLoaded)
         {
+            PngChunkData chunkData;
+
             validateFileState();
 
             Optional<PngChunkData> optChunk = loadMetadata(DEFAULT_CHUNK_FILTER);
@@ -284,17 +285,14 @@ public class PngParser extends AbstractImageParser<PngMetadata>
     @Override
     public PngMetadata getMetadata()
     {
-        if (!dataLoaded)
+        try
         {
-            try
-            {
-                readMetadata();
-            }
+            readMetadata();
+        }
 
-            catch (IOException exc)
-            {
-                throw new UncheckedIOException("Lazy execution of readMetadata() failed downstream", exc);
-            }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException("Lazy execution of readMetadata() failed downstream", exc);
         }
 
         return metadata;
@@ -322,118 +320,104 @@ public class PngParser extends AbstractImageParser<PngMetadata>
     @Override
     public String formatDiagnosticString() throws IOException
     {
-        if (!dataLoaded)
-        {
-            readMetadata();
-        }
-
-        PngMetadata meta = getMetadata();
+        PngMetadata png = getMetadata();
         StringBuilder sb = new StringBuilder();
 
         try
         {
             sb.append("\t\t\tPNG Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
+            sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", png.getByteOrder()));
+            sb.append(System.lineSeparator());
 
-            if (meta instanceof PngMetadataProvider)
+            if (png.hasTextualData())
             {
-                PngMetadataProvider png = meta;
-
-                if (png.hasTextualData())
+                for (PngDirectory cd : png)
                 {
-                    for (PngDirectory cd : png)
+                    if (cd.getCategory() == Category.TEXTUAL)
                     {
-                        if (cd.getCategory() == Category.TEXTUAL)
-                        {
-                            sb.append("Textual Chunks").append(System.lineSeparator());
-                            sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
-                            sb.append(cd);
-                            break;
-                        }
+                        sb.append("Textual Chunks").append(System.lineSeparator());
+                        sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+                        sb.append(cd);
+                        break;
                     }
                 }
-
-                else
-                {
-                    sb.append("No textual metadata found").append(System.lineSeparator());
-                }
-
-                sb.append(System.lineSeparator());
-
-                PngDirectory timeCD = png.getDirectory(Category.TIME);
-
-                if (timeCD != null)
-                {
-                    sb.append("Time Modification Chunk").append(System.lineSeparator());
-                    sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
-                    sb.append(timeCD);
-                }
-
-                else
-                {
-                    sb.append("No time modification metadata found").append(System.lineSeparator());
-                }
-
-                sb.append(System.lineSeparator());
-
-                if (png.hasExifData())
-                {
-                    PngChunk chunk = null;
-                    PngDirectory cd = png.getDirectory(Category.MISC);
-
-                    if (cd != null)
-                    {
-                        chunk = cd.getFirstChunk(ChunkType.eXIf);
-
-                        if (chunk != null)
-                        {
-                            TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
-
-                            sb.append("EXIF Metadata").append(System.lineSeparator());
-                            sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
-
-                            for (DirectoryIFD ifd : exif)
-                            {
-                                sb.append(ifd);
-                            }
-                        }
-
-                        else
-                        {
-                            sb.append("No EXIF metadata found. eXIf chunk missing from MISC directory").append(System.lineSeparator());
-                        }
-                    }
-
-                    else
-                    {
-                        sb.append("No EXIF metadata found. MISC directory missing").append(System.lineSeparator());
-                    }
-                }
-
-                else
-                {
-                    sb.append("No EXIF metadata found").append(System.lineSeparator());
-                }
-
-                sb.append(System.lineSeparator());
-
-                if (png.hasXmpData())
-                {
-                    sb.append(png.getXmpDirectory());
-                }
-
-                else
-                {
-                    sb.append("No XMP metadata found").append(System.lineSeparator());
-                }
-
-                sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
             }
 
             else
             {
-                sb.append("No PNG metadata available").append(System.lineSeparator());
+                sb.append("No textual metadata found").append(System.lineSeparator());
             }
+
+            sb.append(System.lineSeparator());
+
+            PngDirectory timeCD = png.getDirectory(Category.TIME);
+
+            if (timeCD != null)
+            {
+                sb.append("Time Modification Chunk").append(System.lineSeparator());
+                sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+                sb.append(timeCD);
+            }
+
+            else
+            {
+                sb.append("No time modification metadata found").append(System.lineSeparator());
+            }
+
+            sb.append(System.lineSeparator());
+
+            if (png.hasExifData())
+            {
+                PngDirectory cd = png.getDirectory(Category.MISC);
+                PngChunk chunk = (cd != null) ? cd.getFirstChunk(ChunkType.eXIf) : null;
+
+                if (chunk != null)
+                {
+                    sb.append("EXIF Metadata").append(System.lineSeparator());
+                    sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+
+                    try
+                    {
+                        TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
+
+                        for (DirectoryIFD ifd : exif)
+                        {
+                            sb.append(ifd);
+                        }
+                    }
+
+                    catch (IOException exc)
+                    {
+                        sb.append("Embedded EXIF binary block is corrupt or unreadable").append(System.lineSeparator());
+                        LOGGER.warn("Corrupt EXIF block skipped during diagnostic compilation for [" + getImageFile() + "]");
+                    }
+                }
+
+                else
+                {
+                    sb.append("No EXIF metadata found. eXIf chunk missing from MISC directory").append(System.lineSeparator());
+                }
+            }
+
+            else
+            {
+                sb.append("No EXIF metadata found").append(System.lineSeparator());
+            }
+
+            sb.append(System.lineSeparator());
+
+            if (png.hasXmpData())
+            {
+                sb.append(png.getXmpDirectory());
+            }
+
+            else
+            {
+                sb.append("No XMP metadata found").append(System.lineSeparator());
+            }
+
+            sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
         }
 
         catch (Exception exc)

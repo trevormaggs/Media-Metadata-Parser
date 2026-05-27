@@ -113,7 +113,7 @@ public class ImageRandomAccessReader implements ByteStreamReader
     @Override
     public void setByteOrder(ByteOrder order)
     {
-        this.byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
+        byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
     }
 
     /**

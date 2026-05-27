@@ -42,7 +42,7 @@ import xmp.XmpHandler;
  * </p>
  *
  * <p>
- * For ICC profiles, the parser collects and concatenates all APP2 segments containing the
+ * For ICC profiles, the parser collects and concatenates all APP2 segments containing the *
  * {@code ICC_PROFILE} identifier, adhering to the sequential structural rules defined in the ICC
  * specification. For {@code XMP} data, it aggregates standard APP1 segments flagged with the
  * {@code http://ns.adobe.com/xap/1.0/\0} identifier.
@@ -133,7 +133,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
         }
 
         this.dataLoaded = false;
-        this.metadata = new TifMetadata();
+        this.metadata = new TifMetadata(ByteOrder.BIG_ENDIAN);
     }
 
     /**
@@ -156,6 +156,12 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                 segmentData = readMetadataSegments(reader);
             }
 
+            catch (IOException exc)
+            {
+                LOGGER.error("Fatal structural I/O container error detected within JPEG file", exc);
+                throw exc;
+            }
+
             if (segmentData.getExif().isPresent())
             {
                 try
@@ -176,10 +182,11 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
 
                 catch (IOException exc)
                 {
-                    LOGGER.error("Corrupt or invalid EXIF payload encountered inside APP1 layout structure", exc);
+                    LOGGER.warn("Corrupt EXIF payload skipped in [" + getImageFile() + "]");
                 }
             }
 
+            // Fallback standalone XMP bytes only
             if (!metadata.hasXmpData() && segmentData.getXmp().isPresent())
             {
                 try
@@ -211,17 +218,14 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
     @Override
     public TifMetadata getMetadata()
     {
-        if (!dataLoaded)
+        try
         {
-            try
-            {
-                readMetadata();
-            }
+            readMetadata();
+        }
 
-            catch (IOException exc)
-            {
-                throw new UncheckedIOException("Unable to parse file [" + getImageFile() + "] due to an error downstream", exc);
-            }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException("Unable to parse file [" + getImageFile() + "] due to an error downstream", exc);
         }
 
         return metadata;
@@ -249,22 +253,19 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
     @Override
     public String formatDiagnosticString() throws IOException
     {
-        if (!dataLoaded)
-        {
-            readMetadata();
-        }
-
-        TifMetadata meta = getMetadata();
+        TifMetadata jpg = getMetadata();
         StringBuilder sb = new StringBuilder();
 
         try
         {
             sb.append("\t\t\tJPG Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
+            sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", jpg.getByteOrder()));
+            sb.append(System.lineSeparator());
 
-            if (meta.hasMetadata())
+            if (jpg.hasMetadata())
             {
-                for (DirectoryIFD ifd : meta)
+                for (DirectoryIFD ifd : jpg)
                 {
                     sb.append(ifd);
                 }
@@ -277,9 +278,9 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
 
             sb.append(System.lineSeparator()).append(MetadataConstants.DIVIDER).append(System.lineSeparator());
 
-            if (meta.hasXmpData())
+            if (jpg.hasXmpData())
             {
-                sb.append(meta.getXmpDirectory());
+                sb.append(jpg.getXmpDirectory());
             }
 
             else
@@ -504,7 +505,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
     /**
      * Reconstructs split Extended XMP metadata fragments from a JPEG stream by validating them
      * against an anchor GUID and sequentially stitching them back together.
-     * 
+     * *
      * <p>
      * <strong>References</strong><br>
      * For full technical requirements on multi-segment layout design, see the section
@@ -514,13 +515,13 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
      *
      * <p>
      * <strong>Technical Summary</strong><br>
-     * The JPEG format limits individual marker segments (like APP1) to 65,535 bytes due to a
-     * 16-bit length restriction. Large metadata packages (e.g., depth maps, edit histories)
-     * must be sliced across multiple sequential segments. This method implements the rules
-     * defined in the <em>Adobe XMP Specification Part 3 (Storage in Files)</em> to locate,
-     * validate, order, and merge those segments.
+     * The JPEG format limits individual marker segments (like APP1) to 65,535 bytes due to a 16-bit
+     * length restriction. Large metadata packages (e.g., depth maps, edit histories) must be sliced
+     * across multiple sequential segments. This method implements the rules defined in the
+     * <em>Adobe XMP Specification Part 3 (Storage in Files)</em> to locate, validate, order, and
+     * merge those segments.
      * </p>
-     * 
+     * *
      * <p>
      * <strong>The Binary Stream Layout</strong><br>
      * Each raw byte payload chunk in the segments list must follow this header packet format:
@@ -721,7 +722,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                 return null;
             }
 
-            // Enforce sequence sequence continuity
+            // Enforce sequence continuity
             for (int i = 0; i < segments.size(); i++)
             {
                 int currentSequence = segments.get(i)[ICC_IDENTIFIER.length] & 0xFF;

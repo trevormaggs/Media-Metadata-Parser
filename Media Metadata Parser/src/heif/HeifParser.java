@@ -8,7 +8,6 @@ import java.util.Optional;
 import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
 import common.DigitalSignature;
-import common.Metadata;
 import common.MetadataConstants;
 import common.Utils;
 import heif.boxes.Box;
@@ -54,7 +53,7 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
         }
 
         this.dataLoaded = false;
-        this.metadata = new TifMetadata();
+        this.metadata = new TifMetadata(BoxHandler.HEIF_BYTE_ORDER);
     }
 
     /**
@@ -63,7 +62,7 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
      * @param file
      *        the image file path as a string
      */
-    public HeifParser(String file) 
+    public HeifParser(String file)
     {
         this(Paths.get(file));
     }
@@ -97,8 +96,8 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
                     if (exif.isPresent())
                     {
                         TifMetadata tif = TifParser.parseTiffMetadataFromBytes(exif.get());
+                        metadata.setByteOrder(tif.getByteOrder());
 
-                        // tif is guaranteed non-null
                         for (DirectoryIFD ifd : tif)
                         {
                             metadata.addDirectory(ifd);
@@ -123,9 +122,6 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
                     }
 
                     dataLoaded = true;
-
-                    // logDebugBoxHierarchy(handler);
-                    // handler.displayHierarchy();
                 }
 
                 else
@@ -139,23 +135,20 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
     /**
      * Retrieves the extracted metadata container from the HEIF image file. If the container has not
      * been filled, it triggers the lazy-loading operation to ensure availability.
-     * 
-     * @return a {@link Metadata} object
+     *
+     * @return a {@link TifMetadata} object
      */
     @Override
     public TifMetadata getMetadata()
     {
-        if (!dataLoaded)
+        try
         {
-            try
-            {
-                readMetadata();
-            }
+            readMetadata();
+        }
 
-            catch (IOException exc)
-            {
-                throw new UncheckedIOException("Unable to parse file [" + getImageFile() + "] due to an error downstream", exc);
-            }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException("Unable to parse file [" + getImageFile() + "] due to an error downstream", exc);
         }
 
         return metadata;
@@ -187,6 +180,8 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
         {
             sb.append("\t\t\tHEIF Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
+            sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", metadata.getByteOrder()));
+            sb.append(System.lineSeparator());
 
             if (tif.hasMetadata())
             {
@@ -231,14 +226,8 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
     /**
      * Logs the hierarchy of boxes at the debug level for diagnostic purposes.
      *
-     * <p>
-     * Each contained {@link Box} is traversed and its basic information (such as type and name) is
-     * output using {@link Box#logBoxInfo()}. This provides a structured view of the box tree that
-     * can assist with debugging or inspection of HEIF/ISO-BMFF files.
-     * </p>
-     *
      * @param handler
-     *        an active IFDHandler object
+     *        an active BoxHandler object
      */
     public void logDebugBoxHierarchy(BoxHandler handler)
     {
@@ -252,11 +241,6 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
 
     /**
      * Parses raw XMP data and adds it to the metadata collection.
-     * 
-     * <p>
-     * If parsing fails, the error is logged and the process continues to ensure other metadata
-     * segments remain accessible.
-     * </p>
      *
      * @param rawXmp
      *        the XML packet bytes to be processed

@@ -56,16 +56,17 @@ public interface Metadata<D extends Directory<?>> extends Iterable<D>
     boolean isEmpty();
 
     /**
-     * Returns the global byte order used by the image format. Note: specific metadata segments
-     * (like EXIF) may define their own internal endian-ness.
+     * Returns the global byte order used natively by the metadata container of the image format.
+     * 
+     * <p>
+     * Implementations must explicitly return the definitive endian-ness of the target image
+     * wrapper.
+     * </p>
      *
      * @return either {@link java.nio.ByteOrder#BIG_ENDIAN} or
      *         {@link java.nio.ByteOrder#LITTLE_ENDIAN}
      */
-    default ByteOrder getByteOrder()
-    {
-        return ByteOrder.BIG_ENDIAN;
-    }
+    ByteOrder getByteOrder();
 
     /**
      * Checks if the metadata collection contains any metadata entries.
@@ -112,7 +113,7 @@ public interface Metadata<D extends Directory<?>> extends Iterable<D>
     }
 
     @Deprecated
-    public default Date extractDate()
+    default Date extractDate()
     {
         return null;
     }

@@ -19,14 +19,14 @@ import tif.TifParser;
 import xmp.XmpHandler;
 
 /**
- * A concrete implementation of {@link AbstractImageParser} for extracting metadata from WebP image
- * files using a RIFF container chunk parsing architecture.
+ * This concrete class implements {@link AbstractImageParser} for extracting metadata from WebP
+ * image files using a RIFF container chunk parsing architecture.
  *
  * <p>
- * This parser loads metadata by sequentially inspecting RIFF chunks. It extracts EXIF blocks
+ * This parser loads metadata by inspecting RIFF chunks sequentially. It then extracts Exif blocks
  * embedded within TIFF structures and XMP metadata packets.
  * </p>
- * 
+ *
  * <p>
  * <b>WebP Data Stream</b>
  * </p>
@@ -36,7 +36,7 @@ import xmp.XmpHandler;
  * </p>
  *
  * <pre>
- * <code>RIFF</code> + FileSize (4 bytes) + <code>WEBP</code>
+ * RIFF + FileSize (4 bytes) + WEBP
  * </pre>
  *
  * <p>
@@ -44,10 +44,11 @@ import xmp.XmpHandler;
  * </p>
  *
  * <ul>
- * <li>4 bytes: Chunk FourCC (ASCII, for example: {@code VP8 }, {@code VP8X}, {@code EXIF})</li>
- * <li>4 bytes: Chunk payload size (unsigned, little-endian)</li>
- * <li>Payload: Variable-length data</li>
- * <li>Padding: If size is odd, 1 padding byte follows (not counted in the size field)</li>
+ * <li>4 bytes: Chunk FourCC (ASCII, case-sensitive, e.g., {@code VP8 }, {@code VP8X},
+ * {@code Exif})</li>
+ * <li>4 bytes: Chunk payload size (unsigned, little-endian, 32-bit integer)</li>
+ * <li>Payload: Variable-length data data bytes</li>
+ * <li>Padding: If size is odd, 1 padding byte zero follows (not counted in the size field)</li>
  * </ul>
  *
  * <p>
@@ -59,9 +60,9 @@ import xmp.XmpHandler;
  * </p>
  *
  * <ul>
- * <li>{@code VP8 } – Lossy bitstream (standard)</li>
+ * <li>{@code VP8 } – Lossy bitstream (standard framework)</li>
  * <li>{@code VP8L} – Lossless bitstream</li>
- * <li>{@code VP8X} – Extended format chunk (required for metadata and animation)</li>
+ * <li>{@code VP8X} – Extended format chunk (required for metadata and animation attributes)</li>
  * </ul>
  *
  * <p>
@@ -69,32 +70,32 @@ import xmp.XmpHandler;
  * </p>
  *
  * <ul>
- * <li>{@code EXIF} – Embedded EXIF metadata</li>
+ * <li>{@code Exif} – Embedded EXIF metadata (Note: Mixed case)</li>
  * <li>{@code ICCP} – Embedded ICC color profile</li>
- * <li>{@code XMP } – XMP metadata</li>
- * <li>{@code ANIM} / {@code ANMF} – Animation control and frames</li>
+ * <li>{@code Xmp } – Embedded XMP metadata (Note: Mixed case with a trailing space)</li>
+ * <li>{@code ANIM} / {@code ANMF} – Animation control and frame headers</li>
  * </ul>
  *
  * <p>
- * <b>Chunk Processing</b>
+ * <b>Chunk Processing Rules</b>
  * </p>
  *
  * <ul>
  * <li>Only chunks specified in the {@code requiredChunks} list are read</li>
- * <li>An empty {@code requiredChunks} list disables chunk extraction</li>
- * <li>A null list results in all chunks being extracted</li>
+ * <li>An empty {@code requiredChunks} list disables chunk extraction entirely</li>
+ * <li>A {@code null} list results in all chunk segments being extracted</li>
  * </ul>
  *
  * <p>
- * When the {@code EXIF} chunk is found, its payload is parsed as TIFF/EXIF-formatted metadata. This
- * is commonly used to extract orientation, date, and camera information.
+ * When the {@code Exif} chunk is isolated, its payload array is parsed as TIFF/EXIF-formatted
+ * metadata to extract image attributes like orientation, timestamps, and camera profiles.
  * </p>
- * 
+ *
  * @see <a href="https://developers.google.com/speed/webp/docs/riff_container">WebP RIFF Container
  *      Specification</a>
  *
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.3
  * @since 13 August 2025
  */
 public class WebpParser extends AbstractImageParser<TifMetadata>
@@ -159,9 +160,8 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
                     if (optExif.isPresent())
                     {
                         byte[] strippedPayload = JpgParser.stripExifPreamble(optExif.get().getPayloadArray());
-
-                        // tif is guaranteed non-null
                         TifMetadata tif = TifParser.parseTiffMetadataFromBytes(strippedPayload);
+                        
                         metadata.setByteOrder(tif.getByteOrder());
 
                         for (DirectoryIFD dir : tif)
@@ -225,17 +225,14 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
     @Override
     public TifMetadata getMetadata()
     {
-        if (!dataLoaded)
+        try
         {
-            try
-            {
-                readMetadata();
-            }
+            readMetadata();
+        }
 
-            catch (IOException exc)
-            {
-                throw new UncheckedIOException("Lazy execution of readMetadata() failed downstream", exc);
-            }
+        catch (IOException exc)
+        {
+            throw new UncheckedIOException("Lazy execution of readMetadata() failed downstream", exc);
         }
 
         return metadata;
