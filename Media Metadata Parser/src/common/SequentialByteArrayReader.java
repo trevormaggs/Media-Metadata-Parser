@@ -44,7 +44,12 @@ public class SequentialByteArrayReader implements ByteStreamReader
      */
     public SequentialByteArrayReader(byte[] buf, int startIndex, ByteOrder order, Path pfile)
     {
-        this.buffer = Objects.requireNonNull(buf, "Input buffer cannot be null");
+        if (buf == null || buf.length == 0)
+        {
+            throw new IllegalArgumentException("Input buffer cannot be null or empty");
+        }
+
+        this.buffer = buf;
         this.pfile = (pfile != null ? pfile : Paths.get(""));
         this.baseIndex = startIndex;
         this.byteOrder = order;

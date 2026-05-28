@@ -1,7 +1,6 @@
 package png;
 
-import static tif.tagspecs.TagIFD_Exif.*;
-import java.io.IOException;
+import static tif.tagspecs.TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL;
 import java.nio.ByteOrder;
 import java.util.Date;
 import java.util.HashMap;
@@ -231,20 +230,12 @@ public class PngMetadata implements PngMetadataProvider
             PngDirectory dir = getDirectory(Category.MISC);
             PngChunk chunk = dir.getFirstChunk(ChunkType.eXIf);
 
-            try
-            {
-                TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
-                DirectoryIFD ifd = exif.getDirectory(DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY);
+            TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
+            DirectoryIFD ifd = exif.getDirectory(DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY);
 
-                if (ifd != null && ifd.hasTag(EXIF_DATE_TIME_ORIGINAL))
-                {
-                    return ifd.getDate(EXIF_DATE_TIME_ORIGINAL);
-                }
-            }
-
-            catch (IOException exc)
+            if (ifd != null && ifd.hasTag(EXIF_DATE_TIME_ORIGINAL))
             {
-                // Exif block possibly corrupt. Just gracefully fall through to alternative blocks
+                return ifd.getDate(EXIF_DATE_TIME_ORIGINAL);
             }
         }
 

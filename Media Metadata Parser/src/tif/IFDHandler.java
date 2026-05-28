@@ -128,64 +128,70 @@ public class IFDHandler implements ImageHandler
      * </p>
      *
      * <p>
-     * If any part of the directory structure is found to be corrupt, the directory list is cleared
-     * to maintain data integrity.
+     * If any part of the directory structure is found to be corrupt, or if a low-level streaming
+     * error occurs, the dataset is cleared to maintain data integrity.
      * </p>
      *
-     * @return {@code true} if at least one valid directory (IFD0) was extracted
-     * @throws IOException
-     *         if an I/O error occurs during streaming
+     * @return {@code true} if at least one valid directory (IFD0) was extracted successfully, or
+     *         {@code false} on any type of errors
      */
     @Override
-    public boolean parseMetadata() throws IOException
+    public boolean parseMetadata()
     {
-        long firstIFDoffset = readTifHeader();
-
-        if (firstIFDoffset <= 0L)
+        try
         {
-            LOGGER.error("Invalid TIFF header detected. Metadata parsing cancelled");
-            return false;
-        }
+            long firstIFDoffset = readTifHeader();
 
-        if (!navigateImageFileDirectory(DirectoryIdentifier.IFD_DIRECTORY_IFD0, firstIFDoffset))
-        {
-            directoryList.clear();
-            return false;
-        }
-
-        // Handle thumbnail swapping logic safely
-        if (directoryList.size() > 1)
-        {
-            DirectoryIFD first = directoryList.get(0);
-            DirectoryIFD second = directoryList.get(1);
-
-            if (first.getDirectoryType().isMainChain() && second.getDirectoryType().isMainChain())
+            if (firstIFDoffset <= 0L)
             {
-                boolean hasThumbnailTag = first.hasTag(TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT)
-                        || first.hasTag(TagIFD_Baseline.IFD_NEW_SUBFILE_TYPE);
+                LOGGER.error("Invalid TIFF header detected. Metadata parsing cancelled");
+            }
 
-                if (hasThumbnailTag && first.getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
+            else if (navigateImageFileDirectory(DirectoryIdentifier.IFD_DIRECTORY_IFD0, firstIFDoffset))
+            {
+                if (directoryList.size() > 1)
                 {
-                    LOGGER.debug("Detected thumbnail data in IFD0 slot. Re-ordering directories");
+                    DirectoryIFD first = directoryList.get(0);
+                    DirectoryIFD second = directoryList.get(1);
 
-                    directoryList.get(1).setDirectoryType(DirectoryIdentifier.IFD_DIRECTORY_IFD0);
-                    directoryList.get(0).setDirectoryType(DirectoryIdentifier.IFD_DIRECTORY_IFD1);
-                    Collections.swap(directoryList, 0, 1);
+                    // Handle thumbnail swapping logic safely when multiple directories exist
+                    if (first.getDirectoryType().isMainChain() && second.getDirectoryType().isMainChain())
+                    {
+                        boolean hasThumbnailTag = first.hasTag(TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT)
+                                || first.hasTag(TagIFD_Baseline.IFD_NEW_SUBFILE_TYPE);
+
+                        if (hasThumbnailTag && first.getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
+                        {
+                            LOGGER.debug("Detected thumbnail data in IFD0 slot. Re-ordering directories");
+
+                            directoryList.get(1).setDirectoryType(DirectoryIdentifier.IFD_DIRECTORY_IFD0);
+                            directoryList.get(0).setDirectoryType(DirectoryIdentifier.IFD_DIRECTORY_IFD1);
+                            Collections.swap(directoryList, 0, 1);
+                        }
+                    }
                 }
+
+                // Primary Image Directory (IFD0) must exist at index 0
+                if (!directoryList.isEmpty() && directoryList.get(0).getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
+                {
+                    return true;
+                }
+
+                LOGGER.error("No Primary Image Directory (IFD0) found after parsing");
+            }
+
+            else
+            {
+                LOGGER.error("Structural navigation through IFD chains encountered some form of layout errors");
             }
         }
 
-        // IFD0 must exist
-        for (DirectoryIFD dir : directoryList)
+        catch (IOException exc)
         {
-            if (dir.getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
-            {
-                return true;
-            }
+            LOGGER.error("Low-level I/O error or premature EOF encountered while parsing IFD structural bytes", exc);
         }
 
         directoryList.clear();
-        LOGGER.error("No Primary Image Directory (IFD0) was found after parsing and re-classification");
 
         return false;
     }
@@ -317,7 +323,7 @@ public class IFDHandler implements ImageHandler
             {
                 if (valueOrOffset < 0 || totalBytes > MAX_METADATA_CHUNK_SIZE || (valueOrOffset + totalBytes) > reader.length())
                 {
-                    LOGGER.error(String.format("Data block for [%s] is too large or out of bounds (%d bytes)", tagEnum, totalBytes));
+                    LOGGER.warn(String.format("Data block for [%s] out of bounds by (%d bytes)", tagEnum, totalBytes));
                     continue;
                 }
 
@@ -351,11 +357,14 @@ public class IFDHandler implements ImageHandler
                  * the absolute data pointer location.
                  */
                 long subIfdOffset = entry.getOffset();
+                long currentOffset = reader.getCurrentPosition();
                 DirectoryIdentifier nextDir = ((TagIFD_Pointer) tag).getTargetDirectory();
 
-                LOGGER.debug(String.format("Following Sub-IFD pointer [%s] to absolute offset 0x%04X", tag, subIfdOffset));
-
-                long currentOffset = reader.getCurrentPosition();
+                if (subIfdOffset <= 0 || subIfdOffset >= reader.length())
+                {
+                    LOGGER.warn(String.format("Pointer tag [%s] points to invalid offset 0x%04X", tag, subIfdOffset));
+                    return false;
+                }
 
                 try
                 {
@@ -365,7 +374,7 @@ public class IFDHandler implements ImageHandler
                          * Note: if any auxiliary Sub-IFD fails, the whole metadata
                          * information will be cleared to signal users to check
                          */
-                        LOGGER.error(String.format("Parsing failed inside Sub-IFD [%s] pointing from offset 0x%04X", nextDir, currentOffset));
+                        LOGGER.error(String.format("Parsing failed inside Sub-IFD [%s]", nextDir));
                         return false;
                     }
                 }

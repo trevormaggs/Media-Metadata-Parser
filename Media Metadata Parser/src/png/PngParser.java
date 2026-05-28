@@ -313,12 +313,9 @@ public class PngParser extends AbstractImageParser<PngMetadata>
      * Generates a human-readable diagnostic string containing metadata details.
      *
      * @return a formatted string suitable for diagnostics, logging, or inspection
-     *
-     * @throws IOException
-     *         if lower-level filesystem attributes are inaccessible
      */
     @Override
-    public String formatDiagnosticString() throws IOException
+    public String formatDiagnosticString()
     {
         PngMetadata png = getMetadata();
         StringBuilder sb = new StringBuilder();
@@ -377,17 +374,17 @@ public class PngParser extends AbstractImageParser<PngMetadata>
                     sb.append("EXIF Metadata").append(System.lineSeparator());
                     sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
 
-                    try
-                    {
-                        TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
+                    TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
 
+                    if (exif.hasExifData())
+                    {
                         for (DirectoryIFD ifd : exif)
                         {
                             sb.append(ifd);
                         }
                     }
 
-                    catch (IOException exc)
+                    else
                     {
                         sb.append("Embedded EXIF binary block is corrupt or unreadable").append(System.lineSeparator());
                         LOGGER.warn("Corrupt EXIF block skipped during diagnostic compilation for [" + getImageFile() + "]");

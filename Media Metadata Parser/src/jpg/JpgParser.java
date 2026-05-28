@@ -3,7 +3,6 @@ package jpg;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -56,7 +55,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(JpgParser.class);
     private static final int EXTENDED_XMP_LENGTH = 40;
-    private static final int PADDING_LIMIT = 64;
+    private static final int PADDING_LIMIT = 2048;
     public static final byte[] EXIF_IDENTIFIER = "Exif\0\0".getBytes(StandardCharsets.UTF_8);
     public static final byte[] ICC_IDENTIFIER = "ICC_PROFILE\0".getBytes(StandardCharsets.UTF_8);
     public static final byte[] XMP_IDENTIFIER = "http://ns.adobe.com/xap/1.0/\0".getBytes(StandardCharsets.UTF_8);
@@ -95,6 +94,11 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
         private Optional<byte[]> getIcc()
         {
             return Optional.ofNullable(icc);
+        }
+
+        private boolean isEmpty()
+        {
+            return (exif == null && xmp == null && icc == null);
         }
     }
 
@@ -140,68 +144,76 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
      * Reads the JPEG file structure to extract and isolate metadata segment streams. This method
      * parses raw underlying APP markers, processes structural EXIF blocks, populates internal
      * metadata records, and reassembles fragmented ICC and XMP structures.
-     *
-     * @throws IOException
-     *         if a file reading or parsing error occurs
      */
     @Override
-    public void readMetadata() throws IOException
+    public void readMetadata()
     {
         if (!dataLoaded)
         {
-            validateFileState();
-
-            try (ImageRandomAccessReader reader = new ImageRandomAccessReader(getImageFile()))
+            try
             {
-                segmentData = readMetadataSegments(reader);
+                validateFileState();
+
+                try (ImageRandomAccessReader reader = new ImageRandomAccessReader(getImageFile()))
+                {
+                    segmentData = readMetadataSegments(reader);
+                }
+
+                if (segmentData.isEmpty())
+                {
+                    metadata.clear();
+                }
+
+                else
+                {
+                    if (segmentData.getExif().isPresent())
+                    {
+                        TifMetadata tif = TifParser.parseTiffMetadataFromBytes(segmentData.getExif().get());
+
+                        if (tif.hasMetadata())
+                        {
+                            metadata.setByteOrder(tif.getByteOrder());
+
+                            for (DirectoryIFD ifd : tif)
+                            {
+                                metadata.addDirectory(ifd);
+                            }
+
+                            if (tif.hasXmpData())
+                            {
+                                metadata.addXmpDirectory(tif.getXmpDirectory());
+                            }
+                        }
+
+                        else
+                        {
+                            LOGGER.warn("Unable to parse EXIF/XMP payload byte array successfully");
+                        }
+                    }
+
+                    // Fallback standalone XMP bytes only
+                    if (!metadata.hasXmpData() && segmentData.getXmp().isPresent())
+                    {
+                        try
+                        {
+                            XmpDirectory xmpDir = XmpHandler.addXmpDirectory(segmentData.getXmp().get());
+                            metadata.addXmpDirectory(xmpDir);
+                        }
+
+                        catch (XMPException exc)
+                        {
+                            LOGGER.error("Unable to parse standalone XMP payload in file [" + getImageFile() + "]", exc);
+                        }
+                    }
+                }
+
+                dataLoaded = true;
             }
 
             catch (IOException exc)
             {
-                LOGGER.error("Fatal structural I/O container error detected within JPEG file", exc);
-                throw exc;
+                LOGGER.error("File [" + getImageFile() + "] encountered an unrecoverable structural I/O error", exc);
             }
-
-            if (segmentData.getExif().isPresent())
-            {
-                try
-                {
-                    TifMetadata tif = TifParser.parseTiffMetadataFromBytes(segmentData.getExif().get());
-                    metadata.setByteOrder(tif.getByteOrder());
-
-                    for (DirectoryIFD ifd : tif)
-                    {
-                        metadata.addDirectory(ifd);
-                    }
-
-                    if (tif.hasXmpData())
-                    {
-                        metadata.addXmpDirectory(tif.getXmpDirectory());
-                    }
-                }
-
-                catch (IOException exc)
-                {
-                    LOGGER.warn("Corrupt EXIF payload skipped in [" + getImageFile() + "]");
-                }
-            }
-
-            // Fallback standalone XMP bytes only
-            if (!metadata.hasXmpData() && segmentData.getXmp().isPresent())
-            {
-                try
-                {
-                    XmpDirectory xmpDir = XmpHandler.addXmpDirectory(segmentData.getXmp().get());
-                    metadata.addXmpDirectory(xmpDir);
-                }
-
-                catch (XMPException exc)
-                {
-                    LOGGER.error("Unable to parse standalone XMP payload in file [" + getImageFile() + "]", exc);
-                }
-            }
-
-            dataLoaded = true;
         }
     }
 
@@ -211,23 +223,11 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
      *
      * @return a {@link TifMetadata} container populated with all successfully extracted directory
      *         properties and XMP markers
-     *
-     * @throws UncheckedIOException
-     *         if an unrecoverable structural issue occurs during lazy context instantiation
      */
     @Override
     public TifMetadata getMetadata()
     {
-        try
-        {
-            readMetadata();
-        }
-
-        catch (IOException exc)
-        {
-            throw new UncheckedIOException("Unable to parse file [" + getImageFile() + "] due to an error downstream", exc);
-        }
-
+        readMetadata();
         return metadata;
     }
 
@@ -341,14 +341,15 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
      *
      * <p>
      * Markers are identified by a {@code 0xFF} byte followed by a non-zero flag. As per the
-     * specification, any number of {@code 0xFF} fill bytes may precede the actual flag; this method
+     * specification, any number of {@code 0xFF} fill bytes may precede the actual flag, this method
      * safely discards such padding.
      * </p>
-     *
+     * 
      * @param reader
      *        the input stream of the JPEG file, positioned at the current read cursor
      * @return a {@link JpgSegmentConstants} representing the detected marker, or {@code null} if an
-     *         {@link EOFException} occurs or excessive padding suggests corruption
+     *         {@link EOFException} occurs, an unmapped flag is found, or excessive padding suggests
+     *         corruption
      *
      * @throws IOException
      *         if an I/O error occurs while reading from the stream
@@ -357,8 +358,6 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
     {
         try
         {
-            int fillCount = 0;
-
             while (true)
             {
                 int marker = reader.readUnsignedByte();
@@ -368,6 +367,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                     continue;
                 }
 
+                int fillCount = 0;
                 int flag = reader.readUnsignedByte();
 
                 while (flag == 0xFF)
@@ -376,14 +376,32 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
 
                     if (fillCount > PADDING_LIMIT)
                     {
-                        LOGGER.warn("Excessive 0xFF padding bytes detected, possible file corruption");
+                        LOGGER.warn("Excessive consecutive 0xFF padding bytes detected, aborting segment parse due to possible file corruption");
                         return null;
                     }
 
                     flag = reader.readUnsignedByte();
                 }
 
-                return JpgSegmentConstants.fromBytes(marker, flag);
+                /*
+                 * Important note: 0xFF followed by 0x00 is a stuffed byte
+                 * inside entropy-coded scan data, not a marker. See "The Core JPEG Specification
+                 * (ITU-T T.81 / ISO/IEC 10918-1)". Section F.1.2.3 ("Byte Stuffing") for details.
+                 */
+                if (flag == 0x00)
+                {
+                    continue;
+                }
+
+                JpgSegmentConstants segment = JpgSegmentConstants.fromBytes(0xFF, flag);
+
+                if (segment == null)
+                {
+                    LOGGER.debug(String.format("Skipping unrecognised marker flag [0xFF%02X] encountered during stream scan", flag));
+                    continue;
+                }
+
+                return segment;
             }
         }
 
@@ -631,15 +649,14 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
 
             if (totalLength == -1)
             {
-                totalLength = (int) chunkTotalLength;
-
                 /* Prevents a potential OutOfMemoryError exception */
-                if (totalLength < 1 || totalLength > MAX_ALLOWED_XMP_SIZE)
+                if (chunkTotalLength < 1 || chunkTotalLength > MAX_ALLOWED_XMP_SIZE)
                 {
-                    LOGGER.error(String.format("Chunk total length [%d] in bytes out of bounds", totalLength));
+                    LOGGER.error(String.format("Extended XMP allocation footprint [%d] bytes out of bounds", chunkTotalLength));
                     return standardXmp;
                 }
 
+                totalLength = (int) chunkTotalLength;
                 extendedBuffer = new byte[totalLength];
             }
 

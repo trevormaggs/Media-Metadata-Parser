@@ -1,7 +1,6 @@
 package tif;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -21,16 +20,12 @@ import xmp.XmpHandler;
  * <p>
  * This parser interprets the 8-byte TIFF header, including byte order (either big-endian {@code MM}
  * or little-endian {@code II}), magic number 0x002A, and initial IFD offset and traverses the
- * linked list of Image File Directories (IFDs). It supports standard tags, custom extensions, and
- * nested sub-directories such as EXIF.
+ * linked list of Image File Directories (IFDs).
  * </p>
  *
- * @see <a href="https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf">TIFF 6.0
- *      Specification</a>
- *
  * @author Trevor Maggs
- * @version 1.2
- * @since 13 August 2025
+ * @version 1.3
+ * @since 28 May 2026
  */
 public class TifParser extends AbstractImageParser<TifMetadata>
 {
@@ -73,104 +68,91 @@ public class TifParser extends AbstractImageParser<TifMetadata>
     /**
      * Parses TIFF metadata from a byte array, assuming it is a valid TIFF or EXIF payload,
      * including the 8-byte header length.
+     * 
+     * <p>
+     * Optimised for cases where TIFF data, particularly an embedded EXIF segment, is already
+     * present in memory. This avoids redundant disk I/O.
+     * </p>
      *
      * @param payload
      *        the byte array containing TIFF-formatted data
-     * @return a {@link TifMetadata} object, populated with parsed segments
-     *
-     * @throws IOException
-     *         if data corruption or parsing exception detected
+     * @return a {@link TifMetadata} object, populated if successful, or empty if corrupt
      */
-    public static TifMetadata parseTiffMetadataFromBytes(byte[] payload) throws IOException
+    public static TifMetadata parseTiffMetadataFromBytes(byte[] payload)
     {
         TifMetadata tif = new TifMetadata();
 
         try (IFDHandler handler = new IFDHandler(payload))
         {
-            boolean status = handler.parseMetadata();
-
-            if (status)
+            if (handler.parseMetadata())
             {
                 populateMetadata(tif, handler);
             }
 
             else
             {
-                throw new IOException("Invalid or corrupt Image File Directory (IFD) headers detected");
+                LOGGER.warn("Unable to parse standalone TIFF/EXIF payload byte array successfully");
             }
         }
 
         catch (IOException exc)
         {
-            LOGGER.error("Data corruption or access error detected", exc);
-            throw exc;
+            LOGGER.error("Unable to handle inline byte stream array due to an I/O error", exc);
         }
 
         return tif;
     }
 
     /**
-     * Parses TIFF and XMP metadata from the image file.
-     *
-     * @throws IOException
-     *         if data corruption or I/O errors occur during traversal
+     * Parses TIFF and XMP metadata from the image file on disk.
      */
     @Override
-    public void readMetadata() throws IOException
+    public void readMetadata()
     {
         if (!dataLoaded)
         {
-            validateFileState();
-
-            try (IFDHandler handler = new IFDHandler(getImageFile()))
+            try
             {
-                if (handler.parseMetadata())
-                {
-                    populateMetadata(metadata, handler);
-                    dataLoaded = true;
+                validateFileState();
 
-                    if (!metadata.hasXmpData())
+                try (IFDHandler handler = new IFDHandler(getImageFile()))
+                {
+                    if (handler.parseMetadata())
                     {
-                        LOGGER.debug("No XMP payload found");
+                        populateMetadata(metadata, handler);
+
+                        if (!metadata.hasXmpData())
+                        {
+                            LOGGER.debug("No XMP payload found inside [" + getImageFile() + "]");
+                        }
+                    }
+
+                    else
+                    {
+                        LOGGER.info("No compatible TIFF metadata directories found in [" + getImageFile() + "]");
                     }
                 }
 
-                else
-                {
-                    throw new IOException("Invalid or corrupt Image File Directory (IFD) headers detected");
-                }
+                dataLoaded = true;
             }
 
             catch (IOException exc)
             {
-                LOGGER.error("Data corruption or access error detected", exc);
-                throw exc;
+                LOGGER.error("File [" + getImageFile() + "] encountered an I/O error", exc);
             }
         }
     }
 
     /**
-     * Retrieves the extracted metadata container, automatically triggering the parsing operation if
-     * it has not yet been executed.
+     * Retrieves the extracted metadata container, automatically executing the parsing operation
+     * safely if it has not yet run. Guaranteed never to throw an UncheckedIOException.
      *
-     * @return the TIFF metadata container
-     *
-     * @throws UncheckedIOException
-     *         if an unrecoverable I/O or corruption failure occurs during lazy parsing
+     * @return the TIFF metadata container (may be empty if parsing failed)
      */
     @Override
     public TifMetadata getMetadata()
     {
-        try
-        {
-            readMetadata();
-        }
-
-        catch (IOException exc)
-        {
-            throw new UncheckedIOException("Unable to parse file [" + getImageFile() + "] due to an error downstream", exc);
-        }
-
+        readMetadata();
         return metadata;
     }
 
@@ -189,46 +171,56 @@ public class TifParser extends AbstractImageParser<TifMetadata>
      * Generates a human-readable diagnostic string containing metadata segment details.
      *
      * @return a formatted string suitable for diagnostics, logging, or inspection
-     *
-     * @throws IOException
-     *         if there is a problem reading the file
      */
     @Override
-    public String formatDiagnosticString() throws IOException
+    public String formatDiagnosticString()
     {
-
         TifMetadata tif = getMetadata();
         StringBuilder sb = new StringBuilder();
 
-        sb.append("\t\t\tTIF Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
-        sb.append(super.formatDiagnosticString());
-        sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", tif.getByteOrder()));
-        sb.append(System.lineSeparator());
-
-        if (tif.hasMetadata())
+        try
         {
-            for (DirectoryIFD ifd : tif)
+            sb.append("\t\t\tTIF Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
+            sb.append(super.formatDiagnosticString());
+            sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", tif.getByteOrder()));
+            sb.append(System.lineSeparator());
+
+            if (tif.hasMetadata())
             {
-                sb.append(ifd);
+                for (DirectoryIFD ifd : tif)
+                {
+                    sb.append(ifd);
+                }
             }
+
+            else
+            {
+                sb.append("No TIFF metadata found").append(System.lineSeparator());
+            }
+
+            if (tif.hasXmpData())
+            {
+                sb.append(tif.getXmpDirectory());
+            }
+
+            else
+            {
+                sb.append("No XMP metadata found").append(System.lineSeparator());
+            }
+
+            sb.append(MetadataConstants.DIVIDER);
         }
 
-        else
+        catch (Exception exc)
         {
-            sb.append("No TIFF metadata found").append(System.lineSeparator());
-        }
+            LOGGER.error("Diagnostics failed for file [" + getImageFile() + "]", exc);
 
-        if (tif.hasXmpData())
-        {
-            sb.append(tif.getXmpDirectory());
+            sb.append("Error generating diagnostics [")
+                    .append(exc.getClass().getSimpleName())
+                    .append("]: ")
+                    .append(exc.getMessage())
+                    .append(System.lineSeparator());
         }
-
-        else
-        {
-            sb.append("No XMP metadata found").append(System.lineSeparator());
-        }
-
-        sb.append(MetadataConstants.DIVIDER);
 
         return sb.toString();
     }
@@ -244,7 +236,6 @@ public class TifParser extends AbstractImageParser<TifMetadata>
     private static void populateMetadata(TifMetadata target, IFDHandler handler)
     {
         List<DirectoryIFD> directories = handler.getDirectories();
-
         target.setByteOrder(handler.getTifByteOrder());
 
         for (DirectoryIFD dir : directories)
@@ -252,7 +243,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
             target.addDirectory(dir);
         }
 
-        // Traverse in reverse to honour the "last-one-wins" XMP strategy
+        // Traverse in reverse to honor the "last-one-wins" XMP strategy
         for (int i = directories.size() - 1; i >= 0; i--)
         {
             DirectoryIFD dir = directories.get(i);
@@ -270,7 +261,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
 
                 catch (XMPException exc)
                 {
-                    LOGGER.error("Unable to parse XMP directory payload", exc);
+                    LOGGER.error("Unable to parse XMP directory payload structural XML data strings", exc);
                 }
             }
         }
