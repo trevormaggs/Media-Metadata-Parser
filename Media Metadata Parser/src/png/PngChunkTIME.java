@@ -1,5 +1,7 @@
 package png;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
@@ -55,6 +57,33 @@ public class PngChunkTIME extends PngChunk
     }
 
     /**
+     * Converts the binary fields into a modern, immutable {@link ZonedDateTime} instance explicitly
+     * localised to UTC.
+     * 
+     * @return a {@link ZonedDateTime} representing the image modification time in UTC
+     */
+    public ZonedDateTime getModificationZonedDateTime()
+    {
+        // Sanitise leap seconds (60) down to 59 to protect java.time validation constraints
+        int safeSecond = (second == 60) ? 59 : second;
+
+        return ZonedDateTime.of(year, month, day, hour, minute, safeSecond, 0, /* (nanoOfSecond) */ ZoneOffset.UTC);
+    }
+
+    /**
+     * Converts the binary fields into a Java {@link Date} object.
+     * 
+     * @return a {@link Date} representing the image modification time in UTC
+     * 
+     * @deprecated Replaced by {@link #getModificationZonedDateTime()} to support modern time APIs.
+     */
+    @Deprecated
+    public Date getModificationDate()
+    {
+        return Date.from(getModificationZonedDateTime().toInstant());
+    }
+
+    /**
      * Converts the binary fields into a Java {@link Date} object.
      * 
      * <p>
@@ -64,7 +93,7 @@ public class PngChunkTIME extends PngChunk
      * 
      * @return a {@link Date} representing the image modification time in UTC
      */
-    public Date getModificationDate()
+    public Date getModificationDate2()
     {
         Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
 

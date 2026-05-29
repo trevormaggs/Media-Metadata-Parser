@@ -2,6 +2,7 @@ package png;
 
 import static tif.tagspecs.TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL;
 import java.nio.ByteOrder;
+import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -207,6 +208,144 @@ public class PngMetadata implements PngMetadataProvider
     }
 
     /**
+     * Extracts the most authoritative creation date available, returning a {@link ZonedDateTime}
+     * derived from a prioritized metadata hierarchy across PNG chunks and embedded blocks.
+     *
+     * <p>
+     * This method employs a "waterfall" strategy evaluating tags in the following order:
+     * </p>
+     *
+     * <ol>
+     * <li>Embedded <b>EXIF Sub-IFD</b> payload: {@code DateTimeOriginal} (Tag 0x9003)</li>
+     * <li>Embedded <b>EXIF Main IFD0</b> payload: {@code DateTimeOriginal} or {@code DateTime}</li>
+     * <li>Embedded <b>XMP EXIF Schema</b> text payload: {@code DateTimeOriginal}</li>
+     * <li>Embedded <b>XMP General Schema</b> text payload: {@code CreateDate}</li>
+     * <li>Ancillary PNG <b>tEXt/iTXt</b> chunk: Keyword 'Creation Time'</li>
+     * <li>Critical PNG <b>tIME</b> chunk: Last modification timestamp fallback</li>
+     * </ol>
+     *
+     * @return the extracted {@link ZonedDateTime}, or {@code null} if no valid timestamp is
+     *         detected across any metadata blocks
+     */
+    @Override
+    public ZonedDateTime extractZonedDateTime()
+    {
+        // Steps 1 & 2: Process embedded EXIF segment payloads if present
+        if (hasExifData())
+        {
+            PngDirectory dir = getDirectory(Category.MISC);
+            
+            if (dir != null)
+            {
+                PngChunk chunk = dir.getFirstChunk(ChunkType.eXIf);
+                
+                if (chunk != null)
+                {
+                    TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
+                    
+                    if (exif != null)
+                    {
+                        // Delegate straight to the optimized TifMetadata waterfall method you just wrote
+                        ZonedDateTime exifDate = exif.extractZonedDateTime();
+                        
+                        if (exifDate != null)
+                        {
+                            return exifDate;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Steps 3 & 4: Process embedded Adobe XMP string payloads
+        if (hasXmpData())
+        {
+            Optional<String> optExif = xmpDir.getValueByPath(XmpProperty.EXIF_DATE_TIME_ORIGINAL);
+            
+            if (optExif.isPresent())
+            {
+                ZonedDateTime zdt = SmartDateParser.convertToZonedDateTime(optExif.get());
+                
+                if (zdt != null)
+                {
+                    return zdt;
+                }
+            }
+
+            Optional<String> optXmp = xmpDir.getValueByPath(XmpProperty.XMP_CREATEDATE);
+            
+            if (optXmp.isPresent())
+            {
+                ZonedDateTime zdt = SmartDateParser.convertToZonedDateTime(optXmp.get());
+                
+                if (zdt != null)
+                {
+                    return zdt;
+                }
+            }
+        }
+
+        // Step 5: Process ancillary legacy textual metadata chunks
+        if (hasTextualData())
+        {
+            PngDirectory dir = getDirectory(Category.TEXTUAL);
+            
+            if (dir != null)
+            {
+                for (PngChunk chunk : dir)
+                {
+                    if (chunk instanceof TextualChunk)
+                    {
+                        TextualChunk textualChunk = (TextualChunk) chunk;
+                        
+                        if (textualChunk.hasKeyword(TextKeyword.CREATION_TIME))
+                        {
+                            String text = textualChunk.getText();
+                            
+                            if (text != null && !text.isEmpty())
+                            {
+                                ZonedDateTime zdt = SmartDateParser.convertToZonedDateTime(text);
+                                
+                                if (zdt != null)
+                                {
+                                    return zdt;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Step 6: Native structural tIME chunk modification fallback
+        PngDirectory timeDir = getDirectory(Category.TIME);
+        
+        if (timeDir != null)
+        {
+            PngChunk chunk = timeDir.getFirstChunk(ChunkType.tIME);
+            
+            if (chunk instanceof PngChunkTIME)
+            {
+                return ((PngChunkTIME) chunk).getModificationZonedDateTime();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Replaced by {@link #extractZonedDateTime()} to leverage thread-safe java.time components.
+     */
+    @Deprecated
+    @Override
+    public Date extractDate()
+    {
+        ZonedDateTime zdt = extractZonedDateTime();
+        
+        return (zdt != null) ? Date.from(zdt.toInstant()) : null;
+    }
+
+    /**
      * <p>
      * Extracts the date from PNG metadata following a priority hierarchy:
      * </p>
@@ -222,8 +361,7 @@ public class PngMetadata implements PngMetadataProvider
      * @return a {@link Date} object extracted from one of the metadata segments, otherwise null if
      *         not found
      */
-    @Override
-    public Date extractDate()
+    public Date extractDate2()
     {
         if (hasExifData())
         {
