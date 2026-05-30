@@ -266,6 +266,7 @@ public class TifMetadata implements TifMetadataProvider
 
         if (mainDir != null)
         {
+            // TODO: Does IFD0 hold EXIF_DATE_TIME_ORIGINAL? Unlikely?
             if (mainDir.hasTag(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL))
             {
                 return mainDir.getZonedDateTime(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL);
@@ -279,11 +280,11 @@ public class TifMetadata implements TifMetadataProvider
 
         if (hasXmpData())
         {
-            Optional<String> optExif = xmpDir.getValueByPath(XmpProperty.EXIF_DATE_TIME_ORIGINAL);
+            Optional<String> optXmp = xmpDir.getValueByPath(XmpProperty.EXIF_DATE_TIME_ORIGINAL);
 
-            if (optExif.isPresent())
+            if (optXmp.isPresent())
             {
-                ZonedDateTime zdt = SmartDateParser.convertToZonedDateTime(optExif.get());
+                ZonedDateTime zdt = SmartDateParser.convertToZonedDateTime(optXmp.get());
 
                 if (zdt != null)
                 {
@@ -291,7 +292,7 @@ public class TifMetadata implements TifMetadataProvider
                 }
             }
 
-            Optional<String> optXmp = xmpDir.getValueByPath(XmpProperty.XMP_CREATEDATE);
+            optXmp = xmpDir.getValueByPath(XmpProperty.XMP_CREATEDATE);
 
             if (optXmp.isPresent())
             {

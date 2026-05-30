@@ -166,7 +166,7 @@ public final class MediaRecord
             }
         }
 
-        return this.fileSystemDate;
+        return getFileSystemDate();
     }
 
     /**

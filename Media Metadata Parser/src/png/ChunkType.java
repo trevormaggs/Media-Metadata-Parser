@@ -71,7 +71,7 @@ public enum ChunkType
         {
             this.desc = name;
         }
-        
+
         public String getDescription()
         {
             return desc;
@@ -153,6 +153,16 @@ public enum ChunkType
     }
 
     /**
+     * Retrieves a copy of the 4-character FourCC byte identifier for this chunk type.
+     * 
+     * @return a new ASCII byte array copy
+     */
+    public byte[] getFourCCBytes()
+    {
+        return identifierBytes.clone();
+    }
+
+    /**
      * Identifies if a chunk is {@code Critical} or {@code Ancillary}.
      * 
      * <p>
@@ -170,16 +180,6 @@ public enum ChunkType
         }
 
         return Character.isUpperCase(name.charAt(0));
-    }
-
-    /**
-     * Retrieves a copy of the byte array for this chunk type.
-     *
-     * @return an array of bytes, containing the data
-     */
-    public byte[] getIdentifier()
-    {
-        return Arrays.copyOf(identifierBytes, identifierBytes.length);
     }
 
     /**

@@ -1,10 +1,14 @@
 package png;
 
 import java.nio.charset.StandardCharsets;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Optional;
 import common.ByteValueConverter;
 import common.MetadataConstants;
 import logger.LogFactory;
+import util.SmartDateParser;
 
 /**
  * Represents a {@code tEXt} chunk in a PNG file, which stores original textual data.
@@ -153,6 +157,20 @@ public class PngChunkTEXT extends PngChunk implements TextualChunk
         sb.append(super.toString());
         sb.append(String.format(MetadataConstants.FORMATTER, "Keyword", getKeyword()));
         sb.append(String.format(MetadataConstants.FORMATTER, "Text", getText()));
+
+        if (hasKeyword(TextKeyword.CREATION_TIME) || hasKeyword(TextKeyword.CREATE_DATE))
+        {
+            ZonedDateTime zdt = SmartDateParser.convertToZonedDateTime(getText());
+            
+            if (zdt != null)
+            {
+                // Exact pattern configuration matching: Sun Oct 07 22:15:45 AEDT 2012
+                DateTimeFormatter AU_FORMATTER = DateTimeFormatter.ofPattern("E, dd MMM yyyy HH:mm:ss z", Locale.ENGLISH);
+                
+                // Append it directly to the chunk's diagnostics string output block
+                sb.append(String.format(MetadataConstants.FORMATTER, "Formatted Date", zdt.format(AU_FORMATTER)));
+            }
+        }
 
         return sb.toString();
     }

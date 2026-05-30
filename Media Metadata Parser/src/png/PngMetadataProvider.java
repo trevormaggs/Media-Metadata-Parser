@@ -5,8 +5,8 @@ import xmp.XmpDirectory;
 
 public interface PngMetadataProvider extends Metadata<PngDirectory>
 {
-    public PngDirectory getDirectory(ChunkType.Category key);
-    public void addXmpDirectory(XmpDirectory dir);
-    public XmpDirectory getXmpDirectory();
-    public boolean hasTextualData();
+    PngDirectory getDirectory(ChunkType.Category key);
+    void addXmpDirectory(XmpDirectory dir);
+    XmpDirectory getXmpDirectory();
+    boolean hasTextualData();
 }

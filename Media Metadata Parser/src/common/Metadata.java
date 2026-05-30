@@ -2,7 +2,6 @@ package common;
 
 import java.nio.ByteOrder;
 import java.time.ZonedDateTime;
-import java.util.Date;
 
 /**
  * A unified top-level container for image metadata structured into accessible {@link Directory}
@@ -73,11 +72,8 @@ public interface Metadata<D extends Directory<?>> extends Iterable<D>
      *
      * @return {@code true} if at least one directory is present, otherwise {@code false}
      */
-    default boolean hasMetadata()
-    {
-        return !isEmpty();
-    }
-
+    boolean hasMetadata();
+ 
     /**
      * Indicates whether the container holds EXIF metadata.
      * 
@@ -107,14 +103,5 @@ public interface Metadata<D extends Directory<?>> extends Iterable<D>
      * 
      * @return the extracted {@link ZonedDateTime}, or {@code null} if no valid timestamp is found
      */
-    default ZonedDateTime extractZonedDateTime()
-    {
-        return null;
-    }
-
-    @Deprecated
-    default Date extractDate()
-    {
-        return null;
-    }
+    ZonedDateTime extractZonedDateTime();
 }
