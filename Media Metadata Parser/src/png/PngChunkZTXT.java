@@ -5,10 +5,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Optional;
 import java.util.zip.InflaterInputStream;
 import common.ByteValueConverter;
 import common.MetadataConstants;
+import common.Utils;
 import logger.LogFactory;
 
 /**
@@ -18,7 +18,7 @@ import logger.LogFactory;
  * This class provides decoding support for PNG zTXt chunks, which store compressed Latin-1 text
  * paired with a keyword.
  * </p>
- * 
+ *
  * @author Trevor Maggs
  * @version 1.0
  * @since 13 August 2025
@@ -27,6 +27,7 @@ public class PngChunkZTXT extends PngChunk implements TextualChunk
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(PngChunkZTXT.class);
     private final String keyword;
+    private final TextKeyword textKeyword;
     private final String text;
 
     /**
@@ -35,13 +36,13 @@ public class PngChunkZTXT extends PngChunk implements TextualChunk
      * <p>
      * According to the PNG specification, the chunk format is:
      * </p>
-     * 
+     *
      * <ul>
      * <li><b>Keyword</b>: 1–79 bytes (Latin-1), followed by a null byte</li>
      * <li><b>Compression method</b>: 1 byte (only value 0 is valid for zlib/deflate)</li>
      * <li><b>Compressed text</b>: remaining bytes, compressed using zlib</li>
      * </ul>
-     * 
+     *
      * @param length
      *        the length of the chunk's data field (excluding type and CRC)
      * @param typeBytes
@@ -111,52 +112,15 @@ public class PngChunkZTXT extends PngChunk implements TextualChunk
             LOGGER.error(exc.getMessage(), exc);
 
             this.keyword = "";
+            this.textKeyword = TextKeyword.OTHER;
             this.text = "";
 
             return;
         }
 
         this.keyword = parsedKeyword;
+        this.textKeyword = TextKeyword.fromIdentifierString(parsedKeyword);
         this.text = parsedText;
-    }
-
-    /**
-     * Checks whether this chunk contains the specified textual keyword.
-     *
-     * @param keyword
-     *        the {@link TextKeyword} to search for
-     *
-     * @return true if found, false otherwise
-     *
-     * @throws IllegalArgumentException
-     *         if the specified keyword is null
-     */
-    @Override
-    public boolean hasKeyword(TextKeyword keyword)
-    {
-        if (keyword == null || keyword.getKeyword() == null)
-        {
-            throw new IllegalArgumentException("Keyword cannot be null");
-        }
-
-        return keyword.getKeyword().equals(this.keyword);
-    }
-
-    /**
-     * Extracts a de-compressed keyword-text pair from this zTXt chunk.
-     *
-     * @return an {@link Optional} containing the extracted the keyword and the de-compressed text
-     *         as a {@link TextEntry} instance if present, otherwise, {@link Optional#empty()}
-     */
-    @Override
-    public Optional<TextEntry> toTextEntry()
-    {
-        if (keyword.isEmpty())
-        {
-            return Optional.empty();
-        }
-
-        return Optional.of(new TextEntry(getType(), keyword, text));
     }
 
     /**
@@ -164,9 +128,21 @@ public class PngChunkZTXT extends PngChunk implements TextualChunk
      *
      * @return the keyword text, or an empty string if parsing failed during construction
      */
+    @Override
     public String getKeyword()
     {
         return keyword;
+    }
+
+    /**
+     * Provides easy, type-safe retrieval of the resolved keyword enum token.
+     *
+     * @return the associated {@link TextKeyword} constant, or {@link TextKeyword#OTHER} if unknown
+     */
+    @Override
+    public TextKeyword getTextKeyword()
+    {
+        return textKeyword;
     }
 
     /**
@@ -175,9 +151,31 @@ public class PngChunkZTXT extends PngChunk implements TextualChunk
      * @return the decompressed text, or an empty string if parsing or decompression failed during
      *         construction
      */
+    @Override
     public String getText()
     {
         return text;
+    }
+
+    /**
+     * Checks whether this chunk contains the specified textual keyword.
+     *
+     * @param keyword
+     *        the {@link TextKeyword} to search for
+     * @return true if found, false otherwise
+     *
+     * @throws IllegalArgumentException
+     *         if the specified keyword is null
+     */
+    @Override
+    public boolean hasKeyword(TextKeyword keyword)
+    {
+        if (keyword == null)
+        {
+            throw new IllegalArgumentException("Keyword cannot be null");
+        }
+
+        return textKeyword == keyword;
     }
 
     /**
@@ -193,6 +191,12 @@ public class PngChunkZTXT extends PngChunk implements TextualChunk
         sb.append(super.toString());
         sb.append(String.format(MetadataConstants.FORMATTER, "Keyword", getKeyword()));
         sb.append(String.format(MetadataConstants.FORMATTER, "Text", getText()));
+
+        if (textKeyword.getHint() == tif.TagHint.HINT_DATE)
+        {
+            String formattedDate = Utils.formatDateString(getText(), Utils.LOCALE_AU);
+            sb.append(String.format(MetadataConstants.FORMATTER, "Formatted Date", formattedDate));
+        }
 
         return sb.toString();
     }

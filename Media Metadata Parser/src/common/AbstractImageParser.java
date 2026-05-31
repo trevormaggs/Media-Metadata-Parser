@@ -121,11 +121,8 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
 
     /**
      * Extracts metadata from the image file.
-     *
-     * @throws IOException
-     *         if a file reading error occurs during parsing
      */
-    public abstract void readMetadata() throws IOException;
+    public abstract void readMetadata();
 
     /**
      * Retrieves the extracted metadata.

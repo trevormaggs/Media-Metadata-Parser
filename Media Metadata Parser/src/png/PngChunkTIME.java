@@ -2,32 +2,22 @@ package png;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.TimeZone;
+import java.time.format.DateTimeFormatter;
 import common.MetadataConstants;
+import common.Utils;
 
 /**
  * Encapsulates the {@code tIME} ancillary chunk, which records the last modification time of the
  * image content (not the creation time).
- * 
+ * *
  * <p>
  * According to the PNG specification, the time values must represent <b>Universal Coordinated Time
  * (UTC)</b> to ensure consistency across different time zones.
  * </p>
  * 
- * <p>
- * <strong>Chunk Layout (7 bytes):</strong>
- * </p>
- * 
- * <ul>
- * <li>Year: 2 bytes (complete year, e.g., 2026)</li>
- * <li>Month: 1 byte (1-12)</li>
- * <li>Day: 1 byte (1-31)</li>
- * <li>Hour: 1 byte (0-23)</li>
- * <li>Minute: 1 byte (0-59)</li>
- * <li>Second: 1 byte (0-60; 60 allows for leap seconds)</li>
- * </ul>
+ * @author Trevor Maggs
+ * @version 1.0
+ * @since 31 May 2026
  */
 public class PngChunkTIME extends PngChunk
 {
@@ -42,7 +32,6 @@ public class PngChunkTIME extends PngChunk
     {
         super(length, typeBytes, crc32, data, offset);
 
-        // The tIME chunk must be exactly 7 bytes
         if (data.length != 7)
         {
             throw new IllegalArgumentException("Invalid tIME chunk length. Expected 7, found " + data.length);
@@ -53,7 +42,13 @@ public class PngChunkTIME extends PngChunk
         this.day = data[3] & 0xFF;
         this.hour = data[4] & 0xFF;
         this.minute = data[5] & 0xFF;
-        this.second = data[6] & 0xFF;
+
+        /*
+         * Important note: this PNG chunk allows the second to be
+         * between 0 and 60 seconds to support leap seconds
+         */
+        int sec = data[6] & 0xFF;
+        this.second = (sec == 60) ? 59 : sec;
     }
 
     /**
@@ -62,55 +57,27 @@ public class PngChunkTIME extends PngChunk
      * 
      * @return a {@link ZonedDateTime} representing the image modification time in UTC
      */
-    public ZonedDateTime getModificationZonedDateTime()
+    public ZonedDateTime getModificationTime()
     {
-        // Sanitise leap seconds (60) down to 59 to protect java.time validation constraints
-        int safeSecond = (second == 60) ? 59 : second;
-
-        return ZonedDateTime.of(year, month, day, hour, minute, safeSecond, 0, /* (nanoOfSecond) */ ZoneOffset.UTC);
+        return ZonedDateTime.of(year, month, day, hour, minute, second, 0, ZoneOffset.UTC);
     }
 
     /**
-     * Converts the binary fields into a Java {@link Date} object.
+     * Returns a string representation of the chunk's properties and contents.
      * 
-     * @return a {@link Date} representing the image modification time in UTC
-     * 
-     * @deprecated Replaced by {@link #getModificationZonedDateTime()} to support modern time APIs.
+     * @return a formatted string describing this chunk
      */
-    @Deprecated
-    public Date getModificationDate()
-    {
-        return Date.from(getModificationZonedDateTime().toInstant());
-    }
-
-    /**
-     * Converts the binary fields into a Java {@link Date} object.
-     * 
-     * <p>
-     * Note: PNG {@code tIME} is defined as UTC. This method compensates for Java's 0-based
-     * {@link Calendar} months (where January is 0) by subtracting 1 from the raw month value.
-     * </p>
-     * 
-     * @return a {@link Date} representing the image modification time in UTC
-     */
-    public Date getModificationDate2()
-    {
-        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-
-        // Calendar months are 0-based in Java (Jan = 0)
-        cal.set(year, month - 1, day, hour, minute, second);
-        cal.set(Calendar.MILLISECOND, 0);
-
-        return cal.getTime();
-    }
-
     @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder();
 
         sb.append(super.toString());
-        sb.append(String.format(MetadataConstants.FORMATTER, "Modification Date", getModificationDate()));
+
+        String isoDateText = getModificationTime().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        String formattedDate = Utils.formatDateString(isoDateText, Utils.LOCALE_AU);
+
+        sb.append(String.format(MetadataConstants.FORMATTER, "Modification Date", formattedDate));
 
         return sb.toString();
     }

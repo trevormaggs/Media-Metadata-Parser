@@ -1,7 +1,6 @@
 package webp;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.EnumSet;
@@ -27,48 +26,38 @@ import xmp.XmpHandler;
  * embedded within TIFF structures and XMP metadata packets.
  * </p>
  *
- * <p>
- * <b>WebP Data Stream</b>
- * </p>
- *
+ * <h3>WebP Data Stream Layout</h3>
  * <p>
  * The WebP file format is built on the RIFF container, beginning with a fixed signature:
  * </p>
- *
+ * 
  * <pre>
- * RIFF + FileSize (4 bytes) + WEBP
+ * {@code RIFF + FileSize (4 bytes) + WEBP}
  * </pre>
  *
  * <p>
- * This is followed by a sequence of chunks. Each chunk includes:
+ * This header is followed by a sequence of chunks. Each chunk includes:
  * </p>
- *
+ * 
  * <ul>
- * <li>4 bytes: Chunk FourCC (ASCII, case-sensitive, e.g., {@code VP8 }, {@code VP8X},
+ * <li><b>4 bytes:</b> Chunk FourCC (ASCII, case-sensitive, e.g., {@code VP8 }, {@code VP8X},
  * {@code Exif})</li>
- * <li>4 bytes: Chunk payload size (unsigned, little-endian, 32-bit integer)</li>
- * <li>Payload: Variable-length data data bytes</li>
- * <li>Padding: If size is odd, 1 padding byte zero follows (not counted in the size field)</li>
+ * <li><b>4 bytes:</b> Chunk payload size (unsigned, little-endian, 32-bit integer)</li>
+ * <li><b>Payload:</b> Variable-length data bytes</li>
+ * <li><b>Padding:</b> If the size is odd, a single zero padding byte follows (not counted in the
+ * size field)</li>
  * </ul>
  *
- * <p>
- * There are both mandatory and optional chunk types.
- * </p>
- *
- * <p>
- * <b>Core Chunk Types</b>
- * </p>
- *
+ * <h3>Core Chunk Types (Mandatory)</h3>
+ * 
  * <ul>
  * <li>{@code VP8 } – Lossy bitstream (standard framework)</li>
  * <li>{@code VP8L} – Lossless bitstream</li>
  * <li>{@code VP8X} – Extended format chunk (required for metadata and animation attributes)</li>
  * </ul>
  *
- * <p>
- * <b>Optional Chunk Types</b>
- * </p>
- *
+ * <h3>Optional Chunk Types</h3>
+ * 
  * <ul>
  * <li>{@code Exif} – Embedded EXIF metadata (Note: Mixed case)</li>
  * <li>{@code ICCP} – Embedded ICC color profile</li>
@@ -76,14 +65,12 @@ import xmp.XmpHandler;
  * <li>{@code ANIM} / {@code ANMF} – Animation control and frame headers</li>
  * </ul>
  *
- * <p>
- * <b>Chunk Processing Rules</b>
- * </p>
- *
+ * <h3>Chunk Processing Rules</h3>
+ * 
  * <ul>
- * <li>Only chunks specified in the {@code requiredChunks} list are read</li>
- * <li>An empty {@code requiredChunks} list disables chunk extraction entirely</li>
- * <li>A {@code null} list results in all chunk segments being extracted</li>
+ * <li>Only chunks specified in the filtering criteria are read into memory.</li>
+ * <li>An empty filter list disables chunk extraction entirely.</li>
+ * <li>A {@code null} configuration results in all chunk segments being extracted.</li>
  * </ul>
  *
  * <p>
@@ -93,9 +80,8 @@ import xmp.XmpHandler;
  *
  * @see <a href="https://developers.google.com/speed/webp/docs/riff_container">WebP RIFF Container
  *      Specification</a>
- *
  * @author Trevor Maggs
- * @version 1.3
+ * @version 1.4
  * @since 13 August 2025
  */
 public class WebpParser extends AbstractImageParser<TifMetadata>
@@ -140,101 +126,98 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
     /**
      * Parses WebP structural chunks to load EXIF and XMP metadata segments.
      * 
-     * @throws IOException
-     *         if data corruption or I/O errors occur during chunk traversal
+     * <p>
+     * This method implements a soft-landing strategy. If a chunk payload is corrupted and throws an
+     * unhandled runtime exception, the failure is caught upstream. However, this method guarantees
+     * that the parser's state flag is updated via a {@code finally} block to prevent redundant disk
+     * read actions on subsequent queries.
+     * </p>
      */
     @Override
-    public void readMetadata() throws IOException
+    public void readMetadata()
     {
         if (!dataLoaded)
         {
-            validateFileState();
-
-            try (RiffHandler handler = new RiffHandler(getImageFile(), DEFAULT_CHUNK_FILTER))
+            try
             {
-                if (handler.parseMetadata())
+                validateFileState();
+
+                try (RiffHandler handler = new RiffHandler(getImageFile(), DEFAULT_CHUNK_FILTER))
                 {
-                    // Processing embedded EXIF chunk
-                    Optional<WebpChunk> optExif = handler.getFirstChunk(WebPChunkType.EXIF);
-
-                    if (optExif.isPresent())
+                    if (handler.parseMetadata())
                     {
-                        byte[] strippedPayload = JpgParser.stripExifPreamble(optExif.get().getPayloadArray());
-                        TifMetadata tif = TifParser.parseTiffMetadataFromBytes(strippedPayload);
-                        
-                        metadata.setByteOrder(tif.getByteOrder());
+                        // Processing embedded EXIF chunk
+                        Optional<WebpChunk> optExif = handler.getFirstChunk(WebPChunkType.EXIF);
 
-                        for (DirectoryIFD dir : tif)
+                        if (optExif.isPresent())
                         {
-                            metadata.addDirectory(dir);
+                            byte[] strippedPayload = JpgParser.stripExifPreamble(optExif.get().getPayloadArray());
+                            TifMetadata tif = TifParser.parseTiffMetadataFromBytes(strippedPayload);
+
+                            metadata.setByteOrder(tif.getByteOrder());
+
+                            for (DirectoryIFD dir : tif)
+                            {
+                                metadata.addDirectory(dir);
+                            }
+                        }
+
+                        else
+                        {
+                            LOGGER.debug("No Exif segment found in file [" + getImageFile() + "]");
+                        }
+
+                        // Processing embedded XMP chunk
+                        Optional<WebpChunk> optXmp = handler.getLastChunk(WebPChunkType.XMP);
+
+                        if (optXmp.isPresent())
+                        {
+                            try
+                            {
+                                metadata.addXmpDirectory(XmpHandler.addXmpDirectory(optXmp.get().getPayloadArray()));
+                            }
+
+                            catch (XMPException exc)
+                            {
+                                LOGGER.error("Unable to parse XMP payload via Adobe XMPCore", exc);
+                            }
+                        }
+
+                        else
+                        {
+                            LOGGER.debug("No XMP payload found in file [" + getImageFile() + "]");
                         }
                     }
 
                     else
                     {
-                        LOGGER.debug("No Exif segment found in file [" + getImageFile() + "]");
+                        LOGGER.info("No credible metadata payload detected in file [" + getImageFile() + "]");
                     }
-
-                    // Processing embedded XMP chunk
-                    Optional<WebpChunk> optXmp = handler.getLastChunk(WebPChunkType.XMP);
-
-                    if (optXmp.isPresent())
-                    {
-                        try
-                        {
-                            metadata.addXmpDirectory(XmpHandler.addXmpDirectory(optXmp.get().getPayloadArray()));
-                        }
-
-                        catch (XMPException exc)
-                        {
-                            LOGGER.error("Unable to parse XMP payload via Adobe XMPCore", exc);
-                        }
-                    }
-
-                    else
-                    {
-                        LOGGER.debug("No XMP payload found in file [" + getImageFile() + "]");
-                    }
-
-                    dataLoaded = true;
-                }
-
-                else
-                {
-                    throw new IOException("Invalid or corrupt WebP structural headers detected");
                 }
             }
 
             catch (IOException exc)
             {
-                LOGGER.error("Data corruption or access error detected within WebP structural container", exc);
-                throw exc;
+                LOGGER.error("File [" + getImageFile() + "] encountered an unrecoverable structural I/O error", exc);
+            }
+
+            finally
+            {
+                dataLoaded = true;
             }
         }
     }
 
     /**
-     * Retrieves the extracted metadata container. If the container has not been filled, it triggers
-     * the lazy-loading operation to ensure availability.
+     * Retrieves the extracted metadata from the WebP image file. If the metadata has not been
+     * explicitly loaded yet, it triggers lazy execution to read data.
      *
-     * @return the TIFF metadata container holding WebP payload fields
-     * 
-     * @throws UncheckedIOException
-     *         if an unrecoverable I/O or corruption failure occurs during lazy parsing
+     * @return the TIFF metadata container holding WebP data payload
      */
     @Override
     public TifMetadata getMetadata()
     {
-        try
-        {
-            readMetadata();
-        }
-
-        catch (IOException exc)
-        {
-            throw new UncheckedIOException("Lazy execution of readMetadata() failed downstream", exc);
-        }
-
+        readMetadata();
         return metadata;
     }
 

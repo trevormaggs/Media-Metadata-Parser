@@ -76,18 +76,18 @@ public enum TextKeyword
     /**
      * Resolves a {@code TextKeyword} from a raw string.
      *
-     * @param text
+     * @param identifier
      *        the string to look up
      * @return the matching {@code TextKeyword}, or {@link #OTHER} if the string is null or
      *         unrecognised
      */
-    public static TextKeyword fromIdentifierString(String text)
+    public static TextKeyword fromIdentifierString(String identifier)
     {
-        if (text != null)
+        if (identifier != null)
         {
             for (TextKeyword tk : values())
             {
-                if (tk.keyword.equalsIgnoreCase(text))
+                if (tk.keyword.equalsIgnoreCase(identifier))
                 {
                     return tk;
                 }

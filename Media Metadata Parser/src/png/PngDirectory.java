@@ -82,13 +82,21 @@ public class PngDirectory implements Directory<PngChunk>
      * Retrieves the first {@link PngChunk} in this directory whose {@link ChunkType} matches the
      * specified {@code chunk} type.
      *
-     * @param chunk
+     * @param type
      *        the ChunkType to search for
      * @return the first PngChunk found with the matching ChunkType, or null if none is found
      */
-    public PngChunk getFirstChunk(ChunkType chunk)
+    public PngChunk getFirstChunk(ChunkType type)
     {
-        return findChunkByType(chunk);
+        for (PngChunk chunk : chunks)
+        {
+            if (chunk.getType() == type)
+            {
+                return chunk;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -193,26 +201,5 @@ public class PngDirectory implements Directory<PngChunk>
         }
 
         return sb.toString();
-    }
-
-    /**
-     * Searches for the first {@link PngChunk} in the directory whose {@link ChunkType} matches the
-     * specified type.
-     * 
-     * @param type
-     *        the ChunkType to search for
-     * @return the first matching PngChunk, or null if no match is found
-     */
-    private PngChunk findChunkByType(ChunkType type)
-    {
-        for (PngChunk chunk : chunks)
-        {
-            if (chunk.getType() == type)
-            {
-                return chunk;
-            }
-        }
-
-        return null;
     }
 }

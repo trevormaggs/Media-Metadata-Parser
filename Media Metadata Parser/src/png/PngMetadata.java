@@ -318,7 +318,7 @@ public class PngMetadata implements PngMetadataProvider
 
             if (chunk instanceof PngChunkTIME)
             {
-                return ((PngChunkTIME) chunk).getModificationZonedDateTime();
+                return ((PngChunkTIME) chunk).getModificationTime();
             }
         }
 

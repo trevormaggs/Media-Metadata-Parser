@@ -4,10 +4,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Optional;
 import java.util.zip.InflaterInputStream;
 import common.ByteValueConverter;
 import common.MetadataConstants;
+import common.Utils;
 import logger.LogFactory;
 
 /**
@@ -63,10 +63,11 @@ public class PngChunkITXT extends PngChunk implements TextualChunk
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(PngChunkITXT.class);
     private final String keyword;
+    private final TextKeyword textKeyword;
+    private final String text;
     private final int compressionFlag;
     private final String languageTag;
     private final String translatedKeyword;
-    private final byte[] parsedText;
     private final long textDataOffset;
 
     /**
@@ -116,10 +117,10 @@ public class PngChunkITXT extends PngChunk implements TextualChunk
                 }
 
                 /*
-                 * Read one byte after compressionFlag
+                 * Read one byte after compressionFlag.
                  *
                  * Compression method is always present (even if compression flag == 0),
-                 * but only used when compressed
+                 * but only used when compressed.
                  */
                 int compressionMethod = data[pos++] & 0xFF;
 
@@ -164,21 +165,56 @@ public class PngChunkITXT extends PngChunk implements TextualChunk
             LOGGER.error(exc.getMessage() + ". Payload: [" + ByteValueConverter.toHex(payload) + "]", exc);
 
             this.keyword = "";
-            this.parsedText = null;
+            this.textKeyword = TextKeyword.OTHER;
+            this.text = "";
+            this.compressionFlag = -1;
             this.languageTag = "";
             this.translatedKeyword = "";
-            this.compressionFlag = -1;
             this.textDataOffset = -1;
 
             return;
         }
 
         this.keyword = parsedKeyword;
-        this.parsedText = processedData;
+        this.textKeyword = TextKeyword.fromIdentifierString(parsedKeyword);
+        this.text = (processedData == null ? "" : new String(processedData, StandardCharsets.UTF_8));
+        this.compressionFlag = deflaterFlag;
         this.languageTag = parsedLanguage;
         this.translatedKeyword = parsedTranslated;
-        this.compressionFlag = deflaterFlag;
         this.textDataOffset = pos;
+    }
+
+    /**
+     * Gets the keyword extracted from the iTXt chunk.
+     *
+     * @return the keyword
+     */
+    @Override
+    public String getKeyword()
+    {
+        return keyword;
+    }
+
+    /**
+     * Provides easy, type-safe retrieval of the resolved keyword enum token.
+     *
+     * @return the associated {@link TextKeyword} constant, or {@link TextKeyword#OTHER} if unknown
+     */
+    @Override
+    public TextKeyword getTextKeyword()
+    {
+        return textKeyword;
+    }
+
+    /**
+     * Gets the text extracted from the iTXt chunk.
+     *
+     * @return the UTF-8 text, otherwise an empty string if it was not decoded
+     */
+    @Override
+    public String getText()
+    {
+        return text;
     }
 
     /**
@@ -195,51 +231,12 @@ public class PngChunkITXT extends PngChunk implements TextualChunk
     @Override
     public boolean hasKeyword(TextKeyword keyword)
     {
-        if (keyword == null || keyword.getKeyword() == null)
+        if (keyword == null)
         {
             throw new IllegalArgumentException("Keyword cannot be null");
         }
 
-        return keyword.getKeyword().equals(this.keyword);
-    }
-
-    /**
-     * Extracts a keyword-text pair from the {@code iTXt} chunk.
-     *
-     * @return an {@link Optional} containing the extracted keyword and text as a {@link TextEntry}
-     *         instance if the keyword is present, otherwise, {@link Optional#empty()}
-     */
-    @Override
-    public Optional<TextEntry> toTextEntry()
-    {
-        if (keyword.isEmpty())
-        {
-            return Optional.empty();
-        }
-
-        return Optional.of(new TextEntry(getType(), getKeyword(), getText()));
-    }
-
-    /**
-     * Gets the keyword extracted from the iTXt chunk.
-     *
-     * @return the keyword
-     */
-    @Override
-    public String getKeyword()
-    {
-        return keyword;
-    }
-
-    /**
-     * Gets the text extracted from the iTXt chunk.
-     *
-     * @return the UTF-8 text, otherwise an empty string if it was not decoded
-     */
-    @Override
-    public String getText()
-    {
-        return (parsedText == null ? "" : new String(parsedText, StandardCharsets.UTF_8));
+        return textKeyword == keyword;
     }
 
     /**
@@ -275,7 +272,7 @@ public class PngChunkITXT extends PngChunk implements TextualChunk
     /**
      * Returns the relative byte offset within the chunk's data segment where the actual text or XML
      * content begins.
-     * 
+     *
      * <p>
      * This offset accounts for the variable-length iTXt header fields (Keyword, Language Tag, etc)
      * and points to the first byte of the textual payload itself only.
@@ -304,6 +301,12 @@ public class PngChunkITXT extends PngChunk implements TextualChunk
         sb.append(String.format(MetadataConstants.FORMATTER, "Translated Keyword", getTranslatedKeyword()));
         sb.append(String.format(MetadataConstants.FORMATTER, "Language Tag", getLanguageTag()));
         sb.append(String.format(MetadataConstants.FORMATTER, "Text", getText()));
+
+        if (textKeyword.getHint() == tif.TagHint.HINT_DATE)
+        {
+            String formattedDate = Utils.formatDateString(getText(), Utils.LOCALE_AU);
+            sb.append(String.format(MetadataConstants.FORMATTER, "Formatted Date", formattedDate));
+        }
 
         return sb.toString();
     }

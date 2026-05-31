@@ -267,14 +267,17 @@ public class PngParser extends AbstractImageParser<PngMetadata>
                             LOGGER.error("Unable to parse XMP directory payload in file [" + getImageFile() + "]", exc);
                         }
                     }
-
-                    dataLoaded = true;
                 }
             }
 
             catch (IOException exc)
             {
                 LOGGER.error("File [" + getImageFile() + "] encountered an unrecoverable structural I/O error", exc);
+            }
+
+            finally
+            {
+                dataLoaded = true;
             }
         }
     }

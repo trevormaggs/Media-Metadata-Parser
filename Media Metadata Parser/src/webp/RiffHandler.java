@@ -48,13 +48,13 @@ public class RiffHandler implements ImageHandler
     private int extendedFormat;
 
     /**
-     * Constructs a handler to parse selected chunks from a WebP image file.
+     * Constructs a handler to parse selected chunks from a WebP image file stream.
      *
      * @param reader
-     *        the {@link ByteStreamReader} for the WebP stream
+     *        the {@link ByteStreamReader} associated with the target WebP stream
      * @param requiredChunks
-     *        optional set of chunk types to extract. If {@code null}, all encountered chunks are
-     *        processed
+     *        an optional set of chunk types to extract. If {@code null}, all encountered chunks
+     *        will be processed
      */
     private RiffHandler(ByteStreamReader reader, EnumSet<WebPChunkType> requiredChunks)
     {
@@ -119,34 +119,50 @@ public class RiffHandler implements ImageHandler
     }
 
     /**
-     * Parses the WebP file and extracts filtered chunks into memory.
-     *
-     * @return {@code true} if chunks were successfully extracted
+     * Parses the WebP file container and extracts filtered chunks into local memory arrays.
      * 
-     * @throws IOException
-     *         if reading fails
-     * @throws IllegalStateException
-     *         if the header is corrupt or file is truncated
+     * <p>
+     * This method implements a localised soft-landing exception strategy, ensuring that structural
+     * disruptions (such as missing headers or truncated streams) do not throw exceptions.
+     * Interrupted states are logged as errors, memory objects are reset, and a status boolean is
+     * returned.
+     * </p>
+     *
+     * @return {@code true} if all encountered RIFF chunks were successfully extracted or safely
+     *         bypassed, {@code false} if a fatal container validation error occurred
      */
     @Override
-    public boolean parseMetadata() throws IOException
+    public boolean parseMetadata()
     {
-        long filesize = getRealFileSize();
-        long totalChunkSize = readFileHeader(reader);
-
-        if (totalChunkSize <= 0)
+        try
         {
-            throw new IllegalStateException("WebP header has invalid size. Found [" + totalChunkSize + "]");
+            long filesize = getRealFileSize();
+            long totalChunkSize = readFileHeader(reader);
+
+            if (totalChunkSize <= 0)
+            {
+                LOGGER.error("WebP header has invalid size. Found [" + totalChunkSize + "]. Parsing cancelled");
+                return false;
+            }
+
+            if (filesize > 0 && filesize < totalChunkSize)
+            {
+                LOGGER.error("WebP header size exceeds physical file length. Parsing cancelled");
+                return false;
+            }
+
+            parseChunks(reader, totalChunkSize);
+            return true;
         }
 
-        if (filesize > 0 && filesize < totalChunkSize)
+        catch (IOException | IllegalStateException exc)
         {
-            throw new IllegalStateException("WebP header size exceeds physical file length");
+            LOGGER.error(exc.getMessage(), exc);
         }
 
-        parseChunks(reader, totalChunkSize);
+        chunks.clear();
 
-        return !chunks.isEmpty();
+        return false;
     }
 
     /**
@@ -311,7 +327,7 @@ public class RiffHandler implements ImageHandler
     private void parseChunks(ByteStreamReader reader, long totalChunkSize) throws IOException
     {
         boolean firstChunk = true;
-        
+
         chunks.clear();
 
         while (reader.getCurrentPosition() + CHUNK_HEADER_SIZE <= totalChunkSize)

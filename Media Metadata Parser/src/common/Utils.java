@@ -6,9 +6,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.FileTime;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.Locale;
 
 /**
  * Provides general utility methods for file manipulation, metadata extraction, and string
@@ -21,6 +23,8 @@ import java.util.Arrays;
  */
 public final class Utils
 {
+    public static final Locale LOCALE_AU = new Locale("en", "AU");
+
     /**
      * Prevents direct instantiation.
      *
@@ -339,5 +343,58 @@ public final class Utils
         Files.write(imagePath.resolveSibling(xmlName), sb.toString().getBytes(StandardCharsets.UTF_8));
 
         return sb.toString();
+    }
+
+    /**
+     * Formats a date string from a raw metadata text payload into a well-known timestamp layout
+     * using the specified permitted locales.
+     * 
+     * <p>
+     * This method is guaranteed never to return null or an empty string. If the locale is missing,
+     * unsupported, or if the raw text is un-parseable as a date, it defaults to returning an
+     * international representation in ISO 8601 extended format.
+     * </p>
+     *
+     * @param rawText
+     *        the raw text payload to parse
+     * @param locale
+     *        the target context. Permitted options are {@link Locale#ENGLISH}, {@link Locale#US},
+     *        or {@link #LOCALE_AU}
+     * @return the formatted date-time string, or an ISO 8601 extended representation as the default
+     */
+    public static String formatDateString(String rawText, Locale locale)
+    {
+        ZonedDateTime zdt = null;
+        DateTimeFormatter targetFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+
+        if (rawText != null && !rawText.trim().isEmpty())
+        {
+            zdt = util.SmartDateParser.convertToZonedDateTime(rawText);
+        }
+
+        if (zdt == null)
+        {
+            zdt = ZonedDateTime.now();
+        }
+
+        else if (locale != null)
+        {
+            if (locale.equals(Locale.ENGLISH))
+            {
+                targetFormatter = DateTimeFormatter.ofPattern("E MMM dd HH:mm:ss z yyyy", Locale.ENGLISH);
+            }
+
+            else if (locale.equals(Locale.US))
+            {
+                targetFormatter = DateTimeFormatter.ofPattern("E MMM dd HH:mm:ss z yyyy", Locale.US);
+            }
+
+            else if (locale.equals(LOCALE_AU))
+            {
+                targetFormatter = DateTimeFormatter.ofPattern("E, dd MMM yyyy HH:mm:ss z", LOCALE_AU).withZone(ZoneId.of("Australia/Sydney"));
+            }
+        }
+
+        return zdt.format(targetFormatter);
     }
 }
