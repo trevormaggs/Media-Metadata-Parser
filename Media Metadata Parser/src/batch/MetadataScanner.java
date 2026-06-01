@@ -227,38 +227,17 @@ public class MetadataScanner implements Iterable<MediaRecord>
                     return FileVisitResult.CONTINUE;
                 }
 
-                try
-                {
-                    AbstractImageParser<?> parser = ImageParserFactory.getParser(fpath);
+                AbstractImageParser<?> parser = ImageParserFactory.getParser(fpath);
 
-                    parser.readMetadata();
-                    Metadata<?> meta = parser.getMetadata();
-                    MediaRecord media = new MediaRecord(fpath, meta, parser.getImageFormat(), attr.lastModifiedTime());
+                parser.readMetadata();
+                Metadata<?> meta = parser.getMetadata();
+                MediaRecord media = new MediaRecord(fpath, meta, parser.getImageFormat(), attr.lastModifiedTime());
 
-                    imageSet.add(media);
-                    notifyListeners(imageSet.size());
+                imageSet.add(media);
+                notifyListeners(imageSet.size());
 
-                    System.out.printf("%s%n", parser.formatDiagnosticString());
-                    // System.out.printf("%s", meta);
-                }
-
-                catch (Exception exc)
-                {
-                    /*
-                     * Possible exceptions may be received:
-                     * 
-                     * IOException
-                     * ImageReadErrorException <-- Apache Commons Imaging
-                     * NoSuchFileException
-                     * UnsupportedOperationException (RuntimeException)
-                     * IndexOutOfBoundsException (RuntimeException)
-                     * IllegalStateException (RuntimeException)
-                     * NullPointerException (RuntimeException)
-                     * IllegalArgumentException (RuntimeException)
-                     */
-
-                    throw exc;
-                }
+                System.out.printf("%s%n", parser.formatDiagnosticString());
+                // System.out.printf("%s", meta);
 
                 return FileVisitResult.CONTINUE;
             }

@@ -92,7 +92,7 @@ import xmp.XmpHandler;
  * exiftool.exe -overwrite_original -alldates="2012:10:07 11:15:45" testPNGimage.png
  *
  * # Synchronise the filesystem modification date with the internal PNG metadata value
- * exiftool.exe "-FileModifyDate<PNG:CreationTime" testPNGimage.png
+ * exiftool.exe "-FileModifyDate&lt;PNG:CreationTime" testPNGimage.png
  *
  * # Set explicit internal textual creation timestamp
  * exiftool "-PNG:CreationTime=2015:07:14 01:15:27" testPNGimage.png

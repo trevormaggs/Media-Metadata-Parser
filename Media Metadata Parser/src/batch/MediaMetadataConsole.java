@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import cli.CommandFlagParser;
 import cli.FlagType;
-import progressbar.ConsoleProgressBar;
 import util.ProjectBuildInfo;
 
 /**
@@ -32,8 +31,7 @@ public final class MediaMetadataConsole
 {
     // private static final LogFactory LOGGER = LogFactory.getLogger(MediaMetadataConsole.class);
     private final BatchConfiguration config;
-    private final MetadataScanner scanner;
-
+    
     /**
      * Constructs a console interface using a validated configuration.
      *
@@ -48,7 +46,6 @@ public final class MediaMetadataConsole
     public MediaMetadataConsole(BatchConfiguration config)
     {
         this.config = config;
-        this.scanner = new MetadataScanner(config);
     }
 
     /**
@@ -251,28 +248,18 @@ public final class MediaMetadataConsole
      */
     public void run() throws BatchErrorException
     {
-        scanner.start();
-
         if (config.isShowMetadata())
         {
             DisplayMetadata display = new DisplayMetadata(config);
-
             display.execute();
-        }
-
-        else if (scanner.getRecordCount() > 0)
-        {
-            MediaBatchProcessor processor = new MediaBatchProcessor(config);
-
-            processor.addProgressListener(new ConsoleProgressBar(0, scanner.getRecordCount()));
-            processor.execute();
-
-            System.out.println("Done");
         }
 
         else
         {
-            System.out.println("No valid media files found in [" + config.getSource() + "]");
+            MediaBatchProcessor processor = new MediaBatchProcessor(config);
+            processor.execute();
+
+            System.out.println("Done");
         }
     }
 

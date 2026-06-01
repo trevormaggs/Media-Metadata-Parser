@@ -571,8 +571,6 @@ public class ChunkHandler implements ImageHandler
      * @param cat
      *        the type of ChunkType.Category enumeration
      * @return {@code true} if the chunk is present
-     * @deprecated As of version 1.2, replaced by querying {@link #getChunks(Category)} and
-     *             verifying presence.
      */
     @Deprecated
     public boolean existsChunkCategory(Category cat)

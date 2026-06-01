@@ -121,9 +121,6 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      *
      * @return true if at least one HEIF box was successfully extracted, or false if no relevant
      *         boxes were found
-     *
-     * @throws IOException
-     *         if an I/O error occurs
      */
     @Override
     public boolean parseMetadata()
@@ -413,8 +410,8 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      * the correct physical extent.
      * </p>
      * 
-     * * @param itemID the HEIF item ID
-     * 
+     * @param itemID
+     *        the HEIF item ID
      * @param logicalOffset
      *        the offset relative to the start of the item's data
      * @param type

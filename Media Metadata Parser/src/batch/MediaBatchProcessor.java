@@ -19,6 +19,7 @@ import heif.HeifDatePatcher;
 import jpg.JpgDatePatcher;
 import logger.LogFactory;
 import png.PngDatePatcher;
+import progressbar.ConsoleProgressBar;
 import progressbar.ProgressListener;
 import tif.TiffDatePatcher;
 import util.SystemInfo;
@@ -130,33 +131,46 @@ public final class MediaBatchProcessor
     {
         prepareTargetDirectory();
         startLogging();
+
         scanner.start();
 
         int index = 1;
         int total = scanner.getRecordCount();
 
-        LOGGER.info("Starting batch process for [" + total + "] files...");
-
-        for (MediaRecord record : scanner)
+        if (total > 0)
         {
-            if (record.isVideoFormat() && config.isSkipVideo())
+            addProgressListener(new ConsoleProgressBar(0, total));
+
+            LOGGER.info("Starting batch process for [" + total + "] files...");
+
+            for (MediaRecord record : scanner)
             {
-                LOGGER.info("File [" + record.getPath() + "] skipped");
-                continue;
+                if (record.isVideoFormat() && config.isSkipVideo())
+                {
+                    LOGGER.info("File [" + record.getPath() + "] skipped");
+                }
+
+                else
+                {
+                    processRecord(record, index, total);
+
+                    /* Iterates through registered listeners to broadcast the current progress. */
+                    for (ProgressListener listener : listeners)
+                    {
+                        listener.onProgressUpdate(index, total);
+                    }
+                }
+
+                index++;
             }
 
-            processRecord(record, index, total);
-
-            /* Iterates through registered listeners to broadcast the current progress. */
-            for (ProgressListener listener : listeners)
-            {
-                listener.onProgressUpdate(index, total);
-            }
-
-            index++;
+            LOGGER.info("Batch processing completed successfully");
         }
 
-        LOGGER.info("Batch processing completed successfully");
+        else
+        {
+            System.out.println("No valid media files found in [" + config.getSource() + "]");
+        }
     }
 
     /**
