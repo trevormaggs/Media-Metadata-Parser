@@ -33,25 +33,25 @@ public class WebpChunk
     /**
      * Constructs a new {@code WebpChunk} instance to represent a single chunk.
      *
-     * @param type
+     * @param fourcc
      *        the 32-bit FourCC chunk identifier (in little-endian integer form)
      * @param length
-     *        the length of the chunk's payload
+     *        the declared full length of the chunk's payload within the container layout
      * @param data
-     *        raw chunk data
+     *        the raw chunk data bytes extracted by the stream reader
      * @param dataOffset
-     *        the absolute physical position in the file where the chunk begins
+     *        the absolute physical position in the file where the chunk payload begins
      */
-    public WebpChunk(int type, int length, byte[] data, long dataOffset)
+    public WebpChunk(int fourcc, int length, byte[] data, long dataOffset)
     {
-        this.fourcc = type;
+        this.fourcc = fourcc;
         this.length = length;
-        this.payload = Arrays.copyOf(data, length);
+        this.payload = (data != null ? Arrays.copyOf(data, data.length) : new byte[0]);
         this.dataOffset = dataOffset;
 
-        if (WebPChunkType.findType(type) == WebPChunkType.OTHER)
+        if (WebPChunkType.findType(fourcc) == WebPChunkType.UNKNOWN)
         {
-            LOGGER.warn("Unknown FourCC type [" + WebPChunkType.getChunkName(type) + "]");
+            LOGGER.warn("Unknown FourCC type [" + WebPChunkType.getChunkName(fourcc) + "]");
         }
     }
 
@@ -102,7 +102,7 @@ public class WebpChunk
      */
     public boolean isKnownType()
     {
-        return getType() != WebPChunkType.OTHER;
+        return getType() != WebPChunkType.UNKNOWN;
     }
 
     /**
@@ -138,7 +138,10 @@ public class WebpChunk
 
         WebpChunk other = (WebpChunk) obj;
 
-        return (fourcc == other.fourcc && length == other.length && Arrays.equals(payload, other.payload));
+        return fourcc == other.fourcc &&
+                length == other.length &&
+                dataOffset == other.dataOffset &&
+                Arrays.equals(payload, other.payload);
     }
 
     /**
@@ -149,9 +152,9 @@ public class WebpChunk
     @Override
     public int hashCode()
     {
-        int result = Objects.hash(fourcc, length);
+        int result = Objects.hash(fourcc, length, dataOffset);
 
-        return (31 * result + Arrays.hashCode(payload));
+        return 31 * result + Arrays.hashCode(payload);
     }
 
     /**
@@ -167,7 +170,6 @@ public class WebpChunk
         sb.append(String.format(MetadataConstants.FORMATTER, "FourCC Type", getType()));
         sb.append(String.format(MetadataConstants.FORMATTER, "Type Value", getTypeValue()));
         sb.append(String.format(MetadataConstants.FORMATTER, "Payload Size", getLength()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Byte Values", Arrays.toString(payload)));
 
         return sb.toString();
     }

@@ -30,16 +30,18 @@ public final class DisplayMetadata
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private final MetadataScanner scanner;
 
-    public DisplayMetadata(MetadataScanner scanner)
+    public DisplayMetadata(BatchConfiguration config)
     {
-        this.scanner = scanner;
+        this.scanner = new MetadataScanner(config);
     }
 
     public void execute()
     {
-        for (MediaRecord record : scanner)
+        try
         {
-            try
+            scanner.start();
+
+            for (MediaRecord record : scanner)
             {
                 Path fpath = record.getPath();
                 AbstractImageParser<?> parser = ImageParserFactory.getParser(fpath);
@@ -47,19 +49,17 @@ public final class DisplayMetadata
                 parser.readMetadata();
                 Metadata<?> meta = parser.getMetadata();
 
-                // displaySystemMetadata(fpath);
+                displaySystemMetadata(fpath);
 
                 if (meta.hasMetadata())
                 {
                     if (record.isTIF() && meta instanceof TifMetadataProvider)
                     {
-                        // System.out.printf("%s\n", parser.formatDiagnosticString());
-                        // displayTifMetadata((TifMetadataProvider) meta);
+                        displayTifMetadata((TifMetadataProvider) meta);
                     }
 
                     else if (record.isJPG() && meta instanceof TifMetadata)
                     {
-                        displaySystemMetadata(fpath);
                         displayTifMetadata((TifMetadataProvider) meta);
                     }
 
@@ -77,22 +77,22 @@ public final class DisplayMetadata
                     }
                 }
             }
+        }
 
-            catch (Exception exc)
-            {
-                /*
-                 * Possible exceptions may be received:
-                 *
-                 * IOException
-                 * ImageReadErrorException <-- Apache Commons Imaging
-                 * NoSuchFileException
-                 * UnsupportedOperationException (RuntimeException)
-                 * IndexOutOfBoundsException (RuntimeException)
-                 * IllegalStateException (RuntimeException)
-                 * NullPointerException (RuntimeException)
-                 * IllegalArgumentException (RuntimeException)
-                 */
-            }
+        catch (Exception exc)
+        {
+            /*
+             * Possible exceptions may be received:
+             *
+             * IOException
+             * ImageReadErrorException <-- Apache Commons Imaging
+             * NoSuchFileException
+             * UnsupportedOperationException (RuntimeException)
+             * IndexOutOfBoundsException (RuntimeException)
+             * IllegalStateException (RuntimeException)
+             * NullPointerException (RuntimeException)
+             * IllegalArgumentException (RuntimeException)
+             */
         }
     }
 

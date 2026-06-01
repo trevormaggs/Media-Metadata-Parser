@@ -5,6 +5,7 @@ import common.ByteValueConverter;
 import common.MetadataConstants;
 import common.Utils;
 import logger.LogFactory;
+import tif.TagHint;
 
 /**
  * Represents a {@code tEXt} chunk in a PNG file, which stores original textual data.
@@ -150,7 +151,7 @@ public class PngChunkTEXT extends PngChunk implements TextualChunk
         sb.append(String.format(MetadataConstants.FORMATTER, "Keyword", getKeyword()));
         sb.append(String.format(MetadataConstants.FORMATTER, "Text", getText()));
 
-        if (textKeyword.getHint() == tif.TagHint.HINT_DATE)
+        if (textKeyword.getHint() == TagHint.HINT_DATE)
         {
             String formattedDate = Utils.formatDateString(getText(), Utils.LOCALE_AU);
             sb.append(String.format(MetadataConstants.FORMATTER, "Formatted Date", formattedDate));

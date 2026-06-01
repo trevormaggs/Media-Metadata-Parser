@@ -239,7 +239,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
                     notifyListeners(imageSet.size());
 
                     System.out.printf("%s%n", parser.formatDiagnosticString());
-                    //System.out.printf("%s", meta);
+                    // System.out.printf("%s", meta);
                 }
 
                 catch (Exception exc)

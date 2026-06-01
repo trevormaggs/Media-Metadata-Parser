@@ -65,7 +65,8 @@ public enum WebPChunkType
     ANMF("ANMF", "Frame information for Animation", true),
 
     /** Represents an unrecognised chunk type */
-    OTHER("WXYZ", "Other");
+    // OTHER("WXYZ", "Other");
+    UNKNOWN("????", "Unknown Chunk Type");
 
     private final String chunkType;
     private final String description;
@@ -77,7 +78,10 @@ public enum WebPChunkType
     {
         for (WebPChunkType type : values())
         {
-            LOOKUP_MAP.put(type.getFourccValue(), type);
+            if (type != UNKNOWN)
+            {
+                LOOKUP_MAP.put(type.getFourccValue(), type);
+            }
         }
     }
 
@@ -173,7 +177,7 @@ public enum WebPChunkType
      */
     public static WebPChunkType findType(int fourcc)
     {
-        return LOOKUP_MAP.getOrDefault(fourcc, OTHER);
+        return LOOKUP_MAP.getOrDefault(fourcc, UNKNOWN);
     }
 
     /**
@@ -182,7 +186,7 @@ public enum WebPChunkType
      * @param chunkType
      *        the four-character code string
      *
-     * @return The matching WebPChunkType or OTHER if no match is found
+     * @return The matching WebPChunkType or UNKNOWN if no match is found
      */
     public static WebPChunkType findType(String chunkType)
     {
@@ -194,7 +198,7 @@ public enum WebPChunkType
             }
         }
 
-        return OTHER;
+        return UNKNOWN;
     }
 
     /**

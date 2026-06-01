@@ -30,7 +30,7 @@ import util.ProjectBuildInfo;
  */
 public final class MediaMetadataConsole
 {
-    //private static final LogFactory LOGGER = LogFactory.getLogger(MediaMetadataConsole.class);
+    // private static final LogFactory LOGGER = LogFactory.getLogger(MediaMetadataConsole.class);
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
 
@@ -253,20 +253,18 @@ public final class MediaMetadataConsole
     {
         scanner.start();
 
-        int total = scanner.getRecordCount();
-
         if (config.isShowMetadata())
         {
-            DisplayMetadata display = new DisplayMetadata(scanner);
+            DisplayMetadata display = new DisplayMetadata(config);
 
             display.execute();
         }
 
-        else if (total > 0)
+        else if (scanner.getRecordCount() > 0)
         {
-            MediaBatchProcessor processor = new MediaBatchProcessor(config, scanner);
+            MediaBatchProcessor processor = new MediaBatchProcessor(config);
 
-            processor.addProgressListener(new ConsoleProgressBar(0, total));
+            processor.addProgressListener(new ConsoleProgressBar(0, scanner.getRecordCount()));
             processor.execute();
 
             System.out.println("Done");

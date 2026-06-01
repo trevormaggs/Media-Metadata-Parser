@@ -1,7 +1,6 @@
 package heif;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
@@ -68,89 +67,93 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
     }
 
     /**
-     * Reads the HEIC/HEIF image file to extract all supported raw metadata segments, specifically
-     * EXIF and XMP, if present, and uses the extracted data to initialise the necessary metadata
-     * objects for later data retrieval.
+     * Reads the HEIC/HEIF image file to extract all supported raw metadata segments, including EXIF
+     * and XMP, if present.
      *
      * <p>
      * This method extracts only the Exif and/or XMP segment from the file. While other HEIF boxes
      * are parsed internally, they are not returned or exposed.
      * </p>
-     *
-     * @throws IOException
-     *         if a file reading error occurs during the parsing
      */
     @Override
-    public void readMetadata() throws IOException
+    public void readMetadata()
     {
         if (!dataLoaded)
         {
-            validateFileState();
-
-            try (BoxHandler handler = new BoxHandler(getImageFile()))
+            try
             {
-                if (handler.parseMetadata())
+                validateFileState();
+
+                try (BoxHandler handler = new BoxHandler(getImageFile()))
                 {
-                    Optional<byte[]> exif = handler.getExifData();
-
-                    if (exif.isPresent())
+                    if (handler.parseMetadata())
                     {
-                        TifMetadata tif = TifParser.parseTiffMetadataFromBytes(exif.get());
-                        metadata.setByteOrder(tif.getByteOrder());
+                        Optional<byte[]> exif = handler.getExifData();
 
-                        for (DirectoryIFD ifd : tif)
+                        if (exif.isPresent())
                         {
-                            metadata.addDirectory(ifd);
+                            TifMetadata tif = TifParser.parseTiffMetadataFromBytes(exif.get());
+                            metadata.setByteOrder(tif.getByteOrder());
+
+                            for (DirectoryIFD ifd : tif)
+                            {
+                                metadata.addDirectory(ifd);
+                            }
+                        }
+
+                        else
+                        {
+                            LOGGER.debug("No Exif segment found in file [" + getImageFile() + "]");
+                        }
+
+                        Optional<byte[]> xmp = handler.getXmpData();
+
+                        if (xmp.isPresent())
+                        {
+                            processXmpData(xmp.get());
+                        }
+
+                        else
+                        {
+                            LOGGER.debug("No XMP payload found in file [" + getImageFile() + "]");
                         }
                     }
 
                     else
                     {
-                        LOGGER.info("No EXIF metadata present in file [" + getImageFile() + "]");
+                        LOGGER.info("No credible metadata payload detected in file [" + getImageFile() + "]");
                     }
 
-                    Optional<byte[]> xmp = handler.getXmpData();
-
-                    if (xmp.isPresent())
+                    if (LOGGER.isDebugEnabled())
                     {
-                        processXmpData(xmp.get());
+                        logDebugBoxHierarchy(handler);
                     }
-
-                    else
-                    {
-                        LOGGER.info("No XMP metadata present in file [" + getImageFile() + "]");
-                    }
-
-                    dataLoaded = true;
                 }
+            }
 
-                else
-                {
-                    throw new IOException("Invalid or corrupt ISOBMFF structural headers detected");
-                }
+            catch (IOException exc)
+            {
+                LOGGER.error("File [" + getImageFile() + "] encountered an unrecoverable structural I/O error", exc);
+            }
+
+            finally
+            {
+                dataLoaded = true;
             }
         }
     }
 
     /**
-     * Retrieves the extracted metadata container from the HEIF image file. If the container has not
-     * been filled, it triggers the lazy-loading operation to ensure availability.
+     *
+     * Retrieves the extracted metadata from the HEIF image file. If the metadata has not been
+     * explicitly loaded yet, it triggers lazy execution to read data.
      *
      * @return a {@link TifMetadata} object
      */
     @Override
     public TifMetadata getMetadata()
     {
-        try
-        {
-            readMetadata();
-        }
-
-        catch (IOException exc)
-        {
-            throw new UncheckedIOException("Unable to parse file [" + getImageFile() + "] due to an error downstream", exc);
-        }
-
+        readMetadata();
         return metadata;
     }
 

@@ -88,17 +88,15 @@ public final class MediaBatchProcessor
     }
 
     /**
-     * Constructs a new Processor using the specified configuration and media scanner.
+     * Constructs a new Processor using the specified configuration needed for scan.
      *
      * @param config
      *        the configuration settings used to initialise the executor
-     * @param scanner
-     *        the scanner containing the discovered media records to process
      */
-    public MediaBatchProcessor(BatchConfiguration config, MetadataScanner scanner)
+    public MediaBatchProcessor(BatchConfiguration config)
     {
         this.config = config;
-        this.scanner = scanner;
+        this.scanner = new MetadataScanner(config);
         this.listeners = new ArrayList<ProgressListener>();
     }
 
@@ -130,11 +128,12 @@ public final class MediaBatchProcessor
      */
     public final void execute() throws BatchErrorException
     {
-        int index = 1;
-        int total = scanner.getRecordCount();
-
         prepareTargetDirectory();
         startLogging();
+        scanner.start();
+
+        int index = 1;
+        int total = scanner.getRecordCount();
 
         LOGGER.info("Starting batch process for [" + total + "] files...");
 

@@ -463,6 +463,11 @@ public class RiffHandler implements ImageHandler
 
                     LOGGER.debug(String.format("VP8 Lossy Bitstream [%dx%d]", width, height));
                 }
+
+                else
+                {
+                    throw new IllegalStateException("Corrupt bitstream structure. Invalid VP8 lossy sync frame signature code");
+                }
             }
         }
 
@@ -497,6 +502,11 @@ public class RiffHandler implements ImageHandler
                     int height = ((data >>> 14) & 0x3FFF) + 1;
 
                     LOGGER.debug(String.format("VP8L Lossless Bitstream: [%dx%d]", width, height));
+                }
+
+                else
+                {
+                    throw new IllegalStateException("Corrupt bitstream structure. Invalid VP8L lossless signature byte");
                 }
             }
         }

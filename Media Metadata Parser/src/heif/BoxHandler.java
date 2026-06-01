@@ -109,7 +109,9 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      *
      * <p>
      * This method skips un-handled types such as {@code mdat} and gracefully recovers from
-     * malformed boxes using a fail-fast approach.
+     * malformed boxes using a fail-fast approach. Also, a soft-landing exception strategy is
+     * implemented to make sure that any structural disruptions do not throw exceptions
+     * unnecessarily.
      * </p>
      *
      * <p>
@@ -124,38 +126,47 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      *         if an I/O error occurs
      */
     @Override
-    public boolean parseMetadata() throws IOException
+    public boolean parseMetadata()
     {
-        Box box = null;
-
-        while (reader.getCurrentPosition() < reader.length())
+        do
         {
+            Box box = null;
+
             try
             {
-                box = BoxFactory.createBox(reader);
-
-                /*
-                 * At this stage, no handler for processing data within the Media Data box (mdat) is
-                 * available, since we are not interested in parsing it yet. This box will be
-                 * skipped as not handled. Often, mdat is the last top-level box.
-                 */
-                if (HeifBoxType.MEDIA_DATA.equalsTypeName(box.getFourCC()))
+                if (reader.getCurrentPosition() < reader.length())
                 {
-                    reader.skip(box.available(reader));
-                    LOGGER.warn("Media Data box [" + box.getFourCC() + "] detected but not handled");
+                    box = BoxFactory.createBox(reader);
+
+                    /*
+                     * At this stage, no handler for processing data within the Media Data box
+                     * (mdat) is
+                     * available, since we are not interested in parsing it yet. This box will be
+                     * skipped as not handled. Often, mdat is the last top-level box.
+                     */
+                    if (HeifBoxType.MEDIA_DATA.equalsTypeName(box.getFourCC()))
+                    {
+                        reader.skip(box.available(reader));
+                        LOGGER.warn("Media Data box [" + box.getFourCC() + "] detected but not handled");
+                    }
+
+                    rootBoxes.add(box);
+                    walkBoxes(box, 0);
+
                 }
 
-                rootBoxes.add(box);
-                walkBoxes(box, 0);
+                else
+                {
+                    break;
+                }
             }
 
-            catch (Exception exc)
+            catch (IOException | IllegalStateException exc)
             {
-                LOGGER.error("Error message received: [" + exc.getMessage() + "]", exc);
-                LOGGER.error("Malformed box structure detected in [" + (box != null ? box.getFourCC() : "unknown") + "]", exc);
+                LOGGER.error("Malformed box structure or I/O issue detected in [" + (box != null ? box.getFourCC() : "unknown") + "]", exc);
                 break;
             }
-        }
+        } while (true);
 
         return (!heifBoxMap.isEmpty());
     }
@@ -427,11 +438,18 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
             {
                 if (type == MetadataType.EXIF)
                 {
+                    byte[] rawBytes = getRawBytes(itemID);
+
+                    if (rawBytes == null)
+                    {
+                        return -1;
+                    }
+
                     /*
                      * Important part: Determine the internal shift. For Exif,
                      * we have the TIFF header. For XMP, it's 0.
                      */
-                    shift = Utils.calculateShiftTiffHeader(getRawBytes(itemID));
+                    shift = Utils.calculateShiftTiffHeader(rawBytes);
 
                     if (shift == -1)
                     {
