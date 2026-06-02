@@ -16,8 +16,8 @@ import common.Metadata;
  * </p>
  * 
  * <p>
- * This class is designed to be immutable, ensuring thread safety when shared across batch
- * processing tasks.
+ * This class is immutable provided that the supplied {@link Metadata} implementation is itself
+ * immutable.
  * </p>
  * 
  * @author Trevor Maggs
@@ -32,6 +32,18 @@ public final class MediaRecord
     private final FileTime fileSystemDate;
     private final boolean hasMetadataContainer;
 
+    /**
+     * Constructs an immutable media record from the specified scan results.
+     *
+     * @param fpath
+     *        the path to the media file
+     * @param meta
+     *        the extracted metadata, or {@code null} if none exists
+     * @param sig
+     *        the detected media format signature
+     * @param ft
+     *        the file system timestamp recorded during scanning
+     */
     public MediaRecord(Path fpath, Metadata<?> meta, DigitalSignature sig, FileTime ft)
     {
         this.mediaFile = fpath;
@@ -51,6 +63,11 @@ public final class MediaRecord
         return mediaFile;
     }
 
+    /**
+     * Returns the metadata container extracted from the media file.
+     *
+     * @return the metadata instance, or {@code null} if no metadata was found
+     */
     public Metadata<?> getMetadata()
     {
         return metadata;
@@ -121,7 +138,7 @@ public final class MediaRecord
     /**
      * Checks if the media file's digital signature matches the expected WebP standard.
      *
-     * @return true if isWebP, otherwise false
+     * @return true if WebP, otherwise false
      */
     public boolean isWebP()
     {
@@ -129,7 +146,8 @@ public final class MediaRecord
     }
 
     /**
-     * Returns whether this media file is of a known video format, for example: MP4, MOV, AVI, etc.
+     * Returns whether this media file represents a recognised video format, such as MP4, MOV, or
+     * AVI.
      *
      * @return true if the media is a video, otherwise false
      */
@@ -194,14 +212,15 @@ public final class MediaRecord
         MediaRecord meta = (MediaRecord) other;
 
         return hasMetadataContainer == meta.hasMetadataContainer
+                && Objects.equals(fileSystemDate, meta.fileSystemDate)
                 && mediaFormat == meta.mediaFormat
                 && Objects.equals(metadata, meta.metadata)
                 && Objects.equals(mediaFile, meta.mediaFile);
     }
 
     /**
-     * Computes a hash code based on the file path, metadata state, and digital signature to ensure
-     * stable behaviour in hashed collections.
+     * Computes a hash code based on the record's immutable state to ensure stable behaviour in
+     * hashed collections.
      *
      * @return the hash code for this object
      */
@@ -210,9 +229,10 @@ public final class MediaRecord
     {
         int result = 17;
 
-        result = 31 * result + mediaFile.hashCode();
-        result = 31 * result + metadata.hashCode();
-        result = 31 * result + mediaFormat.hashCode();
+        result = 31 * result + Objects.hashCode(mediaFile);
+        result = 31 * result + Objects.hashCode(metadata);
+        result = 31 * result + Objects.hashCode(mediaFormat);
+        result = 31 * result + Objects.hashCode(fileSystemDate);
         result = 31 * result + Boolean.hashCode(hasMetadataContainer);
 
         return result;
@@ -228,10 +248,12 @@ public final class MediaRecord
     public String toString()
     {
         StringBuilder line = new StringBuilder();
-        line.append(String.format("  %-30s %s%n", "[Media File]", mediaFile));
-        line.append(String.format("  %-30s %s%n", "[Metadata]", metadata));
-        line.append(String.format("  %-30s %s%n", "[Format]", mediaFormat));
-        line.append(String.format("  %-30s %s%n", "[Empty Metadata]", !hasMetadataContainer));
+        line.append(String.format("  %-30s %s%n", "[Media File]", getPath()));
+        line.append(String.format("  %-30s %s%n", "[Metadata]", getMetadata()));
+        line.append(String.format("  %-30s %s%n", "[Format]", getMediaFormat()));
+        line.append(String.format("  %-30s %s%n", "[Empty Metadata]", isMetadataEmpty()));
+        line.append(String.format("  %-30s %s%n", "[Natural Date]", getNaturalDate()));
+        line.append(String.format("  %-30s %s%n", "[File System Date]", getFileSystemDate()));
 
         return line.toString();
     }

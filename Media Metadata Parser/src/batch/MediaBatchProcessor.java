@@ -26,8 +26,8 @@ import util.SystemInfo;
 import webp.WebPDatePatcher;
 
 /**
- * Automates the batch processing of image files by copying, renaming, and chronologically sorting
- * them, typically based on their {@code DateTimeOriginal} EXIF metadata.
+ * Automates the batch processing of media files by copying, renaming, and chronologically sorting
+ * them according to metadata timestamps.
  * 
  * <p>
  * This processor implements a "surgical" strategy: it never modifies source files. Instead, it
@@ -89,10 +89,10 @@ public final class MediaBatchProcessor
     }
 
     /**
-     * Constructs a new Processor using the specified configuration needed for scan.
+     * Constructs a batch processor using the specified configuration.
      *
      * @param config
-     *        the configuration settings used to initialise the executor
+     *        the validated configuration used for batch execution
      */
     public MediaBatchProcessor(BatchConfiguration config)
     {
@@ -116,12 +116,12 @@ public final class MediaBatchProcessor
     }
 
     /**
-     * Begins the batch processing workflow by preparing the target directory, setting up logging,
-     * and processing the specified source files or directory.
+     * Begins the batch-processing workflow by preparing the target directory, initialising logging,
+     * and processing the configured media files.
      * 
      * <p>
-     * Note, this method is final to ensure no subclass accidentally overrides the defined critical
-     * logic.
+     * Note that this method is final to ensure that subclasses cannot accidentally override the
+     * core processing workflow.
      * </p>
      *
      * @throws BatchErrorException
@@ -154,7 +154,7 @@ public final class MediaBatchProcessor
                 {
                     processRecord(record, index, total);
 
-                    /* Iterates through registered listeners to broadcast the current progress. */
+                    /* Notify all registered listeners of the current progress. */
                     for (ProgressListener listener : listeners)
                     {
                         listener.onProgressUpdate(index, total);
@@ -181,11 +181,11 @@ public final class MediaBatchProcessor
      * </p>
      * 
      * <ol>
-     * <li>Calculate the effective timestamp (Natural vs. User-defined).</li>
-     * <li>Generate a new filename based on configuration.</li>
+     * <li>Calculate the effective timestamp (natural or user-defined).</li>
+     * <li>Generate a new filename based on the configuration.</li>
      * <li>Copy the source file to the target location.</li>
-     * <li>Apply binary metadata patches to the <b>copy</b> if forced.</li>
-     * <li>Update file-system attributes (Last Modified Time).</li>
+     * <li>Apply binary metadata patches to the copied file, if required.</li>
+     * <li>Update file-system timestamps.</li>
      * </ol>
      * 
      * @param record
@@ -256,14 +256,18 @@ public final class MediaBatchProcessor
     }
 
     /**
-     * Determines the final timestamp for the record, applying increments if the date is
-     * user-defined.
+     * Determines the effective timestamp for a media record.
+     *
+     * <p>
+     * If a user-defined date is configured, a fixed offset is applied based on the record position
+     * to ensure unique chronological ordering.
+     * </p>
      * 
      * @param record
      *        the media record being processed
      * @param index
      *        the current index used to calculate the 10-second offset
-     * @return the calculated FileTime for metadata and file-system updates
+     * @return the calculated {@link FileTime} used for metadata and file-system updates
      */
     private FileTime calculateEffectiveTime(MediaRecord record, int index)
     {
@@ -282,10 +286,10 @@ public final class MediaBatchProcessor
      * @param record
      *        the media record
      * @param index
-     *        the batch index for numerical padding, such as 001, 002, etc
+     *        the batch index used for numerical padding (for example, 001, 002, and so on)
      * @param time
      *        the timestamp to embed if enabled
-     * @return a formatted string representing the new filename
+     * @return the generated filename for the copied media file
      */
     private String generateTargetName(MediaRecord record, int index, FileTime time)
     {
@@ -320,8 +324,8 @@ public final class MediaBatchProcessor
      * Prepares the target directory by ensuring it exists and is empty.
      * 
      * <p>
-     * Safety Check: Throws an exception if the target is identical to the source to prevent
-     * accidental data deletion during the destructive clean phase.
+     * Safety check: an exception is thrown if the target directory is identical to the source
+     * directory to prevent accidental data loss during cleanup.
      * </p>
      * 
      * @throws BatchErrorException
@@ -338,7 +342,7 @@ public final class MediaBatchProcessor
                     throw new BatchErrorException("Target directory cannot be the same as source directory");
                 }
 
-                // Destructive clean to ensure a fresh batch environment
+                // Remove existing contents to ensure a clean batch environment
                 Files.walkFileTree(config.getTarget(), DELETE_VISITOR);
             }
 
@@ -352,8 +356,7 @@ public final class MediaBatchProcessor
     }
 
     /**
-     * Begins the logging system and writes configuration details to a log file. This method is for
-     * internal setup and is not intended for external use.
+     * Initialises the logging system and records the active configuration.
      *
      * @throws BatchErrorException
      *         if the logging service cannot be established
@@ -369,7 +372,7 @@ public final class MediaBatchProcessor
             LOGGER.setDebug(config.isDebug());
             LOGGER.setTrace(false);
 
-            LOGGER.info("MediaBatchProcessor Initialised.");
+            LOGGER.info("MediaBatchProcessor initialised");
             LOGGER.info("Source: " + config.getSource().toAbsolutePath());
             LOGGER.info("Target: " + config.getTarget().toAbsolutePath());
 

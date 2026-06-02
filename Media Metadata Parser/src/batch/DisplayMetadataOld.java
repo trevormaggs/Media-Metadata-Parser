@@ -18,48 +18,23 @@ import tif.TifMetadata;
 import tif.TifMetadataProvider;
 
 /**
- * Utility class to print media metadata in a format emulating ExifTool's {@code -G1 -a -s -u}
- * output style.
- *
- * <p>
- * This class coordinates file tracking via a {@link MetadataScanner}, normalises structural
- * filesystem properties under a standardized {@code [System]} group, and dynamically safely casts
- * underlying metadata containers (such as EXIF, TIFF, XMP, and PNG text chunks) into an aligned
- * columnar view.
- * </p>
+ * Utility class to print media metadata in a format emulating ExifTool's -G1 -a -s -u output style.
  *
  * @author Trevor Maggs
  * @version 1.0
  * @since 5 May 2026
  */
-public final class DisplayMetadata2
+public final class DisplayMetadataOld
 {
     private static final String COLUMN_FORMAT = "%-16s%-32s: %s%n";
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private final MetadataScanner scanner;
 
-    /**
-     * Constructs a metadata display orchestrator bound to a specific runtime execution context.
-     *
-     * @param config
-     *        the configuration containing the targeting source parameters and filters
-     */
-    public DisplayMetadata2(BatchConfiguration config)
+    public DisplayMetadataOld(BatchConfiguration config)
     {
         this.scanner = new MetadataScanner(config);
     }
 
-    /**
-     * Executes the metadata extraction pipeline across all matching records discovered by the
-     * scanner.
-     *
-     * <p>
-     * For each verified media file, this method extracts structural file system statistics before
-     * evaluating format-specific metadata containers (TIFF, JPEG, PNG, WebP, HEIC). All exceptions
-     * occurring during parsing or stream reading are silently intercepted to guarantee that a
-     * single corrupted file block cannot crash a multi-file reporting task.
-     * </p>
-     */
     public void execute()
     {
         try
@@ -122,16 +97,6 @@ public final class DisplayMetadata2
         }
     }
 
-    /**
-     * Resolves low-level OS platform file traits and prints them matching the standard
-     * {@code [System]} scope.
-     *
-     * @param path
-     *        the target path to probe for filesystem records
-     * 
-     * @throws IOException
-     *         if the file system node is inaccessible or unreadable
-     */
     private void displaySystemMetadata(Path path) throws IOException
     {
         String group = "[System]";
@@ -150,32 +115,13 @@ public final class DisplayMetadata2
     }
 
     /**
-     * Normalises a Unix epoch timestamp millisecond count into an ExifTool-compliant string
-     * representation.
-     *
-     * @param millis
-     *        the epoch time representation in milliseconds
-     * @return a string structured as {@code YYYY:MM:DD HH:MM:SS±HH:MM} reflecting local system
-     *         timezone rules
+     * Converts a long (milliseconds) to the ExifTool readable date format.
      */
     private String formatTimestamp(long millis)
     {
         return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault()).format(DTF);
     }
 
-    /**
-     * Iterates over a TIFF directory structure to translate binary tags and output standard IFD
-     * groupings.
-     *
-     * <p>
-     * This method handles structure decomposition for raw TIFF headers as well as Exif structures
-     * embedded within container blocks (such as JPEG APP1 or HEIC meta boxes). If an explicit XMP
-     * structure is detected, it is extracted as an independent segment block.
-     * </p>
-     *
-     * @param tif
-     *        the underlying structural provider containing data blocks and translation tables
-     */
     private void displayTifMetadata(TifMetadataProvider tif)
     {
         for (DirectoryIFD ifd : tif)
@@ -191,7 +137,7 @@ public final class DisplayMetadata2
             }
         }
 
-        // Handle XMP separately if it exists
+        // 3. Handle XMP separately if it exists
         if (tif.getXmpDirectory() != null)
         {
             // Logic to iterate XMP key/value pairs

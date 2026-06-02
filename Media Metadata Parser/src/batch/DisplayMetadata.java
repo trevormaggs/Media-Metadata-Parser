@@ -14,15 +14,21 @@ import filesystem.FileInspector;
 import png.PngMetadataProvider;
 import tif.DirectoryIFD;
 import tif.TagTranslator;
-import tif.TifMetadata;
 import tif.TifMetadataProvider;
 
 /**
- * Utility class to print media metadata in a format emulating ExifTool's -G1 -a -s -u output style.
+ * Utility class to print media metadata in a format emulating ExifTool's {@code -G1 -a -s -u}
+ * output style.
+ *
+ * <p>
+ * This class coordinates file discovery through a {@link MetadataScanner}, displays file system
+ * attributes under the standard {@code [System]} group, and renders metadata from supported image
+ * formats in a column-aligned view.
+ * </p>
  *
  * @author Trevor Maggs
  * @version 1.0
- * @since 5 May 2026
+ * @since 2 June 2026
  */
 public final class DisplayMetadata
 {
@@ -30,11 +36,29 @@ public final class DisplayMetadata
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private final MetadataScanner scanner;
 
+    /**
+     * Creates an instance for displaying metadata name/value attributes, similar to
+     * the output format produced by {@code exiftool -G1 -a -s -u}.
+     *
+     * @param config
+     *        the configuration containing the validated source parameters and
+     *        filters supplied on the command line
+     */
     public DisplayMetadata(BatchConfiguration config)
     {
         this.scanner = new MetadataScanner(config);
     }
 
+    /**
+     * Executes the metadata extraction pipeline for all matching records discovered by the scanner.
+     *
+     * <p>
+     * For each media file, this method extracts file system attributes and then evaluates
+     * format-specific metadata containers, specifically TIFF, JPEG, PNG, WebP, and HEIC. Exceptions
+     * that occur during parsing or stream reading are caught and suppressed to ensure that a single
+     * corrupted or unsupported file does not terminate processing of the remaining files.
+     * </p>
+     */
     public void execute()
     {
         try
@@ -58,7 +82,7 @@ public final class DisplayMetadata
                         displayTifMetadata((TifMetadataProvider) meta);
                     }
 
-                    else if (record.isJPG() && meta instanceof TifMetadata)
+                    else if (record.isJPG() && meta instanceof TifMetadataProvider)
                     {
                         displayTifMetadata((TifMetadataProvider) meta);
                     }
@@ -97,6 +121,16 @@ public final class DisplayMetadata
         }
     }
 
+    /**
+     * Displays file system attributes for the specified path using the standard {@code [System]}
+     * metadata group.
+     *
+     * @param path
+     *        the file whose attributes are to be displayed
+     *
+     * @throws IOException
+     *         if the file system attributes cannot be read
+     */
     private void displaySystemMetadata(Path path) throws IOException
     {
         String group = "[System]";
@@ -115,13 +149,32 @@ public final class DisplayMetadata
     }
 
     /**
-     * Converts a long (milliseconds) to the ExifTool readable date format.
+     * Formats an epoch timestamp as an ExifTool-style date/time string.
+     *
+     * @param millis
+     *        the timestamp in milliseconds since the Unix epoch
+     *
+     * @return a string in the format
+     *         {@code yyyy:MM:dd HH:mm:ss±HH:mm}, using the system default time zone
      */
     private String formatTimestamp(long millis)
     {
         return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault()).format(DTF);
     }
 
+    /**
+     * Displays metadata contained within a TIFF-based metadata structure.
+     *
+     * <p>
+     * This method iterates through each IFD directory, translates tag identifiers and values into
+     * human-readable form, and prints them using ExifTool-style group names. The metadata may
+     * originate from a native TIFF file or from TIFF-based EXIF data embedded in formats such as
+     * JPEG or HEIC.
+     * </p>
+     *
+     * @param tif
+     *        the metadata provider supplying TIFF directories and associated data
+     */
     private void displayTifMetadata(TifMetadataProvider tif)
     {
         for (DirectoryIFD ifd : tif)
@@ -137,7 +190,7 @@ public final class DisplayMetadata
             }
         }
 
-        // 3. Handle XMP separately if it exists
+        // Handle XMP separately if it exists
         if (tif.getXmpDirectory() != null)
         {
             // Logic to iterate XMP key/value pairs

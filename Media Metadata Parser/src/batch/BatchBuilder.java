@@ -5,15 +5,15 @@ import java.time.ZonedDateTime;
 
 /**
  * <p>
- * Implements the Builder design pattern for the construction and validation of
- * {@link MediaBatchProcessor} configurations.
+ * Implements the Builder design pattern for constructing and validating {@link BatchConfiguration}
+ * instances used by batch-processing operations.
  * </p>
  * 
  * <p>
- * This class serves as the central gateway for defining batch parameters. It can produce a
- * self-initiating {@link MediaMetadataConsole} via {@link #build()} for CLI applications, or an
- * immutable {@link BatchConfiguration} via {@link #buildConfig()} for custom implementations such
- * as GUI.
+ * This class serves as the central entry point for defining and validating batch-processing
+ * parameters. It can produce a self-initiating {@link MediaMetadataConsole} via {@link #build()}
+ * for CLI applications, or an immutable {@link BatchConfiguration} via {@link #buildConfig()} for
+ * custom implementations such as GUI.
  * </p>
  * 
  * <p>
@@ -22,7 +22,7 @@ import java.time.ZonedDateTime;
  * 
  * <pre>
  * <code>
- * BatchConsole batch = new BatchBuilder()
+ * MediaMetadataConsole console = new BatchBuilder()
  * .source("D:\\Media\\Photos")
  * .target("local\\images")
  * .prefix("holiday")
@@ -50,16 +50,37 @@ import java.time.ZonedDateTime;
  */
 public final class BatchBuilder
 {
+    /** Source directory containing media files to process. */
     private String bd_sourceDir = MediaBatchProcessor.DEFAULT_SOURCE_DIRECTORY;
+
+    /** Filename prefix applied to generated output files. */
     private String bd_prefix = MediaBatchProcessor.DEFAULT_IMAGE_PREFIX;
+
+    /** Target directory for processed files. */
     private String bd_target = MediaBatchProcessor.DEFAULT_TARGET_DIRECTORY;
+
+    /** Determines whether the media date should be embedded in generated filenames. */
     private boolean bd_embedDateTime = false;
+
+    /** User-supplied date string prior to parsing and validation. */
     private String bd_userDate = "";
+
+    /** Indicates whether existing metadata dates should be overwritten. */
     private boolean bd_force = false;
+
+    /** Optional list of filenames explicitly selected for processing. */
     private String[] bd_files = new String[0];
+
+    /** Indicates whether video files should be excluded from processing. */
     private boolean bd_skipVideoFiles = false;
+
+    /** Indicates whether metadata information should be displayed instead of processing files. */
     private boolean bd_displayMetadata = false;
+
+    /** Indicates whether chronological ordering should be descending. */
     private boolean bd_descending = false;
+
+    /** Indicates whether diagnostic logging should be enabled. */
     private boolean bd_debug = false;
 
     /**
@@ -154,7 +175,7 @@ public final class BatchBuilder
      * present in the file.
      *
      * @param b
-     *        {@code true} to enable forced user date/time in the filename
+     *        {@code true} to force the user-defined date to replace existing metadata dates
      * @return this builder instance to allow method chaining
      */
     public BatchBuilder forceDateChange(boolean b)
@@ -164,10 +185,10 @@ public final class BatchBuilder
     }
 
     /**
-     * Determines whether the date and time attribute should be prepended to each output file name.
+     * Indicates whether media date information should be embedded in output filenames.
      *
      * @param b
-     *        {@code true} to include the date/time in the filename, or {@code false} to omit it
+     *        {@code true} to include the date in generated filenames, otherwise {@code false}
      * @return this builder instance to allow method chaining
      */
     public BatchBuilder embedDateTime(boolean b)
@@ -203,7 +224,7 @@ public final class BatchBuilder
     }
 
     /**
-     * Configures the sorting order of the processed images to be descending.
+     * Configures the sorting order of processed media records.
      *
      * @param b
      *        {@code true} to sort in descending order, otherwise ascending
@@ -229,9 +250,17 @@ public final class BatchBuilder
     }
 
     /**
-     * Validates configuration constraints and instantiates the console application.
-     * 
-     * @return a new {@code MediaMetadataConsole} instance
+     * Validates the current builder state and creates a new {@link MediaMetadataConsole} instance.
+     *
+     * <p>
+     * This is the preferred entry point for command-line applications, where the resulting console
+     * instance manages execution of the configured batch operation.
+     * </p>
+     *
+     * @return a new console instance configured using the validated builder state
+     *
+     * @throws IllegalStateException
+     *         if the configuration fails validation
      */
     public MediaMetadataConsole build()
     {
@@ -241,11 +270,11 @@ public final class BatchBuilder
     /**
      * Validates the current configuration and returns an immutable {@link BatchConfiguration}
      * snapshot.
-     * 
-     * @return a validated, immutable configuration object
+     *
+     * @return a validated immutable configuration object
      *
      * @throws IllegalStateException
-     *         if validation rules are violated
+     *         if one or more configuration constraints are violated
      */
     public BatchConfiguration buildConfig()
     {
@@ -266,17 +295,12 @@ public final class BatchBuilder
      * integrity.
      * 
      * <p>
-     * This validation ensures that:
+     * This validation ensures that a user-defined date is supplied whenever forced date
+     * modification is enabled.
      * </p>
      * 
-     * <ul>
-     * <li>A user-defined date is present when the force flag is enabled.</li>
-     * <li>A source directory has been explicitly specified.</li>
-     * </ul>
-     * 
      * @throws IllegalStateException
-     *         if the force flag is enabled without a user date, or if the source directory is
-     *         missing
+     *         if forced date modification is enabled without a user-defined date
      */
     private void validate()
     {

@@ -23,14 +23,14 @@ import progressbar.ProgressListener;
  * Facilitates the discovery and metadata extraction of media files within a directory tree.
  * 
  * <p>
- * This class performs a deep scan of the file system using a {@link FileVisitor}. It validates
- * media formats, extracts metadata via the {@link ImageParserFactory}, and maintains a sorted
- * collection of {@link MediaRecord} objects based on chronological criteria.
+ * This class recursively traverses the file system using a {@link FileVisitor}. It identifies
+ * supported media formats, extracts metadata via the {@link ImageParserFactory}, and maintains a
+ * sorted collection of {@link MediaRecord} objects based on chronological criteria.
  * </p>
  * 
  * <p>
- * Progress updates are broadcast to registered {@link ProgressListener} instances during the
- * scanning phase to allow for real-time UI feedback.
+ * Progress updates are broadcast to registered {@link ProgressListener} instances during scanning
+ * to provide real-time user interface feedback.
  * </p>
  *
  * @author Trevor Maggs
@@ -44,7 +44,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
     private final List<ProgressListener> listeners;
 
     /**
-     * Constructs a new scanner using the specified batch configuration.
+     * Constructs a scanner using the specified batch configuration.
      * 
      * <p>
      * Initialises the internal {@code imageSet} with a custom comparator that handles chronological
@@ -53,7 +53,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      * </p>
      *
      * @param settings
-     *        the validated configuration containing source paths and sort preferences
+     *        the validated configuration containing source and sorting preferences
      */
     protected MetadataScanner(BatchConfiguration settings)
     {
@@ -78,8 +78,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
                 }
 
                 /*
-                 * If both timestamps equal, then compare
-                 * the Path. It is a tie-breaker.
+                 * Use the path as a tie-breaker when timestamps are equal.
                  */
                 if (cmp == 0)
                 {
@@ -95,7 +94,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      * Returns an iterator over the discovered media records, ordered according to the
      * configuration's sort preferences.
      *
-     * @return an Iterator for the sorted media record set
+     * @return an iterator over the sorted media record set
      */
     @Override
     public Iterator<MediaRecord> iterator()
@@ -121,7 +120,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      * Initiates the file system traversal to discover media and extract metadata.
      * 
      * <p>
-     * If a specific file set is defined in the configuration, only those files are targeted.
+     * If a specific file set is defined in the configuration, only those files are processed.
      * Otherwise, the scanner performs a full recursive walk of the source directory.
      * </p>
      *
@@ -160,9 +159,9 @@ public class MetadataScanner implements Iterable<MediaRecord>
     }
 
     /**
-     * Returns the total number of valid media records identified during the scan.
+     * Returns the total number of media records discovered during scanning.
      *
-     * @return the size of the discovered media set
+     * @return the number of discovered media records
      */
     protected int getRecordCount()
     {
@@ -173,7 +172,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      * Broadcasts the current progress count to all registered listeners.
      *
      * @param current
-     *        the current number of successfully identified media records
+     *        the current number of discovered media records
      */
     private void notifyListeners(int current)
     {
@@ -184,22 +183,21 @@ public class MetadataScanner implements Iterable<MediaRecord>
     }
 
     /**
-     * Creates a {@link FileVisitor} instance designed to traverse the source directory for media
-     * discovery and metadata extraction.
+     * Creates a file visitor for media discovery and metadata extraction.
      * 
      * <p>
      * The returned visitor handles:
      * </p>
      * 
      * <ul>
-     * <li>Filtering files based on user-defined file sets.</li>
+     * <li>Filtering files against the configured file set, when specified.</li>
      * <li>Detecting media formats and selecting the appropriate parser.</li>
-     * <li>Building {@link MediaRecord} objects from extracted metadata and filesystem
+     * <li>Building {@link MediaRecord} objects from extracted metadata and file system
      * attributes.</li>
      * <li>Notifying progress listeners upon each successful record creation.</li>
      * </ul>
      *
-     * @return a SimpleFileVisitor configured for the current batch scan
+     * @return a file visitor configured for the current batch scan
      * 
      * @throws BatchErrorException
      *         if the source path in the configuration is not a valid directory

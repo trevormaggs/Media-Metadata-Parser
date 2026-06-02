@@ -1,10 +1,5 @@
 package batch;
 
-import java.io.IOException;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Iterator;
 import cli.CommandFlagParser;
 import cli.FlagType;
 import util.ProjectBuildInfo;
@@ -13,35 +8,35 @@ import util.ProjectBuildInfo;
  * The primary Command Line Interface (CLI) entry point for media metadata operations.
  *
  * <p>
- * This class coordinates the application lifecycle from initial argument parsing to task
- * dispatching. It leverages a {@link MetadataScanner} to discover media and routes the execution
- * flow based on user intent.
+ * This class coordinates the application lifecycle from argument parsing through task dispatching.
+ * It leverages a {@link MetadataScanner} to discover media files and routes execution based on the
+ * supplied command-line options.
  * </p>
  *
  * <p>
- * Depending on the configuration, this console either provides a detailed view of media metadata or
- * delegates to the {@link MediaBatchProcessor} for chronological renaming and file processing.
+ * Depending on the configuration, this console either displays detailed media metadata or delegates
+ * to the {@link MediaBatchProcessor} for file renaming and batch processing.
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
- * @since 1 May 2026
+ * @version 1.0
+ * @since 2 June 2026
  */
 public final class MediaMetadataConsole
 {
     // private static final LogFactory LOGGER = LogFactory.getLogger(MediaMetadataConsole.class);
     private final BatchConfiguration config;
-    
+
     /**
-     * Constructs a console interface using a validated configuration.
+     * Constructs a console instance using a validated configuration.
      *
      * <p>
-     * This constructor is typically invoked via {@link BatchBuilder#build()} to ensure all
-     * configuration constraints and path validations are satisfied before instantiation.
+     * This constructor is typically invoked through {@link BatchBuilder#build()} to ensure that all
+     * configuration constraints and path validations have been met.
      * </p>
      *
      * @param config
-     *        the immutable configuration object containing the validated parameters
+     *        the immutable configuration containing validated parameters
      */
     public MediaMetadataConsole(BatchConfiguration config)
     {
@@ -49,16 +44,17 @@ public final class MediaMetadataConsole
     }
 
     /**
-     * Configures the supported command-line flags and definitions.
+     * Configures the supported command-line flags and parses the arguments provided.
      *
      * <p>
      * This method establishes the validation rules for the CLI, defining which flags require
-     * values, which act as switches, and how separators should be handled.
+     * values, which act as switches, and how separator tokens should be handled.
      * </p>
      *
      * @param arguments
-     *        the raw command-line strings provided at runtime
-     * @return a configured {@link CommandFlagParser} ready for interrogation
+     *        the raw command-line arguments
+     *
+     * @return a configured {@link CommandFlagParser}
      */
     private static CommandFlagParser scanArguments(String[] arguments)
     {
@@ -98,7 +94,7 @@ public final class MediaMetadataConsole
     }
 
     /**
-     * Prints the command usage line, showing the correct flag options.
+     * Prints the command usage synopsis.
      */
     private static void showUsage()
     {
@@ -107,7 +103,7 @@ public final class MediaMetadataConsole
     }
 
     /**
-     * Prints detailed usage help information, providing guidance on how to use this program.
+     * Prints detailed help information describing the available command-line options.
      */
     private static void showHelp()
     {
@@ -128,16 +124,15 @@ public final class MediaMetadataConsole
     }
 
     /**
-     * Begins the execution process by reading arguments from the command line and initialising the
-     * configuration builder.
+     * Begins the parsing of the command-line arguments and initialises the configuration builder.
      *
      * <p>
-     * This method handles the mapping of parsed flags to the {@link BatchBuilder} API and invokes
-     * the terminal run state.
+     * This method maps parsed flags to the {@link BatchBuilder} API, validates the resulting
+     * configuration, and executes the requested operation.
      * </p>
      *
      * @param arguments
-     *        the raw command-line arguments provided at runtime
+     *        the raw command-line arguments
      */
     private static void execute(String[] arguments)
     {
@@ -186,51 +181,7 @@ public final class MediaMetadataConsole
     }
 
     /**
-     * Determines the number of supported image files within a specific directory.
-     *
-     * <p>
-     * This method provides a "Pass 1" count using a high-performance {@link DirectoryStream}
-     * filtered by common image extensions (.jpg, .png, .heic, .webp).
-     * </p>
-     *
-     * @param dir
-     *        the directory path to analyse
-     * @return the count of files matching the image criteria
-     * @throws IOException
-     *         if the directory is inaccessible
-     */
-    @SuppressWarnings("unused")
-    private int countImages(Path dir) throws IOException
-    {
-        int count = 0;
-
-        DirectoryStream.Filter<Path> filter = new DirectoryStream.Filter<Path>()
-        {
-            @Override
-            public boolean accept(Path entry) throws IOException
-            {
-                String name = entry.getFileName().toString().toLowerCase();
-
-                return name.endsWith(".jpg") || name.endsWith(".png") || name.endsWith(".heic") || name.endsWith(".webp");
-            }
-        };
-
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir, filter))
-        {
-            Iterator<Path> iter = stream.iterator();
-
-            while (iter.hasNext())
-            {
-                iter.next();
-                count++;
-            }
-        }
-
-        return count;
-    }
-
-    /**
-     * Facilitates the media operation defined by the user configuration.
+     * Executes the operation defined by the current configuration.
      *
      * <p>
      * The execution flow follows a two-stage process:
@@ -239,12 +190,13 @@ public final class MediaMetadataConsole
      * <ol>
      * <li><b>Discovery:</b> The {@link MetadataScanner} traverses the source to build a sorted set
      * of media records.</li>
-     * <li><b>Execution:</b> Depending on configuration, the system either lists extracted metadata
-     * for inspection or initiates a {@link MediaBatchProcessor} to perform file operations.</li>
+     * <li><b>Execution:</b> Depending on the configuration, the system either lists extracted
+     * metadata for inspection or initiates a {@link MediaBatchProcessor} to perform file
+     * operations.</li>
      * </ol>
      *
      * @throws BatchErrorException
-     *         if the scan or subsequent task fails
+     *         if scanning or subsequent processing fails
      */
     public void run() throws BatchErrorException
     {
@@ -267,7 +219,7 @@ public final class MediaMetadataConsole
      * Entry point for the application.
      *
      * @param args
-     *        command-line arguments provided at runtime
+     *        the command-line arguments provided at runtime
      */
     public static void main(String[] args)
     {
