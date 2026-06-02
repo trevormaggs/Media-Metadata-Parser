@@ -250,20 +250,23 @@ public final class ByteValueConverter
     /**
      * Generates a hexadecimal table for debugging long arrays.
      * 
-     * @param value
+     * @param values
      *        the array to format
      * @return a formatted hex table string
+     * 
+     * @throws NullPointerException
+     *         if the input integer array is null
      */
-    public static String toHexTable(long[] value)
+    public static String toHexTable(long[] values)
     {
-        if (value == null)
+        if (values == null)
         {
             throw new NullPointerException("Input array cannot be null");
         }
 
         StringBuilder sb = new StringBuilder();
 
-        for (int i = 0; i < value.length; i++)
+        for (int i = 0; i < values.length; i++)
         {
             if (i % 8 == 0)
             {
@@ -273,7 +276,7 @@ public final class ByteValueConverter
                 }
 
                 sb.append(String.format(Locale.ROOT, "0x%08X: ", i));
-                
+
             }
 
             else if (i % 8 == 4)
@@ -281,7 +284,7 @@ public final class ByteValueConverter
                 sb.append("- ");
             }
 
-            sb.append(String.format(Locale.ROOT, "0x%08X ", value[i] & 0xFFFFFFFFL));
+            sb.append(String.format(Locale.ROOT, "0x%08X ", values[i] & 0xFFFFFFFFL));
         }
 
         return sb.toString();
@@ -299,12 +302,15 @@ public final class ByteValueConverter
      * @param values
      *        the source array of integers to convert
      * @return a byte array containing the cast values, or an empty array if input is null
+     * 
+     * @throws NullPointerException
+     *         if the input integer array is null
      */
     public static byte[] castToByteArray(int[] values)
     {
         if (values == null)
         {
-            return new byte[0];
+            throw new NullPointerException("Input array cannot be null");
         }
 
         byte[] b = new byte[values.length];
@@ -345,6 +351,8 @@ public final class ByteValueConverter
      *        the input stream to read from
      * @return a byte array containing all bytes read from the stream
      * 
+     * @throws NullPointerException
+     *         if the input stream is null
      * @throws IOException
      *         if an I/O error occurs while reading
      */
@@ -763,7 +771,7 @@ public final class ByteValueConverter
     {
         if (data == null)
         {
-            throw new NullPointerException("Input byte array cannot be null");
+            throw new NullPointerException("Data bytes cannot be null");
         }
 
         if (offset < 0 || offset + 8 > data.length)
@@ -784,7 +792,7 @@ public final class ByteValueConverter
      * @param data
      *        the input byte array
      * @param order
-     *        the byte order to interpret the float values
+     *        the byte order to interpret the unsigned short values
      * @return an array of integer values
      */
     public static int[] toUnsignedShortArray(byte[] data, ByteOrder order)
@@ -814,7 +822,7 @@ public final class ByteValueConverter
     {
         if (data == null)
         {
-            throw new NullPointerException("Input byte array cannot be null");
+            throw new NullPointerException("Data bytes cannot be null");
         }
 
         if (offset < 0 || offset > data.length)
@@ -879,7 +887,7 @@ public final class ByteValueConverter
 
         if (data == null)
         {
-            throw new NullPointerException("Input byte array cannot be null");
+            throw new NullPointerException("Data bytes cannot be null");
         }
 
         if (offset < 0 || offset > data.length)
@@ -950,7 +958,7 @@ public final class ByteValueConverter
 
         if (data == null)
         {
-            throw new NullPointerException("Input byte array cannot be null");
+            throw new NullPointerException("Data bytes cannot be null");
         }
 
         if (offset < 0 || offset > data.length)
@@ -1013,7 +1021,7 @@ public final class ByteValueConverter
 
         if (data == null)
         {
-            throw new NullPointerException("Input byte array cannot be null");
+            throw new NullPointerException("Data bytes cannot be null");
         }
 
         if (offset < 0 || offset > data.length)
@@ -1079,7 +1087,7 @@ public final class ByteValueConverter
 
         if (data == null)
         {
-            throw new NullPointerException("Input byte array cannot be null");
+            throw new NullPointerException("Data bytes cannot be null");
         }
 
         if (offset < 0 || offset > data.length)
@@ -1129,9 +1137,9 @@ public final class ByteValueConverter
     {
         if (data == null)
         {
-            throw new NullPointerException("Input byte array cannot be null");
+            throw new NullPointerException("Data bytes cannot be null");
         }
-        
+
         if (offset < 0 || offset > data.length)
         {
             throw new IndexOutOfBoundsException("Offset [" + offset + "] is out of bounds for array of length [" + data.length + "]");
@@ -1177,7 +1185,7 @@ public final class ByteValueConverter
     {
         if (buf == null)
         {
-            throw new NullPointerException("Buffer cannot be null");
+            throw new NullPointerException("Buffer bytes cannot be null");
         }
 
         if (offset < 0 || offset + 8 > buf.length)
@@ -1215,4 +1223,12 @@ public final class ByteValueConverter
             buf[offset + 7] = (byte) (div >> 24);
         }
     }
+
+    @Deprecated
+    public static RationalNumber[] toRationalArray(byte[] data, ByteOrder order, RationalNumber.DataType type)
+    {
+        return toRationalArray(data, 0, order, type);
+    }
+    
+    // TODO: Maybe add long[] toUnsignedIntegerArray(...)?
 }
