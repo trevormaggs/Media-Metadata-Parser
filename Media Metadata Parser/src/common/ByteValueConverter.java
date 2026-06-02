@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import tif.RationalNumber;
 
 /**
@@ -271,7 +272,8 @@ public final class ByteValueConverter
                     sb.append(System.lineSeparator());
                 }
 
-                sb.append(String.format("0x%08X: ", i));
+                sb.append(String.format(Locale.ROOT, "0x%08X: ", i));
+                
             }
 
             else if (i % 8 == 4)
@@ -279,7 +281,7 @@ public final class ByteValueConverter
                 sb.append("- ");
             }
 
-            sb.append(String.format("0x%08X ", value[i]));
+            sb.append(String.format(Locale.ROOT, "0x%08X ", value[i] & 0xFFFFFFFFL));
         }
 
         return sb.toString();
@@ -350,6 +352,11 @@ public final class ByteValueConverter
     {
         int bytesRead;
         byte[] buffer = new byte[8192];
+
+        if (stream == null)
+        {
+            throw new NullPointerException("InputStream cannot be null");
+        }
 
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream())
         {
@@ -810,6 +817,11 @@ public final class ByteValueConverter
             throw new NullPointerException("Input byte array cannot be null");
         }
 
+        if (offset < 0 || offset > data.length)
+        {
+            throw new IndexOutOfBoundsException("Offset [" + offset + "] is out of bounds for array of length [" + data.length + "]");
+        }
+
         if ((data.length - offset) % 2 != 0)
         {
             throw new IllegalArgumentException("Byte array length minus offset must be even to convert to unsigned short array");
@@ -1112,8 +1124,6 @@ public final class ByteValueConverter
      *         if the input byte array is null
      * @throws IllegalArgumentException
      *         if data is null or the length is invalid
-     * @throws IndexOutOfBoundsException
-     *         if the offset is out of bounds
      */
     public static RationalNumber[] toRationalArray(byte[] data, int offset, ByteOrder order, RationalNumber.DataType type)
     {
@@ -1121,10 +1131,15 @@ public final class ByteValueConverter
         {
             throw new NullPointerException("Input byte array cannot be null");
         }
+        
+        if (offset < 0 || offset > data.length)
+        {
+            throw new IndexOutOfBoundsException("Offset [" + offset + "] is out of bounds for array of length [" + data.length + "]");
+        }
 
         if ((data.length - offset) % 8 != 0)
         {
-            throw new IndexOutOfBoundsException("Byte array length minus offset must be divisible by 8");
+            throw new IllegalArgumentException("Byte array length minus offset must be divisible by 8");
         }
 
         int count = (data.length - offset) / 8;

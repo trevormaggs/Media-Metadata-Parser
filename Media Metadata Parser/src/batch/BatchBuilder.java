@@ -38,7 +38,7 @@ import java.time.ZonedDateTime;
  * 
  * <pre>
  * <code>
- * BatchConfiguration config = new BatchBuilder()
+ * MediaMetadataConsole config = new BatchBuilder()
  * .source(txtField.getText())
  * .buildConfig();
  * </code>

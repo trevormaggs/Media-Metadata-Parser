@@ -3,13 +3,12 @@ package common;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.EnumSet;
 
 /**
- * Enumerates known image formats by identifying their distinct magic numbers in the image file
+ * Enumerates known media formats by identifying their distinct magic numbers in the media file
  * header. These magic numbers reside in the first few bytes of the file.
  *
  * @author Trevor Maggs
@@ -30,6 +29,25 @@ public enum DigitalSignature
 
     private final String extension;
     private final int[][] magicNumbers;
+    private static final int MAX_MAGIC_LENGTH;
+    private static final EnumSet<DigitalSignature> VIDEO_FORMATS = EnumSet.of(AVI, MOV, MP4);
+    private static final EnumSet<DigitalSignature> KNOWN_FORMATS = EnumSet.complementOf(EnumSet.of(UNKNOWN));
+
+    static
+    {
+        int max = 0;
+
+        /* Determine the longest magic number sequence (for buffer size) */
+        for (DigitalSignature sig : KNOWN_FORMATS)
+        {
+            for (int[] magic : sig.magicNumbers)
+            {
+                max = Math.max(max, magic.length);
+            }
+        }
+
+        MAX_MAGIC_LENGTH = max;
+    }
 
     DigitalSignature(String extension, int[][] magicNumbers)
     {
@@ -38,7 +56,8 @@ public enum DigitalSignature
     }
 
     /**
-     * Returns the extension of the image file name without the dot.
+     * Returns the standard file extension associated with this media format, excluding the leading
+     * dot.
      *
      * <p>
      * If the file name is unknown, an empty string is returned.
@@ -57,13 +76,13 @@ public enum DigitalSignature
      *
      * @param index
      *        the index of the magic number array to retrieve
-     * 
+     *
      * @return an array of bytes containing the magic numbers
-     * 
+     *
      * @throws IllegalArgumentException
      *         if the index is out of bounds
      */
-    public byte[] getMagicNumbers(int index)
+    public byte[] getMagicNumberBytes(int index)
     {
         if (index < 0 || index >= magicNumbers.length)
         {
@@ -88,16 +107,7 @@ public enum DigitalSignature
      */
     public boolean isVideo()
     {
-        switch (this)
-        {
-            case AVI:
-            case MOV:
-            case MP4:
-                return true;
-
-            default:
-                return false;
-        }
+        return VIDEO_FORMATS.contains(this);
     }
 
     /**
@@ -106,6 +116,7 @@ public enum DigitalSignature
      * @param file
      *        the file path as a String
      * @return a matching DigitalSignature enum, or UNKNOWN if none matched
+     *
      * @throws IOException
      *         if the file is unreadable or missing
      */
@@ -120,30 +131,17 @@ public enum DigitalSignature
      * @param path
      *        the file path
      * @return a matching DigitalSignature enum, or UNKNOWN if none matched
+     *
      * @throws IOException
      *         if the file is unreadable or missing
      */
     public static DigitalSignature detectFormat(Path path) throws IOException
     {
-        int maxLength = 0;
-
-        /* Determine the longest magic number sequence (for buffer size) */
-        for (DigitalSignature sig : EnumSet.complementOf(EnumSet.of(UNKNOWN)))
-        {
-            for (int[] magic : sig.magicNumbers)
-            {
-                if (magic.length > maxLength)
-                {
-                    maxLength = magic.length;
-                }
-            }
-        }
-
         /*
-         * Verifies that the source array length meets the
-         * minimum requirements for the search operation.
+         * Allocate a buffer large enough to detect signatures that may
+         * appear beyond the beginning of the file header.
          */
-        byte[] buffer = new byte[maxLength * 2];
+        byte[] buffer = new byte[MAX_MAGIC_LENGTH * 2];
 
         try (BufferedInputStream input = new BufferedInputStream(Files.newInputStream(path)))
         {
@@ -162,7 +160,7 @@ public enum DigitalSignature
                 totalRead += bytesRead;
             }
 
-            for (DigitalSignature sig : EnumSet.complementOf(EnumSet.of(UNKNOWN)))
+            for (DigitalSignature sig : KNOWN_FORMATS)
             {
                 for (int[] magic : sig.magicNumbers)
                 {
@@ -172,11 +170,6 @@ public enum DigitalSignature
                     }
                 }
             }
-        }
-
-        catch (NoSuchFileException e)
-        {
-            throw new IOException("File [" + path + "] does not exist", e);
         }
 
         return UNKNOWN;
@@ -189,7 +182,7 @@ public enum DigitalSignature
      *        the initial bytes of the file
      * @param magic
      *        the magic number sequence to search for
-     * 
+     *
      * @return true if the magic number exists anywhere in the header
      */
     private static boolean containsMagicNumbers(byte[] fileHeader, int[] magic)

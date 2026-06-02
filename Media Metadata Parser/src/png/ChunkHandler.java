@@ -42,7 +42,7 @@ import png.ChunkType.Category;
 public class ChunkHandler implements ImageHandler
 {
     private static final LogFactory LOGGER = LogFactory.getLogger(ChunkHandler.class);
-    private static final byte[] PNG_SIGNATURE_BYTES = DigitalSignature.PNG.getMagicNumbers(0);
+    private static final byte[] PNG_SIGNATURE_BYTES = DigitalSignature.PNG.getMagicNumberBytes(0);
     private static final long MAX_SAFE_ALLOCATION_LIMIT = 64 * 1024 * 1024;
     public static final ByteOrder PNG_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
     private final Path imageFile;

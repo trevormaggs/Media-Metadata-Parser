@@ -18,7 +18,7 @@ import java.util.Objects;
  * </p>
  * 
  * @param <T>
- *        The specific type of {@link Metadata} container returned by this parser execution.
+ *        the specific type of {@link Metadata} container returned by this parser
  * 
  * @author Trevor Maggs
  * @version 1.2
@@ -27,6 +27,7 @@ import java.util.Objects;
 public abstract class AbstractImageParser<T extends Metadata<?>>
 {
     private final Path imageFile;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm:ss").withZone(ZoneId.systemDefault());
 
     /**
      * Constructs an image parser. File validation checks are deferred to execution runtime to avoid
@@ -65,7 +66,6 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
     public String formatDiagnosticString() throws IOException
     {
         StringBuilder sb = new StringBuilder();
-        DateTimeFormatter df = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm:ss").withZone(ZoneId.systemDefault());
 
         sb.append("File Attributes").append(System.lineSeparator());
         sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
@@ -73,16 +73,16 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
         BasicFileAttributes attr = Files.readAttributes(getImageFile(), BasicFileAttributes.class);
 
         sb.append(String.format(MetadataConstants.FORMATTER, "File", getImageFile()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Creation Time", df.format(attr.creationTime().toInstant())));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Last Access Time", df.format(attr.lastAccessTime().toInstant())));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Last Modified Time", df.format(attr.lastModifiedTime().toInstant())));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Image Format Type", getImageFormat().getFileExtensionName()));
+        sb.append(String.format(MetadataConstants.FORMATTER, "Creation Time", DATE_FORMATTER.format(attr.creationTime().toInstant())));
+        sb.append(String.format(MetadataConstants.FORMATTER, "Last Access Time", DATE_FORMATTER.format(attr.lastAccessTime().toInstant())));
+        sb.append(String.format(MetadataConstants.FORMATTER, "Last Modified Time", DATE_FORMATTER.format(attr.lastModifiedTime().toInstant())));
+        sb.append(String.format(MetadataConstants.FORMATTER, "Detected Format", getImageFormat().getFileExtensionName()));
 
         return sb.toString();
     }
 
     /**
-     * Validates that the target file exists and is a regular file before proceeding to parse.
+     * Validates that the image file exists and is a regular file before parsing.
      * 
      * @throws IOException
      *         if the file does not exist or is not a regular file
@@ -116,11 +116,18 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
             return String.format("File [%s] has no proper extension, but contains [%s] data", filename, targetExt.toUpperCase());
         }
 
-        return String.format("Mismatched extension in [%s] detected. Should be [%s]", filename, String.format("%s.%s", baseName, targetExt));
+        return String.format("File [%s] contains [%s] data but uses an incorrect extension. Expected [%s.%s]", filename, targetExt.toUpperCase(), baseName, targetExt);
     }
 
     /**
-     * Extracts metadata from the image file.
+     * Parses the image file and extracts any known metadata.
+     *
+     * <p>
+     * Implementations are responsible for validating the file state and populating the parser's
+     * metadata container. Also, by careful design, subclasses should apply a soft-landing exception
+     * strategy by logging any recoverable errors to prevent from crashing mid-way during the
+     * processing.
+     * </p>
      */
     public abstract void readMetadata();
 
