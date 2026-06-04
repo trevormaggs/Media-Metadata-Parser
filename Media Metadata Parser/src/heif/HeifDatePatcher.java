@@ -265,7 +265,7 @@ public final class HeifDatePatcher
 
             if (xmpDump)
             {
-                Utils.printFastDumpXML(writer.getFilename(), xmpData.get());
+                Utils.printFastDumpXML(writer.getPath(), xmpData.get());
             }
         }
     }

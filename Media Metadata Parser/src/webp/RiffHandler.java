@@ -190,7 +190,7 @@ public class RiffHandler implements ImageHandler
      */
     public long getRealFileSize()
     {
-        return reader.getFilename().toFile().length();
+        return reader.getPath().toFile().length();
     }
 
     /**

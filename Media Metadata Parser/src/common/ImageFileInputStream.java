@@ -127,7 +127,7 @@ public class ImageFileInputStream implements ByteStreamReader, AutoCloseable
      * @return the file encapsulated in a Path resource
      */
     @Override
-    public Path getFilename()
+    public Path getPath()
     {
         return (pfile == null ? Paths.get("") : pfile.getFileName());
     }

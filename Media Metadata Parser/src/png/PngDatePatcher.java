@@ -299,7 +299,7 @@ public final class PngDatePatcher
                 if (xmpDump)
                 {
                     byte[] xml = Arrays.copyOfRange(rawPayload, (int) chunk.getTextOffset(), rawPayload.length);
-                    Utils.printFastDumpXML(writer.getFilename(), xml);
+                    Utils.printFastDumpXML(writer.getPath(), xml);
                 }
             }
         }

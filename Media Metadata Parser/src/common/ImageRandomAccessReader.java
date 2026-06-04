@@ -99,7 +99,7 @@ public class ImageRandomAccessReader implements ByteStreamReader
      * @return the file encapsulated in a Path resource
      */
     @Override
-    public Path getFilename()
+    public Path getPath()
     {
         return pfile;
     }

@@ -15,7 +15,7 @@ import java.nio.file.Path;
  */
 public interface ByteStreamReader extends Closeable
 {
-    Path getFilename(); // Maybe change to Path getPath()?
+    Path getPath();
     void setByteOrder(ByteOrder order);
     ByteOrder getByteOrder();
     long length();

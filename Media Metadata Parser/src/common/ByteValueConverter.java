@@ -130,11 +130,6 @@ public final class ByteValueConverter
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
      * @return the decoded unsigned short value as an {@code int}, in the range {@code 0x0000} to
      *         {@code 0xFFFF} (0 to 65535)
-     *
-     * @throws NullPointerException
-     *         if the input byte array or byte order is {@code null}
-     * @throws IndexOutOfBoundsException
-     *         if the offset is out of bounds
      */
     public static int toUnsignedShort(byte[] data, int offset, ByteOrder order)
     {
@@ -210,8 +205,8 @@ public final class ByteValueConverter
      * @param order
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
-     * @return the decoded unsigned integer value as a {@code long}, in the range {@code 0x00000000}
-     *         to {@code 0xFFFFFFFF} (0 to 4294967295)
+     * @return the decoded unsigned integer value represented as a {@code long}, in the range of
+     *         {@code 0x00000000} to {@code 0xFFFFFFFF} (0 to 4294967295)
      */
     public static long toUnsignedInteger(byte[] data, ByteOrder order)
     {
@@ -229,13 +224,8 @@ public final class ByteValueConverter
      * @param order
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
-     * @return the decoded unsigned integer value as a {@code long}, in the range
+     * @return the decoded unsigned integer value represented as a {@code long}, in the range of
      *         {@code 0x00000000} to {@code 0xFFFFFFFF} (0 to 4294967295)
-     *
-     * @throws NullPointerException
-     *         if the input byte array or byte order is {@code null}
-     * @throws IndexOutOfBoundsException
-     *         if the offset is out of bounds
      */
     public static long toUnsignedInteger(byte[] data, int offset, ByteOrder order)
     {
@@ -359,7 +349,7 @@ public final class ByteValueConverter
      * @param order
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
-     * @return the decoded double value
+     * @return the decoded double-precision value
      */
     public static double toDouble(byte[] data, ByteOrder order)
     {
@@ -377,7 +367,7 @@ public final class ByteValueConverter
      * @param order
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
-     * @return the decoded double value
+     * @return the decoded double-precision value
      *
      * @throws NullPointerException
      *         if the input byte array or byte order is {@code null}
@@ -398,17 +388,19 @@ public final class ByteValueConverter
     }
 
     /**
-     * Converts 8 bytes into a {@link RationalNumber}, using signed or unsigned type.
+     * Decodes the first 8 bytes of the input array into a {@link RationalNumber} object. The first
+     * four bytes represent the numerator and the next four bytes represent the denominator.
      *
      * @param data
-     *        the byte array containing numerator and denominator
+     *        the byte array containing the numerator and denominator values
      * @param order
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
      * @param type
-     *        whether the values should be treated as signed or unsigned
-     * @return a RationalNumber whose numerator and denominator are read from the specified byte
-     *         sequence
+     *        whether the numerator and denominator should be interpreted as signed or unsigned
+     *        values
+     * @return a {@link RationalNumber} whose numerator and denominator are decoded from the input
+     *         bytes
      */
     public static RationalNumber toRational(byte[] data, ByteOrder order, RationalNumber.DataType type)
     {
@@ -416,29 +408,26 @@ public final class ByteValueConverter
     }
 
     /**
-     * Reads an 8-byte segment from the input byte array at the given offset and converts it into a
-     * {@link RationalNumber} object.
-     * 
-     * The first four bytes represent the numerator and the next four bytes represent the
-     * denominator, interpreted according to the specified byte order and data type (signed or
-     * unsigned).
+     * Decodes an 8-byte segment from the input array into a {@link RationalNumber}, starting at the
+     * specified offset. The first four bytes represent the numerator and the next four bytes
+     * represent the denominator, interpreted according to the specified byte order and data type
+     * (signed or unsigned).
      *
      * @param data
-     *        a byte array containing at least 8 bytes from the offset
+     *        the input byte array containing the numerator and denominator values
      * @param offset
      *        the offset within the byte array at which to start reading
      * @param order
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
      * @param type
-     *        indicates whether the values should be treated as signed or unsigned. It can only be
-     *        either {@code RationalNumber.DataType.UNSIGNED} or
-     *        {@code RationalNumber.DataType.SIGNED}
-     * @return a RationalNumber whose numerator and denominator are read from the specified byte
-     *         sequence
-     * 
+     *        whether the numerator and denominator should be interpreted as signed or unsigned
+     *        values
+     * @return a {@link RationalNumber} whose numerator and denominator are decoded from the input
+     *         bytes starting at the specified offset
+     *
      * @throws NullPointerException
-     *         if the input byte array, byte order or rational type is null
+     *         if the input byte array, byte order, or rational data type is {@code null}
      * @throws IndexOutOfBoundsException
      *         if the offset is out of bounds
      */
@@ -460,14 +449,15 @@ public final class ByteValueConverter
     }
 
     /**
-     * Convenience method for decoding an entire byte array into an array of 16-bit unsigned values.
+     * Convenience method for decoding an entire byte array into an array of 16-bit unsigned short
+     * values.
      * 
      * @param data
      *        the input byte array
      * @param order
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
-     * @return an array of decoded unsigned values
+     * @return an array of decoded unsigned short values
      */
     public static int[] toUnsignedShortArray(byte[] data, ByteOrder order)
     {
@@ -475,17 +465,19 @@ public final class ByteValueConverter
     }
 
     /**
-     * Convenience method for decoding an entire byte array into an array of 16-bit unsigned integer values.
+     * Convenience method for decoding a byte array into an array of 16-bit unsigned short values
+     * starting at the specified offset.
      *
      * @param data
      *        the input byte array
      * @param offset
-     *        the starting offset in the byte array
+     *        the starting offset within the byte array
      * @param order
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
-     * @return an array of decoded unsigned integer values
-     *
+     * @return an {@code int} array containing the decoded unsigned short values in the range of
+     *         {@code 0x0000} to {@code 0xFFFF} (0 to 65535)
+     * 
      * @throws NullPointerException
      *         if the input byte array or byte order is {@code null}
      * @throws IndexOutOfBoundsException
@@ -520,14 +512,15 @@ public final class ByteValueConverter
     }
 
     /**
-     * Convenience method for decoding an entire byte array into an array of 32-bit signed integer values.
+     * Convenience method for decoding an entire byte array into an array of 32-bit signed integer
+     * values.
      *
      * @param data
      *        the input byte array
      * @param order
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
-     * @return an array of decoded signed integer  values
+     * @return an array of decoded signed integer values
      */
     public static int[] toIntegerArray(byte[] data, ByteOrder order)
     {
@@ -535,7 +528,8 @@ public final class ByteValueConverter
     }
 
     /**
-     * Convenience method for decoding an entire byte array into an array of 32-bit signed integer values.
+     * Convenience method for decoding a byte array into an array of 32-bit signed integer values
+     * starting at the specified offset.
      *
      * @param data
      *        the input byte array
@@ -599,8 +593,8 @@ public final class ByteValueConverter
     }
 
     /**
-     * Convenience method for decoding a byte array into an array of 64-bit long values starting at
-     * the specified offset.
+     * Convenience method for decoding a byte array into an array of 64-bit signed long values
+     * starting at the specified offset.
      *
      * @param data
      *        the input byte array
@@ -620,8 +614,6 @@ public final class ByteValueConverter
      */
     public static long[] toLongArray(byte[] data, int offset, ByteOrder order)
     {
-        final int dataSize = 8;
-
         Objects.requireNonNull(data, "Input data array cannot be null");
         Objects.requireNonNull(order, "ByteOrder cannot be null");
 
@@ -630,19 +622,18 @@ public final class ByteValueConverter
             throw new IndexOutOfBoundsException("Offset [" + offset + "] is out of bounds for array of length " + data.length);
         }
 
-        int remainingLength = data.length - offset;
+        int remaining = data.length - offset;
 
-        if (remainingLength % dataSize != 0)
+        if (remaining % 8 != 0)
         {
-            throw new IllegalArgumentException("Byte array length minus offset [" + remainingLength + "] must be a multiple of [" + dataSize + "] to convert to long array");
+            throw new IllegalArgumentException("Byte array length minus offset [" + remaining + "] must be a multiple of [8] to convert to long array");
         }
 
-        int count = remainingLength / dataSize;
-        long[] result = new long[count];
+        long[] result = new long[remaining / 8];
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < result.length; i++)
         {
-            result[i] = toLong(data, offset + (i * dataSize), order);
+            result[i] = toLong(data, offset + (i * 8), order);
         }
 
         return result;
@@ -781,7 +772,7 @@ public final class ByteValueConverter
 
     /**
      * Converts a byte array into an array of {@link RationalNumber} objects, interpreting each
-     * 8-byte segment as a numerator-denominator pair.
+     * 8-byte segment as a numerator-denominator pair starting at the specified offset.
      *
      * @param data
      *        the input byte array
@@ -791,15 +782,16 @@ public final class ByteValueConverter
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
      * @param type
-     *        the rational number data type, either {@code SIGNED} or {@code UNSIGNED}
-     * @return an array of RationalNumber objects
-     * 
+     *        whether the numerator and denominator values should be interpreted as signed or
+     *        unsigned
+     * @return an array of decoded {@link RationalNumber} objects
+     *
      * @throws NullPointerException
-     *         if the input byte array, byte order or rational type is null
+     *         if the input byte array, byte order, or rational data type is {@code null}
      * @throws IndexOutOfBoundsException
      *         if the offset is out of bounds
      * @throws IllegalArgumentException
-     *         if the remaining length is not divisible by 8
+     *         if the remaining byte count after the offset is not a multiple of 8
      */
     public static RationalNumber[] toRationalArray(byte[] data, int offset, ByteOrder order, RationalNumber.DataType type)
     {
@@ -924,22 +916,26 @@ public final class ByteValueConverter
     }
 
     /**
-     * Generates a hexadecimal table for debugging arrays of numeric values. Values are rendered as
-     * eight-digit hexadecimal numbers using only the least significant 32 bits of each long value.
+     * Generates a hexadecimal table for debugging byte arrays.
      * 
+     * <p>
+     * Bytes are rendered as two-digit hexadecimal values and displayed in rows of sixteen bytes,
+     * with a separator between the first and second group of eight bytes.
+     * </p>
+     *
      * @param values
-     *        the array to format
-     * @return a formatted hex table string
-     * 
+     *        the byte array to format
+     * @return a formatted hexadecimal table string
+     *
      * @throws NullPointerException
-     *         if the input long array is null
+     *         if the input byte array is {@code null}
      */
-    public static String toHexTable(long[] values)
+    public static String toHexTable(byte[] values)
     {
-        Objects.requireNonNull(values, "Input data array cannot be null");
+        int columns = 16;
+        StringBuilder sb = new StringBuilder();
 
-        final int columns = 8;
-        final StringBuilder sb = new StringBuilder();
+        Objects.requireNonNull(values, "Input data array cannot be null");
 
         for (int i = 0; i < values.length; i++)
         {
@@ -950,15 +946,15 @@ public final class ByteValueConverter
                     sb.append(System.lineSeparator());
                 }
 
-                sb.append(String.format(Locale.ROOT, "0x%08X: ", i));
+                sb.append(String.format(Locale.ROOT, "%08X: ", i));
             }
 
-            if (i % columns == 4)
+            if (i % columns == 8)
             {
                 sb.append("| ");
             }
 
-            sb.append(String.format(Locale.ROOT, "%08X ", values[i]));
+            sb.append(String.format(Locale.ROOT, "%02X ", values[i] & 0xFF));
         }
 
         return sb.toString();
@@ -968,8 +964,8 @@ public final class ByteValueConverter
      * Converts an array of integers into a raw byte array by casting each element to a single byte.
      * 
      * <p>
-     * This conversion is appropriate for restoring 8-bit data (e.g., TIFF {@code TYPE_BYTE_U} or
-     * {@code TYPE_BYTE_S}) that was previously expanded to integers. Values outside the range
+     * This conversion is appropriate for restoring 8-bit data, such as TIFF {@code TYPE_BYTE_U} or
+     * {@code TYPE_BYTE_S}, that was previously expanded to integers. Values outside the range
      * representable by a byte are truncated to their low-order 8 bits through Java's standard
      * narrowing conversion.
      * </p>
@@ -1014,7 +1010,7 @@ public final class ByteValueConverter
     }
 
     /**
-     * Reads all bytes from the given {@link InputStream} resource and returns them as a byte array.
+     * Reads all bytes from the specified {@link InputStream} resource and returns as a byte array.
      *
      * <p>
      * Internally, it uses an 8 KB buffer for efficient reading, making it suitable for large
@@ -1022,8 +1018,8 @@ public final class ByteValueConverter
      * </p>
      *
      * <p>
-     * This method does not close the provided InputStream. The caller is responsible for closing
-     * it.
+     * This method does not close the opened InputStream resource. The caller is responsible for
+     * closing it.
      * </p>
      *
      *
@@ -1043,6 +1039,7 @@ public final class ByteValueConverter
 
         Objects.requireNonNull(stream, "InputStream cannot be null");
 
+        // TODO: Be aware of excessively high memory which could trigger an OOM
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream())
         {
             while ((bytesRead = stream.read(buffer)) != -1)
@@ -1057,11 +1054,11 @@ public final class ByteValueConverter
     /* String utilities */
 
     /**
-     * Checks if the specified byte array contains a null (0x00) byte.
+     * Checks if the specified byte array contains a null {@code 0x00}) byte.
      * 
      * @param data
      *        the byte array to examine
-     * @return {@code true} if a null byte ({@code 0x00}) is found; otherwise {@code false}
+     * @return {@code true} if a null byte ({@code 0x00}) is found, otherwise {@code false}
      * 
      * @throws NullPointerException
      *         if the input byte array is null
@@ -1097,7 +1094,7 @@ public final class ByteValueConverter
      * @param data
      *        the input byte array to be searched for a null terminator
      * @return a new byte array containing the segment before the first null terminator, or a copy
-     *         of the entire original array if no null terminator is present
+     *         of the entire original array if no null terminator is found
      * 
      * @throws NullPointerException
      *         if the input byte array is null
@@ -1122,21 +1119,23 @@ public final class ByteValueConverter
 
     /**
      * Reads a string from a byte array starting at the specified offset. The string is terminated
-     * by the first null (0x00) byte, or by the end of the array if no null byte is found.
+     * by the first null ({@code 0x00}) byte encountered, or by the end of the array if no NUL byte
+     * is present.
      *
      * @param data
      *        the source byte array
      * @param offset
-     *        the starting index
+     *        the starting index from which to read
      * @param charset
-     *        the charset to decode the string
-     * @return the decoded string, which runs until the first null byte (exclusive) or the end of
-     *         the array. Returns an empty string if offset equals the array length
-     * 
+     *        the {@link Charset} used to decode the string
+     * @return the decoded string consisting of the bytes between the specified offset and the first
+     *         null byte (exclusive), or the end of the array if no null byte is present. Returns an
+     *         empty string if the offset is equal to the array length
+     *
      * @throws NullPointerException
-     *         if the input byte array or charset is null
+     *         if the input byte array or charset is {@code null}
      * @throws IndexOutOfBoundsException
-     *         if the offset is out of bounds
+     *         if the offset is less than {@code 0} or greater than the array length
      */
     public static String readNullTerminatedString(byte[] data, int offset, Charset charset)
     {

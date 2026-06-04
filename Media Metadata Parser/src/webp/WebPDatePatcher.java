@@ -260,7 +260,7 @@ public final class WebPDatePatcher
 
                 if (xmpDump)
                 {
-                    Utils.printFastDumpXML(writer.getFilename(), rawPayload);
+                    Utils.printFastDumpXML(writer.getPath(), rawPayload);
                 }
             }
         }

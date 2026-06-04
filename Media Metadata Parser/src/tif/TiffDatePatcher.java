@@ -171,7 +171,7 @@ public final class TiffDatePatcher
 
         else
         {
-            LOGGER.error(String.format("Skipped tag [%s]. Slot width [%d] too small for file [%s]", tag, slotWidthLimit, writer.getFilename()));
+            LOGGER.error(String.format("Skipped tag [%s]. Slot width [%d] too small for file [%s]", tag, slotWidthLimit, writer.getPath()));
         }
     }
 
@@ -218,7 +218,7 @@ public final class TiffDatePatcher
 
         else
         {
-            LOGGER.error(String.format("Skipped tag [%s]. Slot width [%d] too small for file [%s]", entry.getTag(), entry.getByteLength(), writer.getFilename()));
+            LOGGER.error(String.format("Skipped tag [%s]. Slot width [%d] too small for file [%s]", entry.getTag(), entry.getByteLength(), writer.getPath()));
         }
     }
 
@@ -307,7 +307,7 @@ public final class TiffDatePatcher
 
         if (xmpDump)
         {
-            Utils.printFastDumpXML(writer.getFilename(), xmpBytes);
+            Utils.printFastDumpXML(writer.getPath(), xmpBytes);
         }
     }
 }

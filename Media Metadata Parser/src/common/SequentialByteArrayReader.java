@@ -3,7 +3,6 @@ package common;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
@@ -24,41 +23,50 @@ public class SequentialByteArrayReader implements ByteStreamReader
 {
     private final byte[] buffer;
     private final int baseIndex;
-    private final Deque<Long> markPositionStack;
+    private final Deque<Long> markPosition;
     private long bufferIndex;
     private ByteOrder byteOrder;
-    private final Path pfile;
 
     /**
-     * This is the primary constructor to load a reader for the given byte array, starting from the
-     * specified offset in specified byte order.
+     * Constructs a reader for the input byte array, starting at the given offset and using the
+     * specified byte order.
      *
      * @param buf
      *        the source byte array
-     * @param startIndex
-     *        the starting index/position from which to begin reading
+     * @param offset
+     *        the starting position within the byte array
      * @param order
-     *        the byte order to use
-     * @param pfile
-     *        the path to the file
+     *        the byte order for interpreting the input bytes, using either
+     *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
+     *
+     * @throws IllegalArgumentException
+     *         if the byte array is {@code null} or empty
+     * @throws IndexOutOfBoundsException
+     *         if {@code offset} is negative or greater than the length of the byte array
+     * @throws NullPointerException
+     *         if {@code order} is {@code null}
      */
-    public SequentialByteArrayReader(byte[] buf, int startIndex, ByteOrder order, Path pfile)
+    public SequentialByteArrayReader(byte[] buf, int offset, ByteOrder order)
     {
         if (buf == null || buf.length == 0)
         {
             throw new IllegalArgumentException("Input buffer cannot be null or empty");
         }
 
+        if (offset < 0 || offset > buf.length)
+        {
+            throw new IndexOutOfBoundsException("Start index [" + offset + "] out of bounds [0.." + buf.length + "]");
+        }
+
         this.buffer = buf;
-        this.pfile = (pfile != null ? pfile : Paths.get(""));
-        this.baseIndex = startIndex;
-        this.byteOrder = order;
+        this.baseIndex = offset;
+        this.byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
         this.bufferIndex = 0;
-        this.markPositionStack = new ArrayDeque<>();
+        this.markPosition = new ArrayDeque<>();
     }
 
     /**
-     * Constructs a reader for the given byte array with big-endian byte order.
+     * Constructs a reader for the input byte array using big-endian byte order.
      *
      * @param buf
      *        the source byte array
@@ -69,55 +77,57 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Constructs a reader for the given byte array with a specified byte order.
+     * Constructs a reader for the input byte array using the specified byte order.
      *
      * @param buf
      *        the source byte array
      * @param order
-     *        the byte order to use
+     *        the byte order for interpreting the input bytes, using either
+     *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
      */
     public SequentialByteArrayReader(byte[] buf, ByteOrder order)
     {
-        this(buf, 0, order, null);
+        this(buf, 0, order);
     }
 
     /**
-     * Constructs a reader for the given byte array, starting from a specified offset.
+     * Constructs a reader for the input byte array, starting at the given offset and using
+     * big-endian byte order.
      *
      * @param buf
      *        the source byte array
      * @param offset
-     *        the starting index/position from which to begin reading
+     *        the starting position within the byte array
      */
     public SequentialByteArrayReader(byte[] buf, int offset)
     {
-        this(buf, offset, ByteOrder.BIG_ENDIAN, null);
+        this(buf, offset, ByteOrder.BIG_ENDIAN);
     }
 
     /**
-     * Implementation of close for the byte array reader. Since this reader operates on an in-memory
-     * buffer, no system resources need to be released. This method is provided for compatibility
-     * with the AutoCloseable interface.
+     * Closes this reader. No action is performed because this reader operates entirely on an
+     * in-memory byte array.
      */
     @Override
     public void close()
     {
-        // Nothing to do. Dummy.
+        // No resources to release.
     }
 
     /**
-     * Gets the file name, which this stream is based on.
+     * Currently not used and returns {@code null}. This method is implemented solely to satisfy the
+     * {@link ByteStreamReader} interface contract.
      *
-     * @return the file encapsulated in a Path resource
+     * @return {@code null}
      */
     @Override
-    public Path getFilename()
+    public Path getPath()
     {
-        return pfile;
+        return null;
     }
 
     /**
-     * Sets the byte order for interpreting the input bytes correctly.
+     * Sets the byte order for interpreting the input bytes.
      *
      * @param order
      *        the byte order for interpreting the input bytes
@@ -129,10 +139,9 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Returns the byte order, indicating how data values will be interpreted correctly.
+     * Returns the byte order used when interpreting multi-byte values.
      *
-     * @return either {@link java.nio.ByteOrder#BIG_ENDIAN} or
-     *         {@link java.nio.ByteOrder#LITTLE_ENDIAN}
+     * @return either {@link ByteOrder#BIG_ENDIAN} or {@link ByteOrder#LITTLE_ENDIAN}
      */
     @Override
     public ByteOrder getByteOrder()
@@ -141,10 +150,9 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Returns the length of the readable portion of the byte array (buffer length minus
-     * baseIndex).
+     * Returns the readable length of this reader.
      *
-     * @return the readable array length
+     * @return the number of bytes from the configured base offset to the end of the byte array
      */
     @Override
     public long length()
@@ -155,7 +163,7 @@ public class SequentialByteArrayReader implements ByteStreamReader
     /**
      * Returns the current read position.
      *
-     * @return the current position relative to the starting offset (baseIndex)
+     * @return the current position relative to the configured base offset
      */
     @Override
     public long getCurrentPosition()
@@ -164,7 +172,7 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Skips forward by the specified number of bytes.
+     * Skips forward by the given number of bytes.
      *
      * @param n
      *        the number of bytes to skip
@@ -212,7 +220,7 @@ public class SequentialByteArrayReader implements ByteStreamReader
     @Override
     public void mark()
     {
-        markPositionStack.push(bufferIndex);
+        markPosition.push(bufferIndex);
     }
 
     /**
@@ -224,17 +232,17 @@ public class SequentialByteArrayReader implements ByteStreamReader
     @Override
     public void reset()
     {
-        if (markPositionStack.isEmpty())
+        if (markPosition.isEmpty())
         {
             throw new IllegalStateException("Cannot reset position: mark stack is empty");
         }
 
-        bufferIndex = markPositionStack.pop();
+        bufferIndex = markPosition.pop();
     }
 
     /**
      * Retrieves the data at the specified offset within the byte array without advancing the
-     * position.
+     * current position.
      *
      * @param offset
      *        the offset (relative to baseIndex)
@@ -247,17 +255,14 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Retrieves a sub-array of bytes at the specified absolute offset without advancing the current
-     * bufferIndex.
+     * Retrieves a sub-array of bytes from the specified absolute offset without advancing the
+     * current position.
      *
      * @param offset
-     *        the absolute position from the start of this reader's window
+     *        the position relative to the configured base offset
      * @param length
      *        the number of bytes to read
      * @return a new byte array containing the data
-     *
-     * @throws IndexOutOfBoundsException
-     *         if the request exceeds the reader's length
      */
     @Override
     public byte[] peek(long offset, int length)
@@ -286,7 +291,7 @@ public class SequentialByteArrayReader implements ByteStreamReader
      *
      * @param length
      *        the number of bytes to read
-     * @return a new byte array containing the read bytes
+     * @return a new byte array containing the data
      */
     @Override
     public byte[] readBytes(int length)
@@ -304,7 +309,7 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Reads an unsigned 8-bit integer from the current position and advances the reader.
+     * Reads an 8-bit unsigned integer from the current position and advances the reader.
      *
      * @return the unsigned 8-bit value (0-255)
      */
@@ -315,7 +320,7 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Reads a signed 16-bit integer from the current position and advances the reader.
+     * Reads a 16-bit signed short value from the current position and advances the reader.
      *
      * @return the short value
      */
@@ -326,9 +331,9 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Reads an unsigned 16-bit integer from the current position and advances the reader.
+     * Reads a 16-bit unsigned short from the current position and advances the reader.
      *
-     * @return the unsigned short value (0-65535)
+     * @return the unsigned short value (0-65535) represented by an integer
      */
     @Override
     public int readUnsignedShort()
@@ -337,9 +342,9 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Reads a signed 32-bit integer from the current position and advances the reader.
+     * Reads a 32-bit signed integer from the current position and advances the reader.
      *
-     * @return the signed 32-bit integer value
+     * @return the signed integer value
      */
     @Override
     public int readInteger()
@@ -348,9 +353,9 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Reads an unsigned 32-bit integer from the current position and advances the reader.
+     * Reads a 32-bit unsigned integer from the current position and advances the reader.
      *
-     * @return the unsigned integer value as a long
+     * @return the unsigned integer value represented as a long
      */
     @Override
     public long readUnsignedInteger()
@@ -359,7 +364,7 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Reads a 3-byte integer and returns it as a 32-bit signed integer.
+     * Reads a 24-bit unsigned integer (3 bytes) from the current position.
      *
      * @return the 24-bit value as an integer
      */
@@ -369,22 +374,22 @@ public class SequentialByteArrayReader implements ByteStreamReader
         return (int) readValue(3);
     }
 
-    @Override
     /**
-     * Reads a signed 64-bit long from the current position and advances the reader.
+     * Reads a 64-bit signed long from the current position and advances the reader.
      *
      * @return the long value
      */
+    @Override
     public long readLong()
     {
         return readValue(8);
     }
 
     /**
-     * Reads a 32-bit IEEE 754 floating-point value from the current position and advances the
-     * reader.
+     * Reads a 32-bit IEEE 754 single-precision floating-point value from the current position and
+     * advances the reader.
      *
-     * @return the float value
+     * @return the floating-point value
      */
     @Override
     public float readFloat()
@@ -393,10 +398,10 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Reads a 64-bit IEEE 754 floating-point value from the current position and advances the
-     * reader.
+     * Reads a 64-bit IEEE 754 double-precision floating-point value from the current position and
+     * advances the reader.
      *
-     * @return the double value
+     * @return the floating-point value
      */
     @Override
     public double readDouble()
@@ -450,27 +455,11 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Reads a string of a fixed length using the specified charset. Useful for FourCC codes or
-     * fixed-length metadata blocks.
-     * 
-     * @param length
-     *        the length of the required string
-     * @return the decoded string
-     */
-    @Deprecated
-    public String readString(int length)
-    {
-        byte[] bytes = readBytes(length);
-
-        return new String(bytes, StandardCharsets.ISO_8859_1);
-    }
-
-    /**
      * Returns a single byte from the array at the specified relative position.
      *
      * @param position
-     *        the index (relative to baseIndex) in the byte array
-     * @return the byte at the specified position
+     *        the index (relative to base offset) in the byte array
+     * @return the byte fetched from the position
      */
     private byte getByte(long position)
     {
@@ -483,11 +472,11 @@ public class SequentialByteArrayReader implements ByteStreamReader
      * Copies and returns a sub-array from the byte array, starting from the specified position.
      *
      * @param position
-     *        the index (relative to baseIndex) in the byte array
+     *        the index (relative to base offset) in the byte array
      * @param length
      *        the total number of bytes to include in the sub-array (must be {@literal <=}
      *        Integer.MAX_VALUE)
-     * @return a new byte array containing the specified subset of the original array
+     * @return a new byte array containing the subset of the original array
      */
     private byte[] getBytes(long position, int length)
     {
@@ -505,7 +494,8 @@ public class SequentialByteArrayReader implements ByteStreamReader
      * out of range, an {@code IndexOutOfBoundsException} is thrown.
      *
      * @param position
-     *        the relative index from baseIndex (0 means first readable byte)
+     *        the position relative to the configured base offset (0 represents the first readable
+     *        byte)
      * @param length
      *        the total number of bytes to check (must be {@literal <=} Integer.MAX_VALUE)
      *
@@ -531,13 +521,13 @@ public class SequentialByteArrayReader implements ByteStreamReader
 
         if (position > Integer.MAX_VALUE)
         {
-            throw new IndexOutOfBoundsException("File position offset exceeds Java's maximum array index limit");
+            throw new IndexOutOfBoundsException("Position exceeds Java's maximum array index limit");
         }
     }
 
     /**
-     * Returns the number of unread bytes remaining in the buffer, relative to the current
-     * read position.
+     * Returns the number of unread bytes remaining in the buffer, relative to the current read
+     * position.
      *
      * @return the number of bytes still available for reading
      */
@@ -560,12 +550,11 @@ public class SequentialByteArrayReader implements ByteStreamReader
     }
 
     /**
-     * Reads a signed long of the specified byte length.
+     * Retrieves a value based on the number of bytes from the current position.
      *
      * @param numBytes
-     *        number of bytes to read
-     *
-     * @return the long value
+     *        the number of bytes to read
+     * @return the computed value as a long
      */
     private long readValue(int numBytes)
     {
@@ -596,46 +585,5 @@ public class SequentialByteArrayReader implements ByteStreamReader
         bufferIndex += numBytes;
 
         return value;
-    }
-
-    /**
-     * Creates a new reader that is a "view" of a sub-section of the current reader. The new reader
-     * starts at the current position and has the specified length.
-     * 
-     * <pre>
-     * <strong>Example usage in RiffHandler</strong>
-        long chunkPayloadSize = reader.readUnsignedInteger();
-    
-        // Create a restricted reader for just this chunk
-        try (SequentialByteArrayReader chunkReader = reader.slice((int) chunkPayloadSize))
-        {
-            if (chunkType == WebPChunkType.VP8X)
-            {
-                parseVP8X(chunkReader); // This method cannot read more than chunkPayloadSize
-            }
-        }
-    
-        // The original reader is still at the start of the payload.
-        // We advance it to move to the next chunk.
-        reader.skip(chunkPayloadSize);
-     * </pre>
-     *
-     * @param length
-     *        the number of bytes the new slice should contain
-     * @return a new SequentialByteArrayReader restricted to the slice
-     *
-     * @throws IndexOutOfBoundsException
-     *         if the slice exceeds the current reader's bounds
-     */
-    public SequentialByteArrayReader slice(int length)
-    {
-        if (!hasRemaining(length))
-        {
-            throw new IndexOutOfBoundsException("Cannot slice [" + length + "] bytes...");
-        }
-
-        int absoluteStart = baseIndex + (int) bufferIndex;
-
-        return new SequentialByteArrayReader(buffer, absoluteStart, byteOrder, this.pfile);
     }
 }
