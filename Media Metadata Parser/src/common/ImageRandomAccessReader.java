@@ -30,7 +30,7 @@ public class ImageRandomAccessReader implements ByteStreamReader
     private final Deque<Long> positionStack = new ArrayDeque<>();
     private final Path pfile;
     protected final RandomAccessFile raf;
-    protected final long realFileSize;
+    protected final long fileSize;
     protected ByteOrder byteOrder;
     protected final String mode;
 
@@ -81,7 +81,7 @@ public class ImageRandomAccessReader implements ByteStreamReader
         this.raf = new RandomAccessFile(fpath.toFile(), mode);
         this.mode = mode;
         this.byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
-        this.realFileSize = raf.length();
+        this.fileSize = raf.length();
     }
 
     /**
@@ -136,7 +136,7 @@ public class ImageRandomAccessReader implements ByteStreamReader
     @Override
     public long length()
     {
-        return realFileSize;
+        return fileSize;
     }
 
     /**
@@ -165,9 +165,9 @@ public class ImageRandomAccessReader implements ByteStreamReader
     {
         long offset = getCurrentPosition() + n;
 
-        if (offset < 0 || offset > realFileSize)
+        if (offset < 0 || offset > fileSize)
         {
-            throw new EOFException("Skip target [" + offset + "] out of bounds [0-" + realFileSize + "]");
+            throw new EOFException("Skip target [" + offset + "] out of bounds [0-" + fileSize + "]");
         }
 
         raf.seek(offset);
@@ -178,17 +178,18 @@ public class ImageRandomAccessReader implements ByteStreamReader
      *
      * @param n
      *        the target position (index 0)
-     * @throws IllegalArgumentException
-     *         if the position is negative
+     * 
+     * @throws EOFException
+     *         if the resulting position is out of file bounds
      * @throws IOException
      *         if an I/O error occurs or the stream ends prematurely
      */
     @Override
     public void seek(long n) throws IOException
     {
-        if (n < 0)
+        if (n < 0 || n > fileSize)
         {
-            throw new IllegalArgumentException("Position cannot be negative");
+            throw new EOFException("Seek target [" + n + "] out of bounds [0-" + fileSize + "]");
         }
 
         raf.seek(n);
@@ -234,6 +235,8 @@ public class ImageRandomAccessReader implements ByteStreamReader
      *        the absolute position to read from
      * @return the signed byte value
      *
+     * @throws EOFException
+     *         if the resulting position is out of file bounds
      * @throws IOException
      *         if an I/O error occurs
      */
@@ -242,10 +245,14 @@ public class ImageRandomAccessReader implements ByteStreamReader
     {
         long currentPosition = getCurrentPosition();
 
+        if (offset < 0 || offset >= fileSize)
+        {
+            throw new EOFException("Peek target [" + offset + "] out of bounds [0-" + fileSize + "]");
+        }
+
         try
         {
             raf.seek(offset);
-
             return raf.readByte();
         }
 
@@ -263,19 +270,21 @@ public class ImageRandomAccessReader implements ByteStreamReader
      * @param length
      *        the number of bytes to read
      * @return a new sub-array containing the read data
-     *
+     * 
+     * @throws IllegalArgumentException
+     *         if the offset or length is negative
      * @throws IOException
      *         if an I/O error occurs
      */
     @Override
     public byte[] peek(long offset, int length) throws IOException
     {
-        if (length < 0)
+        if (offset < 0 || length < 0)
         {
-            throw new IllegalArgumentException("Length cannot be negative");
+            throw new IllegalArgumentException("Offset or Length cannot be negative");
         }
 
-        if (offset + length > realFileSize)
+        if (offset + length > fileSize)
         {
             throw new EOFException("Peek request exceeds file length");
         }
@@ -579,18 +588,18 @@ public class ImageRandomAccessReader implements ByteStreamReader
 
         try
         {
-            if (realFileSize <= 0)
+            if (fileSize <= 0)
             {
                 return new byte[0];
             }
 
             // Make sure the length fits within a Java array (max 2GB)
-            if (realFileSize > Integer.MAX_VALUE)
+            if (fileSize > Integer.MAX_VALUE)
             {
-                throw new UnsupportedOperationException("File size [" + realFileSize + "] exceeds maximum supported size");
+                throw new UnsupportedOperationException("File size [" + fileSize + "] exceeds maximum supported size");
             }
 
-            byte[] bytes = new byte[(int) realFileSize];
+            byte[] bytes = new byte[(int) fileSize];
             raf.seek(0L);
             raf.readFully(bytes);
 
@@ -614,9 +623,91 @@ public class ImageRandomAccessReader implements ByteStreamReader
      */
     protected void checkBounds(int byteLen) throws IOException
     {
-        if (getCurrentPosition() + byteLen > realFileSize)
+        if (getCurrentPosition() + byteLen > fileSize)
         {
-            throw new EOFException(String.format("Requested %d bytes, but only %d remain.", byteLen, realFileSize - getCurrentPosition()));
+            throw new EOFException(String.format("Requested %d bytes, but only %d remain.", byteLen, fileSize - getCurrentPosition()));
+        }
+    }
+
+    /*--- REVIEW BELOW ---*/
+
+    /**
+     * Returns the number of unread bytes remaining in the stream.
+     *
+     * @return the number of bytes available for reading
+     *
+     * @throws IOException
+     *         if an I/O error occurs while determining the current position
+     */
+    public long remaining() throws IOException
+    {
+        return length() - getCurrentPosition();
+    }
+
+    /**
+     * Checks if at least the specified number of bytes are available to read.
+     *
+     * @param n
+     *        the number of bytes to check for
+     * @return true if {@code n} bytes or more remain, otherwise false
+     *
+     * @throws IllegalArgumentException
+     *         if the number of bytes is negative
+     * @throws IOException
+     *         if an I/O error occurs
+     */
+    public boolean hasRemaining(int n) throws IOException
+    {
+        if (n < 0)
+        {
+            throw new IllegalArgumentException("Byte count cannot be negative");
+        }
+
+        return remaining() >= n;
+    }
+
+    public boolean hasRemaining() throws IOException
+    {
+        return hasRemaining(1);
+    }
+
+    public String readStringTest(Charset charset) throws IOException
+    {
+        long startPosition = getCurrentPosition();
+
+        try
+        {
+            while (raf.readByte() != 0x00)
+            {
+                // locate null terminator
+            }
+        }
+
+        catch (EOFException exc)
+        {
+            throw new IOException("Null terminator not found starting at [" + startPosition + "]", exc);
+        }
+
+        long endPosition = getCurrentPosition();
+        long byteLength = endPosition - startPosition - 1;
+
+        if (byteLength > Integer.MAX_VALUE)
+        {
+            throw new UnsupportedOperationException("String length exceeds maximum supported size: " + byteLength);
+        }
+
+        seek(startPosition);
+
+        try
+        {
+            byte[] stringBytes = readBytes((int) byteLength);
+
+            return new String(stringBytes, charset);
+        }
+
+        finally
+        {
+            seek(endPosition);
         }
     }
 }
