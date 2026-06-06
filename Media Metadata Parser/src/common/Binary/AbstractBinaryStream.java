@@ -1,4 +1,4 @@
-package common;
+package common.Binary;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -7,7 +7,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
 
-public abstract class AbstractBinaryStream 
+public abstract class AbstractBinaryStream
 {
     protected final Deque<Long> positionStack;
     protected ByteOrder byteOrder;
@@ -18,54 +18,9 @@ public abstract class AbstractBinaryStream
         this.byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
     }
 
-    /**
-     * Returns the number of unread bytes remaining between the current position and the end of the
-     * stream.
-     *
-     * @return the number of bytes remaining
-     *
-     * @throws IOException
-     *         if an I/O error occurs while obtaining the current position
-     */
-    public long remaining() throws IOException
-    {
-        return (length() - getCurrentPosition());
-    }
-
-    /**
-     * Checks whether at least one byte remains available for reading.
-     *
-     * @return {@code true} if at least one byte remains, otherwise {@code false}
-     *
-     * @throws IOException
-     *         if an I/O error occurs
-     */
-    public boolean hasRemaining() throws IOException
-    {
-        return hasRemaining(1);
-    }
-
-    /**
-     * Checks if at least the specified number of bytes are available to read.
-     *
-     * @param n
-     *        the number of bytes to check for
-     * @return true if {@code n} bytes or more remain, otherwise false
-     *
-     * @throws IllegalArgumentException
-     *         if the number of bytes is negative
-     * @throws IOException
-     *         if an I/O error occurs
-     */
-    public boolean hasRemaining(long n) throws IOException
-    {
-        if (n < 0)
-        {
-            throw new IllegalArgumentException("Byte count cannot be negative");
-        }
-
-        return remaining() >= n;
-    }
+    public abstract long length() throws IOException;
+    public abstract long getCurrentPosition() throws IOException;
+    public abstract void seek(long position) throws IOException;
 
     /**
      * Moves the file pointer by a relative offset.
@@ -80,12 +35,12 @@ public abstract class AbstractBinaryStream
      */
     public void skip(long n) throws IOException
     {
-        long fileLength = length();
         long target = getCurrentPosition() + n;
+        long length = length();
 
-        if (target < 0 || target > fileLength)
+        if (target < 0 || target > length)
         {
-            throw new IndexOutOfBoundsException("Skip target [" + target + "] out of bounds [0-" + fileLength + "]");
+            throw new IndexOutOfBoundsException("Skip target [" + target + "] out of bounds [0-" + length + "]");
         }
 
         seek(target);
@@ -98,6 +53,7 @@ public abstract class AbstractBinaryStream
      * @throws IOException
      *         if an I/O error occurs while retrieving the file pointer
      */
+
     public void mark() throws IOException
     {
         positionStack.push(getCurrentPosition());
@@ -133,7 +89,7 @@ public abstract class AbstractBinaryStream
      */
     public void setByteOrder(ByteOrder order)
     {
-        byteOrder = Objects.requireNonNull(order);
+        byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
     }
 
     /**
@@ -145,6 +101,55 @@ public abstract class AbstractBinaryStream
     public ByteOrder getByteOrder()
     {
         return byteOrder;
+    }
+
+    /**
+     * Returns the number of unread bytes remaining between the current position and the end of the
+     * stream.
+     *
+     * @return the number of bytes remaining
+     *
+     * @throws IOException
+     *         if an I/O error occurs while obtaining the current position
+     */
+    public long remaining() throws IOException
+    {
+        return length() - getCurrentPosition();
+    }
+
+    /**
+     * Checks whether at least one byte remains available for reading.
+     *
+     * @return {@code true} if at least one byte remains, otherwise {@code false}
+     *
+     * @throws IOException
+     *         if an I/O error occurs
+     */
+    public boolean hasRemaining() throws IOException
+    {
+        return hasRemaining(1);
+    }
+
+    /**
+     * Checks if at least the specified number of bytes are available to read.
+     *
+     * @param n
+     *        the number of bytes to check for
+     * @return true if {@code n} bytes or more remain, otherwise false
+     *
+     * @throws IllegalArgumentException
+     *         if the number of bytes is negative
+     * @throws IOException
+     *         if an I/O error occurs
+     */
+    public boolean hasRemaining(int n) throws IOException
+    {
+        if (n < 0)
+        {
+            throw new IllegalArgumentException("Byte count cannot be negative");
+        }
+
+        return remaining() >= n;
     }
 
     /**
@@ -172,8 +177,4 @@ public abstract class AbstractBinaryStream
             throw new EOFException(String.format("Requested %d bytes, but only %d remain", byteLen, remaining));
         }
     }
-
-    public abstract long length() throws IOException;
-    public abstract long getCurrentPosition() throws IOException;
-    public abstract void seek(long position) throws IOException;
 }

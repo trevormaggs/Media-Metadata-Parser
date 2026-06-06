@@ -1,4 +1,4 @@
-package common;
+package common.Binary;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

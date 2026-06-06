@@ -1,4 +1,4 @@
-package common;
+package common.Binary;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -12,8 +12,8 @@ import java.util.Objects;
  * A seekable binary reader backed by a {@link java.io.RandomAccessFile}.
  *
  * <p>
- * Supports positional reading, peeking, mark/reset operations, configurable {@link ByteOrder}, and
- * reading of primitive data types from arbitrary file locations.
+ * Supports random-access reading, peeking, mark/reset operations, configurable {@link ByteOrder},
+ * and reading of primitive values from arbitrary file positions.
  * </p>
  *
  * <p>
@@ -25,7 +25,7 @@ import java.util.Objects;
  * @version 1.0
  * @since 5 June 2026
  */
-public class RandomAccessReader extends AbstractRandomAccessStream implements BinaryReader
+public final class RandomAccessReader extends AbstractRandomAccessStream implements BinaryInput
 {
     /**
      * Creates a reader using the specified byte order.
@@ -63,7 +63,7 @@ public class RandomAccessReader extends AbstractRandomAccessStream implements Bi
      * @return the signed byte value
      *
      * @throws IOException
-     *         if an I/O error occurs
+     *         if an I/O error occurs or the end of file is reached
      */
     @Override
     public byte readByte() throws IOException
@@ -78,7 +78,7 @@ public class RandomAccessReader extends AbstractRandomAccessStream implements Bi
      * @return the value in the range {@code 0-255}
      *
      * @throws IOException
-     *         if an I/O error occurs
+     *         if an I/O error occurs or the end of file is reached
      */
     @Override
     public int readUnsignedByte() throws IOException
@@ -97,7 +97,7 @@ public class RandomAccessReader extends AbstractRandomAccessStream implements Bi
      * @throws IllegalArgumentException
      *         if {@code length} is negative
      * @throws IOException
-     *         if an I/O error occurs
+     *         if an I/O error occurs or insufficient bytes remain
      */
     @Override
     public byte[] readBytes(int length) throws IOException
@@ -125,7 +125,7 @@ public class RandomAccessReader extends AbstractRandomAccessStream implements Bi
      * @return the signed short value
      *
      * @throws IOException
-     *         if an I/O error occurs
+     *         if an I/O error occurs or the end of file is reached
      */
     @Override
     public short readShort() throws IOException
@@ -156,7 +156,7 @@ public class RandomAccessReader extends AbstractRandomAccessStream implements Bi
      * @return the signed integer value
      *
      * @throws IOException
-     *         if an I/O error occurs
+     *         if an I/O error occurs or the end of file is reached
      */
     @Override
     public int readInteger() throws IOException
@@ -211,7 +211,7 @@ public class RandomAccessReader extends AbstractRandomAccessStream implements Bi
      * @return the signed long value
      *
      * @throws IOException
-     *         if an I/O error occurs
+     *         if an I/O error occurs or the end of file is reached
      */
     @Override
     public long readLong() throws IOException
@@ -400,8 +400,8 @@ public class RandomAccessReader extends AbstractRandomAccessStream implements Bi
 
         try
         {
-            byte[] realdata = readBytes((int) byteLength);
-            return new String(realdata, charset);
+            byte[] data = readBytes((int) byteLength);
+            return new String(data, charset);
         }
 
         finally

@@ -32,7 +32,6 @@ public class ImageRandomAccessReader implements ByteStreamReader
     protected final RandomAccessFile raf;
     protected final long fileSize;
     protected ByteOrder byteOrder;
-    protected final String mode;
 
     /**
      * Initialises a read-only reader with the specified byte order.
@@ -84,8 +83,7 @@ public class ImageRandomAccessReader implements ByteStreamReader
     protected ImageRandomAccessReader(Path fpath, ByteOrder order, String mode) throws IOException
     {
         this.pfile = fpath;
-        this.raf = new RandomAccessFile(fpath.toFile(), mode);
-        this.mode = mode;
+        this.raf = new RandomAccessFile(fpath.toFile(), Objects.requireNonNull(mode, "Mode cannot be null"));
         this.byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
         this.fileSize = raf.length();
     }

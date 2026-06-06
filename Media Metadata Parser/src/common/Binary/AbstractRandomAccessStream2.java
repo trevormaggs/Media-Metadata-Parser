@@ -1,4 +1,4 @@
-package common;
+package common.Binary;
 
 import java.io.Closeable;
 import java.io.EOFException;

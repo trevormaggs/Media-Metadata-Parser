@@ -1,4 +1,4 @@
-package common;
+package common.Binary;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -16,8 +16,10 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream im
     {
         super(order);
 
+        Objects.requireNonNull(mode, "Mode cannot be null");
+
         this.fpath = Objects.requireNonNull(fpath, "Path cannot be null");
-        this.raf = new RandomAccessFile(fpath.toFile(), Objects.requireNonNull(mode, "Mode cannot be null"));
+        this.raf = new RandomAccessFile(fpath.toFile(), mode);
     }
 
     /**
@@ -30,16 +32,6 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream im
     public void close() throws IOException
     {
         raf.close();
-    }
-
-    /**
-     * Returns the path of the file backing this stream.
-     *
-     * @return the file path
-     */
-    public Path getPath()
-    {
-        return fpath;
     }
 
     /**
@@ -89,5 +81,15 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream im
         }
 
         raf.seek(n);
+    }
+
+    /**
+     * Returns the path of the file backing this stream.
+     *
+     * @return the file path
+     */
+    public Path getPath()
+    {
+        return fpath;
     }
 }
