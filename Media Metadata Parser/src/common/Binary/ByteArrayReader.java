@@ -9,6 +9,7 @@ import java.util.Objects;
 
 /**
  * Performs in-memory reading of primitive data types from a byte array.
+ * 
  * <p>
  * Supports reading of signed and unsigned integers, floating-point numbers, and byte sequences with
  * configurable byte order (big-endian or little-endian).
@@ -101,330 +102,14 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
         this(buf, offset, ByteOrder.BIG_ENDIAN);
     }
 
+    /**
+     * Closes the stream. For {@code ByteArrayReader}, this is a no-op operation since no underlying
+     * native OS assets or file handles are bound to it.
+     */
     @Override
     public void close() throws IOException
     {
         // No-op: No OS assets or native file handles are bound to this array reader.
-    }
-
-    /**
-     * Reads a single byte from the current position and advances the reader.
-     *
-     * @return the byte value
-     * 
-     * @throws EOFException
-     */
-    @Override
-    public byte readByte() throws IOException
-    {
-        if (!hasRemaining(1))
-        {
-            throw new EOFException("End of buffer reached. Cannot read beyond position [" + length() + "]");
-        }
-
-        return getByte(bufferIndex++);
-    }
-
-    /**
-     * Reads an 8-bit unsigned integer from the current position and advances the reader.
-     *
-     * @return the unsigned 8-bit value (0-255)
-     */
-    @Override
-    public int readUnsignedByte() throws IOException
-    {
-        return (readByte() & 0xFF);
-    }
-
-    /**
-     * Reads a sequence of bytes from the current position and advances the reader.
-     *
-     * @param length
-     *        the number of bytes to read
-     * @return a new byte array containing the data
-     * 
-     * @throws EOFException
-     */
-    @Override
-    public byte[] readBytes(int length) throws IOException
-    {
-        if (!hasRemaining(length))
-        {
-            throw new EOFException("Cannot read [" + length + "] bytes. Only [" + remaining() + "] remaining");
-        }
-
-        byte[] bytes = getBytes(bufferIndex, length);
-
-        bufferIndex += length;
-
-        return bytes;
-    }
-
-    /**
-     * Reads a 16-bit signed short value from the current position and advances the reader.
-     *
-     * @return the short value
-     */
-    @Override
-    public short readShort() throws IOException
-    {
-        return (short) readValue(2);
-    }
-
-    /**
-     * Reads a 16-bit unsigned short from the current position and advances the reader.
-     *
-     * @return the unsigned short value (0-65535) represented by an integer
-     */
-    @Override
-    public int readUnsignedShort() throws IOException
-    {
-        return readShort() & 0xFFFF;
-    }
-
-    /**
-     * Reads a 32-bit signed integer from the current position and advances the reader.
-     *
-     * @return the signed integer value
-     */
-    @Override
-    public int readInteger() throws IOException
-    {
-        return (int) readValue(4);
-    }
-
-    /**
-     * Reads a 32-bit unsigned integer from the current position and advances the reader.
-     *
-     * @return the unsigned integer value represented as a long
-     */
-    @Override
-    public long readUnsignedInteger() throws IOException
-    {
-        return readInteger() & 0xFFFFFFFFL;
-    }
-
-    /**
-     * Reads a 24-bit unsigned integer (3 bytes) from the current position.
-     *
-     * @return the 24-bit value as an integer
-     */
-    @Override
-    public int readUnsignedInteger24() throws IOException
-    {
-        return (int) readValue(3);
-    }
-
-    /**
-     * Reads a 64-bit signed long from the current position and advances the reader.
-     *
-     * @return the long value
-     */
-    @Override
-    public long readLong() throws IOException
-    {
-        return readValue(8);
-    }
-
-    /**
-     * Reads a 32-bit IEEE 754 single-precision floating-point value from the current position and
-     * advances the reader.
-     *
-     * @return the floating-point value
-     */
-    @Override
-    public float readFloat() throws IOException
-    {
-        return Float.intBitsToFloat(readInteger());
-    }
-
-    /**
-     * Reads a 64-bit IEEE 754 double-precision floating-point value from the current position and
-     * advances the reader.
-     *
-     * @return the floating-point value
-     */
-    @Override
-    public double readDouble() throws IOException
-    {
-        return Double.longBitsToDouble(readLong());
-    }
-
-    /**
-     * Retrieves the data at the specified offset within the byte array without advancing the
-     * current position.
-     *
-     * @param offset
-     *        the offset (relative to baseIndex)
-     * @return the byte of data
-     */
-    @Override
-    public byte peek(long offset)
-    {
-        return getByte(offset);
-    }
-
-    /**
-     * Retrieves a sub-array of bytes from the specified absolute offset without advancing the
-     * current position.
-     *
-     * @param offset
-     *        the position relative to the configured base offset
-     * @param length
-     *        the number of bytes to read
-     * @return a new byte array containing the data
-     */
-    @Override
-    public byte[] peek(long offset, int length)
-    {
-        return getBytes(offset, length);
-    }
-
-    @Override
-    public String readString()
-    {
-        return readString(StandardCharsets.ISO_8859_1);
-    }
-
-    /**
-     * Reads a null-terminated string (ISO-8859-1).
-     *
-     * <p>
-     * Scans for {@code 0x00} starting from the current position. The pointer is advanced past the
-     * null terminator.
-     * </p>
-     *
-     * @return the decoded string excluding the null terminator
-     *
-     * @throws IllegalStateException
-     *         if the end of the buffer is reached before a null terminator
-     */
-    @Override
-    public String readString(Charset charset)
-    {
-        Objects.requireNonNull(charset, "Charset cannot be null");
-
-        int absStart = baseIndex + (int) bufferIndex;
-        int absEnd = absStart;
-        int max = baseIndex + buffer.length;
-
-        while (absEnd < max && buffer[absEnd] != 0)
-        {
-            absEnd++;
-        }
-
-        if (absEnd == max)
-        {
-            throw new IllegalStateException("Unterminated string at position " + bufferIndex);
-        }
-
-        String value = new String(buffer, absStart, absEnd - absStart, charset);
-
-        bufferIndex += (absEnd - absStart) + 1;
-
-        return value;
-    }
-
-    /**
-     * Checks whether the specified position is within the byte array’s bounds. If the position is
-     * out of range, an {@code IndexOutOfBoundsException} is thrown.
-     *
-     * @param position
-     *        the position relative to the configured base offset (0 represents the first readable
-     *        byte)
-     * @param length
-     *        the total number of bytes to check (must be {@literal <=} Integer.MAX_VALUE)
-     *
-     * @throws IndexOutOfBoundsException
-     *         if the position is out of bounds
-     */
-    private void validateByteIndex(long position, int length)
-    {
-        if (position < 0L)
-        {
-            throw new IndexOutOfBoundsException("Cannot read the buffer with a negative index [" + position + "]");
-        }
-
-        if (length < 0)
-        {
-            throw new IndexOutOfBoundsException("Length of requested bytes cannot be negative [" + length + "]");
-        }
-
-        if (length > length() - position)
-        {
-            throw new IndexOutOfBoundsException("Attempt to read beyond end of buffer. position=" + position + ", requested=" + length + ", remaining=" + (length() - position));
-        }
-    }
-
-    /**
-     * Returns a single byte from the array at the specified relative position.
-     *
-     * @param position
-     *        the index (relative to base offset) in the byte array
-     * @return the byte fetched from the position
-     */
-    private byte getByte(long position)
-    {
-        validateByteIndex(position, 1);
-
-        return buffer[baseIndex + (int) position];
-    }
-
-    /**
-     * Copies and returns a sub-array from the byte array, starting from the specified position.
-     *
-     * @param position
-     *        the index (relative to base offset) in the byte array
-     * @param length
-     *        the total number of bytes to include in the sub-array (must be {@literal <=}
-     *        Integer.MAX_VALUE)
-     * @return a new byte array containing the subset of the original array
-     */
-    private byte[] getBytes(long position, int length)
-    {
-        byte[] bytes = new byte[length];
-
-        validateByteIndex(position, length);
-
-        System.arraycopy(buffer, baseIndex + (int) position, bytes, 0, length);
-
-        return bytes;
-    }
-
-    /**
-     * Retrieves a value based on the number of bytes from the current position.
-     *
-     * @param numBytes
-     *        the number of bytes to read
-     * @return the computed value as a long
-     * @throws IOException
-     */
-    private long readValue(int numBytes) throws IOException
-    {
-        checkBounds(numBytes);
-
-        long value = 0;
-        int start = baseIndex + (int) bufferIndex;
-
-        if (byteOrder == ByteOrder.BIG_ENDIAN)
-        {
-            for (int i = 0; i < numBytes; i++)
-            {
-                value = (value << 8) | (buffer[start + i] & 0xFF);
-            }
-        }
-
-        else
-        {
-            for (int i = 0; i < numBytes; i++)
-            {
-                value |= ((long) (buffer[start + i] & 0xFF)) << (i * 8);
-            }
-        }
-
-        bufferIndex += numBytes;
-
-        return value;
     }
 
     /**
@@ -467,5 +152,374 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
         }
 
         bufferIndex = pos;
+    }
+
+    /**
+     * Reads a single signed byte from the current position and advances the reader pointer by 1.
+     *
+     * @return the signed 8-bit byte value (-128 to 127)
+     * 
+     * @throws EOFException
+     *         if the reader index has reached the end of the readable buffer bounds
+     */
+    @Override
+    public byte readByte() throws IOException
+    {
+        if (!hasRemaining(1))
+        {
+            throw new EOFException("End of buffer reached. Cannot read beyond position [" + length() + "]");
+        }
+
+        return getByte(bufferIndex++);
+    }
+
+    /**
+     * Reads an 8-bit unsigned integer from the current position and advances the reader pointer by
+     * 1.
+     *
+     * @return the unsigned 8-bit value (0-255) represented as an integer
+     * 
+     * @throws EOFException
+     *         if the reader index has reached the end of the readable buffer bounds
+     */
+    @Override
+    public int readUnsignedByte() throws IOException
+    {
+        return (readByte() & 0xFF);
+    }
+
+    /**
+     * Reads a sequence of bytes from the current position and advances the reader pointer by the
+     * requested length.
+     *
+     * @param length
+     *        the number of bytes to read
+     * @return a newly allocated byte array containing the copied data payload
+     * 
+     * @throws EOFException
+     *         if fewer bytes remain in the stream than the requested length specifies
+     */
+    @Override
+    public byte[] readBytes(int length) throws IOException
+    {
+        if (!hasRemaining(length))
+        {
+            throw new EOFException("Cannot read [" + length + "] bytes. Only [" + remaining() + "] remaining");
+        }
+
+        byte[] bytes = getBytes(bufferIndex, length);
+        bufferIndex += length;
+        return bytes;
+    }
+
+    /**
+     * Reads a 16-bit signed short value from the current position using the configured byte order
+     * and advances the reader pointer by 2.
+     *
+     * @return the signed short value (-32768 to 32767)
+     * 
+     * @throws EOFException
+     *         if fewer than 2 bytes remain available in the stream buffer
+     */
+    @Override
+    public short readShort() throws IOException
+    {
+        return (short) readValue(2);
+    }
+
+    /**
+     * Reads a 16-bit unsigned short from the current position using the configured byte order and
+     * advances the reader pointer by 2.
+     *
+     * @return the unsigned short value (0 to 65535) represented as an integer
+     * 
+     * @throws EOFException
+     *         if fewer than 2 bytes remain available in the stream buffer
+     */
+    @Override
+    public int readUnsignedShort() throws IOException
+    {
+        return readShort() & 0xFFFF;
+    }
+
+    /**
+     * Reads a 32-bit signed integer value from the current position using the configured byte order
+     * and advances the reader pointer by 4.
+     *
+     * @return the signed 32-bit integer value
+     * 
+     * @throws EOFException
+     *         if fewer than 4 bytes remain available in the stream buffer
+     */
+    @Override
+    public int readInteger() throws IOException
+    {
+        return (int) readValue(4);
+    }
+
+    /**
+     * Reads a 32-bit unsigned integer value from the current position using the configured byte
+     * order and advances the reader pointer by 4.
+     *
+     * @return the unsigned 32-bit integer value represented as a long (0 to 4294967295)
+     * 
+     * @throws EOFException
+     *         if fewer than 4 bytes remain available in the stream buffer
+     */
+    @Override
+    public long readUnsignedInteger() throws IOException
+    {
+        return readInteger() & 0xFFFFFFFFL;
+    }
+
+    /**
+     * Reads a 24-bit unsigned integer (3 bytes) from the current position using the configured byte
+     * order and advances the reader pointer by 3.
+     *
+     * @return the 24-bit unsigned value represented as an integer (0 to 16777215)
+     * 
+     * @throws EOFException
+     *         if fewer than 3 bytes remain available in the stream buffer
+     */
+    @Override
+    public int readUnsignedInteger24() throws IOException
+    {
+        return (int) readValue(3);
+    }
+
+    /**
+     * Reads a 64-bit signed long value from the current position using the configured byte order
+     * and advances the reader pointer by 8.
+     *
+     * @return the signed 64-bit long value
+     * 
+     * @throws EOFException
+     *         if fewer than 8 bytes remain available in the stream buffer
+     */
+    @Override
+    public long readLong() throws IOException
+    {
+        return readValue(8);
+    }
+
+    /**
+     * Reads a 32-bit IEEE 754 single-precision floating-point value from the current position using
+     * the configured byte order and advances the reader pointer by 4.
+     *
+     * @return the single-precision float value
+     * 
+     * @throws EOFException
+     *         if fewer than 4 bytes remain available in the stream buffer
+     */
+    @Override
+    public float readFloat() throws IOException
+    {
+        return Float.intBitsToFloat(readInteger());
+    }
+
+    /**
+     * Reads a 64-bit IEEE 754 double-precision floating-point value from the current position using
+     * the configured byte order and advances the reader pointer by 8.
+     *
+     * @return the double-precision double value
+     * 
+     * @throws EOFException
+     *         if fewer than 8 bytes remain available in the stream buffer
+     */
+    @Override
+    public double readDouble() throws IOException
+    {
+        return Double.longBitsToDouble(readLong());
+    }
+
+    /**
+     * Retrieves the data at the specified offset within the byte array without advancing the
+     * current position.
+     *
+     * @param offset
+     *        the offset (relative to baseIndex)
+     * @return the byte of data fetched from the offset
+     * 
+     * @throws IndexOutOfBoundsException
+     *         if the targeted offset location falls outside of the buffer bounds
+     */
+    @Override
+    public byte peek(long offset)
+    {
+        return getByte(offset);
+    }
+
+    /**
+     * Retrieves a sub-array of bytes from the specified absolute offset without advancing the
+     * current position.
+     *
+     * @param offset
+     *        the position relative to the configured base offset
+     * @param length
+     *        the number of bytes to read
+     * @return a new byte array containing the requested data block segment
+     * 
+     * @throws IndexOutOfBoundsException
+     *         if the targeted offset slice window falls outside of the buffer bounds
+     */
+    @Override
+    public byte[] peek(long offset, int length)
+    {
+        return getBytes(offset, length);
+    }
+
+    /**
+     * Reads a null-terminated string using the default ISO-8859-1 character encoding.
+     *
+     * @return the decoded string excluding the terminating null character
+     * 
+     * @throws IllegalStateException
+     *         if the end of the buffer space is reached before discovering a null terminator
+     */
+    @Override
+    public String readString()
+    {
+        return readString(StandardCharsets.ISO_8859_1);
+    }
+
+    /**
+     * Reads a null-terminated string decoded via the specified text character set.
+     * 
+     * <p>
+     * Scans for {@code 0x00} starting from the current position. The pointer is advanced past the
+     * null terminator.
+     * </p>
+     *
+     * @param charset
+     *        the text character encoding configuration to use for string decoding
+     * @return the decoded string excluding the null terminator
+     *
+     * @throws IllegalStateException
+     *         if the end of the buffer is reached before a null terminator
+     * @throws NullPointerException
+     *         if the given {@code charset} parameter is {@code null}
+     */
+    @Override
+    public String readString(Charset charset)
+    {
+        Objects.requireNonNull(charset, "Charset cannot be null");
+
+        int absStart = baseIndex + (int) bufferIndex;
+        int absEnd = absStart;
+        int max = baseIndex + buffer.length;
+
+        while (absEnd < max && buffer[absEnd] != 0)
+        {
+            absEnd++;
+        }
+
+        if (absEnd == max)
+        {
+            throw new IllegalStateException("Unterminated string at position " + bufferIndex);
+        }
+
+        String value = new String(buffer, absStart, absEnd - absStart, charset);
+        bufferIndex += (absEnd - absStart) + 1;
+
+        return value;
+    }
+
+    /**
+     * Returns a single byte from the array at the specified relative position.
+     *
+     * @param position
+     *        the index (relative to base offset) in the byte array
+     * @return the byte fetched from the position
+     */
+    private byte getByte(long position)
+    {
+        validateByteIndex(position, 1);
+        return buffer[baseIndex + (int) position];
+    }
+
+    /**
+     * Copies and returns a sub-array from the byte array, starting from the specified position.
+     *
+     * @param position
+     *        the index (relative to base offset) in the byte array
+     * @param length
+     *        the total number of bytes to include in the sub-array (must be {@literal <=}
+     *        Integer.MAX_VALUE)
+     * @return a new byte array containing the subset of the original array
+     */
+    private byte[] getBytes(long position, int length)
+    {
+        byte[] bytes = new byte[length];
+
+        validateByteIndex(position, length);
+        System.arraycopy(buffer, baseIndex + (int) position, bytes, 0, length);
+
+        return bytes;
+    }
+
+    /**
+     * Retrieves a value based on the number of bytes from the current position.
+     *
+     * @param numBytes
+     *        the number of bytes to read
+     * @return the computed value as a long
+     * 
+     * @throws IOException
+     */
+    private long readValue(int numBytes) throws IOException
+    {
+        checkBounds(numBytes);
+
+        long value = 0;
+        int start = baseIndex + (int) bufferIndex;
+
+        if (byteOrder == ByteOrder.BIG_ENDIAN)
+        {
+            for (int i = 0; i < numBytes; i++)
+            {
+                value = (value << 8) | (buffer[start + i] & 0xFF);
+            }
+        }
+
+        else
+        {
+            for (int i = 0; i < numBytes; i++)
+            {
+                value |= ((long) (buffer[start + i] & 0xFF)) << (i * 8);
+            }
+        }
+
+        bufferIndex += numBytes;
+
+        return value;
+    }
+
+    /**
+     * Checks whether the specified position is within the byte array’s bounds.
+     *
+     * @param position
+     *        the position relative to the configured base offset
+     * @param length
+     *        the total number of bytes to check
+     *
+     * @throws IndexOutOfBoundsException
+     *         if the position or target sequence range falls outside of bounds
+     */
+    private void validateByteIndex(long position, int length)
+    {
+        if (position < 0L)
+        {
+            throw new IndexOutOfBoundsException("Cannot read the buffer with a negative index [" + position + "]");
+        }
+
+        if (length < 0)
+        {
+            throw new IndexOutOfBoundsException("Length of requested bytes cannot be negative [" + length + "]");
+        }
+
+        if (length > length() - position)
+        {
+            throw new IndexOutOfBoundsException("Attempt to read beyond end of buffer. position=" + position + ", requested=" + length + ", remaining=" + (length() - position));
+        }
     }
 }

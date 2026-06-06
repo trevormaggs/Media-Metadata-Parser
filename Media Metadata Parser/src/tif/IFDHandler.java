@@ -7,11 +7,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import common.ByteValueConverter;
+import common.ImageHandler;
 import common.Binary.BinaryInput;
 import common.Binary.ByteArrayReader;
 import common.Binary.RandomAccessReader;
-import common.ByteValueConverter;
-import common.ImageHandler;
 import logger.LogFactory;
 import tif.DirectoryIFD.EntryIFD;
 import tif.tagspecs.TagIFD_Baseline;
@@ -216,7 +216,7 @@ public class IFDHandler implements ImageHandler
      *
      * @return the absolute offset to IFD0, or {@code 0L} if the header is malformed or unsupported,
      *         for example: BigTIFF
-     * 
+     *
      * @throws IOException
      *         if an I/O error occurs
      */
@@ -280,7 +280,7 @@ public class IFDHandler implements ImageHandler
      * @param startOffset
      *        the file offset where the IFD block begins
      * @return {@code true} if the directory and all linked IFDs were successfully parsed
-     * 
+     *
      * @throws IOException
      *         if an I/O error occurs
      */
