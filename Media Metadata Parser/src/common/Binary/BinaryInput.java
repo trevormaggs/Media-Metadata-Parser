@@ -1,10 +1,24 @@
 package common.Binary;
 
 import java.io.IOException;
+import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 
-public interface BinaryInput
+/**
+ * Defines the core data-reading contract for binary streaming components. Matches standard logical
+ * stream boundaries and position stacks.
+ */
+public interface BinaryInput extends AutoCloseable
 {
+    @Override
+    void close() throws IOException;
+    void setByteOrder(ByteOrder order);
+    ByteOrder getByteOrder();
+    void mark();
+    void reset();
+    long length() throws IOException;
+    long getCurrentPosition() throws IOException;
+    void seek(long position) throws IOException;
     byte readByte() throws IOException;
     int readUnsignedByte() throws IOException;
     byte[] readBytes(int length) throws IOException;

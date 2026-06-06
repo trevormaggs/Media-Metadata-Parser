@@ -1,6 +1,6 @@
 package common.Binary;
 
-import java.io.EOFException;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
@@ -102,17 +102,13 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
     @Override
     public byte[] readBytes(int length) throws IOException
     {
-        if (length < 0)
-        {
-            throw new IllegalArgumentException("Length cannot be negative");
-        }
-
-        else if (length == 0)
+        if (length == 0)
         {
             return new byte[0];
         }
 
         checkBounds(length);
+        
         byte[] bytes = new byte[length];
         raf.readFully(bytes);
 
@@ -370,44 +366,33 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
     {
         Objects.requireNonNull(charset, "Charset cannot be null");
 
-        long startPosition = getCurrentPosition();
-
-        try
+        int b;
+        boolean foundNull = false;
+        ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream(32);
+     
+        while ((b = raf.read()) != -1)
         {
-            while (raf.readByte() != 0x00)
+            /*
+             * Just advances the pointer to reach
+             * the null terminator if present
+             */
+            if (b == 0x00)
             {
-                /*
-                 * Just advances the pointer to reach
-                 * the null terminator if present
-                 */
+                foundNull = true;
+                break;
             }
+            
+            bos.write(b);
         }
 
-        catch (EOFException exc)
+        if (!foundNull)
         {
-            throw new IOException("Null terminator not found starting at [" + startPosition + "]", exc);
+            throw new IOException("Null terminator not found before end of stream.");
         }
 
-        long endPosition = getCurrentPosition();
-        long byteLength = endPosition - startPosition - 1;
-
-        if (byteLength > Integer.MAX_VALUE)
-        {
-            throw new UnsupportedOperationException("String length exceeds maximum supported size: " + byteLength);
-        }
-
-        seek(startPosition);
-
-        try
-        {
-            byte[] data = readBytes((int) byteLength);
-            return new String(data, charset);
-        }
-
-        finally
-        {
-            seek(endPosition);
-        }
+        byte[] data = bos.toByteArray();
+        
+        return new String(data, charset);
     }
 
     /**

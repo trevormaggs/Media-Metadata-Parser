@@ -1,5 +1,6 @@
 package common.Binary;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
@@ -100,18 +101,25 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
         this(buf, offset, ByteOrder.BIG_ENDIAN);
     }
 
+    @Override
+    public void close() throws IOException
+    {
+        // No-op: No OS assets or native file handles are bound to this array reader.
+    }
+
     /**
      * Reads a single byte from the current position and advances the reader.
      *
      * @return the byte value
-     * @throws IOException
+     * 
+     * @throws EOFException
      */
     @Override
     public byte readByte() throws IOException
     {
         if (!hasRemaining(1))
         {
-            throw new IndexOutOfBoundsException("End of buffer reached. Cannot read beyond position [" + length() + "]");
+            throw new EOFException("End of buffer reached. Cannot read beyond position [" + length() + "]");
         }
 
         return getByte(bufferIndex++);
@@ -134,13 +142,15 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * @param length
      *        the number of bytes to read
      * @return a new byte array containing the data
+     * 
+     * @throws EOFException
      */
     @Override
     public byte[] readBytes(int length) throws IOException
     {
         if (!hasRemaining(length))
         {
-            throw new IndexOutOfBoundsException("Cannot read [" + length + "] bytes. Only [" + remaining() + "] remaining");
+            throw new EOFException("Cannot read [" + length + "] bytes. Only [" + remaining() + "] remaining");
         }
 
         byte[] bytes = getBytes(bufferIndex, length);
@@ -458,5 +468,4 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
         bufferIndex = pos;
     }
-
 }

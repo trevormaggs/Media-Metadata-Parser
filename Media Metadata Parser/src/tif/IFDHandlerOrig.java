@@ -7,11 +7,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import common.Binary.BinaryInput;
-import common.Binary.ByteArrayReader;
-import common.Binary.RandomAccessReader;
+import common.ByteStreamReader;
 import common.ByteValueConverter;
 import common.ImageHandler;
+import common.ImageRandomAccessReader;
+import common.SequentialByteArrayReader;
 import logger.LogFactory;
 import tif.DirectoryIFD.EntryIFD;
 import tif.tagspecs.TagIFD_Baseline;
@@ -35,17 +35,17 @@ import tif.tagspecs.Taggable;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.5
+ * @version 1.4
  */
-public class IFDHandler implements ImageHandler
+public class IFDHandlerOrig implements ImageHandler
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(IFDHandler.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(IFDHandlerOrig.class);
     private static final int MAX_METADATA_CHUNK_SIZE = 64 * 1024 * 1024; // 64MB
     private static final int TIFF_STANDARD_VERSION = 42;
     private static final int TIFF_BIG_VERSION = 43;
     public static final int ENTRY_MAX_VALUE_LENGTH = 4;
     private final List<DirectoryIFD> directoryList = new ArrayList<>();
-    private final BinaryInput reader;
+    private final ByteStreamReader reader;
     private boolean isTiffBig;
 
     /**
@@ -54,9 +54,9 @@ public class IFDHandler implements ImageHandler
      * @param reader
      *        the stream reader providing access to TIFF content
      */
-    private IFDHandler(BinaryInput reader)
+    private IFDHandlerOrig(ByteStreamReader reader)
     {
-        this.reader = Objects.requireNonNull(reader, "Binary input reader cannot be null");
+        this.reader = Objects.requireNonNull(reader, "Byte stream reader cannot be null");
     }
 
     /**
@@ -72,9 +72,9 @@ public class IFDHandler implements ImageHandler
      * @throws IOException
      *         if the file is inaccessible
      */
-    public IFDHandler(Path fpath) throws IOException
+    public IFDHandlerOrig(Path fpath) throws IOException
     {
-        this(new RandomAccessReader(fpath));
+        this(new ImageRandomAccessReader(fpath));
     }
 
     /**
@@ -83,21 +83,9 @@ public class IFDHandler implements ImageHandler
      * @param payload
      *        byte array containing TIFF-formatted data
      */
-    public IFDHandler(byte[] payload)
+    public IFDHandlerOrig(byte[] payload)
     {
-        this(new ByteArrayReader(payload));
-    }
-
-    /**
-     * Closes the underlying stream reader and releases system resources.
-     */
-    @Override
-    public void close() throws IOException
-    {
-        if (reader != null)
-        {
-            reader.close();
-        }
+        this(new SequentialByteArrayReader(payload));
     }
 
     /**
@@ -158,6 +146,7 @@ public class IFDHandler implements ImageHandler
             {
                 LOGGER.error("Invalid TIFF header detected. Metadata parsing cancelled");
             }
+
             else if (navigateImageFileDirectory(DirectoryIdentifier.IFD_DIRECTORY_IFD0, firstIFDoffset))
             {
                 if (directoryList.size() > 1)
@@ -203,7 +192,20 @@ public class IFDHandler implements ImageHandler
         }
 
         directoryList.clear();
+
         return false;
+    }
+
+    /**
+     * Closes the underlying stream reader and releases system resources.
+     */
+    @Override
+    public void close() throws IOException
+    {
+        if (reader != null)
+        {
+            reader.close();
+        }
     }
 
     /**
@@ -216,7 +218,6 @@ public class IFDHandler implements ImageHandler
      *
      * @return the absolute offset to IFD0, or {@code 0L} if the header is malformed or unsupported,
      *         for example: BigTIFF
-     * 
      * @throws IOException
      *         if an I/O error occurs
      */
@@ -342,6 +343,7 @@ public class IFDHandler implements ImageHandler
         }
 
         long nextOffset = reader.readUnsignedInteger();
+
         directoryList.add(ifd);
 
         for (EntryIFD entry : ifd)
@@ -355,6 +357,7 @@ public class IFDHandler implements ImageHandler
                  * the absolute data pointer location.
                  */
                 long subIfdOffset = entry.getOffset();
+                long currentOffset = reader.getCurrentPosition();
                 DirectoryIdentifier nextDir = ((TagIFD_Pointer) tag).getTargetDirectory();
 
                 if (subIfdOffset <= 0 || subIfdOffset >= reader.length())
@@ -362,8 +365,6 @@ public class IFDHandler implements ImageHandler
                     LOGGER.warn(String.format("Pointer tag [%s] points to invalid offset 0x%04X", tag, subIfdOffset));
                     return false;
                 }
-
-                reader.mark();
 
                 try
                 {
@@ -380,7 +381,8 @@ public class IFDHandler implements ImageHandler
 
                 finally
                 {
-                    reader.reset();
+                    /* Always restore this offset regardless to maintain positional integrity */
+                    reader.seek(currentOffset);
                 }
             }
         }

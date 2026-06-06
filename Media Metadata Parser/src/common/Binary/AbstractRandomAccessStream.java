@@ -1,13 +1,20 @@
 package common.Binary;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.Objects;
 
-public abstract class AbstractRandomAccessStream extends AbstractBinaryStream implements Closeable
+/**
+ * Acts as a middle-tier base class providing native OS file-system binding capabilities via
+ * {@link RandomAccessFile}. It bridges absolute hardware interactions with the logical tracking
+ * layer.
+ *
+ * @author Trevor Maggs
+ * @version 1.1
+ */
+public abstract class AbstractRandomAccessStream extends AbstractBinaryStream
 {
     protected final Path fpath;
     protected final RandomAccessFile raf;
@@ -17,7 +24,6 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream im
         super(order);
 
         Objects.requireNonNull(mode, "Mode cannot be null");
-
         this.fpath = Objects.requireNonNull(fpath, "Path cannot be null");
         this.raf = new RandomAccessFile(fpath.toFile(), mode);
     }
@@ -31,7 +37,10 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream im
     @Override
     public void close() throws IOException
     {
-        raf.close();
+        if (raf != null)
+        {
+            raf.close();
+        }
     }
 
     /**
@@ -52,6 +61,9 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream im
      * Returns the current absolute byte offset of the file pointer.
      *
      * @return the current position
+     * 
+     * @throws IOException
+     *         if an I/O error occurs while reading the file pointer state
      */
     @Override
     public long getCurrentPosition() throws IOException

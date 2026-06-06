@@ -7,12 +7,18 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
 
-public abstract class AbstractBinaryStream
+/**
+ * Provides a universal state and positioning framework for binary streams.
+ * 
+ * @author Trevor Maggs
+ * @version 1.6
+ */
+public abstract class AbstractBinaryStream implements AutoCloseable
 {
     protected final Deque<Long> positionStack;
     protected ByteOrder byteOrder;
 
-    public AbstractBinaryStream(ByteOrder order)
+    protected AbstractBinaryStream(ByteOrder order)
     {
         this.positionStack = new ArrayDeque<>();
         this.byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
@@ -21,6 +27,9 @@ public abstract class AbstractBinaryStream
     public abstract long length() throws IOException;
     public abstract long getCurrentPosition() throws IOException;
     public abstract void seek(long position) throws IOException;
+
+    @Override
+    public abstract void close() throws IOException;
 
     /**
      * Moves the file pointer by a relative offset.
@@ -35,8 +44,8 @@ public abstract class AbstractBinaryStream
      */
     public void skip(long n) throws IOException
     {
-        long target = getCurrentPosition() + n;
         long length = length();
+        long target = getCurrentPosition() + n;
 
         if (target < 0 || target > length)
         {
@@ -53,10 +62,17 @@ public abstract class AbstractBinaryStream
      * @throws IOException
      *         if an I/O error occurs while retrieving the file pointer
      */
-
-    public void mark() throws IOException
+    public void mark()
     {
-        positionStack.push(getCurrentPosition());
+        try
+        {
+            positionStack.push(getCurrentPosition());
+        }
+
+        catch (IOException exc)
+        {
+            throw new RuntimeException("Failed to mark stream position", exc);
+        }
     }
 
     /**
@@ -68,14 +84,22 @@ public abstract class AbstractBinaryStream
      * @throws IOException
      *         if an I/O error occurs
      */
-    public void reset() throws IOException
+    public void reset()
     {
         if (positionStack.isEmpty())
         {
             throw new IllegalStateException("Mark stack is empty");
         }
 
-        seek(positionStack.pop());
+        try
+        {
+            seek(positionStack.pop());
+        }
+
+        catch (IOException exc)
+        {
+            throw new RuntimeException("Failed to reset stream position", exc);
+        }
     }
 
     /**
@@ -108,9 +132,9 @@ public abstract class AbstractBinaryStream
      * stream.
      *
      * @return the number of bytes remaining
-     *
+     * 
      * @throws IOException
-     *         if an I/O error occurs while obtaining the current position
+     *         if an I/O error occurs while obtaining the current position or stream length
      */
     public long remaining() throws IOException
     {
