@@ -8,8 +8,14 @@ import java.util.Deque;
 import java.util.Objects;
 
 /**
- * Provides a universal state and positioning framework for binary streams.
- * 
+ * Base class for binary input and output streams that provides common position management,
+ * byte-order handling, and mark/reset support.
+ *
+ * <p>
+ * Subclasses are responsible for implementing the actual I/O operations, while this class supplies
+ * shared navigation and stream-state behaviour.
+ * </p>
+ *
  * @author Trevor Maggs
  * @version 1.6
  */
@@ -32,15 +38,16 @@ public abstract class AbstractBinaryStream implements AutoCloseable
     public abstract void close() throws IOException;
 
     /**
-     * Moves the file pointer by a relative offset.
+     * Moves the current stream position by the specified offset.
      *
      * @param n
-     *        the number of bytes to skip (positive to move forward, negative for backward)
+     *        the number of bytes to move. Positive values move forward and negative values move
+     *        backward
      *
      * @throws IndexOutOfBoundsException
-     *         if the resulting position is out of file bounds
+     *         if the resulting position is outside the stream bounds
      * @throws IOException
-     *         if an I/O error occurs or the stream ends prematurely
+     *         if an I/O error occurs
      */
     public void skip(long n) throws IOException
     {
@@ -56,8 +63,11 @@ public abstract class AbstractBinaryStream implements AutoCloseable
     }
 
     /**
-     * Pushes the current file pointer onto the internal mark stack. A subsequent call to
-     * {@link #reset()} will pop this position and return the reader to it.
+     * Saves the current stream position on the internal mark stack.
+     *
+     * <p>
+     * A subsequent call to {@link #reset()} restores the most recently saved position.
+     * </p>
      */
     public void mark()
     {
@@ -73,11 +83,14 @@ public abstract class AbstractBinaryStream implements AutoCloseable
     }
 
     /**
-     * Returns to the position recorded by the most recent {@link #mark()}. This operation pops the
-     * position from the stack.
+     * Restores the stream position recorded by the most recent {@link #mark()}.
+     *
+     * <p>
+     * The restored position is removed from the mark stack.
+     * </p>
      *
      * @throws IllegalStateException
-     *         if the mark stack is empty
+     *         if no marked position exists
      */
     public void reset()
     {
@@ -98,10 +111,10 @@ public abstract class AbstractBinaryStream implements AutoCloseable
     }
 
     /**
-     * Updates the byte order for subsequent multi-byte read operations.
+     * Sets the byte order used when reading or writing multi-byte values.
      *
      * @param order
-     *        the new byte order
+     *        the byte order to use
      *
      * @throws NullPointerException
      *         if {@code order} is {@code null}
@@ -123,13 +136,12 @@ public abstract class AbstractBinaryStream implements AutoCloseable
     }
 
     /**
-     * Returns the number of unread bytes remaining between the current position and the end of the
-     * stream.
+     * Returns the number of bytes remaining between the current position and the end of the stream.
      *
-     * @return the number of bytes remaining
-     * 
+     * @return the number of remaining bytes
+     *
      * @throws IOException
-     *         if an I/O error occurs while obtaining the current position or stream length
+     *         if an I/O error occurs
      */
     public long remaining() throws IOException
     {
@@ -137,7 +149,7 @@ public abstract class AbstractBinaryStream implements AutoCloseable
     }
 
     /**
-     * Checks whether at least one byte remains available for reading.
+     * Determines whether at least one byte remains in the stream.
      *
      * @return {@code true} if at least one byte remains, otherwise {@code false}
      *
@@ -150,14 +162,15 @@ public abstract class AbstractBinaryStream implements AutoCloseable
     }
 
     /**
-     * Checks if at least the specified number of bytes are available to read.
+     * Determines whether at least the specified number of bytes remain in the stream.
      *
      * @param n
-     *        the number of bytes to check for
-     * @return true if {@code n} bytes or more remain, otherwise false
+     *        the required number of bytes
+     *
+     * @return {@code true} if at least {@code n} bytes remain, otherwise {@code false}
      *
      * @throws IllegalArgumentException
-     *         if the number of bytes is negative
+     *         if {@code n} is negative
      * @throws IOException
      *         if an I/O error occurs
      */
@@ -172,15 +185,17 @@ public abstract class AbstractBinaryStream implements AutoCloseable
     }
 
     /**
-     * Validates that enough bytes remain in the file for the subsequent operation.
+     * Verifies that the specified number of bytes remain available.
      *
      * @param byteLen
      *        the number of bytes required
      *
+     * @throws IllegalArgumentException
+     *         if {@code byteLen} is negative
      * @throws EOFException
-     *         if the requested number of bytes is beyond the file's bounds
+     *         if insufficient bytes remain
      * @throws IOException
-     *         if an I/O error occurs while determining the current position
+     *         if an I/O error occurs
      */
     protected void checkBounds(long byteLen) throws IOException
     {

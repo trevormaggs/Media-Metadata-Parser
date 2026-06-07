@@ -7,9 +7,13 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 /**
- * Acts as a middle-tier base class providing native OS file-system binding capabilities via
- * {@link RandomAccessFile}. It bridges absolute hardware interactions with the logical tracking
- * layer.
+ * Base class for file-backed binary streams that use a {@link RandomAccessFile} for random-access
+ * I/O.
+ *
+ * <p>
+ * This class provides common file positioning and length operations while delegating
+ * stream-specific reading and writing operations to subclasses.
+ * </p>
  *
  * @author Trevor Maggs
  * @version 1.1
@@ -19,6 +23,21 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream
     protected final Path fpath;
     protected final RandomAccessFile raf;
 
+    /**
+     * Creates a file-backed binary stream.
+     *
+     * @param fpath
+     *        the file path
+     * @param order
+     *        the byte order used for multi-byte values
+     * @param mode
+     *        the {@link RandomAccessFile} access mode, such as {@code "r"} or {@code "rw"}
+     *
+     * @throws NullPointerException
+     *         if any argument is {@code null}
+     * @throws IOException
+     *         if the file cannot be opened
+     */
     public AbstractRandomAccessStream(Path fpath, ByteOrder order, String mode) throws IOException
     {
         super(order);
@@ -32,21 +51,18 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream
      * Closes the underlying {@link RandomAccessFile}.
      *
      * @throws IOException
-     *         if an I/O error occurs while closing the file
+     *         if an I/O error occurs
      */
     @Override
     public void close() throws IOException
     {
-        if (raf != null)
-        {
-            raf.close();
-        }
+        raf.close();
     }
 
     /**
-     * Returns the current length of the underlying file.
+     * Returns the length of the underlying file in bytes.
      *
-     * @return the file size in bytes
+     * @return the file length in bytes
      *
      * @throws IOException
      *         if an I/O error occurs
@@ -58,12 +74,12 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream
     }
 
     /**
-     * Returns the current absolute byte offset of the file pointer.
+     * Returns the current file-pointer position.
      *
-     * @return the current position
-     * 
+     * @return the current byte offset from the beginning of the file
+     *
      * @throws IOException
-     *         if an I/O error occurs while reading the file pointer state
+     *         if an I/O error occurs
      */
     @Override
     public long getCurrentPosition() throws IOException
@@ -72,15 +88,15 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream
     }
 
     /**
-     * Moves the file pointer to an absolute offset.
+     * Moves the file pointer to the specified absolute position.
      *
      * @param n
-     *        the absolute byte offset from the beginning of the file
+     *        the byte offset from the beginning of the file
      *
      * @throws IndexOutOfBoundsException
-     *         if the resulting position is out of file bounds
+     *         if the position is outside the file bounds
      * @throws IOException
-     *         if an I/O error occurs or the stream ends prematurely
+     *         if an I/O error occurs
      */
     @Override
     public void seek(long n) throws IOException
