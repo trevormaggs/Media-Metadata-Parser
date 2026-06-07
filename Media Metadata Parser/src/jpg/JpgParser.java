@@ -19,9 +19,10 @@ import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
 import common.ByteValueConverter;
 import common.DigitalSignature;
-import common.ImageRandomAccessReader;
 import common.MetadataConstants;
 import common.Utils;
+import common.binary.BinaryInput;
+import common.binary.RandomAccessReader;
 import logger.LogFactory;
 import tif.DirectoryIFD;
 import tif.TifMetadata;
@@ -154,7 +155,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
             {
                 validateFileState();
 
-                try (ImageRandomAccessReader reader = new ImageRandomAccessReader(getImageFile()))
+                try (RandomAccessReader reader = new RandomAccessReader(getImageFile()))
                 {
                     segmentData = readMetadataSegments(reader);
                 }
@@ -354,7 +355,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
      * @throws IOException
      *         if an I/O error occurs while reading from the stream
      */
-    static JpgSegmentConstants fetchNextSegment(ImageRandomAccessReader reader) throws IOException
+    static JpgSegmentConstants fetchNextSegment(BinaryInput reader) throws IOException
     {
         try
         {
@@ -422,7 +423,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
      * @throws IOException
      *         if an I/O error occurs
      */
-    private JpgSegmentData readMetadataSegments(ImageRandomAccessReader reader) throws IOException
+    private JpgSegmentData readMetadataSegments(RandomAccessReader reader) throws IOException
     {
         byte[] exifSegment = null;
         byte[] standardXmp = null;

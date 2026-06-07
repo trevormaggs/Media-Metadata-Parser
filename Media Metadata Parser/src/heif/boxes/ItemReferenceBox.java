@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import logger.LogFactory;
 
 /**
@@ -38,19 +38,19 @@ public class ItemReferenceBox extends FullBox
 
     /**
      * Constructs an {@code ItemReferenceBox}, reading its references from the specified
-     * {@link ByteStreamReader} stream.
+     * {@link BinaryInput} stream.
      *
      * @param box
      *        the parent {@link Box} containing size and type information
      * @param reader
-     *        the stream resource using {@code ByteStreamReader} to enable byte parsing
+     *        the stream resource using {@code BinaryInput} to enable byte parsing
      *
      * @throws IOException
      *         if an I/O error occurs
      * @throws IllegalStateException
      *         if malformed data is detected
      */
-    public ItemReferenceBox(Box box, ByteStreamReader reader) throws IOException
+    public ItemReferenceBox(Box box, BinaryInput reader) throws IOException
     {
         super(box, reader);
 
@@ -160,7 +160,7 @@ public class ItemReferenceBox extends FullBox
          * @param box
          *        the parent {@link Box} containing size and type information
          * @param reader
-         *        the stream resource using {@code ByteStreamReader} to enable byte parsing
+         *        the stream resource using {@code BinaryInput} to enable byte parsing
          * @param version
          *        indicates the version associated with this box. Determines the bit-width of Item
          *        IDs. Versions greater than 0 use 32-bit IDs, while version 0 uses 16-bit IDs.
@@ -168,7 +168,7 @@ public class ItemReferenceBox extends FullBox
          * @throws IOException
          *         if an I/O error occurs
          */
-        public SingleItemTypeReferenceBox(Box box, ByteStreamReader reader, int version) throws IOException
+        public SingleItemTypeReferenceBox(Box box, BinaryInput reader, int version) throws IOException
         {
             super(box);
 
@@ -202,6 +202,7 @@ public class ItemReferenceBox extends FullBox
         {
             return sourceItemID;
         }
+
         /**
          * Gets the IDs of the items being referenced as targets. For {@code cdsc}, this is
          * typically the Image Item ID(s). In simplicity, each box contains one from_item_ID

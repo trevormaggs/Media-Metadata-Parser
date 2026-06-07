@@ -5,8 +5,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import logger.LogFactory;
 
 /**
@@ -34,7 +34,7 @@ public class FileTypeBox extends Box
 
     /**
      * Constructs a {@code FileTypeBox}, parsing its fields from the specified
-     * {@link ByteStreamReader}.
+     * {@link BinaryInput}.
      *
      * @param box
      *        the parent {@link Box} object containing size and type information
@@ -44,7 +44,7 @@ public class FileTypeBox extends Box
      * @throws IOException
      *         if an I/O error occurs
      */
-    public FileTypeBox(Box box, ByteStreamReader reader) throws IOException
+    public FileTypeBox(Box box, BinaryInput reader) throws IOException
     {
         super(box);
 

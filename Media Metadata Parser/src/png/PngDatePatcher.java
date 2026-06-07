@@ -14,8 +14,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.zip.CRC32;
-import common.ImageRandomAccessWriter;
 import common.Utils;
+import common.binary.RandomAccessWriter;
 import logger.LogFactory;
 import tif.DirectoryIFD;
 import tif.DirectoryIFD.EntryIFD;
@@ -116,7 +116,7 @@ public final class PngDatePatcher
             {
                 LOGGER.info(String.format("Preparing to patch new date in PNG file [%s]", imagePath));
 
-                try (ImageRandomAccessWriter writer = new ImageRandomAccessWriter(imagePath, ChunkHandler.PNG_BYTE_ORDER))
+                try (RandomAccessWriter writer = new RandomAccessWriter(imagePath, ChunkHandler.PNG_BYTE_ORDER))
                 {
                     processExifSegment(handler, writer, zdt);
                     processXmpSegment(handler, writer, zdt, xmpDump);
@@ -147,7 +147,7 @@ public final class PngDatePatcher
      * @throws IOException
      *         if an I/O error occurs whilst accessing the file or parsing the TIFF data
      */
-    private static void processExifSegment(ChunkHandler handler, ImageRandomAccessWriter writer, ZonedDateTime zdt) throws IOException
+    private static void processExifSegment(ChunkHandler handler, RandomAccessWriter writer, ZonedDateTime zdt) throws IOException
     {
         Taggable[] targetTags = {
                 TagIFD_Baseline.IFD_DATE_TIME, TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL,
@@ -236,7 +236,7 @@ public final class PngDatePatcher
      * @throws IOException
      *         if an I/O error occurs whilst accessing the file or overwriting data
      */
-    private static void processXmpSegment(ChunkHandler handler, ImageRandomAccessWriter writer, ZonedDateTime zdt, boolean xmpDump) throws IOException
+    private static void processXmpSegment(ChunkHandler handler, RandomAccessWriter writer, ZonedDateTime zdt, boolean xmpDump) throws IOException
     {
         final String[] xmpTags = {
                 "xmp:CreateDate", "xap:CreateDate", "xmp:ModifyDate", "xap:ModifyDate",
@@ -319,7 +319,7 @@ public final class PngDatePatcher
      * @throws IOException
      *         if an I/O error occurs
      */
-    private static void processTimeSegment(ChunkHandler handler, ImageRandomAccessWriter writer, ZonedDateTime zdt) throws IOException
+    private static void processTimeSegment(ChunkHandler handler, RandomAccessWriter writer, ZonedDateTime zdt) throws IOException
     {
         Optional<PngChunk> optTime = handler.getFirstChunk(ChunkType.tIME);
 
@@ -363,7 +363,7 @@ public final class PngDatePatcher
      * @throws IOException
      *         if an I/O error occurs
      */
-    private static void processTextualChunk(ChunkHandler handler, ImageRandomAccessWriter writer, ZonedDateTime zdt) throws IOException
+    private static void processTextualChunk(ChunkHandler handler, RandomAccessWriter writer, ZonedDateTime zdt) throws IOException
     {
         Optional<List<PngChunk>> optText = handler.getChunks(ChunkType.tEXt);
 
@@ -439,7 +439,7 @@ public final class PngDatePatcher
      * @throws IOException
      *         if an I/O error occurs whilst accessing the file stream
      */
-    private static void updateChunkCRC(ImageRandomAccessWriter writer, PngChunk chunk, byte[] updatedPayload) throws IOException
+    private static void updateChunkCRC(RandomAccessWriter writer, PngChunk chunk, byte[] updatedPayload) throws IOException
     {
         CRC32 crcCalculator = new CRC32();
 

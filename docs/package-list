@@ -1,5 +1,6 @@
 batch
 common
+common.binary
 heif
 heif.boxes
 jpg

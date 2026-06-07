@@ -13,10 +13,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import common.ByteStreamReader;
 import common.ImageHandler;
-import common.ImageRandomAccessReader;
 import common.Utils;
+import common.binary.BinaryInput;
+import common.binary.RandomAccessReader;
 import heif.boxes.Box;
 import heif.boxes.DataInformationBox;
 import heif.boxes.HandlerBox;
@@ -47,7 +47,7 @@ import logger.LogFactory;
  *
  * <p>
  * <strong>Thread Safety:</strong> This class is not thread-safe as it maintains internal state of
- * the underlying {@link ByteStreamReader}.
+ * the underlying {@link BinaryInput}.
  * </p>
  *
  * @author Trevor Maggs
@@ -62,7 +62,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
     private static final String TYPE_MIME = "mime";
     private final Map<HeifBoxType, List<Box>> heifBoxMap = new LinkedHashMap<>();
     private final List<Box> rootBoxes = new ArrayList<>();
-    private final ByteStreamReader reader;
+    private final BinaryInput reader;
     public static final ByteOrder HEIF_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
 
     public enum MetadataType
@@ -88,11 +88,11 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      */
     public BoxHandler(Path fpath) throws IOException
     {
-        this.reader = new ImageRandomAccessReader(fpath, HEIF_BYTE_ORDER);
+        this.reader = new RandomAccessReader(fpath, HEIF_BYTE_ORDER);
     }
 
     /**
-     * Closes the underlying ByteStreamReader resource.
+     * Closes the underlying BinaryInput resource.
      */
     @Override
     public void close() throws IOException
@@ -224,7 +224,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      * <p>
      * This method correctly implements the resolution of Exif items by:
      * </p>
-     * 
+     *
      * <ol>
      * <li>Identifying the Exif Item ID via {@link #findMetadataID(MetadataType)}.</li>
      * <li>Retrieving the full payload (supporting fragmented extents).</li>
@@ -235,7 +235,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      *
      * @return an {@link Optional} containing the TIFF-compatible Exif block (starting at the Byte
      *         Order Mark), or {@link Optional#empty()} if no valid Exif is found
-     * 
+     *
      * @throws IOException
      *         if the payload cannot be computed due to an I/O error
      */
@@ -409,7 +409,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      * traverses the {@code iloc} (Item Location) box to map the logical {@code logicalOffset} to
      * the correct physical extent.
      * </p>
-     * 
+     *
      * @param itemID
      *        the HEIF item ID
      * @param logicalOffset
@@ -417,7 +417,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      * @param type
      *        the metadata type (used to calculate TIFF preamble shifts)
      * @return the absolute byte position in the file, or -1 if the mapping fails
-     * 
+     *
      * @throws IOException
      *         if the underlying box data cannot be accessed
      */
@@ -631,11 +631,11 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
     /**
      * Extracts raw bytes from fragmented data extents belonging to the specified Item ID. This also
      * supports both Construction Method 0 (Offset) and Construction Method 1 (IDAT) automatically.
-     * 
+     *
      * @param itemID
      *        the ID of the item (Exif or XMP)
      * @return a byte array containing the raw data identified with the specified ID
-     * 
+     *
      * @throws IOException
      *         if an I/O error occurs
      */
@@ -671,7 +671,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      * <p>
      * This method implements the data retrieval logic defined in <b>ISO/IEC 14496-12</b>:
      * </p>
-     * 
+     *
      * <ul>
      * <li><b>Method 0 (File Offset):</b> Data is stored at an absolute position within the file
      * (standard for {@code mdat} boxes).</li>
@@ -684,7 +684,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      * @param extent
      *        the {@link ExtentData} containing the specific length and offset for this fragment
      * @return a byte array containing the raw data for the specified extent
-     * 
+     *
      * @throws IOException
      *         if Method 1 is specified but no {@code idat} box exists, or if the requested range is
      *         out of bounds (corrupt {@code iloc} table)
@@ -740,10 +740,10 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
      * <li>application/x-adobe-xmp - potentially Android/Samsung</li>
      * <li>text/xml - also potentially Android/Samsung or maybe ImageMagick/GPAC</li>
      * </ul>
-     * 
+     *
      * @param infe
      *        the reference to the {@code ItemInfoEntry} resource
-     * 
+     *
      * @return boolean true if the entry contains the valid content type in relation to XMP metadata
      */
     private boolean isXmpType(ItemInfoEntry infe)

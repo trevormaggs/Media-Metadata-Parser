@@ -12,10 +12,11 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import common.ByteStreamReader;
 import common.ImageHandler;
-import common.ImageRandomAccessReader;
-import common.SequentialByteArrayReader;
+import common.binary.AbstractRandomAccessStream;
+import common.binary.BinaryInput;
+import common.binary.ByteArrayReader;
+import common.binary.RandomAccessReader;
 import logger.LogFactory;
 
 /**
@@ -42,7 +43,7 @@ public class RiffHandler implements ImageHandler
     public static final ByteOrder WEBP_BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
     private static final int BITSTREAM_HEADER_BUDGET = 10;
     private static final int CHUNK_HEADER_SIZE = 8;
-    private final ByteStreamReader reader;
+    private final BinaryInput reader;
     private final List<WebpChunk> chunks = new ArrayList<>();
     private final Set<WebPChunkType> requiredChunks;
     private int extendedFormat;
@@ -51,12 +52,12 @@ public class RiffHandler implements ImageHandler
      * Constructs a handler to parse selected chunks from a WebP image file stream.
      *
      * @param reader
-     *        the {@link ByteStreamReader} associated with the target WebP stream
+     *        the {@link BinaryInput} associated with the target WebP stream
      * @param requiredChunks
      *        an optional set of chunk types to extract. If {@code null}, all encountered chunks
      *        will be processed
      */
-    private RiffHandler(ByteStreamReader reader, EnumSet<WebPChunkType> requiredChunks)
+    private RiffHandler(BinaryInput reader, EnumSet<WebPChunkType> requiredChunks)
     {
         this.reader = reader;
 
@@ -94,11 +95,11 @@ public class RiffHandler implements ImageHandler
      */
     public RiffHandler(Path fpath, EnumSet<WebPChunkType> requiredChunks) throws IOException
     {
-        this(new ImageRandomAccessReader(fpath, WEBP_BYTE_ORDER), requiredChunks);
+        this(new RandomAccessReader(fpath, WEBP_BYTE_ORDER), requiredChunks);
     }
 
     /**
-     * Releases the file handle and closes the underlying {@code ByteStreamReader} resource.
+     * Releases the file handle and closes the underlying {@code BinaryInput} resource.
      *
      * <p>
      * This is called automatically when using a {@code try-with-resources} block. Closing this
@@ -190,7 +191,7 @@ public class RiffHandler implements ImageHandler
      */
     public long getRealFileSize()
     {
-        return reader.getPath().toFile().length();
+        return ((AbstractRandomAccessStream) reader).getPath().toFile().length();
     }
 
     /**
@@ -284,7 +285,7 @@ public class RiffHandler implements ImageHandler
      * @throws IllegalStateException
      *         if signatures are missing or size is mathematically invalid
      */
-    private long readFileHeader(ByteStreamReader reader) throws IOException
+    private long readFileHeader(BinaryInput reader) throws IOException
     {
         byte[] type = reader.readBytes(4);
 
@@ -324,7 +325,7 @@ public class RiffHandler implements ImageHandler
      * @throws IllegalStateException
      *         if layout bounds are crossed or critical bitstream configurations are malformed
      */
-    private void parseChunks(ByteStreamReader reader, long totalChunkSize) throws IOException
+    private void parseChunks(BinaryInput reader, long totalChunkSize) throws IOException
     {
         boolean firstChunk = true;
 
@@ -412,7 +413,7 @@ public class RiffHandler implements ImageHandler
     {
         if (payload.length >= 10)
         {
-            try (SequentialByteArrayReader subReader = new SequentialByteArrayReader(payload, WEBP_BYTE_ORDER))
+            try (ByteArrayReader subReader = new ByteArrayReader(payload, WEBP_BYTE_ORDER))
             {
                 extendedFormat = subReader.readUnsignedByte();
 
@@ -424,11 +425,17 @@ public class RiffHandler implements ImageHandler
 
                 subReader.skip(3);
 
-                int canvasWidth = subReader.readUnsignedInt24() + 1;
-                int canvasHeight = subReader.readUnsignedInt24() + 1;
+                int canvasWidth = subReader.readUnsignedInteger24() + 1;
+                int canvasHeight = subReader.readUnsignedInteger24() + 1;
 
                 LOGGER.debug(String.format("Chunk VP8X detected. CanvasWidth x CanvasHeight: %dx%d, EXIF: %b, XMP: %b, Alpha: %b, Anim %b, ICCP: %b",
                         canvasWidth, canvasHeight, hasEXIF, hasXMP, hasAlpha, hasAnimation, hasICC));
+            }
+
+            catch (IOException exc)
+            {
+                // It is expected that it would never throw. This is only to satisfy the compiler.
+                throw new IllegalStateException("Unexpected I/O error parsing VP8X payload", exc);
             }
         }
 
@@ -451,7 +458,7 @@ public class RiffHandler implements ImageHandler
     {
         if (payload.length >= 10)
         {
-            try (SequentialByteArrayReader subReader = new SequentialByteArrayReader(payload, WEBP_BYTE_ORDER))
+            try (ByteArrayReader subReader = new ByteArrayReader(payload, WEBP_BYTE_ORDER))
             {
                 subReader.skip(3);
                 byte[] syncCode = subReader.readBytes(3);
@@ -468,6 +475,12 @@ public class RiffHandler implements ImageHandler
                 {
                     throw new IllegalStateException("Corrupt bitstream structure. Invalid VP8 lossy sync frame signature code");
                 }
+            }
+
+            catch (IOException exc)
+            {
+                // It is expected that it would never throw. This is only to satisfy the compiler.
+                throw new IllegalStateException("Unexpected I/O error parsing VP8 payload", exc);
             }
         }
 
@@ -491,7 +504,7 @@ public class RiffHandler implements ImageHandler
     {
         if (payload.length >= 5)
         {
-            try (SequentialByteArrayReader subReader = new SequentialByteArrayReader(payload, WEBP_BYTE_ORDER))
+            try (ByteArrayReader subReader = new ByteArrayReader(payload, WEBP_BYTE_ORDER))
             {
                 int signature = subReader.readUnsignedByte();
 
@@ -508,6 +521,12 @@ public class RiffHandler implements ImageHandler
                 {
                     throw new IllegalStateException("Corrupt bitstream structure. Invalid VP8L lossless signature byte");
                 }
+            }
+
+            catch (IOException exc)
+            {
+                // It is expected that it would never throw. This is only to satisfy the compiler.
+                throw new IllegalStateException("Unexpected I/O error parsing VP8L payload", exc);
             }
         }
 

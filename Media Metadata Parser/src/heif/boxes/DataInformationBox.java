@@ -4,9 +4,9 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import common.ByteStreamReader;
 import common.ByteValueConverter;
 import common.Utils;
+import common.binary.BinaryInput;
 import heif.BoxFactory;
 import heif.HeifBoxType;
 import logger.LogFactory;
@@ -41,12 +41,12 @@ public class DataInformationBox extends Box
      * @param box
      *        the super Box object
      * @param reader
-     *        a ByteStreamReader object for sequential byte array access
+     *        a BinaryInput object for sequential byte array access
      *
      * @throws IOException
      *         if an I/O error occurs
      */
-    public DataInformationBox(Box box, ByteStreamReader reader) throws IOException
+    public DataInformationBox(Box box, BinaryInput reader) throws IOException
     {
         super(box);
 
@@ -115,7 +115,7 @@ public class DataInformationBox extends Box
     {
         private final DataEntryBox[] dataEntry;
 
-        public DataReferenceBox(Box box, ByteStreamReader reader) throws IOException
+        public DataReferenceBox(Box box, BinaryInput reader) throws IOException
         {
             super(box, reader);
 
@@ -176,7 +176,7 @@ public class DataInformationBox extends Box
         private String name = "";
         private String location = "";
 
-        public DataEntryBox(Box header, ByteStreamReader reader) throws IOException
+        public DataEntryBox(Box header, BinaryInput reader) throws IOException
         {
             super(header, reader);
 

@@ -2,13 +2,13 @@ package heif;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import common.ByteStreamReader;
+import common.binary.BinaryInput;
 import heif.boxes.*;
 import heif.boxes.DataInformationBox.DataReferenceBox;
 
 public final class BoxFactory
 {
-    public static Box createBox(ByteStreamReader reader) throws IOException
+    public static Box createBox(BinaryInput reader) throws IOException
     {
         Box derivedBox;
         Box box = new Box(reader);
@@ -105,7 +105,7 @@ public final class BoxFactory
         return derivedBox;
     }
 
-    public static String peekBoxType(ByteStreamReader reader) throws IOException
+    public static String peekBoxType(BinaryInput reader) throws IOException
     {
         reader.mark();
         reader.skip(4); // size

@@ -1,8 +1,8 @@
 package heif.boxes;
 
 import java.io.IOException;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import logger.LogFactory;
 
 /**
@@ -40,17 +40,17 @@ public class PrimaryItemBox extends FullBox
 
     /**
      * Constructs a {@code PrimaryItemBox}, reading its fields from the specified
-     * {@link ByteStreamReader} parameter.
+     * {@link BinaryInput} parameter.
      *
      * @param box
      *        the parent {@link Box} containing size and type information
      * @param reader
      *        The reader for sequential byte parsing
-     * 
+     *
      * @throws IOException
      *         if an I/O error occurs
      */
-    public PrimaryItemBox(Box box, ByteStreamReader reader) throws IOException
+    public PrimaryItemBox(Box box, BinaryInput reader) throws IOException
     {
         super(box, reader);
 

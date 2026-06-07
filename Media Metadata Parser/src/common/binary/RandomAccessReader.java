@@ -1,6 +1,7 @@
-package common.Binary;
+package common.binary;
 
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
@@ -108,7 +109,7 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
         }
 
         checkBounds(length);
-        
+
         byte[] bytes = new byte[length];
         raf.readFully(bytes);
 
@@ -368,8 +369,8 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
 
         int b;
         boolean foundNull = false;
-        ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream(32);
-     
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(32);
+
         while ((b = raf.read()) != -1)
         {
             /*
@@ -381,7 +382,7 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
                 foundNull = true;
                 break;
             }
-            
+
             bos.write(b);
         }
 
@@ -391,8 +392,53 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
         }
 
         byte[] data = bos.toByteArray();
-        
+
         return new String(data, charset);
+    }
+
+    // TODO: REVIEW THIS
+    public String readString2(Charset charset) throws IOException
+    {
+        Objects.requireNonNull(charset, "Charset cannot be null");
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(32);
+        byte[] chunk = new byte[32];
+        long startPosition = getCurrentPosition();
+        boolean foundNull = false;
+        int bytesRead;
+
+        // Read in grouped blocks instead of byte-by-byte disk access
+        while ((bytesRead = raf.read(chunk)) != -1)
+        {
+            for (int i = 0; i < bytesRead; i++)
+            {
+                if (chunk[i] == 0x00)
+                {
+                    bos.write(chunk, 0, i);
+                    // Snap file pointer precisely to the byte immediately following the 0x00
+                    // terminator
+                    seek(startPosition + bos.size() + 1);
+                    foundNull = true;
+
+                    break;
+                }
+            }
+
+            if (foundNull)
+            {
+                break;
+            }
+
+            bos.write(chunk, 0, bytesRead);
+        }
+
+        if (!foundNull)
+        {
+            throw new EOFException("End of file reached before finding a null string terminator.");
+        }
+
+        // return bos.toString(charset);
+        return null;
     }
 
     /**

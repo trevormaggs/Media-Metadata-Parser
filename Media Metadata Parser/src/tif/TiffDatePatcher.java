@@ -11,8 +11,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import common.ByteValueConverter;
-import common.ImageRandomAccessWriter;
 import common.Utils;
+import common.binary.RandomAccessWriter;
 import logger.LogFactory;
 import tif.DirectoryIFD.EntryIFD;
 import tif.tagspecs.TagIFD_Baseline;
@@ -81,7 +81,7 @@ public final class TiffDatePatcher
         {
             if (handler.parseMetadata())
             {
-                try (ImageRandomAccessWriter writer = new ImageRandomAccessWriter(imagePath, handler.getTifByteOrder()))
+                try (RandomAccessWriter writer = new RandomAccessWriter(imagePath, handler.getTifByteOrder()))
                 {
                     boolean xmpProcessed = false;
                     List<DirectoryIFD> dirList = handler.getDirectories();
@@ -142,7 +142,7 @@ public final class TiffDatePatcher
      * @throws IOException
      *         if the write operation fails
      */
-    private static void processExifSegment(ImageRandomAccessWriter writer, EntryIFD entry, ZonedDateTime zdt) throws IOException
+    private static void processExifSegment(RandomAccessWriter writer, EntryIFD entry, ZonedDateTime zdt) throws IOException
     {
         Taggable tag = entry.getTag();
         ZonedDateTime updatedTime = zdt;
@@ -199,7 +199,7 @@ public final class TiffDatePatcher
      * @throws IOException
      *         if an I/O error occurs or the file offset is unreachable
      */
-    private static void processExifGpsTimeStamp(ImageRandomAccessWriter writer, EntryIFD entry, ZonedDateTime zdt) throws IOException
+    private static void processExifGpsTimeStamp(RandomAccessWriter writer, EntryIFD entry, ZonedDateTime zdt) throws IOException
     {
         byte[] timeBytes = new byte[24];
         ZonedDateTime utc = zdt.withZoneSameInstant(ZoneId.of("UTC"));
@@ -248,7 +248,7 @@ public final class TiffDatePatcher
      * @throws IOException
      *         if binary seek or write fails
      */
-    private static void processXmpSegment(ImageRandomAccessWriter writer, EntryIFD entry, ZonedDateTime zdt, boolean xmpDump) throws IOException
+    private static void processXmpSegment(RandomAccessWriter writer, EntryIFD entry, ZonedDateTime zdt, boolean xmpDump) throws IOException
     {
         String[] xmpTags = {
                 "xmp:CreateDate", "xap:CreateDate", "xmp:ModifyDate", "xap:ModifyDate",

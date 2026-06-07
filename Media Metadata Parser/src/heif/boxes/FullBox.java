@@ -1,8 +1,8 @@
 package heif.boxes;
 
 import java.io.IOException;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import logger.LogFactory;
 
 /**
@@ -43,7 +43,7 @@ public class FullBox extends Box
      *         if there is an error reading the 4-byte version/flags payload
      */
 
-    public FullBox(Box box, ByteStreamReader reader) throws IOException
+    public FullBox(Box box, BinaryInput reader) throws IOException
     {
         super(box);
 
@@ -52,7 +52,7 @@ public class FullBox extends Box
          * on top of the Box header
          */
         this.version = reader.readUnsignedByte();
-        this.flags = reader.readUnsignedInt24();
+        this.flags = reader.readUnsignedInteger24();
     }
 
     /**

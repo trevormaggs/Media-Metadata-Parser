@@ -1,8 +1,8 @@
 package heif.boxes;
 
 import java.io.IOException;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import logger.LogFactory;
 
 /**
@@ -32,7 +32,7 @@ public class CleanApertureBox extends Box
      * unsigned int(32) vertOffD;
      */
 
-    public CleanApertureBox(Box box, ByteStreamReader reader) throws IOException
+    public CleanApertureBox(Box box, BinaryInput reader) throws IOException
     {
         super(box);
 
@@ -62,6 +62,7 @@ public class CleanApertureBox extends Box
     {
         return heightN;
     }
+
     public long getHeightD()
     {
         return heightD;

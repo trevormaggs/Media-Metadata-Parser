@@ -1,4 +1,4 @@
-package common.Binary;
+package common.binary;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -89,7 +89,7 @@ public abstract class AbstractRandomAccessStream extends AbstractBinaryStream
 
         if (n < 0 || n > fileLength)
         {
-            throw new IndexOutOfBoundsException("Seek target [" + n + "] out of bounds [0-" + fileLength + "]");
+            throw new IndexOutOfBoundsException("Seek position [" + n + "] out of bounds [0-" + fileLength + "]");
         }
 
         raf.seek(n);

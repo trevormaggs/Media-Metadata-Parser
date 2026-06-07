@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import heif.BoxFactory;
 import logger.LogFactory;
 
@@ -34,7 +34,7 @@ public class MetaBox extends FullBox
 
     /**
      * Constructs a {@code MetaBox}, parsing its fields from the specified
-     * {@link ByteStreamReader}.
+     * {@link BinaryInput}.
      *
      * @param box
      *        the parent {@link Box} object containing size and type information
@@ -46,7 +46,7 @@ public class MetaBox extends FullBox
      * @throws IllegalStateException
      *         if malformed data is encountered, such as a negative box size and corrupted data
      */
-    public MetaBox(Box box, ByteStreamReader reader) throws IOException
+    public MetaBox(Box box, BinaryInput reader) throws IOException
     {
         super(box, reader);
 

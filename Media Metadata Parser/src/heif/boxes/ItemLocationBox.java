@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import logger.LogFactory;
 
 /**
@@ -47,12 +47,12 @@ public class ItemLocationBox extends FullBox
      * @param box
      *        the parent {@code Box} containing common box values
      * @param reader
-     *        the stream resource using {@code ByteStreamReader} to enable byte parsing
+     *        the stream resource using {@code BinaryInput} to enable byte parsing
      *
      * @throws IOException
      *         if an I/O error occurs
      */
-    public ItemLocationBox(Box box, ByteStreamReader reader) throws IOException
+    public ItemLocationBox(Box box, BinaryInput reader) throws IOException
     {
         super(box, reader);
 
@@ -386,7 +386,7 @@ public class ItemLocationBox extends FullBox
      * @param bytesize
      *        the number of bytes to read: {0, 4, 8}
      * @param reader
-     *        the {@code ByteStreamReader} object needed for reading the value
+     *        the {@code BinaryInput} object needed for reading the value
      * @return the parsed value as an unsigned {@code long}
      * 
      * @throws IOException
@@ -394,20 +394,25 @@ public class ItemLocationBox extends FullBox
      * @throws IllegalArgumentException
      *         if input is not one of {0, 4, 8}
      */
-    private long readSizedValue(int bytesize, ByteStreamReader reader) throws IOException
+    private long readSizedValue(int bytesize, BinaryInput reader) throws IOException
     {
         switch (bytesize)
         {
             case 0:
                 return 0L;
+
             case 1:
                 return reader.readUnsignedByte();// Backward compatibility
+
             case 2:
                 return reader.readUnsignedShort(); // Backward compatibility
+
             case 4:
                 return reader.readUnsignedInteger();
+
             case 8:
                 return reader.readLong();
+
             default:
                 throw new IllegalArgumentException("Invalid input size [" + bytesize + "]");
         }

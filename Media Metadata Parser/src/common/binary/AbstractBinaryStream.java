@@ -1,4 +1,4 @@
-package common.Binary;
+package common.binary;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -58,9 +58,6 @@ public abstract class AbstractBinaryStream implements AutoCloseable
     /**
      * Pushes the current file pointer onto the internal mark stack. A subsequent call to
      * {@link #reset()} will pop this position and return the reader to it.
-     *
-     * @throws IOException
-     *         if an I/O error occurs while retrieving the file pointer
      */
     public void mark()
     {
@@ -81,8 +78,6 @@ public abstract class AbstractBinaryStream implements AutoCloseable
      *
      * @throws IllegalStateException
      *         if the mark stack is empty
-     * @throws IOException
-     *         if an I/O error occurs
      */
     public void reset()
     {

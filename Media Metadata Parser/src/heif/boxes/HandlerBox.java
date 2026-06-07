@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import common.ByteValueConverter;
 import common.Utils;
-import common.ByteStreamReader;
+import common.binary.BinaryInput;
 import logger.LogFactory;
 
 /**
@@ -42,12 +42,12 @@ public class HandlerBox extends FullBox
      * @param box
      *        the super Box object
      * @param reader
-     *        a ByteStreamReader object for sequential byte array access
+     *        a BinaryInput object for sequential byte array access
      * 
      * @throws IOException
      *         if an I/O error occurs
      */
-    public HandlerBox(Box box, ByteStreamReader reader) throws IOException
+    public HandlerBox(Box box, BinaryInput reader) throws IOException
     {
         super(box, reader);
 

@@ -5,8 +5,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import heif.BoxFactory;
 import heif.HeifBoxType;
 import logger.LogFactory;
@@ -44,7 +44,7 @@ public class ItemInformationBox extends FullBox
      * @throws IOException
      *         if an I/O error occurs
      */
-    public ItemInformationBox(Box box, ByteStreamReader reader) throws IOException
+    public ItemInformationBox(Box box, BinaryInput reader) throws IOException
     {
         super(box, reader);
 

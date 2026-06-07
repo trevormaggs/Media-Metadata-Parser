@@ -4,9 +4,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
-import common.ByteStreamReader;
 import common.ByteValueConverter;
 import common.Utils;
+import common.binary.BinaryInput;
 import heif.BoxHandler;
 import heif.HeifBoxType;
 import logger.LogFactory;
@@ -31,7 +31,7 @@ public class Box
     private int hierarchyDepth;
 
     /**
-     * Constructs a {@code Box} by reading its header from the specified {@code ByteStreamReader}.
+     * Constructs a {@code Box} by reading its header from the specified {@code BinaryInput}.
      *
      * @param reader
      *        the byte reader for parsing
@@ -41,7 +41,7 @@ public class Box
      * @throws IllegalStateException
      *         if the standard box size is illegal
      */
-    public Box(ByteStreamReader reader) throws IOException
+    public Box(BinaryInput reader) throws IOException
     {
         this.startPosition = reader.getCurrentPosition();
 
@@ -106,7 +106,7 @@ public class Box
      * @throws IllegalStateException
      *         the box size is unknown, possibly due to a malformed structure
      */
-    public long available(ByteStreamReader reader) throws IOException
+    public long available(BinaryInput reader) throws IOException
     {
         if (boxSize == BOX_SIZE_TO_EOF)
         {
@@ -273,7 +273,7 @@ public class Box
      *
      * @param child
      *        the box to validate against this parent's limits
-     * 
+     *
      * @throws IllegalStateException
      *         if the child boundary exceeds the parent boundary
      */

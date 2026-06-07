@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import heif.BoxFactory;
 import heif.HeifBoxType;
 import logger.LogFactory;
@@ -63,14 +63,14 @@ public class ItemPropertiesBox extends Box
      * @param box
      *        the parent Box header containing size and type
      * @param reader
-     *        a {@code ByteStreamReader} to read the box content
+     *        a {@code BinaryInput} to read the box content
      * 
      * @throws IOException
      *         if an I/O error occurs
      * @throws IllegalStateException
      *         if malformed data is encountered, such as a negative box size and corrupted data
      */
-    public ItemPropertiesBox(Box box, ByteStreamReader reader) throws IOException
+    public ItemPropertiesBox(Box box, BinaryInput reader) throws IOException
     {
         super(box);
 
@@ -266,7 +266,7 @@ public class ItemPropertiesBox extends Box
          * @throws IllegalStateException
          *         if any form of data corruption is detected
          */
-        private ItemPropertyContainerBox(Box box, ByteStreamReader reader) throws IOException
+        private ItemPropertyContainerBox(Box box, BinaryInput reader) throws IOException
         {
             super(box);
 

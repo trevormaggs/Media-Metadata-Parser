@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import common.ByteValueConverter;
 import common.Utils;
-import common.ByteStreamReader;
+import common.binary.BinaryInput;
 import logger.LogFactory;
 
 /**
@@ -40,7 +40,7 @@ public class AuxiliaryTypePropertyBox extends FullBox
      * @throws IOException
      *         if an I/O error occurs
      */
-    public AuxiliaryTypePropertyBox(Box box, ByteStreamReader reader) throws IOException
+    public AuxiliaryTypePropertyBox(Box box, BinaryInput reader) throws IOException
     {
         super(box, reader);
 

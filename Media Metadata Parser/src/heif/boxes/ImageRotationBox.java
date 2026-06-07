@@ -1,8 +1,8 @@
 package heif.boxes;
 
 import java.io.IOException;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import logger.LogFactory;
 
 /**
@@ -13,11 +13,11 @@ import logger.LogFactory;
  * The image rotation transformative item property of the {@code ImageRotationBox} box rotates the
  * reconstructed image of the associated image item in anti-clockwise direction in units of 90
  * degrees.
- * 
+ *
  * <p>
  * The specification defines the angle as :-
  * </p>
- * 
+ *
  * <ul>
  * <li>0: 0 degrees</li>
  * <li>1: 90 degrees anti-clockwise</li>
@@ -47,12 +47,12 @@ public class ImageRotationBox extends Box
      * @param box
      *        the super Box object
      * @param reader
-     *        a ByteStreamReader object for sequential byte array access
-     * 
+     *        a BinaryInput object for sequential byte array access
+     *
      * @throws IOException
      *         if an I/O error occurs
      */
-    public ImageRotationBox(Box box, ByteStreamReader reader) throws IOException
+    public ImageRotationBox(Box box, BinaryInput reader) throws IOException
     {
         super(box);
 

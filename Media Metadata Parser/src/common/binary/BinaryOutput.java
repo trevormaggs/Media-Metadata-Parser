@@ -1,4 +1,4 @@
-package common.Binary;
+package common.binary;
 
 import java.io.IOException;
 import java.nio.ByteOrder;

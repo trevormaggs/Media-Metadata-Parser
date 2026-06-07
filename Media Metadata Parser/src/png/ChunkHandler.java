@@ -10,11 +10,11 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
-import common.ByteStreamReader;
 import common.ByteValueConverter;
 import common.DigitalSignature;
 import common.ImageHandler;
-import common.ImageRandomAccessReader;
+import common.binary.BinaryInput;
+import common.binary.RandomAccessReader;
 import logger.LogFactory;
 import png.ChunkType.Category;
 
@@ -47,7 +47,7 @@ public class ChunkHandler implements ImageHandler
     public static final ByteOrder PNG_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
     private final Path imageFile;
     private final boolean strictMode;
-    private final ByteStreamReader reader;
+    private final BinaryInput reader;
     private final EnumSet<ChunkType> requiredChunks;
     private final List<PngChunk> chunks = new ArrayList<>();
 
@@ -65,7 +65,7 @@ public class ChunkHandler implements ImageHandler
      *        {@code true} to enforce strict parsing validation, otherwise {@code false} for lenient
      *        operations without interrupting the parsing process
      */
-    private ChunkHandler(Path fpath, ByteStreamReader reader, EnumSet<ChunkType> requiredChunks, boolean strict)
+    private ChunkHandler(Path fpath, BinaryInput reader, EnumSet<ChunkType> requiredChunks, boolean strict)
     {
         this.imageFile = fpath;
         this.reader = reader;
@@ -96,7 +96,7 @@ public class ChunkHandler implements ImageHandler
      */
     public ChunkHandler(Path fpath, EnumSet<ChunkType> requiredChunks, boolean strict) throws IOException
     {
-        this(fpath, new ImageRandomAccessReader(fpath, PNG_BYTE_ORDER), requiredChunks, strict);
+        this(fpath, new RandomAccessReader(fpath, PNG_BYTE_ORDER), requiredChunks, strict);
     }
 
     /**
@@ -118,7 +118,7 @@ public class ChunkHandler implements ImageHandler
     }
 
     /**
-     * Releases the file handle and closes the underlying {@code ByteStreamReader} resource.
+     * Releases the file handle and closes the underlying {@code BinaryInput} resource.
      *
      * <p>
      * This is called automatically when using a {@code try-with-resources} block. Closing this
@@ -143,7 +143,7 @@ public class ChunkHandler implements ImageHandler
      * implements a "soft landing" exception strategy, ensuring that any parsing disruptions do not
      * lead to crashing the entire file parser unnecessarily. In the event of disruptions, they will
      * be logged.
-     * 
+     *
      * @return {@code true} if the PNG stream signature was verified and chunk parsing operations
      *         were completed successfully, otherwise {@code false} on any errors, which will be
      *         logged
@@ -323,7 +323,7 @@ public class ChunkHandler implements ImageHandler
      *        the type of the chunk
      * @return an {@link Optional} containing the discovered {@link PngChunk} object, otherwise
      *         {@link Optional#empty()} if not found
-     * 
+     *
      */
     public Optional<PngChunk> getLastChunk(ChunkType type)
     {

@@ -11,8 +11,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Locale;
 import common.ByteValueConverter;
-import common.ImageRandomAccessWriter;
 import common.Utils;
+import common.binary.BinaryInput;
+import common.binary.BinaryOutput;
+import common.binary.RandomAccessReader;
+import common.binary.RandomAccessWriter;
 import logger.LogFactory;
 import tif.DirectoryIFD;
 import tif.DirectoryIFD.EntryIFD;
@@ -24,8 +27,8 @@ import tif.tagspecs.TagIFD_GPS;
 import tif.tagspecs.Taggable;
 
 /**
- * A utility class providing the functionality to surgically patch dates in both the EXIF (TIFF) and
- * XMP (XML) segments of JPEG files. It overwrites bytes inline using the file stream resource to
+ * A utility class that performs in-place patching of date metadata in both the EXIF (TIFF) and XMP
+ * (XML) segments of JPEG files. It overwrites bytes inline using the file stream resource to
  * maintain file integrity and prevent metadata displacement.
  *
  * <p>
@@ -59,11 +62,12 @@ public final class JpgDatePatcher
     }
 
     /**
-     * Patches all identified metadata dates within the JPEG file at the specified path, iterating
-     * through JPEG markers to identify and process APP1 segments containing EXIF or XMP payloads.
+     * Patches all supported date-related metadata fields within the JPEG file at the specified
+     * path, iterating through JPEG markers to identify and process APP1 segments containing EXIF or
+     * XMP payloads.
      *
      * @param imagePath
-     *        the {@link Path} to the JPG to be patched
+     *        the {@link Path} to the JPEG to be patched
      * @param newDate
      *        the new timestamp to apply to all metadata fields
      * @throws IOException
@@ -75,11 +79,12 @@ public final class JpgDatePatcher
     }
 
     /**
-     * Patches all identified metadata dates within the JPEG file at the specified path, iterating
-     * through JPEG markers to identify and process APP1 segments containing EXIF or XMP payloads.
+     * Patches all supported date-related metadata fields within the JPEG file at the specified
+     * path, iterating through JPEG markers to identify and process APP1 segments containing EXIF or
+     * XMP payloads.
      *
      * @param imagePath
-     *        the {@link Path} to the JPG to be patched
+     *        the {@link Path} to the JPEG to be patched
      * @param newDate
      *        the new timestamp to apply to all metadata fields
      * @param xmpDump
@@ -93,11 +98,18 @@ public final class JpgDatePatcher
     {
         ZonedDateTime zdt = newDate.toInstant().atZone(ZoneId.systemDefault());
 
-        try (ImageRandomAccessWriter writer = new ImageRandomAccessWriter(imagePath, ByteOrder.BIG_ENDIAN))
+        /*
+         * On Windows, the writer must be opened before the reader when using shared file access.
+         * Otherwise, the operating system may deny access.
+         *
+         * For details of the Win32 file-opening semantics (C++), see:
+         * https://learn.microsoft.com/en-us/windows/win32/fileio/creating-and-opening-files
+         */
+        try (RandomAccessWriter writer = new RandomAccessWriter(imagePath); RandomAccessReader reader = new RandomAccessReader(imagePath))
         {
-            while (writer.getCurrentPosition() < writer.length())
+            while (reader.getCurrentPosition() < reader.length())
             {
-                JpgSegmentConstants segment = JpgParser.fetchNextSegment(writer);
+                JpgSegmentConstants segment = JpgParser.fetchNextSegment(reader);
 
                 if (segment == null || segment == JpgSegmentConstants.END_OF_IMAGE || segment == JpgSegmentConstants.START_OF_STREAM)
                 {
@@ -106,20 +118,20 @@ public final class JpgDatePatcher
 
                 if (segment.hasLengthField())
                 {
-                    int length = writer.readUnsignedShort() - 2;
+                    int length = reader.readUnsignedShort() - 2;
 
                     if (length > 0)
                     {
-                        long payloadStart = writer.getCurrentPosition();
+                        long payloadStart = reader.getCurrentPosition();
 
                         if (segment == JpgSegmentConstants.APP1_SEGMENT)
                         {
-                            byte[] header = writer.peek(payloadStart, Math.min(length, JpgParser.XMP_IDENTIFIER.length));
+                            byte[] header = reader.peek(payloadStart, Math.min(length, JpgParser.XMP_IDENTIFIER.length));
 
                             if (header.length >= JpgParser.EXIF_IDENTIFIER.length && Arrays.equals(Arrays.copyOf(header, JpgParser.EXIF_IDENTIFIER.length), JpgParser.EXIF_IDENTIFIER))
                             {
-                                writer.skip(JpgParser.EXIF_IDENTIFIER.length);
-                                processExifSegment(writer, length - JpgParser.EXIF_IDENTIFIER.length, zdt);
+                                reader.skip(JpgParser.EXIF_IDENTIFIER.length);
+                                processExifSegment(reader, writer, length - JpgParser.EXIF_IDENTIFIER.length, zdt);
                             }
 
                             else if (header.length >= JpgParser.XMP_IDENTIFIER.length && Arrays.equals(Arrays.copyOf(header, JpgParser.XMP_IDENTIFIER.length), JpgParser.XMP_IDENTIFIER))
@@ -129,15 +141,15 @@ public final class JpgDatePatcher
                                 // Optional diagnostic dump of XMP payload to an external XML file
                                 if (xmpDump)
                                 {
-                                    Utils.printFastDumpXML(imagePath, writer.peek(payloadStart + JpgParser.XMP_IDENTIFIER.length, xmpLength));
+                                    Utils.printFastDumpXML(imagePath, reader.peek(payloadStart + JpgParser.XMP_IDENTIFIER.length, xmpLength));
                                 }
 
-                                writer.skip(JpgParser.XMP_IDENTIFIER.length);
-                                processXmpSegment(writer, xmpLength, zdt);
+                                reader.skip(JpgParser.XMP_IDENTIFIER.length);
+                                processXmpSegment(reader, writer, xmpLength, zdt);
                             }
                         }
 
-                        writer.seek(payloadStart + length);
+                        reader.seek(payloadStart + length);
                     }
                 }
             }
@@ -151,6 +163,8 @@ public final class JpgDatePatcher
      *
      * @param writer
      *        the writer used to perform the in-place modification
+     * @param reader
+     *        the reader positioned at the TIFF payload
      * @param length
      *        the length of the TIFF payload beginning at the TIFF header
      * @param zdt
@@ -159,15 +173,17 @@ public final class JpgDatePatcher
      * @throws IOException
      *         if the TIFF structure is corrupt or writing fails
      */
-    private static void processExifSegment(ImageRandomAccessWriter writer, int length, ZonedDateTime zdt) throws IOException
+    private static void processExifSegment(BinaryInput reader, BinaryOutput writer, int length, ZonedDateTime zdt) throws IOException
     {
         Taggable[] ifdTags = {
-                TagIFD_Baseline.IFD_DATE_TIME, TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL,
-                TagIFD_Exif.EXIF_DATE_TIME_DIGITIZED, TagIFD_GPS.GPS_DATE_STAMP};
+                TagIFD_Baseline.IFD_DATE_TIME,
+                TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL,
+                TagIFD_Exif.EXIF_DATE_TIME_DIGITIZED,
+                TagIFD_GPS.GPS_DATE_STAMP};
 
-        ByteOrder currentOrder = writer.getByteOrder();
-        long tiffHeaderPos = writer.getCurrentPosition();
-        byte[] payload = writer.readBytes(length);
+        ByteOrder originalWriterOrder = writer.getByteOrder();
+        long tiffHeaderPos = reader.getCurrentPosition();
+        byte[] payload = reader.readBytes(length);
         TifMetadata metadata = TifParser.parseTiffMetadataFromBytes(payload);
 
         try
@@ -187,7 +203,6 @@ public final class JpgDatePatcher
 
                         if (tag == TagIFD_GPS.GPS_DATE_STAMP)
                         {
-                            // Logic shift: GPS tags must be UTC, others remain local
                             updatedTime = zdt.withZoneSameInstant(ZoneId.of("UTC"));
                             formatter = GPS_FORMATTER;
                         }
@@ -211,11 +226,8 @@ public final class JpgDatePatcher
                     // TimeStamp has 3 Rationals (H, M, S) = 24 bytes total.
                     byte[] timeBytes = new byte[24];
 
-                    // Hour / 1
                     ByteValueConverter.packRational(timeBytes, 0, utc.getHour(), 1, writer.getByteOrder());
-                    // Minute / 1
                     ByteValueConverter.packRational(timeBytes, 8, utc.getMinute(), 1, writer.getByteOrder());
-                    // Second / 1
                     ByteValueConverter.packRational(timeBytes, 16, utc.getSecond(), 1, writer.getByteOrder());
 
                     writer.seek(physicalPos);
@@ -228,7 +240,7 @@ public final class JpgDatePatcher
 
         finally
         {
-            writer.setByteOrder(currentOrder);
+            writer.setByteOrder(originalWriterOrder);
         }
     }
 
@@ -243,6 +255,8 @@ public final class JpgDatePatcher
      *
      * @param writer
      *        the writer used to perform the in-place modification
+     * @param reader
+     *        the reader positioned at the XMP payload
      * @param length
      *        the length of the XMP payload
      * @param zdt
@@ -250,7 +264,7 @@ public final class JpgDatePatcher
      * @throws IOException
      *         if an I/O error occurs during the overwrite process
      */
-    private static void processXmpSegment(ImageRandomAccessWriter writer, int length, ZonedDateTime zdt) throws IOException
+    private static void processXmpSegment(BinaryInput reader, BinaryOutput writer, int length, ZonedDateTime zdt) throws IOException
     {
         String[] xmpTags = {
                 "xmp:CreateDate", "xap:CreateDate", "xmp:ModifyDate", "xap:ModifyDate",
@@ -258,8 +272,8 @@ public final class JpgDatePatcher
                 "exif:DateTimeOriginal", "exif:DateTimeDigitized", "tiff:DateTime"
         };
 
-        long startPos = writer.getCurrentPosition();
-        byte[] xmpBytes = writer.readBytes(length);
+        long startPos = reader.getCurrentPosition();
+        byte[] xmpBytes = reader.readBytes(length);
         String xmlContent = new String(xmpBytes, StandardCharsets.UTF_8);
 
         for (String tag : xmpTags)

@@ -3,9 +3,9 @@ package heif.boxes;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import common.ByteStreamReader;
 import common.ByteValueConverter;
 import common.Utils;
+import common.binary.BinaryInput;
 import heif.BoxHandler;
 import logger.LogFactory;
 
@@ -37,7 +37,7 @@ public class ItemInfoEntry extends FullBox
      * @throws IOException
      *         if an I/O error occurs
      */
-    public ItemInfoEntry(Box box, ByteStreamReader reader) throws IOException
+    public ItemInfoEntry(Box box, BinaryInput reader) throws IOException
     {
         super(box, reader);
 

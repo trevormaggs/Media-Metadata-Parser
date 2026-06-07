@@ -1,8 +1,8 @@
 package heif.boxes;
 
 import java.io.IOException;
-import common.ByteStreamReader;
 import common.Utils;
+import common.binary.BinaryInput;
 import logger.LogFactory;
 
 /**
@@ -21,7 +21,7 @@ public class PixelAspectRatioBox extends Box
     private final long hSpacing;
     private final long vSpacing;
 
-    public PixelAspectRatioBox(Box box, ByteStreamReader reader) throws IOException
+    public PixelAspectRatioBox(Box box, BinaryInput reader) throws IOException
     {
         super(box);
 

@@ -1,4 +1,4 @@
-package common.Binary;
+package common.binary;
 
 import java.io.IOException;
 import java.nio.ByteOrder;
@@ -18,6 +18,7 @@ public interface BinaryInput extends AutoCloseable
     void reset();
     long length() throws IOException;
     long getCurrentPosition() throws IOException;
+    void skip(long n) throws IOException;
     void seek(long position) throws IOException;
     byte readByte() throws IOException;
     int readUnsignedByte() throws IOException;
@@ -33,5 +34,5 @@ public interface BinaryInput extends AutoCloseable
     byte peek(long offset) throws IOException;
     byte[] peek(long offset, int length) throws IOException;
     String readString() throws IOException;
-    String readString(Charset charset) throws IOException;
+    String readString(Charset charset) throws IOException;    
 }

@@ -12,8 +12,8 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import common.ImageRandomAccessWriter;
 import common.Utils;
+import common.binary.RandomAccessWriter;
 import heif.BoxHandler.MetadataType;
 import logger.LogFactory;
 import tif.DirectoryIFD;
@@ -97,7 +97,7 @@ public final class HeifDatePatcher
         {
             if (handler.parseMetadata())
             {
-                try (ImageRandomAccessWriter writer = new ImageRandomAccessWriter(imagePath, BoxHandler.HEIF_BYTE_ORDER))
+                try (RandomAccessWriter writer = new RandomAccessWriter(imagePath, BoxHandler.HEIF_BYTE_ORDER))
                 {
                     processExifSegment(handler, writer, zdt);
                     processXmpSegment(handler, writer, zdt, xmpDump);
@@ -124,7 +124,7 @@ public final class HeifDatePatcher
      * @throws IOException
      *         if a write error occurs
      */
-    private static void processExifSegment(BoxHandler handler, ImageRandomAccessWriter raf, ZonedDateTime zdt) throws IOException
+    private static void processExifSegment(BoxHandler handler, RandomAccessWriter raf, ZonedDateTime zdt) throws IOException
     {
         Optional<byte[]> exifData = handler.getExifData();
         int exifId = handler.findMetadataID(MetadataType.EXIF);
@@ -199,7 +199,7 @@ public final class HeifDatePatcher
      *         if the file is read-only, the address cannot be resolved, or the patch exceeds the
      *         original byte-width
      */
-    private static void processXmpSegment(BoxHandler handler, ImageRandomAccessWriter writer, ZonedDateTime zdt, boolean xmpDump) throws IOException
+    private static void processXmpSegment(BoxHandler handler, RandomAccessWriter writer, ZonedDateTime zdt, boolean xmpDump) throws IOException
     {
         String[] xmpTags = {
                 "xmp:CreateDate", "xap:CreateDate", "xmp:ModifyDate", "xap:ModifyDate",

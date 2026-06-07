@@ -1,4 +1,4 @@
-package common.Binary;
+package common.binary;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -465,6 +465,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * @return the computed value as a long
      * 
      * @throws IOException
+     *         if an I/O error occurs or the requested number of bytes is beyond the file's bounds
      */
     private long readValue(int numBytes) throws IOException
     {
