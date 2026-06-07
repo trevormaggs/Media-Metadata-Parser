@@ -18,7 +18,7 @@ import java.util.Objects;
  * @author Trevor Maggs
  * @version 1.1
  */
-public abstract class AbstractRandomAccessStream extends AbstractBinaryStream
+public abstract class AbstractRandomAccessStream extends AbstractBinaryStream implements AutoCloseable
 {
     protected final Path fpath;
     protected final RandomAccessFile raf;

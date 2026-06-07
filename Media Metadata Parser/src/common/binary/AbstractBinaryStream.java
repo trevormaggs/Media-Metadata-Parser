@@ -19,7 +19,7 @@ import java.util.Objects;
  * @author Trevor Maggs
  * @version 1.6
  */
-public abstract class AbstractBinaryStream implements AutoCloseable
+public abstract class AbstractBinaryStream
 {
     protected final Deque<Long> positionStack;
     protected ByteOrder byteOrder;
@@ -33,9 +33,6 @@ public abstract class AbstractBinaryStream implements AutoCloseable
     public abstract long length() throws IOException;
     public abstract long getCurrentPosition() throws IOException;
     public abstract void seek(long position) throws IOException;
-
-    @Override
-    public abstract void close() throws IOException;
 
     /**
      * Moves the current stream position by the specified offset.
