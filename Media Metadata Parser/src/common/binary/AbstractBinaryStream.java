@@ -15,6 +15,21 @@ import java.util.Objects;
  * Subclasses are responsible for implementing the actual I/O operations, while this class supplies
  * shared navigation and stream-state behaviour.
  * </p>
+ * 
+ * The following depicts the hierarchy supporting this project.
+ * 
+ * <pre>
+ * {@literal 
+ * <interface>} AutoCloseable
+ * ├── {@literal <interface>} BinaryInput
+ * └── {@literal <interface>} BinaryOutput
+ *
+ * AbstractBinaryStream (Root Base)
+ * ├── ByteArrayReader [implements BinaryInput]
+ * └── AbstractRandomAccessStream [implements AutoCloseable]
+ *     ├── RandomAccessReader [implements BinaryInput]
+ *     └── RandomAccessWriter [implements BinaryOutput]
+ * </pre>
  *
  * @author Trevor Maggs
  * @version 1.6
@@ -162,7 +177,7 @@ public abstract class AbstractBinaryStream
      * Determines whether at least the specified number of bytes remain in the stream.
      *
      * @param n
-     *        the required number of bytes
+     *        the number of bytes required
      *
      * @return {@code true} if at least {@code n} bytes remain, otherwise {@code false}
      *
@@ -184,7 +199,7 @@ public abstract class AbstractBinaryStream
     /**
      * Verifies that the specified number of bytes remain available.
      *
-     * @param byteLen
+     * @param byteCount
      *        the number of bytes required
      *
      * @throws IllegalArgumentException
@@ -194,18 +209,18 @@ public abstract class AbstractBinaryStream
      * @throws IOException
      *         if an I/O error occurs
      */
-    protected void checkBounds(long byteLen) throws IOException
+    protected void checkBounds(long byteCount) throws IOException
     {
         long remaining = remaining();
 
-        if (byteLen < 0)
+        if (byteCount < 0)
         {
             throw new IllegalArgumentException("Byte count cannot be negative");
         }
 
-        if (byteLen > remaining)
+        if (byteCount > remaining)
         {
-            throw new EOFException(String.format("Requested %d bytes, but only %d remain", byteLen, remaining));
+            throw new EOFException(String.format("Requested %d bytes, but only %d remain", byteCount, remaining));
         }
     }
 }

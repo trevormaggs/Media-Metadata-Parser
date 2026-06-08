@@ -45,12 +45,12 @@ import webp.WebPDatePatcher;
  * @version 1.1
  * @since 5 May 2026
  */
-public final class MediaBatchProcessor
+public final class MediaBatchProcessorSave
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessor.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessorSave.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("ddMMMyyyy");
     private static final long TEN_SECOND_OFFSET = 10L;
-    private final FileVisitor<Path> deleteVisitor;
+    private static final FileVisitor<Path> DELETE_VISITOR;
     private final List<ProgressListener> listeners;
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
@@ -59,18 +59,9 @@ public final class MediaBatchProcessor
     public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
     public static final String DEFAULT_IMAGE_PREFIX = "image";
 
-    /**
-     * Constructs a batch processor using the specified configuration.
-     *
-     * @param config
-     *        the validated configuration used for batch execution
-     */
-    public MediaBatchProcessor(BatchConfiguration config)
+    static
     {
-        this.config = config;
-        this.scanner = new MetadataScanner(config);
-        this.listeners = new ArrayList<ProgressListener>();
-        this.deleteVisitor = new SimpleFileVisitor<Path>()
+        DELETE_VISITOR = new SimpleFileVisitor<Path>()
         {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
@@ -82,12 +73,12 @@ public final class MediaBatchProcessor
             @Override
             public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException
             {
-                if (exc == null && !dir.equals(config.getTarget()))
+                if (exc == null)
                 {
                     Files.delete(dir);
                 }
 
-                else if (exc != null)
+                else
                 {
                     throw exc;
                 }
@@ -95,6 +86,19 @@ public final class MediaBatchProcessor
                 return FileVisitResult.CONTINUE;
             }
         };
+    }
+
+    /**
+     * Constructs a batch processor using the specified configuration.
+     *
+     * @param config
+     *        the validated configuration used for batch execution
+     */
+    public MediaBatchProcessorSave(BatchConfiguration config)
+    {
+        this.config = config;
+        this.scanner = new MetadataScanner(config);
+        this.listeners = new ArrayList<ProgressListener>();
     }
 
     /**
@@ -130,7 +134,6 @@ public final class MediaBatchProcessor
 
         scanner.start();
 
-        int count = 1;
         int index = 1;
         int total = scanner.getRecordCount();
 
@@ -149,16 +152,16 @@ public final class MediaBatchProcessor
 
                 else
                 {
-                    processRecord(record, index++, total);
+                    processRecord(record, index, total);
+
+                    /* Notify all registered listeners of the current progress. */
+                    for (ProgressListener listener : listeners)
+                    {
+                        listener.onProgressUpdate(index, total);
+                    }
                 }
 
-                /* Notify all registered listeners of the loop progress */
-                for (ProgressListener listener : listeners)
-                {
-                    listener.onProgressUpdate(count, total);
-                }
-
-                count++;
+                index++;
             }
 
             LOGGER.info("Batch processing completed successfully");
@@ -339,13 +342,11 @@ public final class MediaBatchProcessor
                     throw new BatchErrorException("Target directory cannot be the same as source directory");
                 }
 
-                Files.walkFileTree(config.getTarget(), deleteVisitor);
+                // Remove existing contents to ensure a clean batch environment
+                Files.walkFileTree(config.getTarget(), DELETE_VISITOR);
             }
 
-            else
-            {
-                Files.createDirectories(config.getTarget());
-            }
+            Files.createDirectories(config.getTarget());
         }
 
         catch (IOException exc)
