@@ -16,8 +16,8 @@ import java.util.Objects;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
- * @since 12 December 2025
+ * @version 1.0
+ * @since 8 June 2026
  */
 public final class ByteArrayReader extends AbstractBinaryStream implements BinaryInput
 {
@@ -32,7 +32,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * @param buf
      *        the source byte array
      * @param offset
-     *        the starting position within the byte array
+     *        the starting offset within the byte array
      * @param order
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
@@ -95,7 +95,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * @param buf
      *        the source byte array
      * @param offset
-     *        the starting position within the byte array
+     *        the starting offset within the byte array
      */
     public ByteArrayReader(byte[] buf, int offset)
     {
@@ -103,8 +103,12 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
     }
 
     /**
-     * Closes the stream. For {@code ByteArrayReader}, this is a no-op operation since no underlying
-     * native OS assets or file handles are bound to it.
+     * Closes the reader.
+     *
+     * <p>
+     * This implementation performs no action because the reader operates entirely on an in-memory
+     * byte array.
+     * </p>
      */
     @Override
     public void close() throws IOException
@@ -155,7 +159,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
     }
 
     /**
-     * Reads a single signed byte from the current position and advances the reader pointer by 1.
+     * Reads a single signed byte from the current position and advances the current position by 1.
      *
      * @return the signed 8-bit byte value (-128 to 127)
      * 
@@ -174,7 +178,8 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
     }
 
     /**
-     * Reads an 8-bit unsigned integer from the current position and advances the reader pointer by
+     * Reads an 8-bit unsigned integer from the current position and advances the current position
+     * by
      * 1.
      *
      * @return the unsigned 8-bit value (0-255) represented as an integer
@@ -189,7 +194,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
     }
 
     /**
-     * Reads a sequence of bytes from the current position and advances the reader pointer by the
+     * Reads a sequence of bytes from the current position and advances the current position by the
      * requested length.
      *
      * @param length
@@ -209,12 +214,13 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
         byte[] bytes = getBytes(bufferIndex, length);
         bufferIndex += length;
+
         return bytes;
     }
 
     /**
      * Reads a 16-bit signed short value from the current position using the configured byte order
-     * and advances the reader pointer by 2.
+     * and advances the current position by 2.
      *
      * @return the signed short value (-32768 to 32767)
      * 
@@ -229,7 +235,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
     /**
      * Reads a 16-bit unsigned short from the current position using the configured byte order and
-     * advances the reader pointer by 2.
+     * advances the current position by 2.
      *
      * @return the unsigned short value (0 to 65535) represented as an integer
      * 
@@ -244,7 +250,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
     /**
      * Reads a 32-bit signed integer value from the current position using the configured byte order
-     * and advances the reader pointer by 4.
+     * and advances the current position by 4.
      *
      * @return the signed 32-bit integer value
      * 
@@ -259,9 +265,9 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
     /**
      * Reads a 32-bit unsigned integer value from the current position using the configured byte
-     * order and advances the reader pointer by 4.
+     * order and advances the current position by 4.
      *
-     * @return the unsigned 32-bit integer value represented as a long (0 to 4294967295)
+     * @return the unsigned 32-bit integer value represented as a long (0 to 4,294,967,295)
      * 
      * @throws EOFException
      *         if fewer than 4 bytes remain available in the stream buffer
@@ -274,9 +280,9 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
     /**
      * Reads a 24-bit unsigned integer (3 bytes) from the current position using the configured byte
-     * order and advances the reader pointer by 3.
+     * order and advances the current position by 3.
      *
-     * @return the 24-bit unsigned value represented as an integer (0 to 16777215)
+     * @return the 24-bit unsigned value represented as an integer (0 to 16,777,215)
      * 
      * @throws EOFException
      *         if fewer than 3 bytes remain available in the stream buffer
@@ -289,7 +295,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
     /**
      * Reads a 64-bit signed long value from the current position using the configured byte order
-     * and advances the reader pointer by 8.
+     * and advances the current position by 8.
      *
      * @return the signed 64-bit long value
      * 
@@ -304,7 +310,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
     /**
      * Reads a 32-bit IEEE 754 single-precision floating-point value from the current position using
-     * the configured byte order and advances the reader pointer by 4.
+     * the configured byte order and advances the current position by 4.
      *
      * @return the single-precision float value
      * 
@@ -319,9 +325,9 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
     /**
      * Reads a 64-bit IEEE 754 double-precision floating-point value from the current position using
-     * the configured byte order and advances the reader pointer by 8.
+     * the configured byte order and advances the current position by 8.
      *
-     * @return the double-precision double value
+     * @return the double value
      * 
      * @throws EOFException
      *         if fewer than 8 bytes remain available in the stream buffer
@@ -337,7 +343,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * current position.
      *
      * @param offset
-     *        the offset (relative to baseIndex)
+     *        the offset relative to the start of the readable data
      * @return the byte of data fetched from the offset
      * 
      * @throws IndexOutOfBoundsException
@@ -354,7 +360,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * current position.
      *
      * @param offset
-     *        the position relative to the configured base offset
+     *        the offset relative to the start of the readable data
      * @param length
      *        the number of bytes to read
      * @return a new byte array containing the requested data block segment
@@ -386,8 +392,8 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * Reads a null-terminated string decoded via the specified text character set.
      * 
      * <p>
-     * Scans for {@code 0x00} starting from the current position. The pointer is advanced past the
-     * null terminator.
+     * Scans for {@code 0x00} starting from the current position and advances the current position
+     * past the null terminator.
      * </p>
      *
      * @param charset
@@ -406,7 +412,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
         int absStart = baseIndex + (int) bufferIndex;
         int absEnd = absStart;
-        int max = baseIndex + buffer.length;
+        int max = buffer.length;
 
         while (absEnd < max && buffer[absEnd] != 0)
         {
@@ -419,6 +425,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
         }
 
         String value = new String(buffer, absStart, absEnd - absStart, charset);
+
         bufferIndex += (absEnd - absStart) + 1;
 
         return value;
@@ -443,8 +450,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * @param position
      *        the index (relative to base offset) in the byte array
      * @param length
-     *        the total number of bytes to include in the sub-array (must be {@literal <=}
-     *        Integer.MAX_VALUE)
+     *        the number of bytes to copy
      * @return a new byte array containing the subset of the original array
      */
     private byte[] getBytes(long position, int length)
@@ -458,7 +464,8 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
     }
 
     /**
-     * Retrieves a value based on the number of bytes from the current position.
+     * Reads a value composed of the specified number of bytes from the current position using the
+     * configured byte order.
      *
      * @param numBytes
      *        the number of bytes to read
@@ -496,7 +503,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
     }
 
     /**
-     * Checks whether the specified position is within the byte array’s bounds.
+     * Validates that the specified byte range is within the readable bounds.
      *
      * @param position
      *        the position relative to the configured base offset
@@ -520,7 +527,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
         if (length > length() - position)
         {
-            throw new IndexOutOfBoundsException("Attempt to read beyond end of buffer. position=" + position + ", requested=" + length + ", remaining=" + (length() - position));
+            throw new IndexOutOfBoundsException("Attempt to read beyond end of buffer. position [" + position + "] requested [" + length + "] and remaining [" + (length() - position) + "]");
         }
     }
 }

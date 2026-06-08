@@ -105,7 +105,7 @@ public final class JpgDatePatcher
          * For details of the Win32 file-opening semantics (C++), see:
          * https://learn.microsoft.com/en-us/windows/win32/fileio/creating-and-opening-files
          */
-        try (RandomAccessWriter writer = new RandomAccessWriter(imagePath); RandomAccessReader reader = new RandomAccessReader(imagePath))
+        try (BinaryOutput writer = new RandomAccessWriter(imagePath); BinaryInput reader = new RandomAccessReader(imagePath))
         {
             while (reader.getCurrentPosition() < reader.length())
             {
@@ -131,7 +131,7 @@ public final class JpgDatePatcher
                             if (header.length >= JpgParser.EXIF_IDENTIFIER.length && Arrays.equals(Arrays.copyOf(header, JpgParser.EXIF_IDENTIFIER.length), JpgParser.EXIF_IDENTIFIER))
                             {
                                 reader.skip(JpgParser.EXIF_IDENTIFIER.length);
-                                processExifSegment(reader, writer, length - JpgParser.EXIF_IDENTIFIER.length, zdt);
+                                processExifSegment(writer, reader, length - JpgParser.EXIF_IDENTIFIER.length, zdt);
                             }
 
                             else if (header.length >= JpgParser.XMP_IDENTIFIER.length && Arrays.equals(Arrays.copyOf(header, JpgParser.XMP_IDENTIFIER.length), JpgParser.XMP_IDENTIFIER))
@@ -145,7 +145,7 @@ public final class JpgDatePatcher
                                 }
 
                                 reader.skip(JpgParser.XMP_IDENTIFIER.length);
-                                processXmpSegment(reader, writer, xmpLength, zdt);
+                                processXmpSegment(writer, reader, xmpLength, zdt);
                             }
                         }
 
@@ -173,7 +173,7 @@ public final class JpgDatePatcher
      * @throws IOException
      *         if the TIFF structure is corrupt or writing fails
      */
-    private static void processExifSegment(BinaryInput reader, BinaryOutput writer, int length, ZonedDateTime zdt) throws IOException
+    private static void processExifSegment(BinaryOutput writer, BinaryInput reader, int length, ZonedDateTime zdt) throws IOException
     {
         Taggable[] ifdTags = {
                 TagIFD_Baseline.IFD_DATE_TIME,
@@ -264,7 +264,7 @@ public final class JpgDatePatcher
      * @throws IOException
      *         if an I/O error occurs during the overwrite process
      */
-    private static void processXmpSegment(BinaryInput reader, BinaryOutput writer, int length, ZonedDateTime zdt) throws IOException
+    private static void processXmpSegment(BinaryOutput writer, BinaryInput reader, int length, ZonedDateTime zdt) throws IOException
     {
         String[] xmpTags = {
                 "xmp:CreateDate", "xap:CreateDate", "xmp:ModifyDate", "xap:ModifyDate",

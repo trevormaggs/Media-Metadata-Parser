@@ -103,12 +103,12 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
     @Override
     public byte[] readBytes(int length) throws IOException
     {
+        checkBounds(length);
+        
         if (length == 0)
         {
             return new byte[0];
         }
-
-        checkBounds(length);
 
         byte[] bytes = new byte[length];
         raf.readFully(bytes);

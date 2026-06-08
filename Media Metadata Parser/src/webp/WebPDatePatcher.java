@@ -13,8 +13,6 @@ import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Optional;
 import common.Utils;
-import common.binary.AbstractRandomAccessStream;
-import common.binary.BinaryOutput;
 import common.binary.RandomAccessWriter;
 import jpg.JpgParser;
 import logger.LogFactory;
@@ -76,7 +74,7 @@ public final class WebPDatePatcher
             {
                 LOGGER.info(String.format("Preparing to patch new date in WebP file [%s]", imagePath));
 
-                try (BinaryOutput writer = new RandomAccessWriter(imagePath, RiffHandler.WEBP_BYTE_ORDER))
+                try (RandomAccessWriter writer = new RandomAccessWriter(imagePath, RiffHandler.WEBP_BYTE_ORDER))
                 {
                     processExifSegment(handler, writer, zdt);
                     processXmpSegment(handler, writer, zdt, xmpDump);
@@ -105,7 +103,7 @@ public final class WebPDatePatcher
      * @throws IOException
      *         if an I/O error occurs whilst accessing the file or parsing the TIFF data
      */
-    private static void processExifSegment(RiffHandler handler, BinaryOutput writer, ZonedDateTime zdt) throws IOException
+    private static void processExifSegment(RiffHandler handler, RandomAccessWriter writer, ZonedDateTime zdt) throws IOException
     {
         Taggable[] ifdTags = {
                 TagIFD_Baseline.IFD_DATE_TIME, TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL,
@@ -200,7 +198,7 @@ public final class WebPDatePatcher
      * @throws IOException
      *         if an I/O error occurs whilst accessing the file or overwriting data
      */
-    private static void processXmpSegment(RiffHandler handler, BinaryOutput writer, ZonedDateTime zdt, boolean xmpDump) throws IOException
+    private static void processXmpSegment(RiffHandler handler, RandomAccessWriter writer, ZonedDateTime zdt, boolean xmpDump) throws IOException
     {
         final String[] xmpTags = {
                 "xmp:CreateDate", "xap:CreateDate", "xmp:ModifyDate", "xap:ModifyDate",
@@ -262,7 +260,7 @@ public final class WebPDatePatcher
 
                 if (xmpDump)
                 {
-                    Utils.printFastDumpXML(((AbstractRandomAccessStream) writer).getPath(), rawPayload);
+                    Utils.printFastDumpXML(writer.getPath(), rawPayload);
                 }
             }
         }
