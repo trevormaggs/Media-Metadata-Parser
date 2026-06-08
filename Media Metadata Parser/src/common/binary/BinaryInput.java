@@ -5,8 +5,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 
 /**
- * Defines the core data-reading contract for binary streaming components. Matches standard logical
- * stream boundaries and position stacks.
+ * Defines the core data-reading contract for binary streaming components, supporting standard stream positioning and navigation operations.
  */
 public interface BinaryInput extends AutoCloseable
 {
