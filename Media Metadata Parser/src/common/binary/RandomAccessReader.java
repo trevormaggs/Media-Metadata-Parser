@@ -104,7 +104,7 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
     public byte[] readBytes(int length) throws IOException
     {
         checkBounds(length);
-        
+
         if (length == 0)
         {
             return new byte[0];
@@ -357,97 +357,57 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
      *
      * @throws NullPointerException
      *         if {@code charset} is {@code null}
-     * @throws UnsupportedOperationException
-     *         if the detected string length exceeds {@link Integer#MAX_VALUE}
+     * @throws EOFException
+     *         if the end of the file is reached before finding a null terminator
      * @throws IOException
-     *         if a null terminator cannot be found or an I/O error occurs
+     *         if there is an underlying I/O error
      */
     @Override
     public String readString(Charset charset) throws IOException
     {
         Objects.requireNonNull(charset, "Charset cannot be null");
 
-        int b;
-        boolean foundNull = false;
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(32);
-
-        while ((b = raf.read()) != -1)
-        {
-            /*
-             * Just advances the pointer to reach
-             * the null terminator if present
-             */
-            if (b == 0x00)
-            {
-                foundNull = true;
-                break;
-            }
-
-            bos.write(b);
-        }
-
-        if (!foundNull)
-        {
-            throw new IOException("Null terminator not found before end of stream.");
-        }
-
-        byte[] data = bos.toByteArray();
-
-        return new String(data, charset);
-    }
-
-    // TODO: REVIEW THIS
-    public String readString2(Charset charset) throws IOException
-    {
-        Objects.requireNonNull(charset, "Charset cannot be null");
-
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(32);
-        byte[] chunk = new byte[32];
-        long startPosition = getCurrentPosition();
-        boolean foundNull = false;
         int bytesRead;
+        byte[] chunk = new byte[32];
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(32);
 
-        // Read in grouped blocks instead of byte-by-byte disk access
         while ((bytesRead = raf.read(chunk)) != -1)
         {
             for (int i = 0; i < bytesRead; i++)
             {
-                if (chunk[i] == 0x00)
+                if (chunk[i] == 0)
                 {
+                    // 1. Write ONLY the brand new remaining bytes from this chunk
                     bos.write(chunk, 0, i);
-                    // Snap file pointer precisely to the byte immediately following the 0x00
-                    // terminator
-                    seek(startPosition + bos.size() + 1);
-                    foundNull = true;
 
-                    break;
+                    // 2. Compute exactly how many bytes are left unconsumed in this 32-byte window
+                    int remaining = bytesRead - i - 1;
+
+                    // 3. Wind the disk pointer back by exactly that unconsumed gap
+                    if (remaining > 0)
+                    {
+                        seek(getCurrentPosition() - remaining);
+                    }
+
+                    return new String(bos.toByteArray(), charset);
                 }
             }
 
-            if (foundNull)
-            {
-                break;
-            }
-
+            // No terminator found yet; append the entire chunk safely
             bos.write(chunk, 0, bytesRead);
         }
 
-        if (!foundNull)
-        {
-            throw new EOFException("End of file reached before finding a null string terminator.");
-        }
-
-        // return bos.toString(charset);
-        return null;
+        // If we hit true EOF without finding a 0x00, throw your design-approved state error
+        throw new EOFException("End of file reached before finding a null string terminator");
     }
 
     /**
      * Determines whether the file pointer is positioned at the end of the file.
      *
      * @return {@code true} if no bytes remain to be read, otherwise {@code false}
-
+     * 
      */
-    public boolean isEOF() 
+    public boolean isEOF()
     {
         return remaining() == 0;
     }

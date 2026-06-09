@@ -41,19 +41,19 @@ public abstract class AbstractBinaryStream
     protected ByteOrder byteOrder;
 
     /**
- * Constructs a binary stream with the specified byte order.
- *
- * @param order
- *        the byte order to use
- *
- * @throws NullPointerException
- *         if {@code order} is {@code null}
- */
-protected AbstractBinaryStream(ByteOrder order)
-{
-    this.positionStack = new ArrayDeque<>();
-    this.byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
-}
+     * Constructs a binary stream with the specified byte order.
+     *
+     * @param order
+     *        the byte order to use
+     *
+     * @throws NullPointerException
+     *         if {@code order} is {@code null}
+     */
+    protected AbstractBinaryStream(ByteOrder order)
+    {
+        this.positionStack = new ArrayDeque<>();
+        this.byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
+    }
 
     public abstract long length() throws IOException;
     public abstract long getCurrentPosition() throws IOException;

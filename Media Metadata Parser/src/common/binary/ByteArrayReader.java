@@ -197,10 +197,8 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *        the number of bytes to read
      * @return a newly allocated byte array containing the copied data payload
      * 
-     * @throws IllegalArgumentException
-     *         if {@code length} is negative
-     * @throws IllegalStateException
-     *         if fewer bytes remain in the stream than requested
+     * @throws IndexOutOfBoundsException
+     *         if the length falls outside of bounds
      */
     @Override
     public byte[] readBytes(int length)
@@ -383,21 +381,20 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
     }
 
     /**
-     * Reads a null-terminated string decoded via the specified text character set.
-     * 
+     * Reads a null-terminated string using the specified character set.
+     *
      * <p>
-     * Scans for {@code 0x00} starting from the current position and advances the current position
-     * past the null terminator.
+     * Bytes are read starting at the current position until a null byte ({@code 0x00}) is
+     * found. The returned string does not include the null terminator, and the current
+     * position is advanced past it.
      * </p>
      *
      * @param charset
-     *        the text character encoding configuration to use for string decoding
-     * @return the decoded string excluding the null terminator
+     *        the character set used to decode the string
+     * @return the decoded string, excluding the null terminator
      *
-     * @throws IllegalStateException
-     *         if the end of the buffer is reached before a null terminator
      * @throws NullPointerException
-     *         if the given {@code charset} parameter is {@code null}
+     *         if {@code charset} is {@code null}
      */
     @Override
     public String readString(Charset charset)
@@ -413,14 +410,16 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
             absEnd++;
         }
 
-        if (absEnd == max)
-        {
-            throw new IllegalStateException("Unterminated string at position [" + bufferIndex + "]");
-        }
-
+        // If absEnd = absStart, then it will return "" (empty)
         String value = new String(buffer, absStart, absEnd - absStart, charset);
 
-        bufferIndex += (absEnd - absStart) + 1;
+        bufferIndex += (absEnd - absStart);
+
+        // Move past the null terminator if needed
+        if (absEnd < max)
+        {
+            bufferIndex++;
+        }
 
         return value;
     }
@@ -459,9 +458,9 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      */
     private byte[] getBytes(long offset, int length)
     {
-        byte[] bytes = new byte[length];
-
         validateByteIndex(offset, length);
+
+        byte[] bytes = new byte[length];
         System.arraycopy(buffer, baseIndex + (int) offset, bytes, 0, length);
 
         return bytes;
@@ -471,12 +470,16 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * Reads a value composed of the specified number of bytes from the current position using the
      * configured byte order.
      *
+     * <p>
+     * The current position is advanced by {@code numBytes} after the value has been read.
+     * </p>
+     *
      * @param numBytes
      *        the number of bytes to read
-     * @return the computed value as a long
-     * 
+     * @return the assembled value represented as a {@code long}
+     *
      * @throws IllegalStateException
-     *         if the requested number of bytes is beyond the file's bounds
+     *         if fewer than {@code numBytes} bytes remain available
      */
     private long readValue(int numBytes)
     {
@@ -514,28 +517,27 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * @param length
      *        the total number of bytes to check
      *
-     * @throws IllegalArgumentException
-     *         if {@code offset} or {@code length} is negative
      * @throws IndexOutOfBoundsException
-     *         if the position or target sequence range falls outside of bounds
+     *         if either offset, length or target sequence range falls outside of bounds
      */
     private void validateByteIndex(long offset, int length)
     {
+        long fileLength = length();
+        long endOffset = offset + length;
+
         if (offset < 0L)
         {
-            throw new IllegalArgumentException("Offset index cannot be negative [" + offset + "]");
+            throw new IndexOutOfBoundsException("Offset index cannot be negative [" + offset + "]");
         }
 
         if (length < 0)
         {
-            throw new IllegalArgumentException("Requested read length cannot be negative [" + length + "]");
+            throw new IndexOutOfBoundsException("Requested read length cannot be negative [" + length + "]");
         }
 
-        long endOffset = offset + length;
-
-        if (endOffset < offset || endOffset > length())
+        if (endOffset < offset || endOffset > fileLength)
         {
-            throw new IndexOutOfBoundsException(String.format("Peek out of bounds: offset [%d], length [%d], buffer capacity [%d]", offset, length, length()));
+            throw new IndexOutOfBoundsException(String.format("Peek out of bounds: offset [%d], length [%d], file length [%d]", offset, length, fileLength));
         }
     }
 }
