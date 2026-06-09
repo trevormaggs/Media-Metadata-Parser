@@ -16,7 +16,7 @@ import java.util.Objects;
  * shared navigation and stream-state behaviour.
  * </p>
  * 
- * The following depicts the hierarchy supporting this project.
+ * The following diagram shows the class hierarchy.
  * 
  * <pre>
  * {@literal 
@@ -27,8 +27,8 @@ import java.util.Objects;
  * AbstractBinaryStream (Root Base)
  * ├── ByteArrayReader [implements BinaryInput]
  * └── AbstractRandomAccessStream [implements AutoCloseable]
- * ├── RandomAccessReader [implements BinaryInput]
- * └── RandomAccessWriter [implements BinaryOutput]
+ *     ├── RandomAccessReader [implements BinaryInput]
+ *     └── RandomAccessWriter [implements BinaryOutput]
  * </pre>
  *
  * @author Trevor Maggs
@@ -40,11 +40,20 @@ public abstract class AbstractBinaryStream
     protected final Deque<Long> positionStack;
     protected ByteOrder byteOrder;
 
-    protected AbstractBinaryStream(ByteOrder order)
-    {
-        this.positionStack = new ArrayDeque<>();
-        this.byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
-    }
+    /**
+ * Constructs a binary stream with the specified byte order.
+ *
+ * @param order
+ *        the byte order to use
+ *
+ * @throws NullPointerException
+ *         if {@code order} is {@code null}
+ */
+protected AbstractBinaryStream(ByteOrder order)
+{
+    this.positionStack = new ArrayDeque<>();
+    this.byteOrder = Objects.requireNonNull(order, "Byte order cannot be null");
+}
 
     public abstract long length() throws IOException;
     public abstract long getCurrentPosition() throws IOException;
@@ -99,7 +108,7 @@ public abstract class AbstractBinaryStream
     }
 
     /**
-     * Restores the stream position recorded by the most recent {@link #mark()}.
+     * Restores the stream position registered by the most recent {@link #mark()}.
      *
      * <p>
      * The restored position is removed from the mark stack.
@@ -159,7 +168,7 @@ public abstract class AbstractBinaryStream
      * @return the non-negative number of remaining bytes or zero if the current position is beyond
      *         the end of the stream
      * 
-     * @throws IllegalStateException
+     * @throws UncheckedIOException
      *         if an I/O error occurs querying the stream capacity
      */
     public long remaining()
@@ -174,7 +183,7 @@ public abstract class AbstractBinaryStream
 
         catch (IOException exc)
         {
-            throw new IllegalStateException("Failed to evaluate stream capacity due to an underlying I/O error", exc);
+            throw new UncheckedIOException("Failed to evaluate stream capacity due to an underlying I/O error", exc);
         }
     }
 
