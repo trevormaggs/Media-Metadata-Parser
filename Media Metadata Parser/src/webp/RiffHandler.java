@@ -34,10 +34,7 @@ import logger.LogFactory;
  */
 public class RiffHandler implements ImageHandler
 {
-    /*
-     * Note, CHUNK_HEADER_SIZE represents the size of a RIFF chunk header
-     * (4 bytes for FourCC + 4 bytes for payload length, counting the WEBP identifier).
-     */
+     /* Note: CHUNK_HEADER_SIZE represents the size of a RIFF chunk header, encompassing 4 bytes for FourCC and 4 bytes for payload length, including the WEBP identifier. */
     private static final LogFactory LOGGER = LogFactory.getLogger(RiffHandler.class);
     private static final EnumSet<WebPChunkType> FIRST_CHUNK_TYPES = EnumSet.of(VP8, VP8L, VP8X);
     public static final ByteOrder WEBP_BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
