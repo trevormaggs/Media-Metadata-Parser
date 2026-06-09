@@ -357,10 +357,10 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
      *
      * @throws NullPointerException
      *         if {@code charset} is {@code null}
-     * @throws EOFException
-     *         if the end of the file is reached before finding a null terminator
      * @throws IOException
-     *         if there is an underlying I/O error
+     *         if there is an I/O error
+     * @throws EOFException
+     *         if the end of the file is reached without finding a null terminator         
      */
     @Override
     public String readString(Charset charset) throws IOException
@@ -377,27 +377,22 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
             {
                 if (chunk[i] == 0)
                 {
-                    // 1. Write ONLY the brand new remaining bytes from this chunk
                     bos.write(chunk, 0, i);
 
-                    // 2. Compute exactly how many bytes are left unconsumed in this 32-byte window
-                    int remaining = bytesRead - i - 1;
+                    int overshootLength = bytesRead - i - 1;
 
-                    // 3. Wind the disk pointer back by exactly that unconsumed gap
-                    if (remaining > 0)
+                    if (overshootLength > 0)
                     {
-                        seek(getCurrentPosition() - remaining);
+                        seek(getCurrentPosition() - overshootLength);
                     }
 
                     return new String(bos.toByteArray(), charset);
                 }
             }
 
-            // No terminator found yet; append the entire chunk safely
             bos.write(chunk, 0, bytesRead);
         }
 
-        // If we hit true EOF without finding a 0x00, throw your design-approved state error
         throw new EOFException("End of file reached before finding a null string terminator");
     }
 
