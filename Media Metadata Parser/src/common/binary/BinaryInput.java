@@ -5,7 +5,8 @@ import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 
 /**
- * Defines the core data-reading contract for binary streaming components, supporting standard stream positioning and navigation operations.
+ * Defines the core data-reading contract for binary streaming components, supporting standard
+ * stream positioning and navigation operations.
  */
 public interface BinaryInput extends AutoCloseable
 {
@@ -33,5 +34,5 @@ public interface BinaryInput extends AutoCloseable
     byte peek(long offset) throws IOException;
     byte[] peek(long offset, int length) throws IOException;
     String readString() throws IOException;
-    String readString(Charset charset) throws IOException;    
+    String readString(Charset charset) throws IOException;
 }

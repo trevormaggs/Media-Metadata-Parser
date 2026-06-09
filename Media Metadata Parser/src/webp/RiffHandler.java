@@ -461,6 +461,7 @@ public class RiffHandler implements ImageHandler
             try (ByteArrayReader subReader = new ByteArrayReader(payload, WEBP_BYTE_ORDER))
             {
                 subReader.skip(3);
+
                 byte[] syncCode = subReader.readBytes(3);
 
                 if (syncCode[0] == (byte) 0x9D && syncCode[1] == (byte) 0x01 && syncCode[2] == (byte) 0x2A)
@@ -491,7 +492,7 @@ public class RiffHandler implements ImageHandler
     }
 
     /**
-     * Parses the VP8L Lossless bitstream header to validate signatures and extract image
+     * Parses the VP8L Loss-less bitstream header to validate signatures and extract image
      * dimensions.
      *
      * @param payload
@@ -521,12 +522,6 @@ public class RiffHandler implements ImageHandler
                 {
                     throw new IllegalStateException("Corrupt bitstream structure. Invalid VP8L lossless signature byte");
                 }
-            }
-
-            catch (IOException exc)
-            {
-                // It is expected that it would never throw. This is only to satisfy the compiler.
-                throw new IllegalStateException("Unexpected I/O error parsing VP8L payload", exc);
             }
         }
 

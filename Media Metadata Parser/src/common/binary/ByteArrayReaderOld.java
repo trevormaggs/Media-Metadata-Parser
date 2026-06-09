@@ -1,5 +1,7 @@
 package common.binary;
 
+import java.io.EOFException;
+import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -10,15 +12,14 @@ import java.util.Objects;
  * 
  * <p>
  * Supports reading of signed and unsigned integers, floating-point numbers, and byte sequences with
- * configurable byte order (big-endian or little-endian). All bounds checking restrictions throw a
- * clean runtime {@link IllegalStateException} to keep consumer read operations elegant.
+ * configurable byte order (big-endian or little-endian).
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.1
+ * @version 1.0
  * @since 8 June 2026
  */
-public final class ByteArrayReader extends AbstractBinaryStream implements BinaryInput
+public final class ByteArrayReaderOld extends AbstractBinaryStream implements BinaryInput
 {
     private final byte[] buffer;
     private final int baseIndex;
@@ -39,11 +40,11 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * @throws IllegalArgumentException
      *         if the byte array is {@code null} or empty
      * @throws IndexOutOfBoundsException
-     *         if {@code offset} is negative or out of bounds
+     *         if {@code offset} is negative or greater than the length of the byte array
      * @throws NullPointerException
      *         if {@code order} is {@code null}
      */
-    public ByteArrayReader(byte[] buf, int offset, ByteOrder order)
+    public ByteArrayReaderOld(byte[] buf, int offset, ByteOrder order)
     {
         super(order);
 
@@ -68,7 +69,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * @param buf
      *        the source byte array
      */
-    public ByteArrayReader(byte[] buf)
+    public ByteArrayReaderOld(byte[] buf)
     {
         this(buf, ByteOrder.BIG_ENDIAN);
     }
@@ -82,7 +83,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *        the byte order for interpreting the input bytes, using either
      *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
      */
-    public ByteArrayReader(byte[] buf, ByteOrder order)
+    public ByteArrayReaderOld(byte[] buf, ByteOrder order)
     {
         this(buf, 0, order);
     }
@@ -96,7 +97,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * @param offset
      *        the starting offset within the byte array
      */
-    public ByteArrayReader(byte[] buf, int offset)
+    public ByteArrayReaderOld(byte[] buf, int offset)
     {
         this(buf, offset, ByteOrder.BIG_ENDIAN);
     }
@@ -110,9 +111,9 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * </p>
      */
     @Override
-    public void close()
+    public void close() throws IOException
     {
-        // No-op: No OS resources are tied to an in-memory byte array.
+        // No-op: No OS assets or native file handles are bound to this array reader.
     }
 
     /**
@@ -151,7 +152,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
     {
         if (pos < 0 || pos > length())
         {
-            throw new IndexOutOfBoundsException("Position [" + pos + "] out of bounds. Valid range is [0.." + length() + "]");
+            throw new IndexOutOfBoundsException("Position [" + pos + "] out of bounds. Valid range is [0.." + length() + "].");
         }
 
         bufferIndex = pos;
@@ -161,30 +162,33 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * Reads a single signed byte from the current position and advances the current position by 1.
      *
      * @return the signed 8-bit byte value (-128 to 127)
-     * @throws IllegalStateException
-     *         if the buffer capacity has been reached
+     * 
+     * @throws EOFException
+     *         if the reader index has reached the end of the readable buffer bounds
      */
     @Override
-    public byte readByte()
+    public byte readByte() throws IOException
     {
-        byte value = getByte(bufferIndex);
+        if (!hasRemaining(1))
+        {
+            throw new EOFException("End of buffer reached. Cannot read beyond position [" + length() + "]");
+        }
 
-        bufferIndex++;
-
-        return value;
+        return getByte(bufferIndex++);
     }
 
     /**
      * Reads an 8-bit unsigned integer from the current position and advances the current position
-     * by 1.
+     * by
+     * 1.
      *
      * @return the unsigned 8-bit value (0-255) represented as an integer
      * 
-     * @throws IllegalStateException
-     *         if the buffer capacity has been reached
+     * @throws EOFException
+     *         if the reader index has reached the end of the readable buffer bounds
      */
     @Override
-    public int readUnsignedByte()
+    public int readUnsignedByte() throws IOException
     {
         return (readByte() & 0xFF);
     }
@@ -197,16 +201,18 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *        the number of bytes to read
      * @return a newly allocated byte array containing the copied data payload
      * 
-     * @throws IllegalArgumentException
-     *         if {@code length} is negative
-     * @throws IllegalStateException
-     *         if fewer bytes remain in the stream than requested
+     * @throws EOFException
+     *         if fewer bytes remain in the stream than the requested length specifies
      */
     @Override
-    public byte[] readBytes(int length)
+    public byte[] readBytes(int length) throws IOException
     {
-        byte[] bytes = getBytes(bufferIndex, length);
+        if (!hasRemaining(length))
+        {
+            throw new EOFException("Cannot read [" + length + "] bytes. Only [" + remaining() + "] remaining");
+        }
 
+        byte[] bytes = getBytes(bufferIndex, length);
         bufferIndex += length;
 
         return bytes;
@@ -218,11 +224,11 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *
      * @return the signed short value (-32768 to 32767)
      * 
-     * @throws IllegalStateException
-     *         if fewer than 2 bytes remain in the buffer
+     * @throws EOFException
+     *         if fewer than 2 bytes remain available in the stream buffer
      */
     @Override
-    public short readShort()
+    public short readShort() throws IOException
     {
         return (short) readValue(2);
     }
@@ -233,11 +239,11 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *
      * @return the unsigned short value (0 to 65535) represented as an integer
      * 
-     * @throws IllegalStateException
-     *         if fewer than 2 bytes remain in the buffer
+     * @throws EOFException
+     *         if fewer than 2 bytes remain available in the stream buffer
      */
     @Override
-    public int readUnsignedShort()
+    public int readUnsignedShort() throws IOException
     {
         return readShort() & 0xFFFF;
     }
@@ -248,11 +254,11 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *
      * @return the signed 32-bit integer value
      * 
-     * @throws IllegalStateException
-     *         if fewer than 4 bytes remain in the buffer
+     * @throws EOFException
+     *         if fewer than 4 bytes remain available in the stream buffer
      */
     @Override
-    public int readInteger()
+    public int readInteger() throws IOException
     {
         return (int) readValue(4);
     }
@@ -263,11 +269,11 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *
      * @return the unsigned 32-bit integer value represented as a long (0 to 4,294,967,295)
      * 
-     * @throws IllegalStateException
-     *         if fewer than 4 bytes remain in the buffer
+     * @throws EOFException
+     *         if fewer than 4 bytes remain available in the stream buffer
      */
     @Override
-    public long readUnsignedInteger()
+    public long readUnsignedInteger() throws IOException
     {
         return readInteger() & 0xFFFFFFFFL;
     }
@@ -278,11 +284,11 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *
      * @return the 24-bit unsigned value represented as an integer (0 to 16,777,215)
      * 
-     * @throws IllegalStateException
-     *         if fewer than 3 bytes remain in the buffer
+     * @throws EOFException
+     *         if fewer than 3 bytes remain available in the stream buffer
      */
     @Override
-    public int readUnsignedInteger24()
+    public int readUnsignedInteger24() throws IOException
     {
         return (int) readValue(3);
     }
@@ -293,11 +299,11 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *
      * @return the signed 64-bit long value
      * 
-     * @throws IllegalStateException
-     *         if fewer than 8 bytes remain in the buffer
+     * @throws EOFException
+     *         if fewer than 8 bytes remain available in the stream buffer
      */
     @Override
-    public long readLong()
+    public long readLong() throws IOException
     {
         return readValue(8);
     }
@@ -308,11 +314,11 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *
      * @return the single-precision float value
      * 
-     * @throws IllegalStateException
-     *         if fewer than 4 bytes remain in the buffer
+     * @throws EOFException
+     *         if fewer than 4 bytes remain available in the stream buffer
      */
     @Override
-    public float readFloat()
+    public float readFloat() throws IOException
     {
         return Float.intBitsToFloat(readInteger());
     }
@@ -323,11 +329,11 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *
      * @return the double value
      * 
-     * @throws IllegalStateException
-     *         if fewer than 8 bytes remain in the buffer
+     * @throws EOFException
+     *         if fewer than 8 bytes remain available in the stream buffer
      */
     @Override
-    public double readDouble()
+    public double readDouble() throws IOException
     {
         return Double.longBitsToDouble(readLong());
     }
@@ -341,7 +347,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      * @return the byte of data fetched from the offset
      * 
      * @throws IndexOutOfBoundsException
-     *         if the targeted offset slice window falls outside of the buffer bounds
+     *         if the targeted offset location falls outside of the buffer bounds
      */
     @Override
     public byte peek(long offset)
@@ -415,7 +421,7 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
 
         if (absEnd == max)
         {
-            throw new IllegalStateException("Unterminated string at position [" + bufferIndex + "]");
+            throw new IllegalStateException("Unterminated string at position " + bufferIndex);
         }
 
         String value = new String(buffer, absStart, absEnd - absStart, charset);
@@ -428,41 +434,31 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
     /**
      * Returns a single byte from the array at the specified relative position.
      *
-     * @param offset
+     * @param position
      *        the index (relative to base offset) in the byte array
      * @return the byte fetched from the position
-     * 
-     * @throws IllegalArgumentException
-     *         if {@code offset} is negative
-     * @throws IndexOutOfBoundsException
-     *         if the requested range is outside the underlying buffer boundary
      */
-    private byte getByte(long offset)
+    private byte getByte(long position)
     {
-        validateByteIndex(offset, 1);
-        return buffer[baseIndex + (int) offset];
+        validateByteIndex(position, 1);
+        return buffer[baseIndex + (int) position];
     }
 
     /**
      * Copies and returns a sub-array from the byte array, starting from the specified position.
      *
-     * @param offset
+     * @param position
      *        the index (relative to base offset) in the byte array
      * @param length
      *        the number of bytes to copy
      * @return a new byte array containing the subset of the original array
-     * 
-     * @throws IllegalArgumentException
-     *         if {@code offset} or {@code length} is negative
-     * @throws IndexOutOfBoundsException
-     *         if the requested range is outside the underlying buffer boundary
      */
-    private byte[] getBytes(long offset, int length)
+    private byte[] getBytes(long position, int length)
     {
         byte[] bytes = new byte[length];
 
-        validateByteIndex(offset, length);
-        System.arraycopy(buffer, baseIndex + (int) offset, bytes, 0, length);
+        validateByteIndex(position, length);
+        System.arraycopy(buffer, baseIndex + (int) position, bytes, 0, length);
 
         return bytes;
     }
@@ -475,10 +471,10 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
      *        the number of bytes to read
      * @return the computed value as a long
      * 
-     * @throws IllegalStateException
-     *         if the requested number of bytes is beyond the file's bounds
+     * @throws IOException
+     *         if an I/O error occurs or the requested number of bytes is beyond the file's bounds
      */
-    private long readValue(int numBytes)
+    private long readValue(int numBytes) throws IOException
     {
         checkBounds(numBytes);
 
@@ -509,33 +505,29 @@ public final class ByteArrayReader extends AbstractBinaryStream implements Binar
     /**
      * Validates that the specified byte range is within the readable bounds.
      *
-     * @param offset
+     * @param position
      *        the position relative to the configured base offset
      * @param length
      *        the total number of bytes to check
      *
-     * @throws IllegalArgumentException
-     *         if {@code offset} or {@code length} is negative
      * @throws IndexOutOfBoundsException
      *         if the position or target sequence range falls outside of bounds
      */
-    private void validateByteIndex(long offset, int length)
+    private void validateByteIndex(long position, int length)
     {
-        if (offset < 0L)
+        if (position < 0L)
         {
-            throw new IllegalArgumentException("Offset index cannot be negative [" + offset + "]");
+            throw new IndexOutOfBoundsException("Cannot read the buffer with a negative index [" + position + "]");
         }
 
         if (length < 0)
         {
-            throw new IllegalArgumentException("Requested read length cannot be negative [" + length + "]");
+            throw new IndexOutOfBoundsException("Length of requested bytes cannot be negative [" + length + "]");
         }
 
-        long endOffset = offset + length;
-
-        if (endOffset < offset || endOffset > length())
+        if (length > length() - position)
         {
-            throw new IndexOutOfBoundsException(String.format("Peek out of bounds: offset [%d], length [%d], buffer capacity [%d]", offset, length, length()));
+            throw new IndexOutOfBoundsException("Attempt to read beyond end of buffer. position [" + position + "] requested [" + length + "] and remaining [" + (length() - position) + "]");
         }
     }
 }

@@ -1,7 +1,7 @@
 package common.binary;
 
-import java.io.EOFException;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -27,12 +27,13 @@ import java.util.Objects;
  * AbstractBinaryStream (Root Base)
  * ├── ByteArrayReader [implements BinaryInput]
  * └── AbstractRandomAccessStream [implements AutoCloseable]
- *     ├── RandomAccessReader [implements BinaryInput]
- *     └── RandomAccessWriter [implements BinaryOutput]
+ * ├── RandomAccessReader [implements BinaryInput]
+ * └── RandomAccessWriter [implements BinaryOutput]
  * </pre>
  *
  * @author Trevor Maggs
- * @version 1.6
+ * @version 1.0
+ * @since 9 June 2026
  */
 public abstract class AbstractBinaryStream
 {
@@ -80,6 +81,9 @@ public abstract class AbstractBinaryStream
      * <p>
      * A subsequent call to {@link #reset()} restores the most recently saved position.
      * </p>
+     * 
+     * @throws UncheckedIOException
+     *         if the stream position cannot be queried due to an underlying I/O error
      */
     public void mark()
     {
@@ -90,7 +94,7 @@ public abstract class AbstractBinaryStream
 
         catch (IOException exc)
         {
-            throw new RuntimeException("Failed to mark stream position", exc);
+            throw new UncheckedIOException("Failed to mark stream position", exc);
         }
     }
 
@@ -103,6 +107,8 @@ public abstract class AbstractBinaryStream
      *
      * @throws IllegalStateException
      *         if no marked position exists
+     * @throws UncheckedIOException
+     *         if the stream position cannot be restored due to an underlying I/O error
      */
     public void reset()
     {
@@ -118,7 +124,7 @@ public abstract class AbstractBinaryStream
 
         catch (IOException exc)
         {
-            throw new RuntimeException("Failed to reset stream position", exc);
+            throw new UncheckedIOException("Failed to reset stream position", exc);
         }
     }
 
@@ -150,25 +156,34 @@ public abstract class AbstractBinaryStream
     /**
      * Returns the number of bytes remaining between the current position and the end of the stream.
      *
-     * @return the number of remaining bytes
-     *
-     * @throws IOException
-     *         if an I/O error occurs
+     * @return the non-negative number of remaining bytes or zero if the current position is beyond
+     *         the end of the stream
+     * 
+     * @throws IllegalStateException
+     *         if an I/O error occurs querying the stream capacity
      */
-    public long remaining() throws IOException
+    public long remaining()
     {
-        return length() - getCurrentPosition();
+        try
+        {
+            long len = length();
+            long pos = getCurrentPosition();
+
+            return pos > len ? 0L : len - pos;
+        }
+
+        catch (IOException exc)
+        {
+            throw new IllegalStateException("Failed to evaluate stream capacity due to an underlying I/O error", exc);
+        }
     }
 
     /**
      * Determines whether at least one byte remains in the stream.
      *
      * @return {@code true} if at least one byte remains, otherwise {@code false}
-     *
-     * @throws IOException
-     *         if an I/O error occurs
      */
-    public boolean hasRemaining() throws IOException
+    public boolean hasRemaining()
     {
         return hasRemaining(1);
     }
@@ -178,15 +193,12 @@ public abstract class AbstractBinaryStream
      *
      * @param n
      *        the number of bytes required
-     *
      * @return {@code true} if at least {@code n} bytes remain, otherwise {@code false}
      *
      * @throws IllegalArgumentException
      *         if {@code n} is negative
-     * @throws IOException
-     *         if an I/O error occurs
      */
-    public boolean hasRemaining(int n) throws IOException
+    public boolean hasRemaining(int n)
     {
         if (n < 0)
         {
@@ -201,26 +213,24 @@ public abstract class AbstractBinaryStream
      *
      * @param byteCount
      *        the number of bytes required
-     *
+     * 
      * @throws IllegalArgumentException
-     *         if {@code byteLen} is negative
-     * @throws EOFException
+     *         if {@code byteCount} is negative
+     * @throws IllegalStateException
      *         if insufficient bytes remain
-     * @throws IOException
-     *         if an I/O error occurs
      */
-    protected void checkBounds(long byteCount) throws IOException
+    protected void checkBounds(long byteCount)
     {
-        long remaining = remaining();
-
         if (byteCount < 0)
         {
             throw new IllegalArgumentException("Byte count cannot be negative");
         }
 
+        long remaining = remaining();
+
         if (byteCount > remaining)
         {
-            throw new EOFException(String.format("Requested %d bytes, but only %d remain", byteCount, remaining));
+            throw new IllegalStateException(String.format("Requested %d bytes, but only %d remain", byteCount, remaining));
         }
     }
 }

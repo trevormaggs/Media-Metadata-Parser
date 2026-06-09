@@ -445,11 +445,9 @@ public final class RandomAccessReader extends AbstractRandomAccessStream impleme
      * Determines whether the file pointer is positioned at the end of the file.
      *
      * @return {@code true} if no bytes remain to be read, otherwise {@code false}
-     *
-     * @throws IOException
-     *         if an I/O error occurs
+
      */
-    public boolean isEOF() throws IOException
+    public boolean isEOF() 
     {
         return remaining() == 0;
     }
