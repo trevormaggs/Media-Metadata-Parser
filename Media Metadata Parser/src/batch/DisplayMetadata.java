@@ -13,7 +13,7 @@ import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
 import png.PngMetadataProvider;
 import tif.DirectoryIFD;
-import tif.TagTranslator;
+import tif.TagMapper;
 import tif.TifMetadataProvider;
 
 /**
@@ -165,8 +165,10 @@ public final class DisplayMetadata
 
             for (DirectoryIFD.EntryIFD entry : ifd)
             {
-                String name = TagTranslator.getDisplayName(ifd.getDirectoryType(), entry.getTag());
-                String val = TagTranslator.translate(entry.getTag(), entry.getData());
+                // String val = TagTranslator.translate(entry.getTag(), entry.getData());
+
+                String name = TagMapper.getDisplayName(ifd.getDirectoryType(), entry.getTag());
+                String val = TagMapper.translate(entry.getTag(), entry.getData());
 
                 System.out.printf(COLUMN_FORMAT, groupName, name, val);
             }

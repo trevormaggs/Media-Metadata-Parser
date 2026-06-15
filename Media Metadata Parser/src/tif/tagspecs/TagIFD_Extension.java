@@ -1,5 +1,7 @@
 package tif.tagspecs;
 
+import java.nio.charset.StandardCharsets;
+import common.ByteValueConverter;
 import tif.DirectoryIdentifier;
 import tif.TagHint;
 
@@ -39,6 +41,7 @@ public enum TagIFD_Extension implements Taggable
     IFD_XML_PACKET(0x02BC, "XMP Metadata", TagHint.HINT_STRING),
     IFD_IMAGE_ID(0x800D, "Image ID"),
     IFD_IMAGE_LAYER(0x87AC, "Image Layer"),
+    IFD_PADDING(0xEA1C, "Microsoft Padding", TagHint.HINT_BYTE_STREAM),
 
     /* --- Windows Legacy Custom Tags --- */
     IFD_XP_TITLE(0x9C9B, "Windows XP Title", TagHint.HINT_UCS2),
@@ -85,5 +88,92 @@ public enum TagIFD_Extension implements Taggable
     public String getDescription()
     {
         return desc;
+    }
+
+    @Override
+    public String translate(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (this)
+        {
+            case IFD_CLEAN_FAX_DATA:
+                return translateCleanFax(num);
+
+            case IFD_INDEXED:
+                return translateIndexed(num);
+
+            case IFD_XP_TITLE:
+            case IFD_XP_SUBJECT:
+            case IFD_XP_COMMENT:
+            case IFD_XP_KEYWORDS:
+            case IFD_XP_AUTHOR:
+                return translateXPString(val);
+
+            default:
+            break;
+        }
+
+        return Taggable.super.translate(val);
+    }
+
+    private String translateCleanFax(int num)
+    {
+        switch (num)
+        {
+            case 0:
+                return "Clean";
+
+            case 1:
+                return "Regenerated";
+
+            case 2:
+                return "Unclean";
+
+            default:
+                return Taggable.super.translate(num);
+        }
+    }
+
+    private String translateIndexed(int num)
+    {
+        // Preserving your exact logic, falling back to interface trimming if not explicitly 1
+        return (num == 1) ? "Indexed" : "Not indexed";
+    }
+
+    private String translateXPString(Object val)
+    {
+        byte[] bytes;
+
+        if (val instanceof byte[])
+        {
+            bytes = (byte[]) val;
+        }
+        else if (val instanceof int[])
+        {
+            // Leverages your custom data packet translator utility
+            bytes = ByteValueConverter.castToByteArray((int[]) val);
+        }
+        else
+        {
+            return Taggable.super.translate(val);
+        }
+
+        int length = bytes.length;
+        if (length % 2 != 0)
+        {
+            length--; // Keep alignment boundaries safely evened out
+        }
+
+        // Decode using your standard explicit character set identifier
+        String decoded = new String(bytes, 0, length, StandardCharsets.UTF_16LE);
+        int nullIdx = decoded.indexOf('\0');
+
+        if (nullIdx != -1)
+        {
+            decoded = decoded.substring(0, nullIdx);
+        }
+
+        return decoded.trim();
     }
 }

@@ -119,4 +119,190 @@ public enum TagIFD_Baseline implements Taggable
     {
         return desc;
     }
+
+    @Override
+    public String translate(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (this)
+        {
+            case IFD_COMPRESSION:
+                return translateCompression(num);
+
+            case IFD_ORIENTATION:
+                return translateOrientation(num);
+
+            case IFD_RESOLUTION_UNIT:
+                return translateResolutionUnit(num);
+
+            case IFD_YCB_CR_POSITIONING:
+                return translateYCbCr(num);
+
+            case IFD_PHOTOMETRIC_INTERPRETATION:
+                return translatePhotometric(num);
+
+            case IFD_PLANAR_CONFIGURATION:
+                return translatePlanarConfig(num);
+
+            default:
+            break;
+        }
+
+        return Taggable.super.translate(val);
+    }
+
+    private String translateCompression(int num)
+    {
+        switch (num)
+        {
+            case 1:
+                return "Uncompressed";
+
+            case 2:
+                return "CCITT 1D";
+
+            case 3:
+                return "T4/Group 3 Fax";
+
+            case 4:
+                return "T6/Group 4 Fax";
+
+            case 5:
+                return "LZW";
+
+            case 6:
+                return "JPEG (old-style)";
+
+            case 7:
+                return "JPEG";
+
+            case 8:
+                return "Adobe Deflate";
+
+            case 32773:
+                return "PackBits";
+
+            default:
+                return Taggable.super.translate(num);
+        }
+    }
+
+    private String translateOrientation(int num)
+    {
+        switch (num)
+        {
+            case 1:
+                return "Horizontal (normal)";
+
+            case 2:
+                return "Mirror horizontal";
+
+            case 3:
+                return "Rotate 180";
+
+            case 4:
+                return "Mirror vertical";
+
+            case 5:
+                return "Mirror horizontal and rotate 270 CW";
+
+            case 6:
+                return "Rotate 90 CW";
+
+            case 7:
+                return "Mirror horizontal and rotate 90 CW";
+
+            case 8:
+                return "Rotate 270 CW";
+
+            default:
+                return Taggable.super.translate(num);
+        }
+    }
+
+    private String translateResolutionUnit(int num)
+    {
+        switch (num)
+        {
+            case 1:
+                return "None";
+
+            case 2:
+                return "inches";
+
+            case 3:
+                return "cm";
+
+            default:
+                return Taggable.super.translate(num);
+        }
+    }
+
+    private String translateYCbCr(int num)
+    {
+        return (num == 1) ? "Centered" : (num == 2 ? "Co-sited" : Taggable.super.translate(num));
+    }
+
+    private String translatePhotometric(int num)
+    {
+        switch (num)
+        {
+            case 0:
+                return "WhiteIsZero";
+
+            case 1:
+                return "BlackIsZero";
+
+            case 2:
+                return "RGB";
+
+            case 3:
+                return "Palette";
+
+            case 4:
+                return "Transparency Mask";
+
+            case 5:
+                return "CMYK";
+
+            case 6:
+                return "YCbCr";
+
+            case 8:
+                return "CIELab";
+
+            case 9:
+                return "ICCLab";
+
+            case 10:
+                return "ITULab";
+
+            case 32803:
+                return "Color Filter Array";
+
+            case 32844:
+                return "Pixar LogL";
+
+            case 32845:
+                return "Pixar LogLuv";
+
+            case 34892:
+                return "Linear Raw";
+
+            case 51177:
+                return "Depth Map";
+
+            case 52527:
+                return "Semantic Mask";
+
+            default:
+                return Taggable.super.translate(num);
+        }
+    }
+
+    private String translatePlanarConfig(int num)
+    {
+        return (num == 1) ? "Chunky" : (num == 2 ? "Planar" : Taggable.super.translate(num));
+    }
 }

@@ -35,7 +35,6 @@ public class TagTranslator
         return tag.getDescription();
     }
 
-    // High-level router remains perfectly clean and delegation-focused
     public static String translate(Taggable tag, Object value)
     {
         if (value == null)

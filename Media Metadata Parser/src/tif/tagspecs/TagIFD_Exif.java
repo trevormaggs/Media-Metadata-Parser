@@ -119,4 +119,63 @@ public enum TagIFD_Exif implements Taggable
     {
         return desc;
     }
+
+    @Override
+    public String translate(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (this)
+        {
+            case EXIF_EXPOSURE_PROGRAM:
+                // return translateExposureProgram(num);
+
+            case EXIF_METERING_MODE:
+                // return translateMeteringMode(num);
+
+            case EXIF_LIGHT_SOURCE:
+                // return translateLightSource(num);
+
+            case EXIF_FLASH:
+                // return translateFlash(num);
+
+            case EXIF_COLOR_SPACE:
+                // return translateColorSpace(num);
+
+            case EXIF_EXPOSURE_MODE:
+                // return translateExposureMode(num);
+
+            case EXIF_WHITE_BALANCE:
+                // return translateWhiteBalance(num);
+
+            case EXIF_SCENE_CAPTURE_TYPE:
+                // return translateSceneCaptureType(num);
+
+            case EXIF_GAIN_CONTROL:
+                // return translateGainControl(num);
+
+            case EXIF_CONTRAST:
+            case EXIF_SATURATION:
+            case EXIF_SHARPNESS:
+                // return translateSoftnessMetric(num);
+
+            case EXIF_SENSITIVITY_TYPE:
+                // return translateSensitivityType(num);
+
+            case EXIF_SENSING_METHOD:
+                // return translateSensingMethod(num);
+
+            case EXIF_TAG_EXIF_VERSION:
+            case EXIF_FLASHPIX_VERSION:
+                // return translateVersionBytes(val);
+
+            case EXIF_COMPONENTS_CONFIGURATION:
+                // return translateComponentsConfiguration(val);
+
+            default:
+            break;
+        }
+
+        return Taggable.super.translate(val);
+    }
 }
