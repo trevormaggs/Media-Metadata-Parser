@@ -1,5 +1,7 @@
 package tif.tagspecs;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import tif.DirectoryIdentifier;
 import tif.TagHint;
 
@@ -123,12 +125,20 @@ public enum TagIFD_Exif implements Taggable
     @Override
     public String translate(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
         switch (this)
         {
+            case EXIF_TAG_EXIF_VERSION:
+            case EXIF_FLASHPIX_VERSION:
+                return translateVersionBytes(val);
+
+            case EXIF_USER_COMMENT:
+                return translateUserComment(val);
+
+            case EXIF_EXPOSURE_MODE:
+                return translateExposureMode(val);
+
             case EXIF_EXPOSURE_PROGRAM:
-                // return translateExposureProgram(num);
+                return translateExposureProgram(val);
 
             case EXIF_METERING_MODE:
                 // return translateMeteringMode(num);
@@ -141,9 +151,6 @@ public enum TagIFD_Exif implements Taggable
 
             case EXIF_COLOR_SPACE:
                 // return translateColorSpace(num);
-
-            case EXIF_EXPOSURE_MODE:
-                // return translateExposureMode(num);
 
             case EXIF_WHITE_BALANCE:
                 // return translateWhiteBalance(num);
@@ -165,10 +172,6 @@ public enum TagIFD_Exif implements Taggable
             case EXIF_SENSING_METHOD:
                 // return translateSensingMethod(num);
 
-            case EXIF_TAG_EXIF_VERSION:
-            case EXIF_FLASHPIX_VERSION:
-                // return translateVersionBytes(val);
-
             case EXIF_COMPONENTS_CONFIGURATION:
                 // return translateComponentsConfiguration(val);
 
@@ -177,5 +180,144 @@ public enum TagIFD_Exif implements Taggable
         }
 
         return Taggable.super.translate(val);
+    }
+
+    private String translateVersionBytes(Object val)
+    {
+        if (val instanceof byte[])
+        {
+            byte[] bytes = (byte[]) val;
+
+            if (bytes.length >= 4)
+            {
+                return new String(bytes, 0, 4, StandardCharsets.US_ASCII);
+            }
+        }
+
+        return String.valueOf(val);
+    }
+
+    private String translateUserComment(Object val)
+    {
+        if (val instanceof byte[])
+        {
+            byte[] bytes = (byte[]) val;
+
+            if (bytes.length <= 8)
+            {
+                return "";
+            }
+
+            // Read the first 8 bytes for character encoding designation
+            String prefix = new String(bytes, 0, 8, StandardCharsets.US_ASCII).trim();
+            Charset charset = StandardCharsets.UTF_8; // Default fallback
+
+            if (prefix.startsWith("ASCII"))
+            {
+                charset = StandardCharsets.US_ASCII;
+            }
+
+            else if (prefix.startsWith("UNICODE"))
+            {
+                charset = StandardCharsets.UTF_16; // Standard default (looks for BOM)
+
+                // If there are at least 2 bytes of text payload, check for an explicit BOM
+                if (bytes.length >= 10)
+                {
+                    int b1 = bytes[8] & 0xFF;
+                    int b2 = bytes[9] & 0xFF;
+
+                    if (b1 == 0xFF && b2 == 0xFE)
+                    {
+                        charset = StandardCharsets.UTF_16LE;
+                    }
+
+                    else if (b1 == 0xFE && b2 == 0xFF)
+                    {
+                        charset = StandardCharsets.UTF_16BE;
+                    }
+
+                    else
+                    {
+                        // No BOM found. EXIF spec technically defaults to big-endian,
+                        // but many cameras write little-endian. If you notice gibberish
+                        // on certain devices, swap this default to UTF_16LE.
+                        charset = StandardCharsets.UTF_16BE;
+                    }
+                }
+            }
+
+            else if (prefix.startsWith("JIS"))
+            {
+                charset = Charset.forName("Shift_JIS");
+            }
+
+            // Decode the remainder of the payload using the matched character set
+            String decoded = new String(bytes, 8, bytes.length - 8, charset);
+
+            // Safety step: Replace hidden structural null padding bytes (\0) before trimming
+            // whitespace
+            return decoded.replace("\0", "").trim();
+        }
+
+        return String.valueOf(val);
+    }
+
+    private String translateExposureMode(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 0:
+                return "Auto exposure";
+
+            case 1:
+                return "Manual exposure";
+
+            case 2:
+                return "Auto bracket";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateExposureProgram(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 0:
+                return "Not defined";
+
+            case 1:
+                return "Manual";
+
+            case 2:
+                return "Normal program";
+
+            case 3:
+                return "Aperture priority";
+
+            case 4:
+                return "Shutter priority";
+
+            case 5:
+                return "Creative program (biased toward depth of field)";
+
+            case 6:
+                return "Action program (biased toward fast shutter speed)";
+
+            case 7:
+                return "Portrait mode (for closeup photos with the background out of focus)";
+
+            case 8:
+                return "Landscape mode (for landscape photos with the background in focus)";
+
+            default:
+                return Taggable.super.translate(val);
+        }
     }
 }

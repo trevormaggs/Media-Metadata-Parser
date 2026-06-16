@@ -3,6 +3,19 @@ package tif.tagspecs;
 import tif.DirectoryIdentifier;
 import tif.TagHint;
 
+/**
+ * Defines the baseline TIFF tags specified by the TIFF Revision 6.0 specification.
+ *
+ * <p>
+ * Each enum constant represents a standard TIFF tag and maps a tag identifier to its descriptive
+ * name and optional {@link TagHint}. For tags that use enumerated values,
+ * {@link #translate(Object)} converts the raw numeric value into a human-readable description.
+ * </p>
+ *
+ * @author Trevor Maggs
+ * @version 1.5
+ * @since 16 June 2026
+ */
 public enum TagIFD_Baseline implements Taggable
 {
     IFD_NEW_SUBFILE_TYPE(0x00FE, "New Subfile Type"),
@@ -84,11 +97,29 @@ public enum TagIFD_Baseline implements Taggable
     private final TagHint hint;
     private final String desc;
 
+    /**
+     * Constructs a baseline TIFF tag using the default hint.
+     *
+     * @param id
+     *        the TIFF tag identifier
+     * @param desc
+     *        the tag description
+     */
     private TagIFD_Baseline(int id, String desc)
     {
         this(id, desc, TagHint.HINT_DEFAULT);
     }
 
+    /**
+     * Constructs a baseline TIFF tag with an explicit data type hint.
+     *
+     * @param id
+     *        the TIFF tag identifier
+     * @param desc
+     *        the tag description
+     * @param clue
+     *        the value interpretation hint
+     */
     private TagIFD_Baseline(int id, String desc, TagHint clue)
     {
         this.numID = id;
@@ -96,54 +127,72 @@ public enum TagIFD_Baseline implements Taggable
         this.hint = clue;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int getNumberID()
     {
         return numID;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public DirectoryIdentifier getDirectoryType()
     {
         return DirectoryIdentifier.IFD_ROOT_DIRECTORY;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public TagHint getHint()
     {
         return hint;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getDescription()
     {
         return desc;
     }
 
+    /**
+     * Converts known TIFF enumerated values into human-readable text. For tags that do not define
+     * custom translations, the default {@link Taggable#translate(Object)} implementation is used.
+     *
+     * @param val
+     *        the tag value container object
+     * @return a translated description of the value
+     */
     @Override
     public String translate(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
         switch (this)
         {
             case IFD_COMPRESSION:
-                return translateCompression(num);
+                return translateCompression(val);
 
             case IFD_ORIENTATION:
-                return translateOrientation(num);
+                return translateOrientation(val);
 
             case IFD_RESOLUTION_UNIT:
-                return translateResolutionUnit(num);
+                return translateResolutionUnit(val);
 
             case IFD_YCB_CR_POSITIONING:
-                return translateYCbCr(num);
+                return translateYCbCr(val);
 
             case IFD_PHOTOMETRIC_INTERPRETATION:
-                return translatePhotometric(num);
+                return translatePhotometric(val);
 
             case IFD_PLANAR_CONFIGURATION:
-                return translatePlanarConfig(num);
+                return translatePlanarConfig(val);
 
             default:
             break;
@@ -152,8 +201,17 @@ public enum TagIFD_Baseline implements Taggable
         return Taggable.super.translate(val);
     }
 
-    private String translateCompression(int num)
+    /**
+     * Translates TIFF compression scheme values into descriptive text labels.
+     *
+     * @param val
+     *        the raw compression data container
+     * @return a human-readable name of the compression scheme
+     */
+    private String translateCompression(Object val)
     {
+        int num = Taggable.convertToInt(val);
+
         switch (num)
         {
             case 1:
@@ -184,12 +242,21 @@ public enum TagIFD_Baseline implements Taggable
                 return "PackBits";
 
             default:
-                return Taggable.super.translate(num);
+                return Taggable.super.translate(val);
         }
     }
 
-    private String translateOrientation(int num)
+    /**
+     * Translates TIFF orientation values into descriptive labels.
+     * 
+     * @param val
+     *        the raw orientation data container
+     * @return a description of the image layout position
+     */
+    private String translateOrientation(Object val)
     {
+        int num = Taggable.convertToInt(val);
+
         switch (num)
         {
             case 1:
@@ -217,12 +284,21 @@ public enum TagIFD_Baseline implements Taggable
                 return "Rotate 270 CW";
 
             default:
-                return Taggable.super.translate(num);
+                return Taggable.super.translate(val);
         }
     }
 
-    private String translateResolutionUnit(int num)
+    /**
+     * Translates TIFF density unit flags into human-readable measurement units.
+     *
+     * @param val
+     *        the raw resolution unit data container
+     * @return the measurement metric label
+     */
+    private String translateResolutionUnit(Object val)
     {
+        int num = Taggable.convertToInt(val);
+
         switch (num)
         {
             case 1:
@@ -235,17 +311,35 @@ public enum TagIFD_Baseline implements Taggable
                 return "cm";
 
             default:
-                return Taggable.super.translate(num);
+                return Taggable.super.translate(val);
         }
     }
 
-    private String translateYCbCr(int num)
+    /**
+     * Translates YCbCr positioning values into descriptive labels.
+     *
+     * @param val
+     *        the raw YCbCr positioning container
+     * @return the pixel location mapping mode
+     */
+    private String translateYCbCr(Object val)
     {
-        return (num == 1) ? "Centered" : (num == 2 ? "Co-sited" : Taggable.super.translate(num));
+        int num = Taggable.convertToInt(val);
+
+        return (num == 1) ? "Centered" : (num == 2 ? "Co-sited" : Taggable.super.translate(val));
     }
 
-    private String translatePhotometric(int num)
+    /**
+     * Translates photometric interpretation values into color space models.
+     *
+     * @param val
+     *        the raw photometric data container
+     * @return the mapped color configuration profile space name
+     */
+    private String translatePhotometric(Object val)
     {
+        int num = Taggable.convertToInt(val);
+
         switch (num)
         {
             case 0:
@@ -297,12 +391,21 @@ public enum TagIFD_Baseline implements Taggable
                 return "Semantic Mask";
 
             default:
-                return Taggable.super.translate(num);
+                return Taggable.super.translate(val);
         }
     }
 
-    private String translatePlanarConfig(int num)
+    /**
+     * Translates planar component storage styles into clear channel labels.
+     *
+     * @param val
+     *        the raw planar layout tracking data container
+     * @return the component structural description ("Chunky" or "Planar")
+     */
+    private String translatePlanarConfig(Object val)
     {
-        return (num == 1) ? "Chunky" : (num == 2 ? "Planar" : Taggable.super.translate(num));
+        int num = Taggable.convertToInt(val);
+
+        return (num == 1) ? "Chunky" : (num == 2 ? "Planar" : Taggable.super.translate(val));
     }
 }

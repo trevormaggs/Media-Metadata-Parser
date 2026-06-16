@@ -6,17 +6,18 @@ import tif.DirectoryIdentifier;
 import tif.TagHint;
 
 /**
- * Extension TIFF tags defined by the TIFF 6.0 specification and common platform extensions.
- * 
+ * Defines TIFF extension tags specified by TIFF 6.0 and commonly encountered platform-specific
+ * extensions.
+ *
  * <p>
- * These tags build upon the baseline architecture to handle advanced document properties, embedded
- * metadata packets (such as XMP), and legacy operating system descriptors. All extension elements
- * map to the root directory structure to ensure universal availability across sequential image
- * streams.
+ * These tags supplement the baseline TIFF tag set with support for advanced document properties,
+ * embedded metadata (such as XMP), fax-related information, image layering, and Windows XP metadata
+ * fields. All tags in this enum belong to the root IFD.
  * </p>
- * 
+ *
  * @author Trevor Maggs
  * @version 1.1
+ * @since 16 June 2026
  */
 public enum TagIFD_Extension implements Taggable
 {
@@ -43,7 +44,7 @@ public enum TagIFD_Extension implements Taggable
     IFD_IMAGE_LAYER(0x87AC, "Image Layer"),
     IFD_PADDING(0xEA1C, "Microsoft Padding", TagHint.HINT_BYTE_STREAM),
 
-    /* --- Windows Legacy Custom Tags --- */
+    /* --- Windows XP Metadata Tags --- */
     IFD_XP_TITLE(0x9C9B, "Windows XP Title", TagHint.HINT_UCS2),
     IFD_XP_COMMENT(0x9C9C, "Windows XP Comment", TagHint.HINT_UCS2),
     IFD_XP_AUTHOR(0x9C9D, "Windows XP Author", TagHint.HINT_UCS2),
@@ -54,11 +55,29 @@ public enum TagIFD_Extension implements Taggable
     private final TagHint hint;
     private final String desc;
 
+    /**
+     * Constructs an extension TIFF tag using the default hint.
+     *
+     * @param id
+     *        the TIFF tag identifier
+     * @param desc
+     *        the tag description
+     */
     private TagIFD_Extension(int id, String desc)
     {
         this(id, desc, TagHint.HINT_DEFAULT);
     }
 
+    /**
+     * Constructs an extension TIFF tag with an explicit value hint.
+     *
+     * @param id
+     *        the TIFF tag identifier
+     * @param desc
+     *        the tag description
+     * @param clue
+     *        the value interpretation hint
+     */
     private TagIFD_Extension(int id, String desc, TagHint clue)
     {
         this.numID = id;
@@ -66,42 +85,61 @@ public enum TagIFD_Extension implements Taggable
         this.hint = clue;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int getNumberID()
     {
         return numID;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public DirectoryIdentifier getDirectoryType()
     {
         return DirectoryIdentifier.IFD_ROOT_DIRECTORY;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public TagHint getHint()
     {
         return hint;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getDescription()
     {
         return desc;
     }
 
+    /**
+     * Converts known TIFF extension tag values into human-readable text. Tags without custom
+     * translations use the default {@link Taggable#translate(Object)} implementation.
+     *
+     * @param val
+     *        the tag value
+     *
+     * @return a translated description of the value
+     */
     @Override
     public String translate(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
         switch (this)
         {
             case IFD_CLEAN_FAX_DATA:
-                return translateCleanFax(num);
+                return translateCleanFax(val);
 
             case IFD_INDEXED:
-                return translateIndexed(num);
+                return translateIndexed(val);
 
             case IFD_XP_TITLE:
             case IFD_XP_SUBJECT:
@@ -117,8 +155,18 @@ public enum TagIFD_Extension implements Taggable
         return Taggable.super.translate(val);
     }
 
-    private String translateCleanFax(int num)
+    /**
+     * Translates CleanFaxData values into descriptive status labels.
+     *
+     * @param num
+     *        the raw CleanFaxData value
+     *
+     * @return the corresponding status description
+     */
+    private String translateCleanFax(Object val)
     {
+        int num = Taggable.convertToInt(val);
+
         switch (num)
         {
             case 0:
@@ -131,16 +179,40 @@ public enum TagIFD_Extension implements Taggable
                 return "Unclean";
 
             default:
-                return Taggable.super.translate(num);
+                return Taggable.super.translate(val);
         }
     }
 
-    private String translateIndexed(int num)
+    /**
+     * Translates Indexed values into palette indexing descriptions.
+     *
+     * @param num
+     *        the raw Indexed value
+     *
+     * @return "Indexed" if the image uses a color lookup table, otherwise "Not indexed"
+     */
+    private String translateIndexed(Object val)
     {
-        // Preserving your exact logic, falling back to interface trimming if not explicitly 1
+        int num = Taggable.convertToInt(val);
+
         return (num == 1) ? "Indexed" : "Not indexed";
     }
 
+    /**
+     * Decodes a Windows XP metadata string stored as UTF-16LE.
+     *
+     * <p>
+     * TIFF XP tags store text as UCS-2/UTF-16LE byte sequences, typically terminated by a null
+     * character. This method accepts either a {@code byte[]} or {@code int[]} representation and
+     * converts the value into a Java {@link String}.
+     * </p>
+     *
+     * @param val
+     *        the raw tag value
+     *
+     * @return the decoded text, or the default translation if the value cannot be interpreted as a
+     *         Windows XP string
+     */
     private String translateXPString(Object val)
     {
         byte[] bytes;
@@ -149,23 +221,22 @@ public enum TagIFD_Extension implements Taggable
         {
             bytes = (byte[]) val;
         }
+
         else if (val instanceof int[])
         {
-            // Leverages your custom data packet translator utility
             bytes = ByteValueConverter.castToByteArray((int[]) val);
         }
+
         else
         {
             return Taggable.super.translate(val);
         }
 
         int length = bytes.length;
-        if (length % 2 != 0)
-        {
-            length--; // Keep alignment boundaries safely evened out
-        }
 
-        // Decode using your standard explicit character set identifier
+        /* UTF-16 requires an even number of bytes. */
+        length &= ~1;
+
         String decoded = new String(bytes, 0, length, StandardCharsets.UTF_16LE);
         int nullIdx = decoded.indexOf('\0');
 

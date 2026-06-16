@@ -13,12 +13,12 @@ import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
 import png.PngMetadataProvider;
 import tif.DirectoryIFD;
-import tif.TagMapper;
 import tif.TifMetadataProvider;
+import tif.tagspecs.Taggable;
 
 /**
  * Utility class to print media metadata in a format emulating the output style of
- * {@code exiffool -G1 -a -s -u}.
+ * {@code exiftool -G1 -a -s -u}.
  *
  * This class coordinates file discovery through a {@link MetadataScanner}, displays file system
  * attributes under the standard {@code [System]} group, and renders metadata from supported image
@@ -57,9 +57,9 @@ public final class DisplayMetadata
             scanner.start();
         }
 
-        catch (Exception e)
+        catch (Exception exc)
         {
-            System.err.println("Fatal: Failed to initialise metadata scanner: " + e.getMessage());
+            System.err.println("Fatal: Failed to initialise metadata scanner: " + exc.getMessage());
             return;
         }
 
@@ -91,7 +91,6 @@ public final class DisplayMetadata
                         }
                     }
 
-                    // Add a blank line separating records for clean structural presentation
                     System.out.println();
                 }
             }
@@ -161,16 +160,17 @@ public final class DisplayMetadata
     {
         for (DirectoryIFD ifd : tif)
         {
-            String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
+            tif.DirectoryIdentifier dirType = ifd.getDirectoryType();
+            String groupName = "[" + dirType.getDescription() + "]";
 
             for (DirectoryIFD.EntryIFD entry : ifd)
             {
-                // String val = TagTranslator.translate(entry.getTag(), entry.getData());
+                Taggable tag = entry.getTag();
+                Object rawData = entry.getData();
+                String name = getDisplayName(dirType, tag);
+                String value = (tag == null || rawData == null) ? "" : tag.translate(rawData);
 
-                String name = TagMapper.getDisplayName(ifd.getDirectoryType(), entry.getTag());
-                String val = TagMapper.translate(entry.getTag(), entry.getData());
-
-                System.out.printf(COLUMN_FORMAT, groupName, name, val);
+                System.out.printf(COLUMN_FORMAT, groupName, name, value);
             }
         }
 
@@ -179,9 +179,36 @@ public final class DisplayMetadata
             // Placeholder for future inline XMP tag parsing loops
         }
     }
+    
 
     private void displayPngMetadata(PngMetadataProvider pngMeta)
     {
         // Placeholder for native text chunk printing
+    }
+
+    /**
+     * Applies cosmetic display label transformations to match unique ExifTool output styles.
+     */
+    private String getDisplayName(tif.DirectoryIdentifier dir, Taggable tag)
+    {
+        if (tag == null)
+        {
+            return "Unknown Tag";
+        }
+
+        if (dir == tif.DirectoryIdentifier.IFD_DIRECTORY_IFD1)
+        {
+            if (tag == tif.tagspecs.TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT)
+            {
+                return "ThumbnailOffset";
+            }
+
+            if (tag == tif.tagspecs.TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT_LENGTH)
+            {
+                return "ThumbnailLength";
+            }
+        }
+
+        return tag.getDescription();
     }
 }

@@ -1,6 +1,7 @@
 package tif.tagspecs;
 
 import tif.TagHint;
+import java.lang.reflect.Array;
 import java.util.Locale;
 import tif.DirectoryIdentifier;
 import tif.RationalNumber;
@@ -42,30 +43,42 @@ public interface Taggable
             return "";
         }
 
-        // 1. Intercept Custom Rational Object Wrappers
-        if (val instanceof RationalNumber)
+        if (getHint() == TagHint.HINT_BYTE_STREAM)
         {
-            RationalNumber r = (RationalNumber) val;
-
-            if (r.hasIntegerValue())
+            if (val instanceof byte[] || val instanceof int[])
             {
-                return String.valueOf(r.longValue());
+                int length = Array.getLength(val);
+
+                if (length > 0)
+                {
+                    return String.format(Locale.ROOT, "[Binary Data: %d bytes]", length);
+                }
             }
 
-            double d = r.doubleValue();
-
-            if (d < 0.1)
-            {
-                return r.toString();
-            }
-
-            return formatNumericValue(d);
+            return "[Binary Data]";
         }
 
-        // 2. Intercept Standard Decimal Primitives
-        if (val instanceof Double)
+        if (val instanceof RationalNumber[])
         {
-            return formatNumericValue((Double) val);
+            StringBuilder sb = new StringBuilder();
+            RationalNumber[] arr = (RationalNumber[]) val;
+
+            for (int i = 0; i < arr.length; i++)
+            {
+                sb.append(formatRational(arr[i]));
+
+                if (i < arr.length - 1)
+                {
+                    sb.append(" ");
+                }
+            }
+
+            return sb.toString();
+        }
+
+        if (val instanceof RationalNumber)
+        {
+            return formatRational((RationalNumber) val);
         }
 
         if (val instanceof Float)
@@ -73,31 +86,19 @@ public interface Taggable
             return formatNumericValue(((Float) val).doubleValue());
         }
 
-        // 3. Global Byte Stream Interception Footprint
-        if (getHint() == TagHint.HINT_BYTE_STREAM)
+        if (val instanceof Double)
         {
-            if (val instanceof byte[])
-            {
-                return String.format(Locale.ROOT, "[Binary Data: %d bytes]", ((byte[]) val).length);
-            }
-
-            if (val instanceof int[])
-            {
-                return String.format(Locale.ROOT, "[Binary Data: %d bytes]", ((int[]) val).length);
-            }
-
-            return "[Binary Data]";
-        }
-
-        // 4. Clean Fallback for Primitive Array Blocks & Unmapped Objects
-        if (val instanceof double[])
-        {
-            return formatDoubleArray((double[]) val);
+            return formatNumericValue((Double) val);
         }
 
         if (val instanceof int[])
         {
             return formatIntArray((int[]) val);
+        }
+
+        if (val instanceof double[])
+        {
+            return formatDoubleArray((double[]) val);
         }
 
         return val.toString().trim();
@@ -126,6 +127,26 @@ public interface Taggable
         }
 
         return -1;
+    }
+
+    static String formatRational(RationalNumber r)
+    {
+        if (r == null) return "";
+
+        if (r.hasIntegerValue())
+        {
+            return String.valueOf(r.longValue());
+        }
+
+        double d = r.doubleValue();
+
+        // Keeps small fractional values like shutter speeds (e.g. 1/125) readable
+        if (d < 0.1)
+        {
+            return r.toString();
+        }
+
+        return formatNumericValue(d);
     }
 
     static String formatNumericValue(double d)
@@ -167,13 +188,13 @@ public interface Taggable
         for (int i = 0; i < arr.length; i++)
         {
             sb.append(arr[i]);
-            
+
             if (i < arr.length - 1)
             {
                 sb.append(" ");
             }
         }
-        
+
         return sb.toString();
     }
 }
