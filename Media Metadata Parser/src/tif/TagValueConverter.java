@@ -67,6 +67,7 @@ public final class TagValueConverter
                 case TYPE_SHORT_S:
                 case TYPE_LONG_S:
                     return true;
+
                 default:
                     return false;
             }
@@ -148,14 +149,22 @@ public final class TagValueConverter
                     tag.getDirectoryType().getDescription()));
         }
 
-        if (data instanceof int[])
+        if (data instanceof byte[])
         {
-            return (int[]) data;
+            byte[] b = (byte[]) data;
+            int[] result = new int[b.length];
+
+            for (int i = 0; i < b.length; i++)
+            {
+                result[i] = Byte.toUnsignedInt(b[i]);
+            }
+
+            return result;
         }
 
-        if (data instanceof Integer)
+        if (data instanceof Byte)
         {
-            return new int[]{(int) data};
+            return new int[]{Byte.toUnsignedInt((byte) data)};
         }
 
         if (data instanceof short[])
@@ -176,22 +185,14 @@ public final class TagValueConverter
             return new int[]{((Short) data).intValue() & 0xFFFF};
         }
 
-        if (data instanceof byte[])
+        if (data instanceof int[])
         {
-            byte[] b = (byte[]) data;
-            int[] result = new int[b.length];
-
-            for (int i = 0; i < b.length; i++)
-            {
-                result[i] = Byte.toUnsignedInt(b[i]);
-            }
-
-            return result;
+            return (int[]) data;
         }
 
-        if (data instanceof Byte)
+        if (data instanceof Integer)
         {
-            return new int[]{Byte.toUnsignedInt((byte) data)};
+            return new int[]{(int) data};
         }
 
         if (data instanceof long[] || data instanceof Long)
@@ -772,6 +773,76 @@ public final class TagValueConverter
     }
 
     /**
+     * Decodes text from an Exif tag, such as UserComment, that begins with an 8-byte character
+     * encoding header.
+     *
+     * <p>
+     * For UNICODE comments, the Exif specification stores text as UCS-2/UTF-16 using the file's
+     * byte order and does not require a Byte Order Mark (BOM). However, some software, including
+     * Adobe Photoshop and Windows Explorer, writes a BOM immediately after the encoding header.
+     * </p>
+     *
+     * <p>
+     * Java does not automatically remove a BOM when decoding with a fixed UTF-16 charset. To avoid
+     * a leading {@code '\uFEFF'} phantom character appearing in the decoded text, this method
+     * detects and skips BOM markers ({@code 0xFEFF} or {@code 0xFFFE}) and adjusts the character
+     * encoding accordingly.
+     * </p>
+     *
+     * <p>
+     * If no BOM is present, the payload is decoded as UTF-16LE for compatibility with commonly
+     * encountered Exif files.
+     * </p>
+     *
+     * @param data
+     *        the raw byte array from the Exif metadata tag
+     * @return the decoded and trimmed text string, or an empty string if the input is invalid
+     */
+    public static String decodeUserComment(byte[] data)
+    {
+        if (data != null && data.length >= ENCODING_HEADER_LENGTH)
+        {
+            String headerKey = new String(data, 0, ENCODING_HEADER_LENGTH, StandardCharsets.US_ASCII);
+            Charset charset = ENCODING_MAP.get(headerKey);
+
+            if (charset == null)
+            {
+                charset = StandardCharsets.UTF_8;
+            }
+
+            int payloadOffset = ENCODING_HEADER_LENGTH;
+            int payloadLength = data.length - ENCODING_HEADER_LENGTH;
+
+            if (charset.equals(StandardCharsets.UTF_16LE) && payloadLength >= 2)
+            {
+                int b1 = data[ENCODING_HEADER_LENGTH] & 0xFF;
+                int b2 = data[ENCODING_HEADER_LENGTH + 1] & 0xFF;
+
+                /* Detect and skip an optional UTF-16 BOM. */
+                if (b1 == 0xFE && b2 == 0xFF)
+                {
+                    charset = StandardCharsets.UTF_16BE;
+                    payloadOffset += 2;
+                    payloadLength -= 2;
+                }
+
+                else if (b1 == 0xFF && b2 == 0xFE)
+                {
+                    charset = StandardCharsets.UTF_16LE;
+                    payloadOffset += 2;
+                    payloadLength -= 2;
+                }
+            }
+
+            String decoded = new String(data, payloadOffset, payloadLength, charset);
+
+            return decoded.replace("\0", "").trim();
+        }
+
+        return "";
+    }
+
+    /**
      * Decodes a string value. If the input matches a recognised date pattern, it returns the value
      * as a formatted date string.
      *
@@ -823,39 +894,5 @@ public final class TagValueConverter
         }
 
         return new String(bytes, StandardCharsets.UTF_8).replace("\u0000", "").trim();
-    }
-
-    /**
-     * Decodes encoded strings containing an 8-byte charset identifier.
-     *
-     * @param data
-     *        the raw byte array
-     * @return a decoded, trimmed string
-     */
-    private static String decodeUserComment(byte[] data)
-    {
-        if (data != null && data.length >= ENCODING_HEADER_LENGTH)
-        {
-            String headerKey = new String(data, 0, ENCODING_HEADER_LENGTH, StandardCharsets.US_ASCII);
-            byte[] payloadBytes = Arrays.copyOfRange(data, ENCODING_HEADER_LENGTH, data.length);
-            Charset charset = ENCODING_MAP.get(headerKey);
-
-            if (charset == null)
-            {
-                charset = StandardCharsets.UTF_8;
-            }
-
-            String decoded = new String(payloadBytes, charset);
-            int nullIndex = decoded.indexOf('\0');
-
-            if (nullIndex != -1)
-            {
-                decoded = decoded.substring(0, nullIndex);
-            }
-
-            return decoded.trim();
-        }
-
-        return "";
     }
 }

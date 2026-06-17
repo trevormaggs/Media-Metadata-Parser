@@ -86,7 +86,7 @@ public final class ByteValueConverter
 
         if (offset < 0 || offset + 2 > data.length)
         {
-            throw new IndexOutOfBoundsException("Offset is out of bounds");
+            throw new IndexOutOfBoundsException(String.format("Cannot read 2-byte short at offset [%d]. Need 2 bytes, array length is [%d]", offset, data.length));
         }
 
         int byte0 = data[offset + 0] & 0xFF;
@@ -177,7 +177,7 @@ public final class ByteValueConverter
 
         if (offset < 0 || offset + 4 > data.length)
         {
-            throw new IndexOutOfBoundsException("Offset is out of bounds");
+            throw new IndexOutOfBoundsException(String.format("Cannot read 4-byte integer at offset [%d]. Need 4 bytes, array length is [%d]", offset, data.length));
         }
 
         int byte0 = data[offset + 0] & 0xFF;
@@ -273,7 +273,7 @@ public final class ByteValueConverter
 
         if (offset < 0 || offset + 8 > data.length)
         {
-            throw new IndexOutOfBoundsException("Invalid input for toLong: byte offset is out of bounds");
+            throw new IndexOutOfBoundsException(String.format("Cannot read 8-byte integer at offset [%d]. Need 8 bytes, array length is [%d]", offset, data.length));
         }
 
         long byte0 = data[offset + 0] & 0xFFL;
@@ -439,7 +439,7 @@ public final class ByteValueConverter
 
         if (offset < 0 || offset + 8 > data.length)
         {
-            throw new IndexOutOfBoundsException("Offset is out of bounds, or array is too short for 8 bytes starting at offset");
+            throw new IndexOutOfBoundsException(String.format("Cannot read 8-byte rational at offset %d: need 8 bytes, array length is %d", offset, data.length));
         }
 
         int numeratorRaw = toInteger(data, offset, order);

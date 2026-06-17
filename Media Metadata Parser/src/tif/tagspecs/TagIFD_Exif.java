@@ -1,14 +1,16 @@
 package tif.tagspecs;
 
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import tif.DirectoryIdentifier;
+import tif.RationalNumber;
 import tif.TagHint;
+import tif.TagValueConverter;
 
 /**
  * Exchangeable Image File Format (Exif) sub-directory metadata tags within the
  * {@link DirectoryIdentifier#IFD_EXIF_SUBIFD_DIRECTORY} scope.
- * 
+ *
  * @author Trevor Maggs
  * @version 1.2
  */
@@ -67,6 +69,10 @@ public enum TagIFD_Exif implements Taggable
     EXIF_PIXEL_YDIMENSION(0xA003, "Pixel Y Dimension", TagHint.HINT_INTEGER),
     EXIF_COMPONENTS_CONFIGURATION(0x9101, "Components Configuration", TagHint.HINT_UNDEFINED),
     EXIF_COMPRESSED_BITS_PER_PIXEL(0x9102, "Compressed Bits Per Pixel", TagHint.HINT_RATIONAL),
+    EXIF_FOCAL_PLANE_X_RESOLUTION(0xA20E, "FocalPlaneXResolution", TagHint.HINT_RATIONAL),
+    EXIF_FOCAL_PLANE_Y_RESOLUTION(0xA20F, "FocalPlaneYResolution", TagHint.HINT_RATIONAL),
+    EXIF_FOCAL_PLANE_RESOLUTION_UNIT(0xA210, "FocalPlaneResolutionUnit", TagHint.HINT_SHORT),
+    EXIF_CUSTOM_RENDERED(0xA401, "CustomRendered", TagHint.HINT_SHORT),
     EXIF_CONTRAST(0xA408, "Contrast", TagHint.HINT_SHORT),
     EXIF_SATURATION(0xA409, "Saturation", TagHint.HINT_SHORT),
     EXIF_SHARPNESS(0xA40A, "Sharpness", TagHint.HINT_SHORT),
@@ -140,23 +146,40 @@ public enum TagIFD_Exif implements Taggable
             case EXIF_EXPOSURE_PROGRAM:
                 return translateExposureProgram(val);
 
+            case EXIF_FOCAL_PLANE_RESOLUTION_UNIT:
+                return translateFocalPlaneResolutionUnit(val);
+
+            case EXIF_CUSTOM_RENDERED:
+                return translateCustomRendered(val);
+
+            case EXIF_FOCAL_PLANE_X_RESOLUTION:
+            case EXIF_FOCAL_PLANE_Y_RESOLUTION:
+
+                if (val instanceof RationalNumber)
+                {
+                    double resolutionValue = ((tif.RationalNumber) val).doubleValue();
+                    return String.format(Locale.US, "%f", resolutionValue);
+                }
+
+            break;
+
+            case EXIF_WHITE_BALANCE:
+                return translateWhiteBalance(val);
+
+            case EXIF_SCENE_CAPTURE_TYPE:
+                return translateSceneCaptureType(val);
+
+            case EXIF_COLOR_SPACE:
+                return translateColorSpace(val);
+
+            case EXIF_FLASH:
+                return translateFlash(val);
+
             case EXIF_METERING_MODE:
-                // return translateMeteringMode(num);
+                return translateMeteringMode(val);
 
             case EXIF_LIGHT_SOURCE:
                 // return translateLightSource(num);
-
-            case EXIF_FLASH:
-                // return translateFlash(num);
-
-            case EXIF_COLOR_SPACE:
-                // return translateColorSpace(num);
-
-            case EXIF_WHITE_BALANCE:
-                // return translateWhiteBalance(num);
-
-            case EXIF_SCENE_CAPTURE_TYPE:
-                // return translateSceneCaptureType(num);
 
             case EXIF_GAIN_CONTROL:
                 // return translateGainControl(num);
@@ -201,65 +224,8 @@ public enum TagIFD_Exif implements Taggable
     {
         if (val instanceof byte[])
         {
-            byte[] bytes = (byte[]) val;
-
-            if (bytes.length <= 8)
-            {
-                return "";
-            }
-
-            // Read the first 8 bytes for character encoding designation
-            String prefix = new String(bytes, 0, 8, StandardCharsets.US_ASCII).trim();
-            Charset charset = StandardCharsets.UTF_8; // Default fallback
-
-            if (prefix.startsWith("ASCII"))
-            {
-                charset = StandardCharsets.US_ASCII;
-            }
-
-            else if (prefix.startsWith("UNICODE"))
-            {
-                charset = StandardCharsets.UTF_16; // Standard default (looks for BOM)
-
-                // If there are at least 2 bytes of text payload, check for an explicit BOM
-                if (bytes.length >= 10)
-                {
-                    int b1 = bytes[8] & 0xFF;
-                    int b2 = bytes[9] & 0xFF;
-
-                    if (b1 == 0xFF && b2 == 0xFE)
-                    {
-                        charset = StandardCharsets.UTF_16LE;
-                    }
-
-                    else if (b1 == 0xFE && b2 == 0xFF)
-                    {
-                        charset = StandardCharsets.UTF_16BE;
-                    }
-
-                    else
-                    {
-                        // No BOM found. EXIF spec technically defaults to big-endian,
-                        // but many cameras write little-endian. If you notice gibberish
-                        // on certain devices, swap this default to UTF_16LE.
-                        charset = StandardCharsets.UTF_16BE;
-                    }
-                }
-            }
-
-            else if (prefix.startsWith("JIS"))
-            {
-                charset = Charset.forName("Shift_JIS");
-            }
-
-            // Decode the remainder of the payload using the matched character set
-            String decoded = new String(bytes, 8, bytes.length - 8, charset);
-
-            // Safety step: Replace hidden structural null padding bytes (\0) before trimming
-            // whitespace
-            return decoded.replace("\0", "").trim();
+            return TagValueConverter.decodeUserComment((byte[]) val);
         }
-
         return String.valueOf(val);
     }
 
@@ -305,16 +271,229 @@ public enum TagIFD_Exif implements Taggable
                 return "Shutter priority";
 
             case 5:
-                return "Creative program (biased toward depth of field)";
+                return "Creative program";
 
             case 6:
-                return "Action program (biased toward fast shutter speed)";
+                return "Action program";
 
             case 7:
-                return "Portrait mode (for closeup photos with the background out of focus)";
+                return "Portrait";
 
             case 8:
-                return "Landscape mode (for landscape photos with the background in focus)";
+                return "Landscape";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateFocalPlaneResolutionUnit(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 1:
+                return "None";
+
+            case 2:
+                return "inches";
+
+            case 3:
+                return "cm";
+
+            case 4:
+                return "mm";
+
+            case 5:
+                return "um";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateCustomRendered(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 0:
+                return "Normal process";
+
+            case 1:
+                return "Custom process";
+
+            default:
+                return String.valueOf(val);
+        }
+    }
+
+    private String translateWhiteBalance(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 0:
+                return "Auto white balance";
+
+            case 1:
+                return "Manual white balance";
+        }
+
+        return String.valueOf(val);
+    }
+
+    private String translateSceneCaptureType(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 0:
+                return "Standard";
+
+            case 1:
+                return "Landscape";
+
+            case 2:
+                return "Portrait";
+
+            case 3:
+                return "Night scene";
+        }
+
+        return String.valueOf(val);
+    }
+
+    private String translateColorSpace(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 1:
+                return "sRGB";
+
+            case 2:
+                return "Adobe RGB";
+
+            case 0xFFFF:
+                return "Uncalibrated";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateFlash(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 0x0000:
+                return "Did not fire";
+
+            case 0x0001:
+                return "Fired";
+
+            case 0x0005:
+                return "Fired, Return not detected";
+
+            case 0x0007:
+                return "Fired, Return detected";
+
+            case 0x0009:
+                return "Fired, Compulsory Flash Mode";
+
+            case 0x000D:
+                return "Fired, Compulsory Flash Mode, Return not detected";
+
+            case 0x000F:
+                return "Fired, Compulsory Flash Mode, Return detected";
+
+            case 0x0010:
+                return "Did not fire, Compulsory";
+
+            case 0x0018:
+                return "Did not fire, Compulsory";
+
+            case 0x0019:
+                return "Fired, Auto Mode";
+
+            case 0x001D:
+                return "Fired, Auto Mode, Return not detected";
+
+            case 0x001F:
+                return "Fired, Auto Mode, Return detected";
+
+            case 0x0020:
+                return "No Flash Function";
+
+            case 0x0041:
+                return "Fired, Red-eye Reduction";
+
+            case 0x0045:
+                return "Fired, Red-eye Reduction, Return not detected";
+
+            case 0x0047:
+                return "Fired, Red-eye Reduction, Return detected";
+
+            case 0x0049:
+                return "Fired, Compulsory, Red-eye Reduction";
+
+            case 0x004D:
+                return "Fired, Compulsory, Red-eye Reduction, Return not detected";
+
+            case 0x004F:
+                return "Fired, Compulsory, Red-eye Reduction, Return detected";
+
+            case 0x0059:
+                return "Fired, Auto, Red-eye Reduction";
+
+            case 0x005D:
+                return "Fired, Auto, Red-eye Reduction, Return not detected";
+
+            case 0x005F:
+                return "Fired, Auto, Red-eye Reduction, Return detected";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateMeteringMode(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 0:
+                return "Unknown";
+
+            case 1:
+                return "Average";
+
+            case 2:
+                return "CenterWeightedAverage";
+
+            case 3:
+                return "Spot";
+
+            case 4:
+                return "MultiSpot";
+
+            case 5:
+                return "Pattern";
+
+            case 6:
+                return "Partial";
+
+            case 255:
+                return "other";
 
             default:
                 return Taggable.super.translate(val);

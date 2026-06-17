@@ -12,9 +12,9 @@ import java.nio.charset.StandardCharsets;
  * @version 1.2
  * @since 22 November 2025
  */
-public enum TifFieldType
+public enum TifFieldType2
 {
-    TYPE_ERROR(0, "Unknown type", 0)
+    TYPE_ERROR(0, "Unknown type. Error", 0)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -23,7 +23,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_BYTE_U(1, "Flag for 8-bit unsigned values parsed into 32-bit Java integers", 1)
+    TYPE_BYTE_U(1, "Flag for 8-bit unsigned integer", 1)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -40,14 +40,14 @@ public enum TifFieldType
 
             else if (count > 1)
             {
-                int[] unsigned = new int[(int) count];
+                int[] unsignedBytes = new int[(int) count];
 
-                for (int i = 0; i < unsigned.length; i++)
+                for (int i = 0; i < unsignedBytes.length; i++)
                 {
-                    unsigned[i] = Byte.toUnsignedInt(value[i]);
+                    unsignedBytes[i] = Byte.toUnsignedInt(value[i]);
                 }
 
-                return unsigned;
+                return unsignedBytes;
             }
 
             else
@@ -57,7 +57,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_ASCII(2, "Flag for null-terminated ASCII strings", 1)
+    TYPE_ASCII(2, "Flag for null terminated ASCII string", 1)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -78,7 +78,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_SHORT_U(3, "Flag for 16-bit unsigned values parsed into 32-bit Java integers", 2)
+    TYPE_SHORT_U(3, "Flag for 16-bit unsigned integer (2 bytes)", 2)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -90,14 +90,14 @@ public enum TifFieldType
 
             if (count > 1)
             {
-                int[] unsigned = new int[(int) count];
+                int[] unsignedShorts = new int[(int) count];
 
-                for (int i = 0; i < unsigned.length; i++)
+                for (int i = 0; i < unsignedShorts.length; i++)
                 {
-                    unsigned[i] = ByteValueConverter.toUnsignedShort(value, i * 2, order);
+                    unsignedShorts[i] = ByteValueConverter.toUnsignedShort(value, i * 2, order);
                 }
 
-                return unsigned;
+                return unsignedShorts;
             }
 
             else
@@ -107,7 +107,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_LONG_U(4, "Flag for 32-bit unsigned values parsed into 64-bit Java longs", 4)
+    TYPE_LONG_U(4, "Flag for 32-bit unsigned integer (4 bytes)", 4)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -119,14 +119,14 @@ public enum TifFieldType
 
             if (count > 1)
             {
-                long[] unsigned = new long[(int) count];
+                long[] unsignedLongs = new long[(int) count];
 
-                for (int i = 0; i < unsigned.length; i++)
+                for (int i = 0; i < unsignedLongs.length; i++)
                 {
-                    unsigned[i] = ByteValueConverter.toUnsignedInteger(value, i * 4, order);
+                    unsignedLongs[i] = ByteValueConverter.toUnsignedInteger(value, i * 4, order);
                 }
 
-                return unsigned;
+                return unsignedLongs;
             }
 
             else
@@ -136,7 +136,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_RATIONAL_U(5, "Flag for unsigned fraction pairs parsed into RationalNumber objects", 8)
+    TYPE_RATIONAL_U(5, "Flag for pairs of unsigned integers", 8)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -148,14 +148,14 @@ public enum TifFieldType
 
             if (count > 1)
             {
-                RationalNumber[] unsignedRational = new RationalNumber[(int) count];
+                RationalNumber[] rationalsU = new RationalNumber[(int) count];
 
-                for (int i = 0; i < unsignedRational.length; i++)
+                for (int i = 0; i < rationalsU.length; i++)
                 {
-                    unsignedRational[i] = ByteValueConverter.toRational(value, i * 8, order, RationalNumber.DataType.UNSIGNED);
+                    rationalsU[i] = ByteValueConverter.toRational(value, i * 8, order, RationalNumber.DataType.UNSIGNED);
                 }
 
-                return unsignedRational;
+                return rationalsU;
             }
 
             else
@@ -165,7 +165,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_BYTE_S(6, "Flag for 8-bit signed values parsed into Java bytes", 1)
+    TYPE_BYTE_S(6, "Flag for 8-bit signed integer", 1)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -192,7 +192,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_UNDEFINED(7, "Flag for 8-bit uninterpreted raw byte buffers", 1)
+    TYPE_UNDEFINED(7, "Flag for 8 bit uninterpreted byte", 1)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -206,7 +206,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_SHORT_S(8, "Flag for 16-bit signed values parsed into Java shorts", 2)
+    TYPE_SHORT_S(8, "Flag for 16-bit signed integer (2 bytes)", 2)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -218,14 +218,14 @@ public enum TifFieldType
 
             if (count > 1)
             {
-                short[] signedShort = new short[(int) count];
+                short[] signedShorts = new short[(int) count];
 
-                for (int i = 0; i < signedShort.length; i++)
+                for (int i = 0; i < signedShorts.length; i++)
                 {
-                    signedShort[i] = ByteValueConverter.toShort(value, i * 2, order);
+                    signedShorts[i] = ByteValueConverter.toShort(value, i * 2, order);
                 }
 
-                return signedShort;
+                return signedShorts;
             }
 
             else
@@ -235,7 +235,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_LONG_S(9, "Flag for 32-bit signed values parsed into Java integers", 4)
+    TYPE_LONG_S(9, "Flag for 32-bit signed integer (4 bytes)", 4)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -247,14 +247,14 @@ public enum TifFieldType
 
             if (count > 1)
             {
-                int[] signedLong = new int[(int) count];
+                int[] signedLongs = new int[(int) count];
 
-                for (int i = 0; i < signedLong.length; i++)
+                for (int i = 0; i < signedLongs.length; i++)
                 {
-                    signedLong[i] = ByteValueConverter.toInteger(value, i * 4, order);
+                    signedLongs[i] = ByteValueConverter.toInteger(value, i * 4, order);
                 }
 
-                return signedLong;
+                return signedLongs;
             }
 
             else
@@ -264,7 +264,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_RATIONAL_S(10, "Flag for signed fraction pairs parsed into RationalNumber objects", 8)
+    TYPE_RATIONAL_S(10, "Flag for pairs of signed integers", 8)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -276,14 +276,14 @@ public enum TifFieldType
 
             if (count > 1)
             {
-                RationalNumber[] signedRational = new RationalNumber[(int) count];
+                RationalNumber[] rationalsS = new RationalNumber[(int) count];
 
-                for (int i = 0; i < signedRational.length; i++)
+                for (int i = 0; i < rationalsS.length; i++)
                 {
-                    signedRational[i] = ByteValueConverter.toRational(value, i * 8, order, RationalNumber.DataType.SIGNED);
+                    rationalsS[i] = ByteValueConverter.toRational(value, i * 8, order, RationalNumber.DataType.SIGNED);
                 }
 
-                return signedRational;
+                return rationalsS;
             }
 
             else
@@ -293,7 +293,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_FLOAT(11, "Flag for 32-bit single-precision IEEE-754 floats", 4)
+    TYPE_FLOAT(11, "Flag for single precision float (4 bytes)", 4)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -322,7 +322,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_DOUBLE(12, "Flag for 64-bit double-precision IEEE-754 doubles", 8)
+    TYPE_DOUBLE(12, "Flag for double precision double (8 bytes)", 8)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -351,7 +351,7 @@ public enum TifFieldType
         }
     },
 
-    TYPE_IFD_POINTER(13, "Flag for 32-bit unsigned IFD offset pointers parsed into 64-bit Java longs", 4)
+    TYPE_IFD_POINTER(13, "Flag for IFD pointer defined in TIFF Tech Note 1 in TIFF Specification Supplement 1", 4)
     {
         @Override
         public Object parse(byte[] value, long count, ByteOrder order)
@@ -363,14 +363,14 @@ public enum TifFieldType
 
             if (count > 1)
             {
-                long[] unsignedLong = new long[(int) count];
+                long[] unsignedLongs = new long[(int) count];
 
-                for (int i = 0; i < unsignedLong.length; i++)
+                for (int i = 0; i < unsignedLongs.length; i++)
                 {
-                    unsignedLong[i] = ByteValueConverter.toUnsignedInteger(value, i * 4, order);
+                    unsignedLongs[i] = ByteValueConverter.toUnsignedInteger(value, i * 4, order);
                 }
 
-                return unsignedLong;
+                return unsignedLongs;
             }
 
             else
@@ -386,7 +386,7 @@ public enum TifFieldType
     private final String description;
     private final int elementLength;
 
-    private TifFieldType(int fmt, String desc, int len)
+    private TifFieldType2(int fmt, String desc, int len)
     {
         this.dataType = fmt;
         this.description = desc;
@@ -431,9 +431,9 @@ public enum TifFieldType
      *        the data type to search for
      * @return the TifFieldType constant representing the data type
      */
-    public static TifFieldType getTiffType(int typeCode)
+    public static TifFieldType2 getTiffType(int typeCode)
     {
-        for (TifFieldType type : values())
+        for (TifFieldType2 type : values())
         {
             if (type.dataType == typeCode)
             {
@@ -477,8 +477,6 @@ public enum TifFieldType
     {
         switch (this)
         {
-            case TYPE_BYTE_U:
-            case TYPE_BYTE_S:
             case TYPE_SHORT_U:
             case TYPE_LONG_U:
             case TYPE_SHORT_S:
