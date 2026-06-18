@@ -52,7 +52,7 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
         }
 
         this.dataLoaded = false;
-        this.metadata = new TifMetadata(BoxHandler.HEIF_BYTE_ORDER);
+        this.metadata = new TifMetadata(DigitalSignature.HEIF, BoxHandler.HEIF_BYTE_ORDER);
     }
 
     /**
@@ -155,17 +155,6 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
     {
         readMetadata();
         return metadata;
-    }
-
-    /**
-     * Returns the detected {@code HEIF} format.
-     *
-     * @return a {@link DigitalSignature} enum constant representing this image format
-     */
-    @Override
-    public DigitalSignature getImageFormat()
-    {
-        return DigitalSignature.HEIF;
     }
 
     /**

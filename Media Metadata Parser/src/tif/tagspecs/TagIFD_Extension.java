@@ -17,7 +17,7 @@ import tif.TagHint;
  *
  * @author Trevor Maggs
  * @version 1.1
- * @since 16 June 2026
+ * @since 18 June 2026
  */
 public enum TagIFD_Extension implements Taggable
 {

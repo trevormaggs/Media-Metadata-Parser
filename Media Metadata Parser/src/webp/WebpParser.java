@@ -109,7 +109,7 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
         }
 
         this.dataLoaded = false;
-        this.metadata = new TifMetadata(RiffHandler.WEBP_BYTE_ORDER);
+        this.metadata = new TifMetadata(DigitalSignature.WEBP, RiffHandler.WEBP_BYTE_ORDER);
     }
 
     /**
@@ -219,17 +219,6 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
     {
         readMetadata();
         return metadata;
-    }
-
-    /**
-     * Returns the detected WebP format.
-     *
-     * @return a {@link DigitalSignature} enum class
-     */
-    @Override
-    public DigitalSignature getImageFormat()
-    {
-        return DigitalSignature.WEBP;
     }
 
     /**

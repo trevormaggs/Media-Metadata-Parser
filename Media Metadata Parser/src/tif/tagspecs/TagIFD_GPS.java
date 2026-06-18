@@ -9,7 +9,8 @@ import tif.TagHint;
  * {@link DirectoryIdentifier#IFD_GPS_SUBIFD_DIRECTORY} scope.
  * 
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.1
+ * @since 18 June 2026
  */
 public enum TagIFD_GPS implements Taggable
 {

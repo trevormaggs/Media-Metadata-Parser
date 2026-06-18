@@ -24,7 +24,8 @@ import tif.DirectoryIdentifier;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.1
+ * @since 18 June 2026
  */
 public final class TagRegistry
 {
@@ -49,6 +50,7 @@ public final class TagRegistry
         register(TagIFD_Private.values());
         register(TagExif_Interop.values());
         register(TagIFD_Pointer.values());
+        register(TagIFD_DNG.values());
 
         if (LogFactory.isDebugEnabled())
         {
@@ -127,15 +129,16 @@ public final class TagRegistry
     }
 
     /**
-     * Resolves a numerical tag ID to its corresponding {@code Taggable} definition within the
-     * context of a specific directory.
-     * 
+     * Resolves a TIFF tag ID to its corresponding {@code Taggable} definition within the context of
+     * a specific directory.
+     *
      * @param id
-     *        the unsigned 16-bit Tag ID read from the incoming TIFF byte stream
+     *        the unsigned 16-bit tag identifier
      * @param directory
-     *        the exact structural directory context (IFD) where the tag was encountered
-     * @return the matched {@code Taggable} definition constant, or a new {@link TagIFD_Unknown}
-     *         instance tracking the unmapped tag data within its host directory
+     *        the directory containing the tag
+     *
+     * @return the matching {@code Taggable} definition, or a {@link TagIFD_Unknown} instance if the
+     *         tag is not registered for the specified directory
      */
     public static Taggable resolve(int id, DirectoryIdentifier directory)
     {
@@ -144,6 +147,23 @@ public final class TagRegistry
         if (dirMap != null)
         {
             Taggable tag = dirMap.get(id);
+
+            if (tag != null)
+            {
+                return tag;
+            }
+        }
+
+        /*
+         * Some tags defined for the root IFD may also appear inside a SubIFD. If the tag is not
+         * registered in the SubIFD namespace, perform a fallback lookup using the root IFD
+         * registry.
+         */
+        if (directory == DirectoryIdentifier.IFD_SUBIFD_DIRECTORY)
+        {
+            Map<Integer, Taggable> rootMap = TAG_REGISTRY.get(DirectoryIdentifier.IFD_ROOT_DIRECTORY);
+
+            Taggable tag = (rootMap != null) ? rootMap.get(id) : null;
 
             if (tag != null)
             {

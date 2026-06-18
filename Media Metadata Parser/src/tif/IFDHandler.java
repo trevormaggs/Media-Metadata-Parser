@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -15,6 +16,7 @@ import common.binary.RandomAccessReader;
 import logger.LogFactory;
 import tif.DirectoryIFD.EntryIFD;
 import tif.tagspecs.TagIFD_Baseline;
+import tif.tagspecs.TagIFD_DNG;
 import tif.tagspecs.TagIFD_Pointer;
 import tif.tagspecs.TagRegistry;
 import tif.tagspecs.Taggable;
@@ -47,6 +49,7 @@ public class IFDHandler implements ImageHandler
     private final List<DirectoryIFD> directoryList = new ArrayList<>();
     private final BinaryInput reader;
     private boolean isTiffBig;
+    private boolean isDngFormat;
 
     /**
      * Constructs a handler internally using an existing byte stream reader.
@@ -131,6 +134,16 @@ public class IFDHandler implements ImageHandler
     }
 
     /**
+     * Indicates whether the parsed file structure is an Adobe Digital Negative (DNG).
+     *
+     * @return {@code true} if a DNGVersion tag was found inside the primary IFD0 block
+     */
+    public boolean isDngVersion()
+    {
+        return isDngFormat;
+    }
+
+    /**
      * Executes the parsing logic, performing a deep scan and populating the directory list.
      *
      * <p>
@@ -158,7 +171,7 @@ public class IFDHandler implements ImageHandler
             {
                 LOGGER.error("Invalid TIFF header detected. Metadata parsing cancelled");
             }
-            
+
             else if (navigateImageFileDirectory(DirectoryIdentifier.IFD_DIRECTORY_IFD0, firstIFDoffset))
             {
                 if (directoryList.size() > 1)
@@ -204,6 +217,8 @@ public class IFDHandler implements ImageHandler
         }
 
         directoryList.clear();
+        isDngFormat = false;
+
         return false;
     }
 
@@ -272,8 +287,9 @@ public class IFDHandler implements ImageHandler
      * Recursively traverses a physical IFD and its linked sub-directories.
      *
      * <p>
-     * Each IFD is parsed as a 2-byte entry count, followed by a sequence of 12-byte entries, and a
-     * 4-byte pointer to the next IFD in the main chain.
+     * Each IFD is parsed as a 2-byte entry count, followed by a sequence of 12-byte entries.
+     * Only directories belonging to the main chain append a final 4-byte pointer to the next
+     * contiguous main-chain IFD.
      * </p>
      *
      * @param dirType
@@ -309,6 +325,189 @@ public class IFDHandler implements ImageHandler
             byte[] valueBytes = reader.readBytes(4);
             long valueOrOffset = ByteValueConverter.toUnsignedInteger(valueBytes, getTifByteOrder());
             long totalBytes = count * fieldType.getFieldSize();
+            
+            if (tagEnum == TagIFD_DNG.IFD_DNG_VERSION)
+            {
+                isDngFormat = true;
+            }
+
+            if (totalBytes == 0L || fieldType == TifFieldType.TYPE_ERROR)
+            {
+                continue;
+            }
+
+            /*
+             * A length of the value that is larger than 4 bytes indicates
+             * the entry contains a remote file offset instead of inline data.
+             */
+            if (totalBytes > ENTRY_MAX_VALUE_LENGTH)
+            {
+                if (valueOrOffset < 0 || totalBytes > MAX_METADATA_CHUNK_SIZE || (valueOrOffset + totalBytes) > reader.length())
+                {
+                    LOGGER.warn(String.format("Data block for [%s] out of bounds by (%d bytes)", tagEnum, totalBytes));
+                    continue;
+                }
+
+                data = reader.peek(valueOrOffset, (int) totalBytes);
+            }
+
+            else
+            {
+                data = valueBytes;
+            }
+
+            /* Make sure the tag ID is known and defined in TIF Specification 6.0 */
+            if (TifFieldType.dataTypeinRange(fieldType.getDataType()))
+            {
+                ifd.add(new EntryIFD(tagEnum, fieldType, count, valueOrOffset, data, getTifByteOrder()));
+            }
+        }
+
+        directoryList.add(ifd);
+
+        for (EntryIFD entry : ifd)
+        {
+            Taggable tag = entry.getTag();
+
+            if (tag instanceof TagIFD_Pointer)
+            {
+                List<Long> offsets;
+                DirectoryIdentifier nextDir = ((TagIFD_Pointer) tag).getTargetDirectory();
+
+                if (tag == TagIFD_Pointer.IFD_SUBIFD_POINTER)
+                {
+                    offsets = getSubIfdOffsets(entry);
+                }
+
+                else
+                {
+                    offsets = Collections.singletonList(entry.getOffset());
+                }
+
+                /**
+                 * For pointer tags (<= 4 bytes inline), getOffset() holds
+                 * the absolute data pointer location.
+                 */
+                for (Long subIfdOffset : offsets)
+                {
+                    if (subIfdOffset <= 0 || subIfdOffset >= reader.length())
+                    {
+                        LOGGER.warn(String.format("Pointer tag [%s] points to invalid offset 0x%04X", tag, subIfdOffset));
+                        return false;
+                    }
+
+                    reader.mark();
+
+                    try
+                    {
+                        /*
+                         * Note: if any auxiliary Sub-IFD fails, the whole metadata
+                         * information will be cleared to signal users to check
+                         */
+                        if (!navigateImageFileDirectory(nextDir, subIfdOffset))
+                        {
+                            LOGGER.error(String.format("Parsing failed inside Sub-IFD [%s]", nextDir));
+                            return false;
+                        }
+                    }
+
+                    finally
+                    {
+                        reader.reset();
+                    }
+                }
+            }
+        }
+
+        if (dirType.isMainChain())
+        {
+            long nextOffset = reader.readUnsignedInteger();
+
+            if (nextOffset == 0L)
+            {
+                return true;
+            }
+
+            if (nextOffset <= startOffset || nextOffset >= reader.length())
+            {
+                LOGGER.error(String.format("Next IFD offset [0x%04X] invalid. Malformed file likely", nextOffset));
+                return false;
+            }
+
+            /* Traverses to the next contiguous directory in the main chain */
+            return navigateImageFileDirectory(DirectoryIdentifier.getNextDirectoryType(dirType), nextOffset);
+        }
+
+        return true;
+    }
+
+    private List<Long> getSubIfdOffsets(EntryIFD entry) throws IOException
+    {
+        List<Long> offsets = new ArrayList<Long>();
+
+        if (entry.getCount() == 1)
+        {
+            offsets.add(entry.getOffset());
+            return offsets;
+        }
+
+        byte[] raw = entry.getByteArray();
+
+        if (raw == null || raw.length == 0)
+        {
+            LOGGER.error(String.format("SubIFDs pointer array (Count: %d) has no usable raw or parsed data payload", entry.getCount()));
+            return offsets;
+        }
+
+        for (int i = 0; i < entry.getCount(); i++)
+        {
+            int pos = i * 4;
+
+            if (pos + 4 > raw.length)
+            {
+                LOGGER.warn(String.format("SubIFDs payload truncation detected. Read %d of %d pointers", i, entry.getCount()));
+                break;
+            }
+
+            byte[] slice = Arrays.copyOfRange(raw, pos, pos + 4);
+
+            offsets.add(ByteValueConverter.toUnsignedInteger(slice, getTifByteOrder()));
+        }
+
+        return offsets;
+    }
+
+    @SuppressWarnings("unused")
+    @Deprecated
+    private boolean navigateImageFileDirectory2(DirectoryIdentifier dirType, long startOffset) throws IOException
+    {
+        if (startOffset < 0 || startOffset >= reader.length())
+        {
+            LOGGER.warn(String.format("Invalid offset [0x%04X] for directory [%s]", startOffset, dirType));
+            return false;
+        }
+
+        reader.seek(startOffset);
+
+        DirectoryIFD ifd = new DirectoryIFD(dirType);
+        int entryCount = reader.readUnsignedShort();
+
+        /* Process all 12-byte entries in this IFD sequentially */
+        for (int i = 0; i < entryCount; i++)
+        {
+            byte[] data;
+            int tagID = reader.readUnsignedShort();
+            Taggable tagEnum = TagRegistry.resolve(tagID, dirType);
+            TifFieldType fieldType = TifFieldType.getTiffType(reader.readUnsignedShort());
+            long count = reader.readUnsignedInteger();
+            byte[] valueBytes = reader.readBytes(4);
+            long valueOrOffset = ByteValueConverter.toUnsignedInteger(valueBytes, getTifByteOrder());
+            long totalBytes = count * fieldType.getFieldSize();
+
+            if (tagEnum == TagIFD_DNG.IFD_DNG_VERSION)
+            {
+                isDngFormat = true;
+            }
 
             if (totalBytes == 0L || fieldType == TifFieldType.TYPE_ERROR)
             {
@@ -368,7 +567,7 @@ public class IFDHandler implements ImageHandler
 
                 try
                 {
-                    if (!navigateImageFileDirectory(nextDir, subIfdOffset))
+                    if (!navigateImageFileDirectory2(nextDir, subIfdOffset))
                     {
                         /*
                          * Note: if any auxiliary Sub-IFD fails, the whole metadata
@@ -400,7 +599,7 @@ public class IFDHandler implements ImageHandler
         if (dirType.isMainChain())
         {
             /* Traverses to the next contiguous directory in the main chain */
-            return navigateImageFileDirectory(DirectoryIdentifier.getNextDirectoryType(dirType), nextOffset);
+            return navigateImageFileDirectory2(DirectoryIdentifier.getNextDirectoryType(dirType), nextOffset);
         }
 
         return true;

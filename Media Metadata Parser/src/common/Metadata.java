@@ -59,6 +59,14 @@ public interface Metadata<D extends Directory<?>> extends Iterable<D>
     ByteOrder getByteOrder();
 
     /**
+     * Returns the detected media format signature associated with this metadata container.
+     *
+     * @return a {@link DigitalSignature} enum variant identifying the true structure, or
+     *         {@link DigitalSignature#UNKNOWN} if undefined or generic
+     */
+    DigitalSignature getImageFormat();
+
+    /**
      * Checks if the metadata collection contains any metadata entries.
      *
      * @return {@code true} if at least one directory is present, otherwise {@code false}

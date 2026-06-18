@@ -138,7 +138,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
         }
 
         this.dataLoaded = false;
-        this.metadata = new TifMetadata(ByteOrder.BIG_ENDIAN);
+        this.metadata = new TifMetadata(DigitalSignature.JPG, ByteOrder.BIG_ENDIAN);
     }
 
     /**
@@ -230,17 +230,6 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
     {
         readMetadata();
         return metadata;
-    }
-
-    /**
-     * Returns the detected {@code JPG} format.
-     *
-     * @return a {@link DigitalSignature} enum constant representing this image format
-     */
-    @Override
-    public DigitalSignature getImageFormat()
-    {
-        return DigitalSignature.JPG;
     }
 
     /**
@@ -345,7 +334,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
      * specification, any number of {@code 0xFF} fill bytes may precede the actual flag, this method
      * safely discards such padding.
      * </p>
-     * 
+     *
      * @param reader
      *        the input stream of the JPEG file, positioned at the current read cursor
      * @return a {@link JpgSegmentConstants} representing the detected marker, or {@code null} if an

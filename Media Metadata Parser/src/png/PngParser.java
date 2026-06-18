@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Optional;
 import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
-import common.DigitalSignature;
 import common.MetadataConstants;
 import common.Utils;
 import logger.LogFactory;
@@ -26,7 +25,7 @@ import xmp.XmpHandler;
  * Parses PNG image files to extract metadata structured within sequential chunks. Processes textual
  * chunks (tEXt, iTXt, zTXt), modification time (tIME), and embedded EXIF (eXIf) data blocks using a
  * structured internal data holder.
- * 
+ *
  * <p>
  * <b>PNG Data Stream Structure</b>
  * </p>
@@ -173,7 +172,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
      *
      * @param fpath
      *        the path to the PNG file as an encapsulated object
-     * 
+     *
      * @throws IOException
      *         if the file cannot be opened or read
      */
@@ -197,7 +196,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
      *
      * @param file
      *        the path to the PNG file as a string
-     * 
+     *
      * @throws IOException
      *         if the file cannot be opened or read
      */
@@ -293,17 +292,6 @@ public class PngParser extends AbstractImageParser<PngMetadata>
     {
         readMetadata();
         return metadata;
-    }
-
-    /**
-     * Returns the detected {@code PNG} format.
-     *
-     * @return DigitalSignature.PNG
-     */
-    @Override
-    public DigitalSignature getImageFormat()
-    {
-        return DigitalSignature.PNG;
     }
 
     /**
@@ -434,7 +422,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
      * @param chunkFilter
      *        a filter set of chunk types to allow specific chunks to be processed
      * @return a PngChunkData record containing the extracted chunks
-     * 
+     *
      * @throws IOException
      *         if an unrecoverable issue occurs while accessing the filesystem or reading the stream
      */

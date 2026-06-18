@@ -12,7 +12,8 @@ import tif.TagValueConverter;
  * {@link DirectoryIdentifier#IFD_EXIF_SUBIFD_DIRECTORY} scope.
  *
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.1
+ * @since 18 June 2026
  */
 public enum TagIFD_Exif implements Taggable
 {
@@ -86,7 +87,8 @@ public enum TagIFD_Exif implements Taggable
     EXIF_LENS_MODEL(0xA434, "Lens Model", TagHint.HINT_STRING),
     EXIF_LENS_SERIAL_NUMBER(0xA435, "Lens Serial Number", TagHint.HINT_STRING),
     EXIF_BODY_SERIAL_NUMBER(0xA431, "Body Serial Number", TagHint.HINT_STRING),
-    EXIF_CAMERA_OWNER_NAME(0xA430, "Camera Owner Name", TagHint.HINT_STRING);
+    EXIF_CAMERA_OWNER_NAME(0xA430, "Camera Owner Name", TagHint.HINT_STRING),
+    EXIF_COMPOSITE_IMAGE(0xA460, "Composite Image", TagHint.HINT_SHORT);
 
     private final int numID;
     private final TagHint hint;
@@ -157,8 +159,9 @@ public enum TagIFD_Exif implements Taggable
 
                 if (val instanceof RationalNumber)
                 {
-                    double resolutionValue = ((tif.RationalNumber) val).doubleValue();
-                    return String.format(Locale.US, "%f", resolutionValue);
+                    double resolutionValue = ((RationalNumber) val).doubleValue();
+                    return (resolutionValue % 1 == 0) ? String.format(Locale.US, "%.0f", resolutionValue)
+                            : String.format(Locale.US, "%.2f", resolutionValue);
                 }
 
             break;
@@ -177,6 +180,9 @@ public enum TagIFD_Exif implements Taggable
 
             case EXIF_METERING_MODE:
                 return translateMeteringMode(val);
+
+            case EXIF_SCENE_TYPE:
+                return translateSceneType(val);
 
             case EXIF_LIGHT_SOURCE:
                 // return translateLightSource(num);
@@ -226,6 +232,7 @@ public enum TagIFD_Exif implements Taggable
         {
             return TagValueConverter.decodeUserComment((byte[]) val);
         }
+
         return String.valueOf(val);
     }
 
@@ -419,7 +426,7 @@ public enum TagIFD_Exif implements Taggable
                 return "Did not fire, Compulsory";
 
             case 0x0018:
-                return "Did not fire, Compulsory";
+                return "Did not fire, Auto mode";
 
             case 0x0019:
                 return "Fired, Auto Mode";
@@ -498,5 +505,11 @@ public enum TagIFD_Exif implements Taggable
             default:
                 return Taggable.super.translate(val);
         }
+    }
+
+    private String translateSceneType(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+        return num == 1 ? "Directly photographed" : "Unknown (" + num + ")";
     }
 }

@@ -7,6 +7,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import common.DigitalSignature;
 import tif.tagspecs.TagIFD_Baseline;
 import tif.tagspecs.TagIFD_Exif;
 import util.SmartDateParser;
@@ -29,29 +30,55 @@ import xmp.XmpProperty;
 public class TifMetadata implements TifMetadataProvider
 {
     private final Map<DirectoryIdentifier, DirectoryIFD> ifdMap;
+    private DigitalSignature imageFormat;
     private ByteOrder byteOrder;
     private XmpDirectory xmpDir;
 
     /**
-     * Constructs an empty metadata container.
+     * Constructs an empty metadata container configured for TIFF parsing by default.
      */
     public TifMetadata()
     {
-        this.ifdMap = new HashMap<>();
+        this(DigitalSignature.TIF);
     }
 
     /**
-     * Constructs a new metadata container with the specified byte order for interpreting multi-byte
-     * raw data correctly.
+     * Constructs a metadata container for a specific image format layout.
      *
-     * @param order
-     *        either {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN} @throws
-     *        NullPointerException if {@code order} is {@code null}
+     * @param imageFormat
+     *        the true structural format identity
      */
-    public TifMetadata(ByteOrder order)
+    public TifMetadata(DigitalSignature imageFormat)
     {
-        this();
+        this.ifdMap = new HashMap<>();
+        this.imageFormat = imageFormat;
+    }
+
+    /**
+     * Constructs a new metadata container with a specific format identity and byte order.
+     *
+     * @param imageFormat
+     *        the true structural format identity
+     * @param order
+     *        either {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
+     * @throws NullPointerException
+     *         if {@code order} is {@code null}
+     */
+    public TifMetadata(DigitalSignature imageFormat, ByteOrder order)
+    {
+        this(imageFormat);
         setByteOrder(Objects.requireNonNull(order, "Byte order cannot be null"));
+    }
+
+    /**
+     * Sets the image format associated with this metadata container.
+     *
+     * @param format
+     *        the detected image format
+     */
+    void setImageFormat(DigitalSignature format)
+    {
+        imageFormat = format;
     }
 
     /**
@@ -123,6 +150,17 @@ public class TifMetadata implements TifMetadataProvider
     }
 
     /**
+     * Returns the image format associated with this metadata container.
+     *
+     * @return the detected {@link DigitalSignature}
+     */
+    @Override
+    public DigitalSignature getImageFormat()
+    {
+        return imageFormat;
+    }
+
+    /**
      * Returns an iterator over all stored directories.
      *
      * @return an iterator of {@link DirectoryIFD} instances
@@ -159,9 +197,12 @@ public class TifMetadata implements TifMetadataProvider
     }
 
     /**
-     * Resets the metadata container to an entirely empty state, purging all tracked
-     * {@link DirectoryIFD} segments, sweeping away the embedded XMP directory instance and clearing
-     * the active byte-ordering flag. This aims to cleanly restart parsing operations from scratch.
+     * Resets this metadata container to its initial state.
+     *
+     * <p>
+     * All stored directories and XMP metadata are removed, the byte order is cleared, and the image
+     * format is reset to {@link DigitalSignature#TIF}.
+     * </p>
      */
     @Override
     public void clear()
@@ -169,6 +210,7 @@ public class TifMetadata implements TifMetadataProvider
         ifdMap.clear();
         xmpDir = null;
         byteOrder = null;
+        imageFormat = DigitalSignature.TIF;
     }
 
     /**
@@ -189,10 +231,9 @@ public class TifMetadata implements TifMetadataProvider
     }
 
     /**
-     * Retrieves the parsed {@link XmpDirectory} XMP metadata directory.
+     * Retrieves the parsed XMP metadata directory.
      *
-     * @return the {@link XmpDirectory}, or null if absent. Check {@link #hasXmpData()} first to
-     *         avoid null handling
+     * @return the {@link XmpDirectory}, or {@code null} if no XMP metadata is present
      */
     @Override
     public XmpDirectory getXmpDirectory()
@@ -244,7 +285,7 @@ public class TifMetadata implements TifMetadataProvider
      *
      * <ol>
      * <li>EXIF Sub-IFD: {@code DateTimeOriginal} (Tag 0x9003)</li>
-     * <li>Main IFD0: {@code DateTimeOriginal} or {@code DateTime} (Tag 0x0132)</li>
+     * <li>Main IFD0: {@code DateTimeOriginal} or {@code DateTime}</li>
      * <li>XMP EXIF Schema: {@code DateTimeOriginal}</li>
      * <li>XMP General Schema: {@code CreateDate}</li>
      * </ol>
@@ -309,11 +350,12 @@ public class TifMetadata implements TifMetadataProvider
     }
 
     /**
-     * Checks if a specific directory type is present.
+     * Checks whether a directory of the specified type is present.
      *
      * @param dir
-     *        the {@link DirectoryIdentifier} to check for
-     * @return {@code true} if the directory is present
+     *        the directory identifier to test
+     *
+     * @return {@code true} if the directory exists in this container, otherwise {@code false}
      */
     public boolean isDirectoryPresent(DirectoryIdentifier dir)
     {

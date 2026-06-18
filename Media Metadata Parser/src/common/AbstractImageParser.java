@@ -76,7 +76,7 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
         sb.append(String.format(MetadataConstants.FORMATTER, "Creation Time", DATE_FORMATTER.format(attr.creationTime().toInstant())));
         sb.append(String.format(MetadataConstants.FORMATTER, "Last Access Time", DATE_FORMATTER.format(attr.lastAccessTime().toInstant())));
         sb.append(String.format(MetadataConstants.FORMATTER, "Last Modified Time", DATE_FORMATTER.format(attr.lastModifiedTime().toInstant())));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Detected Format", getImageFormat().getFileExtensionName()));
+        sb.append(String.format(MetadataConstants.FORMATTER, "Detected Format", getMetadata().getImageFormat().getFileExtensionName()));
 
         return sb.toString();
     }
@@ -105,7 +105,7 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
         String filename = imageFile.getFileName().toString();
         int lastDot = filename.lastIndexOf('.');
         String baseName = (lastDot == 0 ? filename : (lastDot > 0 ? filename.substring(0, lastDot) : filename));
-        String targetExt = getImageFormat().getFileExtensionName();
+        String targetExt = getMetadata().getImageFormat().getFileExtensionName();
 
         /*
          * Special Case: If the filename is the extension itself (e.g., file named "tif")
@@ -137,11 +137,4 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
      * @return the extracted {@link Metadata} container execution context
      */
     public abstract T getMetadata();
-
-    /**
-     * Returns the detected image format, such as {@code TIFF}, {@code PNG}, or {@code JPG}.
-     * 
-     * @return the {@link DigitalSignature} representing the image format
-     */
-    public abstract DigitalSignature getImageFormat();
 }

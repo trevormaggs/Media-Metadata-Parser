@@ -45,7 +45,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
 
         String ext = Utils.getFileExtension(getImageFile());
 
-        if (!ext.equalsIgnoreCase("tif") && !ext.equalsIgnoreCase("tiff"))
+        if (!ext.equalsIgnoreCase("tif") && !ext.equalsIgnoreCase("tiff") && !ext.equalsIgnoreCase("dng"))
         {
             LOGGER.warn(formatExtensionErrorMessage());
         }
@@ -87,6 +87,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
             if (handler.parseMetadata())
             {
                 populateMetadata(tif, handler);
+                return tif;
             }
 
             else
@@ -99,6 +100,8 @@ public class TifParser extends AbstractImageParser<TifMetadata>
         {
             LOGGER.error("Unable to handle inline byte stream array due to an I/O error", exc);
         }
+
+        tif.setImageFormat(DigitalSignature.UNKNOWN);
 
         return tif;
     }
@@ -117,28 +120,31 @@ public class TifParser extends AbstractImageParser<TifMetadata>
 
                 try (IFDHandler handler = new IFDHandler(getImageFile()))
                 {
-                    if (handler.parseMetadata())
-                    {
-                        populateMetadata(metadata, handler);
-
-                        if (!metadata.hasXmpData())
-                        {
-                            LOGGER.debug("No XMP payload found inside [" + getImageFile() + "]");
-                        }
-                    }
-
-                    else
+                    if (!handler.parseMetadata())
                     {
                         LOGGER.info("No compatible TIFF metadata directories found in [" + getImageFile() + "]");
+                        metadata.setImageFormat(DigitalSignature.UNKNOWN);
+                        return;
+                    }
+
+                    populateMetadata(metadata, handler);
+
+                    if (!metadata.hasXmpData())
+                    {
+                        LOGGER.debug("No XMP payload found inside [" + getImageFile() + "]");
                     }
                 }
-
-                dataLoaded = true;
             }
 
             catch (IOException exc)
             {
                 LOGGER.error("File [" + getImageFile() + "] encountered an I/O error", exc);
+                metadata.setImageFormat(DigitalSignature.UNKNOWN);
+            }
+
+            finally
+            {
+                dataLoaded = true;
             }
         }
     }
@@ -154,17 +160,6 @@ public class TifParser extends AbstractImageParser<TifMetadata>
     {
         readMetadata();
         return metadata;
-    }
-
-    /**
-     * Returns the detected TIFF format.
-     *
-     * @return a {@link DigitalSignature} enum class
-     */
-    @Override
-    public DigitalSignature getImageFormat()
-    {
-        return DigitalSignature.TIF;
     }
 
     /**
@@ -264,6 +259,11 @@ public class TifParser extends AbstractImageParser<TifMetadata>
                     LOGGER.error("Unable to parse XMP directory payload structural XML data strings", exc);
                 }
             }
+        }
+
+        if (handler.isDngVersion())
+        {
+            target.setImageFormat(DigitalSignature.DNG);
         }
     }
 }

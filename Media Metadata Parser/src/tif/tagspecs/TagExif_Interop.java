@@ -9,6 +9,7 @@ import tif.TagHint;
  * 
  * @author Trevor Maggs
  * @version 1.1
+ * @since 18 June 2026
  */
 public enum TagExif_Interop implements Taggable
 {

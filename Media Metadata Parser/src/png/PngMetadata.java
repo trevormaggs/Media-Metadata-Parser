@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
+import common.DigitalSignature;
 import common.MetadataConstants;
 import png.ChunkType.Category;
 import tif.TifMetadata;
@@ -104,6 +105,17 @@ public class PngMetadata implements PngMetadataProvider
     public ByteOrder getByteOrder()
     {
         return ByteOrder.BIG_ENDIAN;
+    }
+
+    /**
+     * Returns the detected {@code PNG} format.
+     *
+     * @return DigitalSignature.PNG
+     */
+    @Override
+    public DigitalSignature getImageFormat()
+    {
+        return DigitalSignature.PNG;
     }
 
     /**

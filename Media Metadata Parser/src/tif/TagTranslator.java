@@ -4,13 +4,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import common.ByteValueConverter;
 import tif.tagspecs.TagIFD_Baseline;
+import tif.tagspecs.TagIFD_DNG;
 import tif.tagspecs.TagIFD_Extension;
-import tif.tagspecs.TagIFD_Private;
 import tif.tagspecs.Taggable;
 
 /**
  * Utility class responsible for translating raw TIFF/EXIF tag values into human-readable strings.
- * 
+ *
  * @author Trevor Maggs
  * @version 1.4
  * @since 15 June 2026
@@ -67,9 +67,9 @@ public class TagTranslator
             return translateExtension((TagIFD_Extension) tag, value);
         }
 
-        else if (tag instanceof TagIFD_Private)
+        else if (tag instanceof TagIFD_DNG)
         {
-            return translatePrivate((TagIFD_Private) tag, value);
+            return translateDng((TagIFD_DNG) tag, value);
         }
 
         return translateFallback(tag, value);
@@ -355,7 +355,7 @@ public class TagTranslator
         return decoded.trim();
     }
 
-    private static String translatePrivate(TagIFD_Private tag, Object val)
+    private static String translateDng(TagIFD_DNG tag, Object val)
     {
         switch (tag)
         {
@@ -539,7 +539,10 @@ public class TagTranslator
 
     private static String formatRational(Object val)
     {
-        if (val == null) return "";
+        if (val == null)
+        {
+            return "";
+        }
 
         if (val instanceof Object[])
         {

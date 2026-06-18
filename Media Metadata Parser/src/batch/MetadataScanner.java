@@ -279,7 +279,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
 
                     parser.readMetadata();
                     Metadata<?> meta = parser.getMetadata();
-                    imageSet.add(new MediaRecord(fpath, meta, parser.getImageFormat(), attr.lastModifiedTime()));
+                    imageSet.add(new MediaRecord(fpath, meta, meta.getImageFormat(), attr.lastModifiedTime()));
 
                     // System.out.printf("%s%n", parser.formatDiagnosticString());
                     // System.out.printf("%s", meta);
