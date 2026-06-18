@@ -325,7 +325,7 @@ public class IFDHandler implements ImageHandler
             byte[] valueBytes = reader.readBytes(4);
             long valueOrOffset = ByteValueConverter.toUnsignedInteger(valueBytes, getTifByteOrder());
             long totalBytes = count * fieldType.getFieldSize();
-            
+
             if (tagEnum == TagIFD_DNG.IFD_DNG_VERSION)
             {
                 isDngFormat = true;
@@ -371,24 +371,24 @@ public class IFDHandler implements ImageHandler
 
             if (tag instanceof TagIFD_Pointer)
             {
-                List<Long> offsets;
+                long[] offsets;
                 DirectoryIdentifier nextDir = ((TagIFD_Pointer) tag).getTargetDirectory();
 
                 if (tag == TagIFD_Pointer.IFD_SUBIFD_POINTER)
                 {
-                    offsets = getSubIfdOffsets(entry);
+                    offsets = getArraySubIfds(entry);
                 }
 
                 else
                 {
-                    offsets = Collections.singletonList(entry.getOffset());
+                    offsets = new long[]{entry.getOffset()};
                 }
 
                 /**
                  * For pointer tags (<= 4 bytes inline), getOffset() holds
                  * the absolute data pointer location.
                  */
-                for (Long subIfdOffset : offsets)
+                for (long subIfdOffset : offsets)
                 {
                     if (subIfdOffset <= 0 || subIfdOffset >= reader.length())
                     {
@@ -441,37 +441,68 @@ public class IFDHandler implements ImageHandler
         return true;
     }
 
-    private List<Long> getSubIfdOffsets(EntryIFD entry) throws IOException
+    /**
+     * Extracts the absolute file offsets referenced by a SubIFD pointer entry.
+     *
+     * <p>
+     * The TIFF and DNG specifications allow the {@code SubIFDs} tag to reference either a single
+     * child directory or an array of child directory offsets. This method transparently handles
+     * both layouts:
+     * </p>
+     *
+     * <ul>
+     * <li><strong>Count == 1:</strong> Returns the offset stored directly in the entry.</li>
+     * <li><strong>Count &gt; 1:</strong> Reads and decodes the array of offsets referenced by the
+     * entry.</li>
+     * </ul>
+     *
+     * <p>
+     * Offset values are decoded directly from the raw byte payload using
+     * {@link ByteValueConverter#toUnsignedInteger(byte[], int, ByteOrder)}. If the payload is
+     * truncated or corrupted, any successfully decoded offsets are preserved and returned while the
+     * condition is logged.
+     * </p>
+     *
+     * @param entry
+     *        the {@link EntryIFD} containing the SubIFD pointer definition
+     * @return an array of absolute file offsets identifying the start of each SubIFD, or an empty
+     *         array if no valid offsets can be extracted
+     */
+    private long[] getArraySubIfds(EntryIFD entry)
     {
-        List<Long> offsets = new ArrayList<Long>();
+        long[] offsets;
 
         if (entry.getCount() == 1)
         {
-            offsets.add(entry.getOffset());
-            return offsets;
+            offsets = new long[]{entry.getOffset()};
         }
 
-        byte[] raw = entry.getByteArray();
-
-        if (raw == null || raw.length == 0)
+        else
         {
-            LOGGER.error(String.format("SubIFDs pointer array (Count: %d) has no usable raw or parsed data payload", entry.getCount()));
-            return offsets;
-        }
+            byte[] raw = entry.getByteArray();
 
-        for (int i = 0; i < entry.getCount(); i++)
-        {
-            int pos = i * 4;
-
-            if (pos + 4 > raw.length)
+            if (raw == null || raw.length == 0)
             {
-                LOGGER.warn(String.format("SubIFDs payload truncation detected. Read %d of %d pointers", i, entry.getCount()));
-                break;
+                LOGGER.error(String.format("SubIFDs pointer array (Count: %d) contains no readable offset data", entry.getCount()));
+                return new long[0];
             }
 
-            byte[] slice = Arrays.copyOfRange(raw, pos, pos + 4);
+            offsets = new long[(int) entry.getCount()];
 
-            offsets.add(ByteValueConverter.toUnsignedInteger(slice, getTifByteOrder()));
+            for (int i = 0; i < entry.getCount(); i++)
+            {
+                int pos = i * 4;
+
+                if (pos + 4 > raw.length)
+                {
+                    // Trim the result to the number of successfully decoded offsets
+                    offsets = Arrays.copyOf(offsets, i);
+                    LOGGER.warn(String.format("SubIFDs payload truncation detected. Read %d of %d pointers", i, entry.getCount()));
+                    break;
+                }
+
+                offsets[i] = ByteValueConverter.toUnsignedInteger(raw, pos, getTifByteOrder());
+            }
         }
 
         return offsets;
