@@ -1,5 +1,6 @@
 package tif;
 
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -307,7 +308,9 @@ public class RationalNumber extends Number
 
         if (hasIntegerValue())
         {
-            result = Long.toString(longValue());
+            // If it's a pure integer, format it with .0 to match your decimal preference (e.g., 8
+            // -> 8.0)
+            result = Long.toString(longValue()) + ".0";
         }
 
         else if (decimalAllowed)
@@ -321,11 +324,21 @@ public class RationalNumber extends Number
 
             else
             {
-                String formattedDecimal = String.format(java.util.Locale.ROOT, "%.4f", d).replaceAll("0+$", "").replaceAll("\\.$", "");
+                // 1. Format to 4 decimal places (e.g., "8.0000" or "8.1230")
+                String formattedDecimal = String.format(Locale.ROOT, "%.4f", d);
+
+                // 2. Strip trailing zeros ONLY if they are preceded by another digit after the
+                // decimal point.
+                // This ensures "8.1230" becomes "8.123", but "8.0000" drops to "8.0" instead of
+                // "8."
+                formattedDecimal = formattedDecimal.replaceAll("(\\.\\d)0+$", "$1").replaceAll("0+$", "");
+
+                // 3. Just in case a dangling dot remains, handle it safely
+                formattedDecimal = formattedDecimal.replaceAll("\\.$", ".0");
 
                 // Safeguard: If the decimal representation gets rounded to an empty string
                 // or zero by the format window, fall back to the explicit fractional form.
-                if (!formattedDecimal.isEmpty() && !formattedDecimal.equals("0") && !formattedDecimal.equals("-0"))
+                if (!formattedDecimal.isEmpty() && !formattedDecimal.equals("0") && !formattedDecimal.equals("-0") && !formattedDecimal.equals("0.0") && !formattedDecimal.equals("-0.0"))
                 {
                     result = formattedDecimal;
                 }
@@ -343,42 +356,6 @@ public class RationalNumber extends Number
         }
 
         return result;
-    }
-
-    /**
-     * Returns the string representation of the rational number, favouring a simple integer if the
-     * value is a whole number.
-     *
-     * @param decimalAllowed
-     *        if true, allows a short decimal representation (e.g., "0.5") for simple fractions
-     * 
-     * @return the simple string representation
-     */
-    @Deprecated
-    public String toSimpleString2(boolean decimalAllowed)
-    {
-        if (hasIntegerValue())
-        {
-            return Long.toString(longValue());
-        }
-
-        else
-        {
-            RationalNumber simplifiedInstance = simplify(numerator, divisor, unsignedType ? DataType.UNSIGNED : DataType.SIGNED);
-
-            if (decimalAllowed)
-            {
-                String doubleString = Double.toString(simplifiedInstance.doubleValue());
-
-                // Return short decimals like "0.5" or "1.33"
-                if (doubleString.length() < 5)
-                {
-                    return doubleString;
-                }
-            }
-
-            return simplifiedInstance.toString();
-        }
     }
 
     /**

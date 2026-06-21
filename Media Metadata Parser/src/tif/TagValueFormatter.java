@@ -835,6 +835,7 @@ public final class TagValueFormatter
                         // Keeps small fractional values like shutter speeds (e.g. 1/125) readable
                         sb.append(arr[i].toString());
                     }
+
                     else
                     {
                         // Safely processes whole integers and decimal fractions >= 0.1 (e.g. 0.5,

@@ -37,6 +37,21 @@ public interface Taggable
         return false;
     }
 
+    default String translate2(Object val)
+    {
+        if (val == null)
+        {
+            return "";
+        }
+
+        if (val instanceof RationalNumber)
+        {
+            return TagValueFormatter.toStringValue(val, getHint());
+        }
+
+        return val.toString().trim();
+    }
+
     default String translate(Object val)
     {
         if (val == null)
@@ -204,7 +219,6 @@ public interface Taggable
             }
         }
 
-
         return sb.toString();
     }
 
@@ -221,10 +235,10 @@ public interface Taggable
             {
                 sb.append(" ");
             }
-        
 
-        System.out.printf("LOOK: %s\n", sb.toString());}
+            System.out.printf("LOOK: %s\n", sb.toString());
+        }
 
-         return sb.toString();
+        return sb.toString();
     }
 }
