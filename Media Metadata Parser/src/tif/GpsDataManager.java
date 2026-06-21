@@ -73,7 +73,7 @@ public final class GpsDataManager
         }
 
         EntryIFD timeEntry = gpsDir.getTagEntry(tag);
-        RationalNumber[] timeArray = (timeEntry != null) ? TagValueConverter.getRationalArray(timeEntry) : null;
+        RationalNumber[] timeArray = (timeEntry != null) ? TagValueFormatter.getRationalArray(timeEntry) : null;
 
         if (timeArray != null && timeArray.length >= 3 && timeArray[0] != null && timeArray[1] != null && timeArray[2] != null)
         {
@@ -169,7 +169,7 @@ public final class GpsDataManager
         if (tag.getHint() == TagHint.HINT_RATIONAL)
         {
             EntryIFD fallbackEntry = gpsDir.getTagEntry(tag);
-            RationalNumber[] ratArray = (fallbackEntry != null) ? TagValueConverter.getRationalArray(fallbackEntry) : null;
+            RationalNumber[] ratArray = (fallbackEntry != null) ? TagValueFormatter.getRationalArray(fallbackEntry) : null;
 
             if (ratArray != null && ratArray.length > 0 && ratArray[0] != null)
             {
@@ -196,7 +196,7 @@ public final class GpsDataManager
             return "";
         }
 
-        RationalNumber[] rationals = TagValueConverter.getRationalArray(entry);
+        RationalNumber[] rationals = TagValueFormatter.getRationalArray(entry);
 
         return decodeGpsArray(rationals, tag, gpsDir);
     }
@@ -218,7 +218,7 @@ public final class GpsDataManager
             return "";
         }
 
-        RationalNumber[] bearingArray = TagValueConverter.getRationalArray(tagEntry);
+        RationalNumber[] bearingArray = TagValueFormatter.getRationalArray(tagEntry);
 
         if (bearingArray == null || bearingArray.length == 0 || bearingArray[0] == null)
         {

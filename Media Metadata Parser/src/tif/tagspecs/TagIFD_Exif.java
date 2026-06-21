@@ -5,7 +5,7 @@ import java.util.Locale;
 import tif.DirectoryIdentifier;
 import tif.RationalNumber;
 import tif.TagHint;
-import tif.TagValueConverter;
+import tif.TagValueFormatter;
 
 /**
  * Exchangeable Image File Format (Exif) sub-directory metadata tags within the
@@ -215,9 +215,9 @@ public enum TagIFD_Exif implements Taggable
     {
         if (val instanceof byte[])
         {
-            byte[] bytes = (byte[]) val;
+            byte[] bytes = TagValueFormatter.toByteArray(val);
 
-            if (bytes.length >= 4)
+            if (bytes != null && bytes.length >= 4)
             {
                 return new String(bytes, 0, 4, StandardCharsets.US_ASCII);
             }
@@ -230,7 +230,7 @@ public enum TagIFD_Exif implements Taggable
     {
         if (val instanceof byte[])
         {
-            return TagValueConverter.decodeUserComment((byte[]) val);
+            return TagValueFormatter.decodeUserComment((byte[]) val);
         }
 
         return String.valueOf(val);

@@ -287,19 +287,19 @@ public class IFDHandler implements ImageHandler
      * Recursively traverses a physical IFD and its linked sub-directories.
      *
      * <p>
-     * Each IFD is parsed as a 2-byte entry count, followed by a sequence of 12-byte entries.
-     * Only directories belonging to the main chain append a final 4-byte pointer to the next
-     * contiguous main-chain IFD.
+     * Each IFD consists of a 2-byte entry count followed by a sequence of 12-byte entries. Only
+     * directories that belong to the main IFD chain (IFD0, IFD1, etc.) are followed by a trailing
+     * 4-byte pointer to the next directory in that chain.
      * </p>
      *
      * @param dirType
-     *        the physical directory identity being processed
+     *        the directory type currently being processed
      * @param startOffset
-     *        the file offset where the IFD block begins
-     * @return {@code true} if the directory and all linked IFDs were successfully parsed
+     *        the absolute file offset where the IFD begins
+     * @return {@code true} if the directory and all linked sub-directories were parsed successfully
      *
      * @throws IOException
-     *         if an I/O error occurs
+     *         if an I/O error occurs while reading the file
      */
     private boolean navigateImageFileDirectory(DirectoryIdentifier dirType, long startOffset) throws IOException
     {
@@ -312,6 +312,8 @@ public class IFDHandler implements ImageHandler
         reader.seek(startOffset);
 
         DirectoryIFD ifd = new DirectoryIFD(dirType);
+
+        /* Get 2-byte entry count */
         int entryCount = reader.readUnsignedShort();
 
         /* Process all 12-byte entries in this IFD sequentially */
@@ -365,29 +367,22 @@ public class IFDHandler implements ImageHandler
 
         directoryList.add(ifd);
 
+        /*
+         * Prevent from parsing next offset not related to 12-byte entries, for example, EOF, image
+         * pixels etc. Advances the file pointer only if a main-chain trailing link is evident
+         */
+        long nextOffset = (dirType.isMainChain() ? reader.readUnsignedInteger() : 0L);
+
+        /* Process deep sub-directory branching */
         for (EntryIFD entry : ifd)
         {
             Taggable tag = entry.getTag();
 
             if (tag instanceof TagIFD_Pointer)
             {
-                long[] offsets;
+                long[] offsets = resolvePointerOffsets(entry);
                 DirectoryIdentifier nextDir = ((TagIFD_Pointer) tag).getTargetDirectory();
 
-                if (tag == TagIFD_Pointer.IFD_SUBIFD_POINTER)
-                {
-                    offsets = getArraySubIfds(entry);
-                }
-
-                else
-                {
-                    offsets = new long[]{entry.getOffset()};
-                }
-
-                /**
-                 * For pointer tags (<= 4 bytes inline), getOffset() holds
-                 * the absolute data pointer location.
-                 */
                 for (long subIfdOffset : offsets)
                 {
                     if (subIfdOffset <= 0 || subIfdOffset >= reader.length())
@@ -421,8 +416,6 @@ public class IFDHandler implements ImageHandler
 
         if (dirType.isMainChain())
         {
-            long nextOffset = reader.readUnsignedInteger();
-
             if (nextOffset == 0L)
             {
                 return true;
@@ -442,42 +435,35 @@ public class IFDHandler implements ImageHandler
     }
 
     /**
-     * Extracts the absolute file offsets referenced by a SubIFD pointer entry.
+     * Builds an array of branched out offsets referenced by a SubIFD pointer entry.
      *
      * <p>
-     * The TIFF and DNG specifications allow the {@code SubIFDs} tag to reference either a single
-     * child directory or an array of child directory offsets. This method transparently handles
-     * both layouts:
+     * According to the TIFF and DNG specifications, a {@code SubIFDs} pointer can reference either
+     * a single child directory or an array of child directory offsets. This method transparently
+     * decodes data in both layouts.
      * </p>
      *
-     * <ul>
-     * <li><strong>Count == 1:</strong> Returns the offset stored directly in the entry.</li>
-     * <li><strong>Count &gt; 1:</strong> Reads and decodes the array of offsets referenced by the
-     * entry.</li>
-     * </ul>
-     *
      * <p>
-     * Offset values are decoded directly from the raw byte payload using
-     * {@link ByteValueConverter#toUnsignedInteger(byte[], int, ByteOrder)}. If the payload is
-     * truncated or corrupted, any successfully decoded offsets are preserved and returned while the
-     * condition is logged.
+     * If the payload is truncated or corrupted, any successfully decoded offsets are preserved with
+     * this condition logged.
      * </p>
      *
      * @param entry
-     *        the {@link EntryIFD} containing the SubIFD pointer definition
+     *        the {@link EntryIFD} containing the SubIFD pointer
      * @return an array of absolute file offsets identifying the start of each SubIFD, or an empty
      *         array if no valid offsets can be extracted
      */
-    private long[] getArraySubIfds(EntryIFD entry)
+    private long[] resolvePointerOffsets(EntryIFD entry)
     {
         long[] offsets;
+        Taggable tag = entry.getTag();
 
         if (entry.getCount() == 1)
         {
             offsets = new long[]{entry.getOffset()};
         }
 
-        else
+        else if (tag == TagIFD_Pointer.IFD_SUBIFD_POINTER)
         {
             byte[] raw = entry.getByteArray();
 
@@ -495,7 +481,6 @@ public class IFDHandler implements ImageHandler
 
                 if (pos + 4 > raw.length)
                 {
-                    // Trim the result to the number of successfully decoded offsets
                     offsets = Arrays.copyOf(offsets, i);
                     LOGGER.warn(String.format("SubIFDs payload truncation detected. Read %d of %d pointers", i, entry.getCount()));
                     break;
@@ -503,6 +488,12 @@ public class IFDHandler implements ImageHandler
 
                 offsets[i] = ByteValueConverter.toUnsignedInteger(raw, pos, getTifByteOrder());
             }
+        }
+
+        else
+        {
+            LOGGER.warn(String.format("Non-SubIFD Pointer tag [%s] has invalid count %d. Skipping further navigation to prevent corruption", tag, entry.getCount()));
+            return new long[0];
         }
 
         return offsets;

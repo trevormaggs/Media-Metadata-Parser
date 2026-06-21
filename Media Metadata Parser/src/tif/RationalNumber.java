@@ -294,6 +294,58 @@ public class RationalNumber extends Number
     }
 
     /**
+     * Returns a clean, human-readable string representation of the rational number, favouring a
+     * simple integer or clean decimal string over a fractional notation where appropriate.
+     *
+     * @param decimalAllowed
+     *        if true, allows a short decimal representation instead of a fraction string
+     * @return the simple string representation
+     */
+    public String toSimpleString(boolean decimalAllowed)
+    {
+        String result;
+
+        if (hasIntegerValue())
+        {
+            result = Long.toString(longValue());
+        }
+
+        else if (decimalAllowed)
+        {
+            double d = doubleValue();
+
+            if (Double.isNaN(d) || Double.isInfinite(d))
+            {
+                result = String.valueOf(d);
+            }
+
+            else
+            {
+                String formattedDecimal = String.format(java.util.Locale.ROOT, "%.4f", d).replaceAll("0+$", "").replaceAll("\\.$", "");
+
+                // Safeguard: If the decimal representation gets rounded to an empty string
+                // or zero by the format window, fall back to the explicit fractional form.
+                if (!formattedDecimal.isEmpty() && !formattedDecimal.equals("0") && !formattedDecimal.equals("-0"))
+                {
+                    result = formattedDecimal;
+                }
+
+                else
+                {
+                    result = toString();
+                }
+            }
+        }
+
+        else
+        {
+            result = toString();
+        }
+
+        return result;
+    }
+
+    /**
      * Returns the string representation of the rational number, favouring a simple integer if the
      * value is a whole number.
      *
@@ -302,7 +354,8 @@ public class RationalNumber extends Number
      * 
      * @return the simple string representation
      */
-    public String toSimpleString(boolean decimalAllowed)
+    @Deprecated
+    public String toSimpleString2(boolean decimalAllowed)
     {
         if (hasIntegerValue())
         {

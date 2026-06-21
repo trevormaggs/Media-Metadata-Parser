@@ -1,6 +1,7 @@
 package tif.tagspecs;
 
 import tif.TagHint;
+import tif.TagValueFormatter;
 import java.lang.reflect.Array;
 import java.util.Locale;
 import tif.DirectoryIdentifier;
@@ -11,27 +12,27 @@ public interface Taggable
     /**
      * @return the 16-bit numerical Tag ID (e.g., 0x0100 for ImageWidth)
      */
-    public int getNumberID();
+    int getNumberID();
 
     /**
      * @return the expected data type or format hint for this tag
      */
-    public TagHint getHint();
+    TagHint getHint();
 
     /**
      * @return the IFD where this tag is valid
      */
-    public DirectoryIdentifier getDirectoryType();
+    DirectoryIdentifier getDirectoryType();
 
     /**
      * @return a human-readable name or description of the tag
      */
-    public String getDescription();
+    String getDescription();
 
     /**
      * @return true if this represents a tag not explicitly defined in the specification
      */
-    public default boolean isUnknown()
+    default boolean isUnknown()
     {
         return false;
     }
@@ -69,7 +70,7 @@ public interface Taggable
                 {
                     sb.append(formatNumericValue(arr[i].doubleValue()));
                 }
-                
+
                 else
                 {
                     sb.append("0");
@@ -80,7 +81,7 @@ public interface Taggable
                     sb.append(" ");
                 }
             }
-            
+
             return sb.toString();
         }
 
@@ -203,6 +204,27 @@ public interface Taggable
             }
         }
 
+
         return sb.toString();
+    }
+
+    static String formatIntArray2(Object val)
+    {
+        StringBuilder sb = new StringBuilder();
+        int[] arr = TagValueFormatter.toIntArray(val);
+
+        for (int i = 0; i < arr.length; i++)
+        {
+            sb.append(arr[i]);
+
+            if (i < arr.length - 1)
+            {
+                sb.append(" ");
+            }
+        
+
+        System.out.printf("LOOK: %s\n", sb.toString());}
+
+         return sb.toString();
     }
 }

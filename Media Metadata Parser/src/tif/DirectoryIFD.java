@@ -174,7 +174,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
             // Tag, Type, and Count Information
             sb.append(String.format(MetadataConstants.FORMATTER, "Tag Name", getTag() + " (Tag ID: " + String.format("0x%04X", getTagID()) + ")"));
             sb.append(String.format(MetadataConstants.FORMATTER, "Field Type", getFieldType() + " (count: " + getCount() + ")"));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Value", TagValueConverter.toStringValue(this)));
+            sb.append(String.format(MetadataConstants.FORMATTER, "ValueX", TagValueFormatter.toStringValue(this)));
             sb.append(String.format(MetadataConstants.FORMATTER, "Hint", getTag().getHint()));
 
             if (getByteLength() > IFDHandler.ENTRY_MAX_VALUE_LENGTH)
@@ -397,7 +397,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public int getIntValue(Taggable tag)
     {
-        return TagValueConverter.getIntValue(getTagEntry(tag));
+        return TagValueFormatter.getIntValue(getTagEntry(tag));
     }
 
     /**
@@ -409,7 +409,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public int[] getIntArray(Taggable tag)
     {
-        return TagValueConverter.getIntArray(getTagEntry(tag));
+        return TagValueFormatter.getIntArray(getTagEntry(tag));
     }
 
     /**
@@ -421,7 +421,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public long getLongValue(Taggable tag)
     {
-        return TagValueConverter.getLongValue(getTagEntry(tag));
+        return TagValueFormatter.getLongValue(getTagEntry(tag));
     }
 
     /**
@@ -433,7 +433,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public long[] getLongArray(Taggable tag)
     {
-        return TagValueConverter.getLongArray(getTagEntry(tag));
+        return TagValueFormatter.getLongArray(getTagEntry(tag));
     }
 
     /**
@@ -445,7 +445,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public float getFloatValue(Taggable tag)
     {
-        return TagValueConverter.getFloatValue(getTagEntry(tag));
+        return TagValueFormatter.getFloatValue(getTagEntry(tag));
     }
 
     /**
@@ -457,7 +457,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public float[] getFloatArray(Taggable tag)
     {
-        return TagValueConverter.getFloatArray(getTagEntry(tag));
+        return TagValueFormatter.getFloatArray(getTagEntry(tag));
     }
 
     /**
@@ -469,7 +469,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public double getDoubleValue(Taggable tag)
     {
-        return TagValueConverter.getDoubleValue(getTagEntry(tag));
+        return TagValueFormatter.getDoubleValue(getTagEntry(tag));
     }
 
     /**
@@ -481,7 +481,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public double[] getDoubleArray(Taggable tag)
     {
-        return TagValueConverter.getDoubleArray(getTagEntry(tag));
+        return TagValueFormatter.getDoubleArray(getTagEntry(tag));
     }
 
     /**
@@ -496,7 +496,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public RationalNumber getRationalValue(Taggable tag)
     {
-        return TagValueConverter.getRationalValue(getTagEntry(tag));
+        return TagValueFormatter.getRationalValue(getTagEntry(tag));
     }
 
     /**
@@ -508,7 +508,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public RationalNumber[] getRationalArrayValue(Taggable tag)
     {
-        return TagValueConverter.getRationalArray(getTagEntry(tag));
+        return TagValueFormatter.getRationalArray(getTagEntry(tag));
     }
 
     /**
@@ -533,33 +533,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
                     getDirectoryType().getDescription()));
         }
 
-        return TagValueConverter.toStringValue(entry);
-    }
-
-    /**
-     * Returns a Date object associated with the specified tag, delegating parsing and validation to
-     * the {@code TagValueConverter} utility.
-     *
-     * @param tag
-     *        the enumeration tag to obtain the value for
-     * @return a Date object if present and successfully parsed
-     *
-     * @throws IllegalArgumentException
-     *         if the tag is missing or its value cannot be parsed as a valid Date
-     */
-    public Date getDate(Taggable tag)
-    {
-        EntryIFD entry = getTagEntry(tag);
-
-        if (entry == null)
-        {
-            throw new IllegalArgumentException(String.format("Tag [%s (0x%04X)] not found in directory [%s]",
-                    tag,
-                    tag.getNumberID(),
-                    getDirectoryType().getDescription()));
-        }
-
-        return TagValueConverter.getDate(entry);
+        return TagValueFormatter.toStringValue(entry);
     }
 
     /**
@@ -589,7 +563,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
                     getDirectoryType().getDescription()));
         }
 
-        return TagValueConverter.getZonedDateTime(entry);
+        return TagValueFormatter.getZonedDateTime(entry);
     }
 
     /**
