@@ -26,8 +26,8 @@ import tif.TagHint;
 public enum TagIFD_DNG implements Taggable
 {
     /* --- 0xC600 - 0xC6FF Range --- */
-    IFD_DNG_VERSION(0xC612, "DNG Version", TagHint.HINT_BYTE),
-    IFD_DNG_BACKWARD_VERSION(0xC613, "DNG Backward Version", TagHint.HINT_BYTE),
+    IFD_DNG_VERSION(0xC612, "DNG Version", TagHint.HINT_VERSION),
+    IFD_DNG_BACKWARD_VERSION(0xC613, "DNG Backward Version", TagHint.HINT_VERSION),
     IFD_UNIQUE_CAMERA_MODEL(0xC614, "Unique Camera Model", TagHint.HINT_STRING),
     IFD_LOCALIZED_CAMERA_MODEL(0xC615, "Localized Camera Model", TagHint.HINT_STRING),
     IFD_LINEARIZATION_TABLE(0xC618, "Linearization Table", TagHint.HINT_SHORT),

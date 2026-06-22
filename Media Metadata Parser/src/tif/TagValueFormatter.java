@@ -1,8 +1,10 @@
 package tif;
 
+import java.lang.reflect.Array;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -158,23 +160,22 @@ public final class TagValueFormatter
     }
 
     /**
-     * Converts the specified value to an array of integers.
+     * Converts a value to an integer array.
      *
      * <p>
-     * Supports TIFF integer-based values that can be safely represented within a 32-bit signed
-     * integer range. Unsigned BYTE and SHORT values are widened to preserve their unsigned
-     * representation.
+     * Supports TIFF integer field types that can be represented as 32-bit integers. Unsigned BYTE
+     * and SHORT values are widened to preserve their unsigned values.
      * </p>
      *
      * <p>
-     * Values requiring more than 32 bits of storage, such as {@code Long} and {@code long[]}, are
-     * not converted to avoid silent data loss.
+     * Values that require more than 32 bits, such as {@code Long} and {@code long[]}, are not
+     * converted.
      * </p>
      *
      * @param data
      *        the value to convert
-     * @return an integer array, an empty array if the value is {@code null} or cannot be safely
-     *         represented as 32-bit integers, or {@code null} if the value type is unsupported
+     * @return an integer array, an empty array if the value is {@code null} or cannot be
+     *         represented as an integer, or {@code null} if the type is unsupported
      */
     public static int[] toIntArray(Object data)
     {
@@ -289,18 +290,17 @@ public final class TagValueFormatter
     }
 
     /**
-     * Converts the specified value to an array of longs.
+     * Converts a value to a long array.
      *
      * <p>
-     * Supports scalar values, primitive arrays, numeric wrapper types, and rational values where
-     * conversion is possible. Since {@code long} is 64-bit, it can safely represent all standard
-     * TIFF integer field types.
+     * Supports TIFF integer values, numeric types, and rational values that can be represented as
+     * {@code long}.
      * </p>
      *
      * @param data
      *        the value to convert
      * @return a long array, an empty array if {@code data} is {@code null}, or {@code null} if the
-     *         value type is unsupported
+     *         type is unsupported
      */
     public static long[] toLongArray(Object data)
     {
@@ -454,17 +454,17 @@ public final class TagValueFormatter
     }
 
     /**
-     * Converts the specified value to an array of floats.
+     * Converts a value to a float array.
      *
      * <p>
-     * Supports floating-point values, rational values, and other numeric types that can be
-     * represented as {@code float}.
+     * Supports floating-point, rational, and other numeric values that can be represented as
+     * {@code float}.
      * </p>
      *
      * @param data
      *        the value to convert
      * @return a float array, an empty array if {@code data} is {@code null}, or {@code null} if the
-     *         value type is unsupported
+     *         type is unsupported
      */
     public static float[] toFloatArray(Object data)
     {
@@ -679,16 +679,16 @@ public final class TagValueFormatter
     }
 
     /**
-     * Converts the specified value to an array of rational numbers.
+     * Converts a value to a rational number array.
      *
      * <p>
-     * Supports individual {@link RationalNumber} instances and arrays of rational numbers.
+     * Supports {@link RationalNumber} instances and arrays of rational numbers.
      * </p>
      *
      * @param data
      *        the value to convert
-     * @return an array of rational numbers, an empty array if {@code data} is null, or {@code null}
-     *         if the value cannot be converted
+     * @return a rational number array, an empty array if {@code data} is {@code null}, or
+     *         {@code null} if the type is unsupported
      */
     public static RationalNumber[] toRationalArray(Object data)
     {
@@ -749,19 +749,16 @@ public final class TagValueFormatter
 
         else if (hint == TagHint.HINT_BYTE_STREAM)
         {
-            if (data instanceof byte[])
-            {
-                result = String.format(Locale.ROOT, "[Binary Data: %d bytes]", ((byte[]) data).length);
-            }
+            result = "[Binary Data]";
 
-            else if (data instanceof int[])
+            if (data instanceof byte[] || data instanceof int[])
             {
-                result = String.format(Locale.ROOT, "[Binary Data: %d bytes]", ((int[]) data).length * 4);
-            }
+                int length = Array.getLength(data);
 
-            else
-            {
-                result = "[Binary Data]";
+                if (length > 0)
+                {
+                    result = String.format(Locale.ROOT, "[Binary Data: %d bytes]", length);
+                }
             }
         }
 
@@ -784,9 +781,9 @@ public final class TagValueFormatter
         else if (hint == TagHint.HINT_DATE)
         {
             String dt = ((String) data).trim();
-            ZonedDateTime zdt = SmartDateParser.convertToZonedDateTime(dt);
+            ZonedDateTime zdt = toZonedDateTime(data);
 
-            result = (zdt != null) ? zdt.toString() : dt;
+            result = (zdt != null) ? zdt.format(DateTimeFormatter.ofPattern("dd MMM yyyy @ HH:mm:ss z")) : dt;
         }
 
         else if (hint == TagHint.HINT_MASK)
@@ -794,31 +791,42 @@ public final class TagValueFormatter
             result = "[Masked items]";
         }
 
-        else if (hint == TagHint.HINT_BYTE)
-        {
-            if (data instanceof byte[])
-            {
-                result = ByteValueConverter.toHex((byte[]) data);
-            }
-        }
-
-        else if (hint == TagHint.HINT_ENCODED_STRING)
-        {
-            if (data instanceof byte[])
-            {
-                result = decodeUserComment((byte[]) data);
-            }
-        }
-
         else if (data instanceof byte[])
         {
             byte[] arr = (byte[]) data;
-            result = new String(arr, StandardCharsets.UTF_8).replace("\u0000", "").trim();
+
+            if (hint == TagHint.HINT_BYTE)
+            {
+                result = ByteValueConverter.toHex(arr);
+            }
+
+            else if (hint == TagHint.HINT_ENCODED_STRING)
+            {
+                result = decodeUserComment(arr);
+            }
+
+            else
+            {
+                result = new String(ByteValueConverter.readFirstNullTerminatedByteArray(arr), StandardCharsets.UTF_8).trim();
+            }
         }
 
-        else if (data instanceof Integer || data instanceof int[])
+        else if (data instanceof Short || data instanceof short[] || data instanceof Integer || data instanceof int[])
         {
             result = decodeIntArray(data);
+        }
+
+        else if (data instanceof Long || data instanceof long[])
+        {
+            long[] arr = toLongArray(data);
+            StringBuilder sb = new StringBuilder();
+
+            for (int i = 0; i < arr.length; i++)
+            {
+                sb.append(arr[i]).append(i < arr.length - 1 ? " " : "");
+            }
+
+            result = sb.toString();
         }
 
         else if (data instanceof RationalNumber || data instanceof RationalNumber[])
@@ -828,71 +836,34 @@ public final class TagValueFormatter
 
             for (int i = 0; i < arr.length; i++)
             {
-                if (arr[i] != null)
-                {
-                    if (!arr[i].hasIntegerValue() && arr[i].doubleValue() < 0.1)
-                    {
-                        // Keeps small fractional values like shutter speeds (e.g. 1/125) readable
-                        sb.append(arr[i].toString());
-                    }
-
-                    else
-                    {
-                        // Safely processes whole integers and decimal fractions >= 0.1 (e.g. 0.5,
-                        // 1.5)
-                        sb.append(arr[i].toSimpleString(true));
-                    }
-                }
-                else
-                {
-                    sb.append("0");
-                }
-
-                if (i < arr.length - 1)
-                {
-                    sb.append(" ");
-                }
+                sb.append(arr[i] != null ? arr[i].toSimpleString(true) : "0.0");
+                sb.append(i < arr.length - 1 ? " " : "");
             }
 
             result = sb.toString();
         }
 
-        else if (data instanceof Float || data instanceof Double)
+        else if (data instanceof Float || data instanceof float[])
         {
-            result = formatNumericValue(((Number) data).doubleValue());
-        }
-
-        else if (data instanceof float[])
-        {
-            float[] arr = (float[]) data;
+            float[] arr = toFloatArray(data);
             StringBuilder sb = new StringBuilder();
 
             for (int i = 0; i < arr.length; i++)
             {
-                sb.append(formatNumericValue(arr[i]));
-
-                if (i < arr.length - 1)
-                {
-                    sb.append(" ");
-                }
+                sb.append(formatNumericValue(arr[i])).append(i < arr.length - 1 ? " " : "");
             }
 
             result = sb.toString();
         }
 
-        else if (data instanceof double[])
+        else if (data instanceof Double || data instanceof double[])
         {
-            double[] arr = (double[]) data;
+            double[] arr = toDoubleArray(data);
             StringBuilder sb = new StringBuilder();
 
             for (int i = 0; i < arr.length; i++)
             {
-                sb.append(formatNumericValue(arr[i]));
-
-                if (i < arr.length - 1)
-                {
-                    sb.append(" ");
-                }
+                sb.append(formatNumericValue(arr[i])).append(i < arr.length - 1 ? " " : "");
             }
 
             result = sb.toString();
@@ -915,10 +886,7 @@ public final class TagValueFormatter
                     sb.append(arr[i].trim());
                 }
 
-                if (i < arr.length - 1)
-                {
-                    sb.append(" ");
-                }
+                sb.append(i < arr.length - 1 ? " " : "");
             }
 
             result = sb.toString().trim();
@@ -926,7 +894,6 @@ public final class TagValueFormatter
 
         else
         {
-            // Catch-all for unmapped primitives or structures (Shorts, single Bytes, etc.)
             result = data.toString().trim();
         }
 
@@ -965,26 +932,17 @@ public final class TagValueFormatter
      *
      * @param data
      *        the value to convert
-     * @return the parsed {@link ZonedDateTime}
-     *
-     * @throws IllegalArgumentException
-     *         if the value is not a String or cannot be parsed as a date/time
+     * @return the parsed {@link ZonedDateTime}, or {@code null} if the data is not a string or
+     *         cannot be parsed as a date/time
      */
     public static ZonedDateTime toZonedDateTime(Object data)
     {
         if (data instanceof String)
         {
-            ZonedDateTime zdt = SmartDateParser.convertToZonedDateTime((String) data);
-
-            if (zdt == null)
-            {
-                throw new IllegalArgumentException("Unable to convert value [" + data + "] to ZonedDateTime");
-            }
-
-            return zdt;
+            return SmartDateParser.convertToZonedDateTime((String) data);
         }
 
-        throw new IllegalArgumentException("Cannot convert value of type [" + (data == null ? "null" : data.getClass().getSimpleName()) + "] to ZonedDateTime");
+        return null;
     }
 
     /**
@@ -1088,16 +1046,17 @@ public final class TagValueFormatter
     }
 
     /**
-     * Formats a numeric value into a readable string.
+     * Formats a numeric value as a readable string.
      *
      * <p>
-     * Whole numbers are displayed without a decimal component. Fractional values are rounded to a
-     * maximum of four decimal places with trailing zeros removed. Special values such as
-     * {@link Double#NaN} and infinity are returned using their standard string representations.
+     * Whole numbers are displayed without a decimal point. Decimal values are rounded to four
+     * decimal places, with trailing zeros removed. Special values such as {@code NaN} and infinity
+     * are returned unchanged.
      * </p>
      *
      * @param d
-     *        the value to format @return the formatted value as a string
+     *        the value to format
+     * @return the formatted string representation
      */
     private static String formatNumericValue(double d)
     {
@@ -1115,11 +1074,12 @@ public final class TagValueFormatter
     }
 
     /**
-     * Converts integer-based metadata values into a space-delimited string.
+     * Converts an integer value or integer array into a space-separated string.
      *
      * @param val
-     *        the metadata value to decode
-     * @return a space-delimited string containing the integer values
+     *        the value to convert
+     * @return a space-separated string of integer values, or an empty string if no values are
+     *         available
      */
     private static String decodeIntArray(Object val)
     {

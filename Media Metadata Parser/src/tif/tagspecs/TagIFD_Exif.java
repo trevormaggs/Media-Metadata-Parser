@@ -139,9 +139,6 @@ public enum TagIFD_Exif implements Taggable
             case EXIF_FLASHPIX_VERSION:
                 return translateVersionBytes(val);
 
-            case EXIF_USER_COMMENT:
-                return translateUserComment(val);
-
             case EXIF_EXPOSURE_MODE:
                 return translateExposureMode(val);
 
@@ -184,6 +181,12 @@ public enum TagIFD_Exif implements Taggable
             case EXIF_SCENE_TYPE:
                 return translateSceneType(val);
 
+            case EXIF_APERTURE_VALUE:
+                return translateApexAperture(val);
+
+            case EXIF_SHUTTER_SPEED_VALUE:
+                return translateApexShutterSpeed(val);
+
             case EXIF_LIGHT_SOURCE:
                 // return translateLightSource(num);
 
@@ -221,16 +224,6 @@ public enum TagIFD_Exif implements Taggable
             {
                 return new String(bytes, 0, 4, StandardCharsets.US_ASCII);
             }
-        }
-
-        return String.valueOf(val);
-    }
-
-    private String translateUserComment(Object val)
-    {
-        if (val instanceof byte[])
-        {
-            return TagValueFormatter.decodeUserComment((byte[]) val);
         }
 
         return String.valueOf(val);
@@ -511,5 +504,51 @@ public enum TagIFD_Exif implements Taggable
     {
         int num = Taggable.convertToInt(val);
         return num == 1 ? "Directly photographed" : "Unknown (" + num + ")";
+    }
+
+    private String translateApexAperture(Object val)
+    {
+        if (val instanceof RationalNumber)
+        {
+            double apertureValue = ((RationalNumber) val).doubleValue();
+
+            if (!Double.isNaN(apertureValue) && !Double.isInfinite(apertureValue))
+            {
+                // Formula for f-number = 2^(Av / 2) or (sqrt(2))^Av
+                double fNumber = Math.pow(2.0, apertureValue / 2.0);
+                return String.format(Locale.US, "%.1f", fNumber);
+            }
+        }
+
+        return Taggable.super.translate(val);
+    }
+
+    private String translateApexShutterSpeed(Object val)
+    {
+        if (val instanceof RationalNumber)
+        {
+            double shutterSpeedValue = ((RationalNumber) val).doubleValue();
+
+            if (!Double.isNaN(shutterSpeedValue) && !Double.isInfinite(shutterSpeedValue))
+            {
+                // Formula for Exposure Time: time = 1 / (2^Tv) where Tv is the Shutter Speed Value
+                double denominator = Math.pow(2.0, shutterSpeedValue);
+
+                if (denominator >= 1.0)
+                {
+                    // Fast shutter speed (e.g., 1/2488)
+                    return String.format(Locale.US, "1/%d", Math.round(denominator));
+                }
+
+                else
+                {
+                    // Long exposure (longer than 1 second)
+                    double seconds = 1.0 / denominator;
+                    return String.format(Locale.US, "%.1f s", seconds).replaceAll("\\.0 s$", " s");
+                }
+            }
+        }
+
+        return Taggable.super.translate(val);
     }
 }

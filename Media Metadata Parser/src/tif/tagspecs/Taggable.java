@@ -37,22 +37,18 @@ public interface Taggable
         return false;
     }
 
-    default String translate2(Object val)
+    default String translate(Object val)
     {
         if (val == null)
         {
             return "";
         }
 
-        if (val instanceof RationalNumber)
-        {
-            return TagValueFormatter.toStringValue(val, getHint());
-        }
-
-        return val.toString().trim();
+        return TagValueFormatter.toStringValue(val, getHint());        
+        //return val.toString().trim();
     }
 
-    default String translate(Object val)
+    default String translate2(Object val)
     {
         if (val == null)
         {

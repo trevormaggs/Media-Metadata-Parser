@@ -1,5 +1,7 @@
 package tif;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -18,15 +20,16 @@ import java.util.Objects;
  */
 public class RationalNumber extends Number
 {
+    private static final DecimalFormatSymbols ROOT_SYMBOLS = new DecimalFormatSymbols(Locale.ROOT);
+    public final long numerator;
+    public final long divisor;
+    public final boolean unsignedType;
+
     public enum DataType
     {
         SIGNED,
         UNSIGNED;
     }
-
-    public final long numerator;
-    public final long divisor;
-    public final boolean unsignedType;
 
     /**
      * The core private constructor used by all public constructors and the {@code simplify} method
@@ -297,65 +300,36 @@ public class RationalNumber extends Number
     /**
      * Returns a clean, human-readable string representation of the rational number, favouring a
      * simple integer or clean decimal string over a fractional notation where appropriate.
-     *
+     * 
+     * The logic entails formatting whole numbers to one decimal place, for example: "8.0", trimming
+     * complex decimals to a maximum of 4 decimal places without trailing zeros, for example: "1.6",
+     * "1.2891" etc, and falls back to standard fractional format if false
+     * 
      * @param decimalAllowed
      *        if true, allows a short decimal representation instead of a fraction string
      * @return the simple string representation
      */
     public String toSimpleString(boolean decimalAllowed)
     {
-        String result;
-
         if (hasIntegerValue())
         {
-            // If it's a pure integer, format it with .0 to match your decimal preference (e.g., 8
-            // -> 8.0)
-            result = Long.toString(longValue()) + ".0";
-        }
-
-        else if (decimalAllowed)
-        {
-            double d = doubleValue();
-
-            if (Double.isNaN(d) || Double.isInfinite(d))
-            {
-                result = String.valueOf(d);
-            }
-
-            else
-            {
-                // 1. Format to 4 decimal places (e.g., "8.0000" or "8.1230")
-                String formattedDecimal = String.format(Locale.ROOT, "%.4f", d);
-
-                // 2. Strip trailing zeros ONLY if they are preceded by another digit after the
-                // decimal point.
-                // This ensures "8.1230" becomes "8.123", but "8.0000" drops to "8.0" instead of
-                // "8."
-                formattedDecimal = formattedDecimal.replaceAll("(\\.\\d)0+$", "$1").replaceAll("0+$", "");
-
-                // 3. Just in case a dangling dot remains, handle it safely
-                formattedDecimal = formattedDecimal.replaceAll("\\.$", ".0");
-
-                // Safeguard: If the decimal representation gets rounded to an empty string
-                // or zero by the format window, fall back to the explicit fractional form.
-                if (!formattedDecimal.isEmpty() && !formattedDecimal.equals("0") && !formattedDecimal.equals("-0") && !formattedDecimal.equals("0.0") && !formattedDecimal.equals("-0.0"))
-                {
-                    result = formattedDecimal;
-                }
-
-                else
-                {
-                    result = toString();
-                }
-            }
+            return (decimalAllowed ? String.format(Locale.ROOT, "%.1f", doubleValue()) : Long.toString(longValue()));
         }
 
         else
         {
-            result = toString();
-        }
+            RationalNumber simplifiedInstance = simplify(numerator, divisor, unsignedType ? DataType.UNSIGNED : DataType.SIGNED);
 
-        return result;
+            if (decimalAllowed)
+            {
+                // Allows up to 4 decimal places, but drops unnecessary trailing zeros
+                DecimalFormat df = new DecimalFormat("0.####", ROOT_SYMBOLS);
+
+                return df.format(simplifiedInstance.doubleValue());
+            }
+
+            return simplifiedInstance.toString();
+        }
     }
 
     /**
