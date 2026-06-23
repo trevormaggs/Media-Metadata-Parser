@@ -188,7 +188,7 @@ public enum TagIFD_Exif implements Taggable
                 return translateApexShutterSpeed(val);
 
             case EXIF_LIGHT_SOURCE:
-                // return translateLightSource(num);
+                return Taggable.translateLightSource(val);
 
             case EXIF_GAIN_CONTROL:
                 // return translateGainControl(num);
@@ -506,6 +506,11 @@ public enum TagIFD_Exif implements Taggable
         return num == 1 ? "Directly photographed" : "Unknown (" + num + ")";
     }
 
+    /*
+     * For formula details, refer to Annex C. [Informative] APEX Units official documentation,
+     * "CIPA DC-008-Translation-2024 - Exchangeable image file format for digital still cameras: Exif Version 3.0"
+     * and look for APEX (Additive System of Photographic Exposure).
+     */
     private String translateApexAperture(Object val)
     {
         if (val instanceof RationalNumber)
@@ -523,6 +528,11 @@ public enum TagIFD_Exif implements Taggable
         return Taggable.super.translate(val);
     }
 
+    /*
+     * For formula details, refer to Annex C. [Informative] APEX Units official documentation,
+     * "CIPA DC-008-Translation-2024 - Exchangeable image file format for digital still cameras: Exif Version 3.0"
+     * and look for APEX (Additive System of Photographic Exposure).
+     */
     private String translateApexShutterSpeed(Object val)
     {
         if (val instanceof RationalNumber)

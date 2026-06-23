@@ -62,7 +62,7 @@ public enum TagIFD_Baseline implements Taggable
     IFD_PREDICTOR(0x013D, "Predictor"),
     IFD_WHITE_POINT(0x013E, "White Point"),
     IFD_PRIMARY_CHROMATICITIES(0x013F, "Primary Chromaticities"),
-    IFD_COLOR_MAP(0x0140, "Color Map", TagHint.HINT_SHORT),
+    IFD_COLOR_MAP(0x0140, "Color Map", TagHint.HINT_BYTE_STREAM),
     IFD_HALFTONE_HINTS(0x0141, "Halftone Hints"),
     IFD_TILE_WIDTH(0x0142, "Tile Width"),
     IFD_TILE_LENGTH(0x0143, "Tile Length"),
@@ -193,6 +193,27 @@ public enum TagIFD_Baseline implements Taggable
 
             case IFD_PLANAR_CONFIGURATION:
                 return translatePlanarConfig(val);
+
+            case IFD_PREDICTOR:
+                return translatePredictor(val);
+
+            case IFD_SAMPLE_FORMAT:
+                return translateSampleFormat(val);
+
+            case IFD_THRESHOLDING:
+                return translateThresholding(val);
+
+            case IFD_FILL_ORDER:
+                return translateFillOrder(val);
+
+            case IFD_INK_SET:
+                return translateInkSet(val);
+
+            case IFD_EXTRA_SAMPLES:
+                return translateExtraSamples(val);
+
+            case IFD_JPEG_PROC:
+                return translateJpegProc(val);
 
             default:
             break;
@@ -407,5 +428,136 @@ public enum TagIFD_Baseline implements Taggable
         int num = Taggable.convertToInt(val);
 
         return (num == 1) ? "Chunky" : (num == 2 ? "Planar" : Taggable.super.translate(val));
+    }
+
+    private String translatePredictor(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 1:
+                return "None";
+
+            case 2:
+                return "Horizontal differencing";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateSampleFormat(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 1:
+                return "Unsigned integer";
+
+            case 2:
+                return "Signed integer";
+
+            case 3:
+                return "Float";
+
+            case 4:
+                return "Undefined";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateThresholding(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 1:
+                return "No dither/halftone";
+
+            case 2:
+                return "Ordered dither/halftone";
+
+            case 3:
+                return "Randomized dither";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateFillOrder(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 1:
+                return "Most Significant Bit first (Normal)";
+
+            case 2:
+                return "Least Significant Bit first (Reversed)";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateInkSet(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 1:
+                return "CMYK";
+
+            case 2:
+                return "Not CMYK";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateExtraSamples(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 0:
+                return "Unspecified data";
+
+            case 1:
+                return "Associated alpha (pre-multiplied)";
+
+            case 2:
+                return "Unassociated alpha";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    private String translateJpegProc(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 1:
+                return "Baseline sequential process";
+
+            case 14:
+                return "Lossless process with Huffman coding";
+
+            default:
+                return Taggable.super.translate(val);
+        }
     }
 }

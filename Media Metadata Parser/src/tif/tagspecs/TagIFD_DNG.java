@@ -219,7 +219,7 @@ public enum TagIFD_DNG implements Taggable
             case IFD_CALIBRATION_ILLUMINANT2:
             case IFD_CALIBRATION_ILLUMINANT3:
             case IFD_CALIBRATION_ILLUMINANT4:
-                return getIlluminantName(val);
+                return Taggable.translateLightSource(val);
 
             case IFD_PROFILE_TONE_CURVE:
                 if (val.getClass().isArray())
@@ -248,76 +248,5 @@ public enum TagIFD_DNG implements Taggable
         }
 
         return String.valueOf(val);
-    }
-
-    private String getIlluminantName(Object val)
-    {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
-        {
-            case 1:
-                return "Daylight";
-
-            case 2:
-                return "Fluorescent";
-
-            case 3:
-                return "Tungsten (Incandescent)";
-
-            case 4:
-                return "Flash";
-
-            case 9:
-                return "Fine Weather";
-
-            case 10:
-                return "Cloudy Weather";
-
-            case 11:
-                return "Shade";
-
-            case 12:
-                return "Daylight Fluorescent (D 5700 - 7100K)";
-
-            case 13:
-                return "Day White Fluorescent (N 4600 - 5400K)";
-
-            case 14:
-                return "Cool White Fluorescent (W 3900 - 4500K)";
-
-            case 15:
-                return "White Fluorescent (WW 3200 - 3700K)";
-
-            case 17:
-                return "Standard Light A";
-
-            case 18:
-                return "Standard Light B";
-
-            case 19:
-                return "Standard Light C";
-
-            case 20:
-                return "D55";
-
-            case 21:
-                return "D65";
-
-            case 22:
-                return "D75";
-
-            case 23:
-                return "D50";
-
-            case 24:
-                return "ISO Studio Tungsten";
-
-            case 255:
-                return "Other Light Source";
-
-            default:
-                return Taggable.super.translate(val);
-        }
     }
 }

@@ -15,6 +15,8 @@ import png.PngMetadataProvider;
 import tif.DirectoryIFD;
 import tif.TifMetadataProvider;
 import tif.tagspecs.Taggable;
+import xmp.XmpDirectory;
+import xmp.XmpDirectory.XmpRecord;
 
 /**
  * Utility class to print media metadata in a format emulating the output style of
@@ -174,12 +176,16 @@ public final class DisplayMetadata
             }
         }
 
-        if (tif.getXmpDirectory() != null)
+        if (tif.hasXmpData())
         {
-            // Placeholder for future inline XMP tag parsing loops
+            XmpDirectory xmp = tif.getXmpDirectory();
+
+            for (XmpRecord record : xmp)
+            {
+                // System.out.printf("%s\n", record.getPrefix());
+            }
         }
     }
-    
 
     private void displayPngMetadata(PngMetadataProvider pngMeta)
     {

@@ -39,7 +39,8 @@ public enum TagIFD_Extension implements Taggable
     IFD_DECODE(0x01B1, "Decode"),
     IFD_DEFAULT_IMAGE_COLOR(0x01B2, "Default Image Color"),
     IFD_STRIP_ROW_COUNTS(0x022F, "Strip Row Counts"),
-    IFD_XML_PACKET(0x02BC, "XMP Metadata", TagHint.HINT_STRING),
+    //IFD_XML_PACKET(0x02BC, "XMP Metadata", TagHint.HINT_STRING),
+    IFD_XML_PACKET(0x02BC, "XMP Metadata", TagHint.HINT_BYTE_STREAM),
     IFD_IMAGE_ID(0x800D, "Image ID"),
     IFD_IMAGE_LAYER(0x87AC, "Image Layer"),
     IFD_PADDING(0xEA1C, "Microsoft Padding", TagHint.HINT_BYTE_STREAM),
@@ -148,6 +149,9 @@ public enum TagIFD_Extension implements Taggable
             case IFD_XP_AUTHOR:
                 return translateXPString(val);
 
+            case IFD_FAX_PROFILE:
+                return translateFaxProfile(val);
+
             default:
             break;
         }
@@ -246,5 +250,41 @@ public enum TagIFD_Extension implements Taggable
         }
 
         return decoded.trim();
+    }
+
+    /**
+     * Translates FaxProfile values into their standardized ITU-T profile names.
+     *
+     * @param val
+     *        the raw fax profile data container
+     * @return the profile name string
+     */
+    private String translateFaxProfile(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
+        {
+            case 0:
+                return "Unknown (Generic)";
+
+            case 1:
+                return "Minimal B&W lossless (Profile S)";
+
+            case 2:
+                return "Extended B&W lossless (Profile F)";
+
+            case 3:
+                return "Lossless progressive B&W (Profile J)";
+
+            case 4:
+                return "Lossless Color (Profile C)";
+
+            case 5:
+                return "Mixed Raster Content (Profile M)";
+
+            default:
+                return Taggable.super.translate(val);
+        }
     }
 }

@@ -1,11 +1,8 @@
 package tif.tagspecs;
 
+import tif.DirectoryIdentifier;
 import tif.TagHint;
 import tif.TagValueFormatter;
-import java.lang.reflect.Array;
-import java.util.Locale;
-import tif.DirectoryIdentifier;
-import tif.RationalNumber;
 
 public interface Taggable
 {
@@ -37,6 +34,13 @@ public interface Taggable
         return false;
     }
 
+    /**
+     * Converts a raw tag value into a display string.
+     *
+     * @param val
+     *        the value to translate
+     * @return a formatted string representation of the value
+     */
     default String translate(Object val)
     {
         if (val == null)
@@ -44,101 +48,38 @@ public interface Taggable
             return "";
         }
 
-        return TagValueFormatter.toStringValue(val, getHint());        
-        //return val.toString().trim();
+        return TagValueFormatter.toStringValue(val, getHint());
     }
 
-    default String translate2(Object val)
+    /**
+     * Extracts the first numeric value from a metadata payload.
+     *
+     * <p>
+     * Supports numeric wrapper types and primitive numeric arrays. Unsigned byte and short values
+     * are widened to preserve their full range. If the value cannot be converted, {@code -1} is
+     * returned.
+     * </p>
+     *
+     * @param val
+     *        the value to evaluate
+     * @return the converted integer value, or {@code -1} if unavailable
+     */
+    static int convertToInt(Object val)
     {
         if (val == null)
         {
-            return "";
+            return -1;
         }
 
-        if (getHint() == TagHint.HINT_BYTE_STREAM)
-        {
-            if (val instanceof byte[] || val instanceof int[])
-            {
-                int length = Array.getLength(val);
-
-                if (length > 0)
-                {
-                    return String.format(Locale.ROOT, "[Binary Data: %d bytes]", length);
-                }
-            }
-
-            return "[Binary Data]";
-        }
-
-        if (val instanceof RationalNumber[])
-        {
-            StringBuilder sb = new StringBuilder();
-            RationalNumber[] arr = (RationalNumber[]) val;
-
-            for (int i = 0; i < arr.length; i++)
-            {
-                if (arr[i] != null)
-                {
-                    sb.append(formatNumericValue(arr[i].doubleValue()));
-                }
-
-                else
-                {
-                    sb.append("0");
-                }
-
-                if (i < arr.length - 1)
-                {
-                    sb.append(" ");
-                }
-            }
-
-            return sb.toString();
-        }
-
-        if (val instanceof RationalNumber)
-        {
-            return formatRational((RationalNumber) val);
-        }
-
-        if (val instanceof Float)
-        {
-            return formatNumericValue(((Float) val).doubleValue());
-        }
-
-        if (val instanceof Double)
-        {
-            return formatNumericValue((Double) val);
-        }
-
-        if (val instanceof int[])
-        {
-            return formatIntArray((int[]) val);
-        }
-
-        if (val instanceof double[])
-        {
-            return formatDoubleArray((double[]) val);
-        }
-
-        return val.toString().trim();
-    }
-
-    static int convertToInt(Object val)
-    {
         if (val instanceof Number)
         {
             if (val instanceof Byte)
             {
-                return ((Byte) val).intValue() & 0xFF; // Preserve unsigned layout byte range
+                // Preserve unsigned byte range
+                return ((Byte) val).intValue() & 0xFF;
             }
 
             return ((Number) val).intValue();
-        }
-
-        if (val instanceof int[] && ((int[]) val).length > 0)
-        {
-            return ((int[]) val)[0];
         }
 
         if (val instanceof byte[] && ((byte[]) val).length > 0)
@@ -146,95 +87,111 @@ public interface Taggable
             return ((byte[]) val)[0] & 0xFF;
         }
 
+        if (val instanceof short[] && ((short[]) val).length > 0)
+        {
+            return ((short[]) val)[0] & 0xFFFF;
+        }
+
+        if (val instanceof int[] && ((int[]) val).length > 0)
+        {
+            return ((int[]) val)[0];
+        }
+
+        if (val instanceof long[] && ((long[]) val).length > 0)
+        {
+            return (int) ((long[]) val)[0];
+        }
+
         return -1;
     }
 
-    static String formatRational(RationalNumber r)
+    /**
+     * Translates a standard light source or calibration illuminant code into a human-readable
+     * string.
+     * 
+     * <p>
+     * This utility is also shared by {@code EXIF_LIGHT_SOURCE}, which indicates the specific
+     * capture white balance setting, as well as the DNG {@code IFD_CALIBRATION_ILLUMINANT1} through
+     * to {@code IFD_CALIBRATION_ILLUMINANT4} tags, which define the reference lighting environments
+     * used for factory sensor color profiling.
+     * </p>
+     * 
+     * @param val
+     *        the raw metadata value
+     * @return the translated description, or the raw value if the code is unknown
+     */
+    static String translateLightSource(Object val)
     {
-        if (r == null) return "";
-
-        if (r.hasIntegerValue())
+        switch (Taggable.convertToInt(val))
         {
-            return String.valueOf(r.longValue());
+            case 0:
+                return "Unknown";
+
+            case 1:
+                return "Daylight";
+
+            case 2:
+                return "Fluorescent";
+
+            case 3:
+                return "Tungsten (Incandescent)";
+
+            case 4:
+                return "Flash";
+
+            case 9:
+                return "Fine Weather";
+
+            case 10:
+                return "Cloudy";
+
+            case 11:
+                return "Shade";
+
+            case 12:
+                return "Daylight Fluorescent (D 5700 - 7100K)";
+
+            case 13:
+                return "Day White Fluorescent (N 4600 - 5400K)";
+
+            case 14:
+                return "Cool White Fluorescent (W 3900 - 4500K)";
+
+            case 15:
+                return "White Fluorescent (WW 3200 - 3700K)";
+
+            case 17:
+                return "Standard Light A";
+
+            case 18:
+                return "Standard Light B";
+
+            case 19:
+                return "Standard Light C";
+
+            case 20:
+                return "D55";
+
+            case 21:
+                return "D65";
+
+            case 22:
+                return "D75";
+
+            case 23:
+                return "D50";
+
+            case 24:
+                return "ISO Studio Tungsten";
+
+            case 25:
+                return "Camera view finder flash";
+
+            case 255:
+                return "Other";
+
+            default:
+                return String.valueOf(val).trim();
         }
-
-        double d = r.doubleValue();
-
-        // Keeps small fractional values like shutter speeds (e.g. 1/125) readable
-        if (d < 0.1)
-        {
-            return r.toString();
-        }
-
-        return formatNumericValue(d);
-    }
-
-    static String formatNumericValue(double d)
-    {
-        if (Double.isNaN(d) || Double.isInfinite(d))
-        {
-            return String.valueOf(d);
-        }
-
-        if (d == (long) d)
-        {
-            return String.format(Locale.ROOT, "%d", (long) d);
-        }
-
-        return String.format(Locale.ROOT, "%.4f", d).replaceAll("0+$", "").replaceAll("\\.$", "");
-    }
-
-    static String formatDoubleArray(double[] arr)
-    {
-        StringBuilder sb = new StringBuilder();
-
-        for (int i = 0; i < arr.length; i++)
-        {
-            sb.append(formatNumericValue(arr[i]));
-
-            if (i < arr.length - 1)
-            {
-                sb.append(" ");
-            }
-        }
-
-        return sb.toString();
-    }
-
-    static String formatIntArray(int[] arr)
-    {
-        StringBuilder sb = new StringBuilder();
-
-        for (int i = 0; i < arr.length; i++)
-        {
-            sb.append(arr[i]);
-
-            if (i < arr.length - 1)
-            {
-                sb.append(" ");
-            }
-        }
-
-        return sb.toString();
-    }
-
-    static String formatIntArray2(Object val)
-    {
-        StringBuilder sb = new StringBuilder();
-        int[] arr = TagValueFormatter.toIntArray(val);
-
-        for (int i = 0; i < arr.length; i++)
-        {
-            sb.append(arr[i]);
-
-            if (i < arr.length - 1)
-            {
-                sb.append(" ");
-            }
-
-            System.out.printf("LOOK: %s\n", sb.toString());
-        }
-
-        return sb.toString();
     }
 }

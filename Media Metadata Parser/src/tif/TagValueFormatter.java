@@ -1,6 +1,5 @@
 package tif;
 
-import java.lang.reflect.Array;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
@@ -27,7 +26,6 @@ import util.SmartDateParser;
  */
 public final class TagValueFormatter
 {
-    // private static final LogFactory LOGGER = LogFactory.getLogger(TagValueFormatter.class);
     private static final int ENCODING_HEADER_LENGTH = 8;
     private static final Map<String, Charset> ENCODING_MAP;
 
@@ -749,15 +747,14 @@ public final class TagValueFormatter
 
         else if (hint == TagHint.HINT_BYTE_STREAM)
         {
-            result = "[Binary Data]";
-
-            if (data instanceof byte[] || data instanceof int[])
+            result = "Binary Data Stream";
+            if (data != null)
             {
-                int length = Array.getLength(data);
+                int byteLength = (data instanceof byte[] ? ((byte[]) data).length : data instanceof int[] ? ((int[]) data).length * 4 : 0);
 
-                if (length > 0)
+                if (byteLength > 0)
                 {
-                    result = String.format(Locale.ROOT, "[Binary Data: %d bytes]", length);
+                    result = String.format(Locale.ROOT, "Binary Data: %d bytes", byteLength);
                 }
             }
         }
@@ -836,8 +833,32 @@ public final class TagValueFormatter
 
             for (int i = 0; i < arr.length; i++)
             {
-                sb.append(arr[i] != null ? arr[i].toSimpleString(true) : "0.0");
-                sb.append(i < arr.length - 1 ? " " : "");
+                RationalNumber r = arr[i];
+
+                if (r == null)
+                {
+                    sb.append("0.0");
+                }
+
+                else if (r.divisor == 0)
+                {
+                    sb.append("Unknown");
+                }
+
+                else if (r.hasIntegerValue())
+                {
+                    sb.append(r.toSimpleString(true));
+                }
+
+                else
+                {
+                    sb.append(r.numerator).append("/").append(r.divisor);
+                }
+
+                if (i < arr.length - 1)
+                {
+                    sb.append(" ");
+                }
             }
 
             result = sb.toString();
