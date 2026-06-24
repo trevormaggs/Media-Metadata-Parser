@@ -852,7 +852,8 @@ public final class TagValueFormatter
 
                 else
                 {
-                    sb.append(r.numerator).append("/").append(r.divisor);
+                    //sb.append(r.numerator).append("/").append(r.divisor);
+                    sb.append(r.toString());
                 }
 
                 if (i < arr.length - 1)

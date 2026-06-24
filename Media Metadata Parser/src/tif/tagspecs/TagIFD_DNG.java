@@ -222,10 +222,7 @@ public enum TagIFD_DNG implements Taggable
                 return Taggable.translateLightSource(val);
 
             case IFD_PROFILE_TONE_CURVE:
-                if (val.getClass().isArray())
-                {
-                    return "[" + Array.getLength(val) + " elements]";
-                }
+                if (val.getClass().isArray()) return "[" + Array.getLength(val) + " elements]";
             break;
 
             default:

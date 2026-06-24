@@ -1,6 +1,8 @@
 package tif.tagspecs;
 
 import java.nio.charset.StandardCharsets;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import tif.DirectoryIdentifier;
 import tif.RationalNumber;
@@ -186,6 +188,9 @@ public enum TagIFD_Exif implements Taggable
 
             case EXIF_SHUTTER_SPEED_VALUE:
                 return translateApexShutterSpeed(val);
+
+            case EXIF_LENS_SPECIFICATION:
+                return translateLensSpecification(val);
 
             case EXIF_LIGHT_SOURCE:
                 return Taggable.translateLightSource(val);
@@ -560,5 +565,60 @@ public enum TagIFD_Exif implements Taggable
         }
 
         return Taggable.super.translate(val);
+    }
+
+    private String translateLensSpecification(Object val)
+    {
+        RationalNumber[] arr = null;
+
+        if (val instanceof RationalNumber)
+        {
+            arr = new RationalNumber[]{(RationalNumber) val};
+        }
+
+        else if (val instanceof RationalNumber[])
+        {
+            arr = (RationalNumber[]) val;
+        }
+
+        if (arr == null || arr.length < 4)
+        {
+            return String.valueOf(val);
+        }
+
+        // Extract raw decimal values out of the rational fractions safely
+        double minFocal = arr[0] != null ? arr[0].doubleValue() : 0.0;
+        double maxFocal = arr[1] != null ? arr[1].doubleValue() : 0.0;
+        double minFStop = arr[2] != null ? arr[2].doubleValue() : 0.0;
+        double maxFStop = arr[3] != null ? arr[3].doubleValue() : 0.0;
+
+        StringBuilder sb = new StringBuilder();
+        DecimalFormat symbols = new java.text.DecimalFormat("0.####", new DecimalFormatSymbols(Locale.US));
+
+        // 1. Format Focal Length Range
+        if (Double.compare(minFocal, maxFocal) == 0)
+        {
+            sb.append(symbols.format(minFocal)).append("mm");
+        }
+        
+        else
+        {
+            sb.append(symbols.format(minFocal)).append("-").append(symbols.format(maxFocal)).append("mm");
+        }
+
+        sb.append(" ");
+
+        // 2. Format Aperture Range
+        if (Double.compare(minFStop, maxFStop) == 0)
+        {
+            sb.append("f/").append(symbols.format(minFStop));
+        }
+        
+        else
+        {
+            sb.append("f/").append(symbols.format(minFStop)).append("-").append(symbols.format(maxFStop));
+        }
+
+        return sb.toString();
     }
 }

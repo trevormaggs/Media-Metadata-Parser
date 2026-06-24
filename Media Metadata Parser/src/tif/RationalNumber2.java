@@ -9,21 +9,18 @@ import java.util.Objects;
  * This class represents a rational number, typically used in the TIFF/EXIF image format. TIFF
  * rational numbers are defined as pairs of 32-bit integers, encompassing numerator and denominator.
  * 
- * <p>
- * This class stores the numerator and denominator as 64-bit values to safely handle 32-bit unsigned
- * inputs from TIFF/EXIF specifications. All instances are automatically normalised (reduced to the
- * lowest terms with a positive divisor) upon creation to ensure mathematical equality and
- * consistent hash codes.
- * </p>
+ * This class stores the numerator and denominator as 64-bit long integers to safely handle 32-bit
+ * unsigned inputs from TIFF/EXIF specifications. All instances are automatically normalised
+ * (reduced to the lowest terms with a positive divisor) upon creation to ensure mathematical
+ * equality and consistent hash codes.
  * 
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.1
  * @since 27 November 2025
  */
-public class RationalNumber extends Number
+public class RationalNumber2 extends Number
 {
     private static final DecimalFormatSymbols ROOT_SYMBOLS = new DecimalFormatSymbols(Locale.ROOT);
-
     public final long numerator;
     public final long divisor;
     public final boolean unsignedType;
@@ -35,39 +32,47 @@ public class RationalNumber extends Number
     }
 
     /**
-     * Internal constructor used to create normalised rational numbers.
-     *
+     * The core private constructor used by all public constructors and the {@code simplify} method
+     * to create new {@code RationalNumber} instances.
+     * 
      * <p>
-     * The divisor is always stored as a positive value. If necessary, the sign is moved to the
-     * numerator. When {@code normalise} is {@code true}, the fraction is reduced to its lowest
-     * terms using the greatest common divisor (GCD).
+     * This method performs two key steps before assignment:
      * </p>
+     * 
+     * <ol>
+     * <li>{@code Sign Normalisation:} Ensures the {@code divisor} is always positive by moving the
+     * sign to the {@code numerator} if necessary (e.g., -1 / -2 becomes 1 / 2).</li>
+     * <li>{@code Reduction (Simplification):} Optionally reduces the fraction to its lowest terms
+     * using the greatest common divisor (GCD) if the {@code normalise} flag is {@code true}.</li>
+     * </ol>
      *
      * @param num
-     *        the numerator
+     *        the input numerator (64-bit long)
      * @param div
-     *        the divisor
+     *        the input divisor (64-bit long)
      * @param type
-     *        the original signed/unsigned interpretation
+     *        the original data type interpretation (SIGNED or UNSIGNED)
      * @param normalise
-     *        whether the fraction should be reduced via GCD
-     *
+     *        if true, the fraction will be fully reduced (simplified) via GCD
+     * 
      * @throws ArithmeticException
-     *         if {@code div} is zero and {@code num} is non-zero
+     *         if the divisor is zero and the numerator is non-zero
      */
-    private RationalNumber(long num, long div, DataType type, boolean normalise)
+    private RationalNumber2(long num, long div, DataType type, boolean normalise)
     {
         if (div == 0 && num != 0)
         {
             throw new ArithmeticException("Denominator cannot be zero for non-zero numerator");
         }
 
+        // Step 1: normalise signs (Divisor should always be positive)
         if (div < 0)
         {
             num = -num;
             div = -div;
         }
 
+        // Step 2: Reduce the fraction
         if (normalise && num != 0)
         {
             long common = gcd(Math.abs(num), div);
@@ -86,59 +91,80 @@ public class RationalNumber extends Number
 
     /**
      * Constructs an instance to handle both signed and unsigned 32-bit integers. The input values
-     * are masked to 64-bit values if {@code DataType.UNSIGNED} is specified. The resulting rational
-     * number is automatically normalised.
+     * are masked to 64-bit longs if {@code DataType.UNSIGNED} is specified. The resulting rational
+     * number is normalised (reduced).
      *
      * @param num
-     *        a numerator in either 32-bit signed or unsigned format
+     *        a numerator in either 32-bit signed or unsigned format.
      * @param div
-     *        a divisor in either 32-bit signed or unsigned format
+     *        a non-zero divisor in either 32-bit signed or unsigned format
      * @param type
      *        specifies whether the values should be interpreted as {@code DataType.UNSIGNED} or
      *        {@code DataType.SIGNED}
      */
-    public RationalNumber(int num, int div, DataType type)
+    public RationalNumber2(int num, int div, DataType type)
     {
-        this(type == DataType.UNSIGNED ? (num & 0xFFFFFFFFL) : num, type == DataType.UNSIGNED ? (div & 0xFFFFFFFFL) : div, type, true);
+        boolean isUnsigned = (type == DataType.UNSIGNED);
+        long n = isUnsigned ? (num & 0xFFFFFFFFL) : num;
+        long d = isUnsigned ? (div & 0xFFFFFFFFL) : div;
+
+        this.unsignedType = isUnsigned;
+
+        if (n == 0)
+        {
+            this.numerator = 0;
+            this.divisor = 1;
+        }
+
+        else
+        {
+            // Use the normalising constructor to simplify the fraction
+            RationalNumber2 normalised = simplify(n, d, type);
+            this.numerator = normalised.numerator;
+            this.divisor = normalised.divisor;
+        }
     }
 
     /**
      * Constructs a signed instance, interpreting inputs as standard 32-bit signed integers. The
-     * resulting rational number is automatically normalised.
+     * resulting rational number is normalised (reduced).
      *
      * @param num
      *        a numerator in 32-bit signed format
      * @param div
      *        a non-zero divisor in 32-bit signed format
      */
-    public RationalNumber(int num, int div)
+    public RationalNumber2(int num, int div)
     {
         this(num, div, DataType.SIGNED);
     }
 
     /**
-     * Simplifies or reduces a fraction by finding the greatest common divisor (GCD).
+     * Simplifies or reduces a fraction by finding the greatest common divisor (GCD). Note, it calls
+     * the private normalising constructor to obtain a simplified fraction.
      *
      * @param numerator
      *        the top number of the fraction
      * @param divisor
      *        the bottom number of the fraction
      * @param type
-     *        a flag indicating the signed/unsigned type for the resulting instance
-     * @return an instance of the {@code RationalNumber} class representing the simplified fraction
+     *        a flag indicating the type for the resulting instance
+     * @return An instance of the RationalNumber class, representing the simplified fraction
      */
-    public static RationalNumber simplify(long numerator, long divisor, DataType type)
+    public static RationalNumber2 simplify(long numerator, long divisor, DataType type)
     {
-        return new RationalNumber(numerator, divisor, type, true);
+        return new RationalNumber2(numerator, divisor, type, true);
     }
 
     /**
      * Returns a new instance with the value negated (multiplied by -1). The resulting instance is
-     * always treated as {@code DataType.SIGNED}, and the fraction is normalised.
+     * always treated as SIGNED, and the fraction is normalised.
+     * 
+     * Basically, it negates the numerator and simplifies to ensure the divisor remains positive.
      *
      * @return a valid instance with a negated value
      */
-    public RationalNumber negate()
+    public RationalNumber2 negate()
     {
         return simplify(-numerator, divisor, DataType.SIGNED);
     }
@@ -147,9 +173,7 @@ public class RationalNumber extends Number
      * Returns the integer representation of the rational number. It performs the conversion by
      * dividing the numerator by the denominator and truncating the result toward zero.
      * 
-     * <p>
-     * <strong>Note:</strong> This operation may result in a loss of precision.
-     * </p>
+     * Note that this operation may result in a loss of precision.
      * 
      * @return the integer value after computation (truncated)
      */
@@ -163,15 +187,14 @@ public class RationalNumber extends Number
      * Returns the long representation of the rational number. It performs the conversion by
      * dividing the numerator by the denominator and truncating the result toward zero.
      * 
-     * <p>
-     * <strong>Note:</strong> This operation may result in a loss of precision.
-     * </p>
+     * Note that this operation may result in a loss of precision.
      * 
      * @return the long value after computation (truncated)
      */
     @Override
     public long longValue()
     {
+        // Truncation toward zero
         return (long) getFraction();
     }
 
@@ -199,21 +222,16 @@ public class RationalNumber extends Number
         return getFraction();
     }
 
-    /**
-     * Generates a structural string representation of the fraction alongside a 4-digit decimal
-     * fallback.
-     * 
-     * @return a formatted string showing the fractional components or an error message if invalid
-     */
     @Override
     public String toString()
     {
         if (divisor == 0)
         {
-            return String.format(Locale.ROOT, "Invalid rational number detected (%d/%d)", numerator, divisor);
+            return String.format("Invalid rational number detected (%d/%d)", numerator, divisor);
         }
 
-        String decimalString = String.format(Locale.ROOT, "%.4f", getFraction());
+        // Formats to four decimal places using the root locale
+        String decimalString = String.format("%.4f", getFraction());
 
         if (numerator % divisor == 0)
         {
@@ -222,23 +240,20 @@ public class RationalNumber extends Number
 
         else
         {
-            return String.format(Locale.ROOT, "%d/%d (%s)", numerator, divisor, decimalString);
+            return String.format("%d/%d (%s)", numerator, divisor, decimalString);
         }
     }
 
     /**
-     * Compares this rational number to the specified object.
-     * 
-     * <p>
-     * Two {@code RationalNumber} instances are considered equal if their normalised numerator,
-     * normalised divisor, and {@code unsignedType} flag are completely identical.
-     * </p>
+     * Compares this rational number to the specified object. The comparison is based on the
+     * mathematically {@code normalised} state (reduced numerator and positive divisor). Two
+     * {@code RationalNumber} instances are considered equal if their normalised numerator,
+     * normalised divisor, and {@code unsignedType} flag are identical.
      * 
      * @param obj
      *        the object to compare against
-     * @return {@code true} if the specified object is mathematically equal to this rational number
-     *         and
-     *         shares the same data type interpretation; {@code false} otherwise
+     * @return true if the specified object is mathematically equal to this rational number and
+     *         shares the same data type interpretation, false otherwise
      */
     @Override
     public boolean equals(Object obj)
@@ -248,26 +263,23 @@ public class RationalNumber extends Number
             return true;
         }
 
-        if (!(obj instanceof RationalNumber))
+        if (!(obj instanceof RationalNumber2))
         {
             return false;
         }
 
-        RationalNumber other = (RationalNumber) obj;
+        RationalNumber2 other = (RationalNumber2) obj;
 
         return (numerator == other.numerator && divisor == other.divisor && unsignedType == other.unsignedType);
     }
 
     /**
-     * Returns the hash code for this rational number.
+     * Returns the hash code for this rational number. The hash code is generated from the
+     * {@code normalised} numerator, normalised divisor, and the {@code unsignedType} flag. This
+     * ensures that mathematically equal rational numbers, for example: 1/2 and 2/4, have the same
+     * hash code.
      * 
-     * <p>
-     * The hash code is generated from the normalised numerator, normalised divisor, and the
-     * {@code unsignedType} flag. This ensures that mathematically equal rational numbers (e.g., 1/2
-     * and 2/4) evaluate to identical hash codes.
-     * </p>
-     * 
-     * @return a hash code value for this object
+     * @return a hash code value for this object.
      */
     @Override
     public int hashCode()
@@ -278,29 +290,20 @@ public class RationalNumber extends Number
     /**
      * Checks if the rational number represents a whole number (an integer value).
      *
-     * @return {@code true} if the fraction reduces cleanly to a whole number with no remainder,
-     *         {@code false} if the value contains a decimal remainder or has an undefined
-     *         denominator
+     * @return true if the division results in a whole number, false otherwise.
      */
     public boolean hasIntegerValue()
     {
-        return divisor != 0 && (divisor == 1 || numerator % divisor == 0);
+        return divisor == 1 || (divisor != 0 && (numerator % divisor == 0)) || (divisor == 0 && numerator == 0);
     }
 
     /**
      * Returns a clean, human-readable string representation of the rational number, favouring a
      * simple integer or clean decimal string over a fractional notation where appropriate.
      * 
-     * <p>
-     * Formatting rules applied:
-     * </p>
-     * <ul>
-     * <li>When decimal output is enabled, whole numbers are formatted with one trailing decimal
-     * (e.g., "8.0").</li>
-     * <li>Complex decimals are trimmed to a maximum of 4 decimal places without trailing zeros
-     * (e.g., "1.6", "1.2891").</li>
-     * <li>Falls back to standard fractional format if decimals are disallowed.</li>
-     * </ul>
+     * The logic entails formatting whole numbers to one decimal place, for example: "8.0", trimming
+     * complex decimals to a maximum of 4 decimal places without trailing zeros, for example: "1.6",
+     * "1.2891" etc, and falls back to standard fractional format if false
      * 
      * @param decimalAllowed
      *        if true, allows a short decimal representation instead of a fraction string
@@ -310,17 +313,23 @@ public class RationalNumber extends Number
     {
         if (hasIntegerValue())
         {
-            return decimalAllowed ? String.format(Locale.ROOT, "%.1f", doubleValue()) : Long.toString(longValue());
+            return (decimalAllowed ? String.format(Locale.ROOT, "%.1f", doubleValue()) : Long.toString(longValue()));
         }
 
-        if (decimalAllowed)
+        else
         {
-            // Allows up to 4 decimal places, but drops unnecessary trailing zeros
-            DecimalFormat df = new DecimalFormat("0.####", ROOT_SYMBOLS);
-            return df.format(doubleValue());
-        }
+            RationalNumber2 simplifiedInstance = simplify(numerator, divisor, unsignedType ? DataType.UNSIGNED : DataType.SIGNED);
 
-        return toString();
+            if (decimalAllowed)
+            {
+                // Allows up to 4 decimal places, but drops unnecessary trailing zeros
+                DecimalFormat df = new DecimalFormat("0.####", ROOT_SYMBOLS);
+
+                return df.format(simplifiedInstance.doubleValue());
+            }
+
+            return simplifiedInstance.toString();
+        }
     }
 
     /**
@@ -328,9 +337,10 @@ public class RationalNumber extends Number
      * algorithm.
      *
      * @param a
-     *        the first value
+     *        the first number
      * @param b
-     *        the second value
+     *        the second number
+     *
      * @return the greatest common divisor of a and b
      */
     private static long gcd(long a, long b)
@@ -346,8 +356,7 @@ public class RationalNumber extends Number
     /**
      * Computes and returns the rational number as a double-precision floating-point value.
      *
-     * @return the floating-point result of numerator divided by divisor, or special floating-point
-     *         constants if the denominator is zero
+     * @return the floating-point result of numerator divided by divisor
      */
     private double getFraction()
     {

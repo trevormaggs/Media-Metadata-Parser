@@ -12,8 +12,7 @@ import common.MetadataConstants;
 import xmp.XmpDirectory.XmpRecord;
 
 /**
- * Creates an XMP directory to encapsulate a collection of {@link XmpRecord} properties to manage
- * XMP data.
+ * Stores a collection of {@link XmpRecord} objects representing XMP metadata.
  *
  * @author Trevor Maggs
  * @version 1.1
@@ -101,6 +100,30 @@ public final class XmpDirectory implements Directory<XmpRecord>
             return value;
         }
 
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj)
+            {
+                return true;
+            }
+
+            if (!(obj instanceof XmpRecord))
+            {
+                return false;
+            }
+
+            XmpRecord other = (XmpRecord) obj;
+
+            return Objects.equals(namespace, other.namespace) && Objects.equals(path, other.path) && Objects.equals(value, other.value);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(namespace, path, value);
+        }
+
         /**
          * Returns a string representation of this {@link XmpRecord} object.
          *
@@ -115,13 +138,13 @@ public final class XmpDirectory implements Directory<XmpRecord>
             sb.append(String.format(MetadataConstants.FORMATTER, "Name", getName()));
             sb.append(String.format(MetadataConstants.FORMATTER, "Full Path", getPath()));
             sb.append(String.format(MetadataConstants.FORMATTER, "Value", getValue()));
+
             return sb.toString();
         }
     }
 
     /**
-     * Constructs a new {@code XmpDirectory} to manage a collection of {@link XmpRecord}
-     * properties.
+     * Constructs an empty XMP directory.
      */
     public XmpDirectory()
     {
@@ -151,6 +174,8 @@ public final class XmpDirectory implements Directory<XmpRecord>
     @Override
     public void add(XmpRecord prop)
     {
+        Objects.requireNonNull(prop, "Property cannot be null");
+
         propertyMap.put(prop.getPath(), prop);
     }
 
@@ -182,7 +207,7 @@ public final class XmpDirectory implements Directory<XmpRecord>
     @Override
     public boolean contains(XmpRecord prop)
     {
-        return propertyMap.containsKey(prop.getPath());
+        return (prop != null && propertyMap.containsKey(prop.getPath()));
     }
 
     /**
@@ -197,9 +222,9 @@ public final class XmpDirectory implements Directory<XmpRecord>
     }
 
     /**
-     * Checks if this directory contains at least one {@link XmpRecord} object.
+     * Checks whether this directory contains any {@link XmpRecord} objects.
      *
-     * @return true if this directory contains no records, otherwise false
+     * @return {@code true} if this directory contains no records, otherwise {@code false}
      */
     @Override
     public boolean isEmpty()

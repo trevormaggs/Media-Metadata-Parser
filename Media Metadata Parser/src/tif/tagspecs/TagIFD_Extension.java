@@ -39,7 +39,6 @@ public enum TagIFD_Extension implements Taggable
     IFD_DECODE(0x01B1, "Decode"),
     IFD_DEFAULT_IMAGE_COLOR(0x01B2, "Default Image Color"),
     IFD_STRIP_ROW_COUNTS(0x022F, "Strip Row Counts"),
-    //IFD_XML_PACKET(0x02BC, "XMP Metadata", TagHint.HINT_STRING),
     IFD_XML_PACKET(0x02BC, "XMP Metadata", TagHint.HINT_BYTE_STREAM),
     IFD_IMAGE_ID(0x800D, "Image ID"),
     IFD_IMAGE_LAYER(0x87AC, "Image Layer"),
