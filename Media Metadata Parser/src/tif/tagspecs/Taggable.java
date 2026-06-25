@@ -38,17 +38,13 @@ public interface Taggable
      * Converts a raw tag value into a display string.
      *
      * @param val
-     *        the value to translate
-     * @return a formatted string representation of the value
+     *        the value to convert
+     * @return a formatted string representation of the value, or an empty string if the value is
+     *         {@code null}
      */
     default String translate(Object val)
     {
-        if (val == null)
-        {
-            return "";
-        }
-
-        return TagValueFormatter.toStringValue(val, getHint());
+        return (val == null ? "" : TagValueFormatter.toStringValue(val, getHint()));
     }
 
     /**

@@ -153,18 +153,6 @@ public enum TagIFD_Exif implements Taggable
             case EXIF_CUSTOM_RENDERED:
                 return translateCustomRendered(val);
 
-            case EXIF_FOCAL_PLANE_X_RESOLUTION:
-            case EXIF_FOCAL_PLANE_Y_RESOLUTION:
-
-                if (val instanceof RationalNumber)
-                {
-                    double resolutionValue = ((RationalNumber) val).doubleValue();
-                    return (resolutionValue % 1 == 0) ? String.format(Locale.US, "%.0f", resolutionValue)
-                            : String.format(Locale.US, "%.2f", resolutionValue);
-                }
-
-            break;
-
             case EXIF_WHITE_BALANCE:
                 return translateWhiteBalance(val);
 
@@ -176,6 +164,9 @@ public enum TagIFD_Exif implements Taggable
 
             case EXIF_FLASH:
                 return translateFlash(val);
+
+            case EXIF_COMPOSITE_IMAGE:
+                return translateCompositeImage(val);
 
             case EXIF_METERING_MODE:
                 return translateMeteringMode(val);
@@ -196,7 +187,7 @@ public enum TagIFD_Exif implements Taggable
                 return Taggable.translateLightSource(val);
 
             case EXIF_GAIN_CONTROL:
-                // return translateGainControl(num);
+                return translateGainControl(val);
 
             case EXIF_CONTRAST:
             case EXIF_SATURATION:
@@ -219,6 +210,27 @@ public enum TagIFD_Exif implements Taggable
         return Taggable.super.translate(val);
     }
 
+    /**
+     * Converts an EXIF version byte sequence into a readable version string.
+     *
+     * <p>
+     * EXIF version tags such as ExifVersion and FlashpixVersion are stored as four ASCII bytes.
+     * This method converts those bytes into a standard version string.
+     * </p>
+     *
+     * <p>
+     * Example:
+     * </p>
+     *
+     * <pre>
+     * {'0','2','3','2'} -> "0232"
+     * </pre>
+     *
+     * @param val
+     *        the raw version tag value
+     * @return the decoded version string, or the original translated value if the input cannot be
+     *         interpreted as a version byte sequence
+     */
     private String translateVersionBytes(Object val)
     {
         if (val instanceof byte[])
@@ -231,9 +243,23 @@ public enum TagIFD_Exif implements Taggable
             }
         }
 
-        return String.valueOf(val);
+        return Taggable.super.translate(val);
     }
 
+    /**
+     * Converts an EXIF ExposureMode value into a human-readable description.
+     *
+     * <p>
+     * The ExposureMode tag indicates whether exposure settings were selected automatically by the
+     * camera, manually by the photographer, or as part of an automatic exposure bracketing
+     * sequence.
+     * </p>
+     *
+     * @param val
+     *        the raw ExposureMode tag value
+     * @return a descriptive exposure mode, or the default translated value if the value is not
+     *         recognised
+     */
     private String translateExposureMode(Object val)
     {
         int num = Taggable.convertToInt(val);
@@ -254,6 +280,23 @@ public enum TagIFD_Exif implements Taggable
         }
     }
 
+    /**
+     * Converts an EXIF ExposureProgram value into a human-readable description.
+     *
+     * <p>
+     * The ExposureProgram tag identifies the camera program used to determine exposure settings
+     * when the image was captured.
+     * </p>
+     *
+     * <p>
+     * Examples include Manual, Aperture Priority and Shutter Priority modes.
+     * </p>
+     *
+     * @param val
+     *        the raw ExposureProgram tag value
+     * @return a descriptive exposure programme name, or the default translated value if the value
+     *         is not recognised
+     */
     private String translateExposureProgram(Object val)
     {
         int num = Taggable.convertToInt(val);
@@ -292,6 +335,19 @@ public enum TagIFD_Exif implements Taggable
         }
     }
 
+    /**
+     * Converts an EXIF FocalPlaneResolutionUnit value into a measurement unit.
+     *
+     * <p>
+     * The FocalPlaneResolutionUnit tag specifies the unit used by the FocalPlaneXResolution and
+     * FocalPlaneYResolution tags.
+     * </p>
+     *
+     * @param val
+     *        the raw resolution unit value
+     * @return the corresponding measurement unit, or the default translated value if the value is
+     *         not recognised
+     */
     private String translateFocalPlaneResolutionUnit(Object val)
     {
         int num = Taggable.convertToInt(val);
@@ -318,6 +374,19 @@ public enum TagIFD_Exif implements Taggable
         }
     }
 
+    /**
+     * Converts an EXIF CustomRendered value into a human-readable description.
+     *
+     * <p>
+     * The CustomRendered tag indicates whether the image was processed normally by the camera or
+     * subjected to special image-processing operations.
+     * </p>
+     *
+     * @param val
+     *        the raw CustomRendered tag value
+     * @return a descriptive rendering mode, or the default translated value if the value is not
+     *         recognised
+     */
     private String translateCustomRendered(Object val)
     {
         int num = Taggable.convertToInt(val);
@@ -331,10 +400,23 @@ public enum TagIFD_Exif implements Taggable
                 return "Custom process";
 
             default:
-                return String.valueOf(val);
+                return Taggable.super.translate(val);
         }
     }
 
+    /**
+     * Converts an EXIF WhiteBalance value into a human-readable description.
+     *
+     * <p>
+     * The WhiteBalance tag indicates whether white balance was determined automatically by the
+     * camera or manually selected by the photographer.
+     * </p>
+     *
+     * @param val
+     *        the raw WhiteBalance tag value
+     * @return a descriptive white balance mode, or the default translated value if the value is not
+     *         recognised
+     */
     private String translateWhiteBalance(Object val)
     {
         int num = Taggable.convertToInt(val);
@@ -348,9 +430,22 @@ public enum TagIFD_Exif implements Taggable
                 return "Manual white balance";
         }
 
-        return String.valueOf(val);
+        return Taggable.super.translate(val);
     }
 
+    /**
+     * Converts an EXIF SceneCaptureType value into a scene description.
+     *
+     * <p>
+     * The SceneCaptureType tag identifies the type of scene for which the camera was optimised,
+     * such as portrait, landscape or night photography.
+     * </p>
+     *
+     * @param val
+     *        the raw SceneCaptureType tag value
+     * @return a descriptive scene type, or the default translated value if the value is not
+     *         recognised
+     */
     private String translateSceneCaptureType(Object val)
     {
         int num = Taggable.convertToInt(val);
@@ -370,9 +465,22 @@ public enum TagIFD_Exif implements Taggable
                 return "Night scene";
         }
 
-        return String.valueOf(val);
+        return Taggable.super.translate(val);
     }
 
+    /**
+     * Converts an EXIF ColorSpace value into a colour-space description.
+     *
+     * <p>
+     * The ColorSpace tag identifies the colour space used to encode image data. Common values
+     * include sRGB and Adobe RGB.
+     * </p>
+     *
+     * @param val
+     *        the raw ColorSpace tag value
+     * @return a colour-space description, or the default translated value if the value is not
+     *         recognised
+     */
     private String translateColorSpace(Object val)
     {
         int num = Taggable.convertToInt(val);
@@ -393,76 +501,106 @@ public enum TagIFD_Exif implements Taggable
         }
     }
 
+    /**
+     * Converts an EXIF Flash tag value into a human-readable description.
+     *
+     * <p>
+     * The EXIF Flash tag stores a coded value that describes whether the flash fired and may also
+     * indicate additional information such as automatic flash mode, red-eye reduction, compulsory
+     * flash operation, and return-light detection.
+     * </p>
+     *
+     * <p>
+     * Examples:
+     * </p>
+     *
+     * <pre>
+     * 0  -> Did not fire
+     * 1  -> Fired
+     * 25 -> Fired, Auto Mode
+     * 89 -> Fired, Auto, Red-eye Reduction
+     * </pre>
+     *
+     * <p>
+     * Only the standard EXIF flash values defined by the specification are translated. Unrecognised
+     * values are passed to the default formatter.
+     * </p>
+     *
+     * @param val
+     *        the raw EXIF Flash tag value
+     * @return a human-readable flash description, or the default translated value
+     *         if the flash value is not recognized
+     */
     private String translateFlash(Object val)
     {
         int num = Taggable.convertToInt(val);
 
         switch (num)
         {
-            case 0x0000:
+            case 0:
                 return "Did not fire";
 
-            case 0x0001:
+            case 1:
                 return "Fired";
 
-            case 0x0005:
+            case 5:
                 return "Fired, Return not detected";
 
-            case 0x0007:
+            case 7:
                 return "Fired, Return detected";
 
-            case 0x0009:
+            case 9:
                 return "Fired, Compulsory Flash Mode";
 
-            case 0x000D:
+            case 13:
                 return "Fired, Compulsory Flash Mode, Return not detected";
 
-            case 0x000F:
+            case 15:
                 return "Fired, Compulsory Flash Mode, Return detected";
 
-            case 0x0010:
-                return "Did not fire, Compulsory";
+            case 16:
+                return "Off, Did not fire";
 
-            case 0x0018:
+            case 24:
                 return "Did not fire, Auto mode";
 
-            case 0x0019:
+            case 25:
                 return "Fired, Auto Mode";
 
-            case 0x001D:
+            case 29:
                 return "Fired, Auto Mode, Return not detected";
 
-            case 0x001F:
+            case 31:
                 return "Fired, Auto Mode, Return detected";
 
-            case 0x0020:
+            case 32:
                 return "No Flash Function";
 
-            case 0x0041:
+            case 65:
                 return "Fired, Red-eye Reduction";
 
-            case 0x0045:
+            case 69:
                 return "Fired, Red-eye Reduction, Return not detected";
 
-            case 0x0047:
+            case 71:
                 return "Fired, Red-eye Reduction, Return detected";
 
-            case 0x0049:
+            case 73:
                 return "Fired, Compulsory, Red-eye Reduction";
 
-            case 0x004D:
+            case 77:
                 return "Fired, Compulsory, Red-eye Reduction, Return not detected";
 
-            case 0x004F:
+            case 79:
                 return "Fired, Compulsory, Red-eye Reduction, Return detected";
 
-            case 0x0059:
+            case 89:
                 return "Fired, Auto, Red-eye Reduction";
 
-            case 0x005D:
+            case 93:
                 return "Fired, Auto, Red-eye Reduction, Return not detected";
 
-            case 0x005F:
+            case 95:
                 return "Fired, Auto, Red-eye Reduction, Return detected";
 
             default:
@@ -470,6 +608,41 @@ public enum TagIFD_Exif implements Taggable
         }
     }
 
+    /**
+     * Translates the CompositeImage enumeration integers into reader-friendly strings.
+     */
+    private String translateCompositeImage(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+        switch (num)
+        {
+            case 1:
+                return "Not a Composite Image";
+
+            case 2:
+                return "General Composite Image";
+
+            case 3:
+                return "Composite Image Captured When Shooting";
+
+            default:
+                return Taggable.super.translate(val);
+        }
+    }
+
+    /**
+     * Converts an EXIF MeteringMode value into a human-readable description.
+     *
+     * <p>
+     * The MeteringMode tag identifies the method used by the camera to measure scene brightness
+     * when determining exposure.
+     * </p>
+     *
+     * @param val
+     *        the raw MeteringMode tag value
+     * @return a descriptive metering mode, or the default translated value if the value is not
+     *         recognised
+     */
     private String translateMeteringMode(Object val)
     {
         int num = Taggable.convertToInt(val);
@@ -492,7 +665,7 @@ public enum TagIFD_Exif implements Taggable
                 return "MultiSpot";
 
             case 5:
-                return "Pattern";
+                return "Multi-segment";
 
             case 6:
                 return "Partial";
@@ -505,16 +678,60 @@ public enum TagIFD_Exif implements Taggable
         }
     }
 
+    /**
+     * Converts an EXIF SceneType value into a human-readable description.
+     *
+     * <p>
+     * The SceneType tag indicates whether the image was directly photographed by a digital camera.
+     * </p>
+     *
+     * @param val
+     *        the raw SceneType tag value
+     * @return a scene type description, or an unknown value description if the value is not
+     *         recognised
+     */
     private String translateSceneType(Object val)
     {
         int num = Taggable.convertToInt(val);
         return num == 1 ? "Directly photographed" : "Unknown (" + num + ")";
     }
 
-    /*
-     * For formula details, refer to Annex C. [Informative] APEX Units official documentation,
-     * "CIPA DC-008-Translation-2024 - Exchangeable image file format for digital still cameras: Exif Version 3.0"
-     * and look for APEX (Additive System of Photographic Exposure).
+    /**
+     * Converts an EXIF ApertureValue (APEX aperture value) into an f-number.
+     *
+     * <p>
+     * The EXIF ApertureValue tag stores the aperture using the APEX (Additive System of
+     * Photographic Exposure) scale rather than as a direct f-number. This method converts the
+     * stored APEX value into the familiar aperture notation used by photographers.
+     * </p>
+     *
+     * <p>
+     * The conversion is performed using the formula:
+     * </p>
+     *
+     * <pre>
+     * f-number = 2^(Av / 2)
+     * </pre>
+     *
+     * <p>
+     * For example:
+     * </p>
+     *
+     * <pre>
+     * Av = 5  -> f/5.7
+     * Av = 6  -> f/8.0
+     * </pre>
+     *
+     * <p>
+     * For details of the APEX system, refer to Annex C (Informative) of the Exif specification:
+     * "CIPA DC-008-Translation-2024 - Exchangeable image file format for digital still cameras:
+     * Exif Version 3.0".
+     * </p>
+     *
+     * @param val
+     *        the raw EXIF ApertureValue tag value
+     * @return the calculated f-number, or the default translated value if the supplied value cannot
+     *         be interpreted as a valid APEX aperture value
      */
     private String translateApexAperture(Object val)
     {
@@ -533,10 +750,49 @@ public enum TagIFD_Exif implements Taggable
         return Taggable.super.translate(val);
     }
 
-    /*
-     * For formula details, refer to Annex C. [Informative] APEX Units official documentation,
-     * "CIPA DC-008-Translation-2024 - Exchangeable image file format for digital still cameras: Exif Version 3.0"
-     * and look for APEX (Additive System of Photographic Exposure).
+    /**
+     * Converts an EXIF ShutterSpeedValue (APEX shutter speed value) into a human-readable exposure
+     * time.
+     *
+     * <p>
+     * The EXIF ShutterSpeedValue tag stores shutter speed using the APEX (Additive System of
+     * Photographic Exposure) scale rather than as a direct exposure time. This method converts the
+     * stored value into a familiar shutter speed representation.
+     * </p>
+     *
+     * <p>
+     * The conversion is performed using the formula:
+     * </p>
+     *
+     * <pre>
+     * exposure time = 1 / (2^Tv)
+     * </pre>
+     *
+     * <p>
+     * Fast shutter speeds are displayed as fractions, whilst longer exposures are displayed in
+     * seconds.
+     * </p>
+     *
+     * <p>
+     * Examples:
+     * </p>
+     *
+     * <pre>
+     * Tv = 8   -> 1/256
+     * Tv = 12  -> 1/4096
+     * Tv = -1  -> 2 s
+     * </pre>
+     *
+     * <p>
+     * For details of the APEX system, refer to Annex C (Informative) of the Exif specification:
+     * "CIPA DC-008-Translation-2024 - Exchangeable image file format for digital still cameras:
+     * Exif Version 3.0".
+     * </p>
+     *
+     * @param val
+     *        the raw EXIF ShutterSpeedValue tag value
+     * @return a formatted exposure time, or the default translated value if the supplied value
+     *         cannot be interpreted as a valid APEX shutter speed value
      */
     private String translateApexShutterSpeed(Object val)
     {
@@ -567,58 +823,122 @@ public enum TagIFD_Exif implements Taggable
         return Taggable.super.translate(val);
     }
 
+    /**
+     * Converts an EXIF LensSpecification value into a human-readable lens description.
+     *
+     * <p>
+     * The EXIF LensSpecification tag is expected to contain an array of four {@link RationalNumber}
+     * values representing:
+     * </p>
+     *
+     * <ol>
+     * <li>Minimum focal length</li>
+     * <li>Maximum focal length</li>
+     * <li>Minimum aperture (f-number)</li>
+     * <li>Maximum aperture (f-number)</li>
+     * </ol>
+     *
+     * <p>
+     * For example, a value describing a 24-70 mm f/2.8 zoom lens is formatted as:
+     * </p>
+     *
+     * <pre>
+     * 24-70mm f/2.8
+     * </pre>
+     *
+     * @param val
+     *        the raw LensSpecification tag value
+     * @return a formatted lens description, or the original string value if the value cannot be
+     *         interpreted as a LensSpecification
+     */
     private String translateLensSpecification(Object val)
     {
-        RationalNumber[] arr = null;
-
-        if (val instanceof RationalNumber)
+        // The EXIF specification defines LensSpecification as four rational values
+        if (val instanceof RationalNumber[] && ((RationalNumber[]) val).length == 4)
         {
-            arr = new RationalNumber[]{(RationalNumber) val};
+            RationalNumber[] arr = (RationalNumber[]) val;
+
+            // Extract focal length and aperture values
+            double minFocal = arr[0] != null ? arr[0].doubleValue() : 0.0;
+            double maxFocal = arr[1] != null ? arr[1].doubleValue() : 0.0;
+            double minFStop = arr[2] != null ? arr[2].doubleValue() : 0.0;
+            double maxFStop = arr[3] != null ? arr[3].doubleValue() : 0.0;
+
+            if (!Double.isFinite(minFocal) || !Double.isFinite(maxFocal) || !Double.isFinite(minFStop) || !Double.isFinite(maxFStop))
+            {
+                return Taggable.super.translate(val);
+            }
+
+            StringBuilder sb = new StringBuilder();
+            DecimalFormat lensFormat = new DecimalFormat("0.####", DecimalFormatSymbols.getInstance(Locale.US));
+
+            // 1. Format Focal Length Range (e.g., "24-70mm" or "50mm")
+            if (Double.compare(minFocal, maxFocal) == 0)
+            {
+                sb.append(lensFormat.format(minFocal)).append("mm");
+            }
+
+            else
+            {
+                sb.append(lensFormat.format(minFocal)).append("-");
+                sb.append(lensFormat.format(maxFocal)).append("mm");
+            }
+
+            sb.append(" ");
+
+            // Format aperture (for example, "f/2.8" or "f/4-5.6")
+            if (Double.compare(minFStop, maxFStop) == 0)
+            {
+                sb.append("f/").append(lensFormat.format(minFStop));
+            }
+
+            else
+            {
+                sb.append("f/").append(lensFormat.format(minFStop)).append("-").append(lensFormat.format(maxFStop));
+            }
+
+            return sb.toString();
         }
 
-        else if (val instanceof RationalNumber[])
+        return Taggable.super.translate(val);
+    }
+
+    /**
+     * Converts an EXIF GainControl value into a human-readable description.
+     *
+     * <p>
+     * The GainControl tag indicates the degree of overall image gain adjustment applied to the
+     * sensor signal prior to digitisation (closely related to ISO behaviour).
+     * </p>
+     *
+     * @param val
+     *        the raw GainControl tag value
+     * @return a descriptive gain control adjustment string, or the default translated value if the
+     *         value is not recognised
+     */
+    private String translateGainControl(Object val)
+    {
+        int num = Taggable.convertToInt(val);
+
+        switch (num)
         {
-            arr = (RationalNumber[]) val;
+            case 0:
+                return "None";
+
+            case 1:
+                return "Low gain up";
+
+            case 2:
+                return "High gain up";
+
+            case 3:
+                return "Low gain down";
+
+            case 4:
+                return "High gain down";
+
+            default:
+                return Taggable.super.translate(val);
         }
-
-        if (arr == null || arr.length < 4)
-        {
-            return String.valueOf(val);
-        }
-
-        // Extract raw decimal values out of the rational fractions safely
-        double minFocal = arr[0] != null ? arr[0].doubleValue() : 0.0;
-        double maxFocal = arr[1] != null ? arr[1].doubleValue() : 0.0;
-        double minFStop = arr[2] != null ? arr[2].doubleValue() : 0.0;
-        double maxFStop = arr[3] != null ? arr[3].doubleValue() : 0.0;
-
-        StringBuilder sb = new StringBuilder();
-        DecimalFormat symbols = new java.text.DecimalFormat("0.####", new DecimalFormatSymbols(Locale.US));
-
-        // 1. Format Focal Length Range
-        if (Double.compare(minFocal, maxFocal) == 0)
-        {
-            sb.append(symbols.format(minFocal)).append("mm");
-        }
-        
-        else
-        {
-            sb.append(symbols.format(minFocal)).append("-").append(symbols.format(maxFocal)).append("mm");
-        }
-
-        sb.append(" ");
-
-        // 2. Format Aperture Range
-        if (Double.compare(minFStop, maxFStop) == 0)
-        {
-            sb.append("f/").append(symbols.format(minFStop));
-        }
-        
-        else
-        {
-            sb.append("f/").append(symbols.format(minFStop)).append("-").append(symbols.format(maxFStop));
-        }
-
-        return sb.toString();
     }
 }

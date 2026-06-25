@@ -780,7 +780,8 @@ public final class TagValueFormatter
             String dt = ((String) data).trim();
             ZonedDateTime zdt = toZonedDateTime(data);
 
-            result = (zdt != null) ? zdt.format(DateTimeFormatter.ofPattern("dd MMM yyyy @ HH:mm:ss z")) : dt;
+            // zdt.format(DateTimeFormatter.ofPattern("dd MMM yyyy @ HH:mm:ss z"))
+            result = (zdt != null) ? SmartDateParser.convertToLocalisedDateTime(dt, Locale.forLanguageTag("en-AU")) : dt;
         }
 
         else if (hint == TagHint.HINT_MASK)
@@ -845,15 +846,29 @@ public final class TagValueFormatter
                     sb.append("Unknown");
                 }
 
-                else if (r.hasIntegerValue())
-                {
-                    sb.append(r.toSimpleString(true));
-                }
-
                 else
                 {
-                    //sb.append(r.numerator).append("/").append(r.divisor);
-                    sb.append(r.toString());
+                    /*
+                     * Make numbers look like standard camera settings. Tiny decimal numbers, such
+                     * as 0.004, are flipped into fractions, such as 1/250, so they read like normal
+                     * shutter speeds. Likewise for a lens aperture of 1.6, bypass this conversion
+                     * completely and just print normally as decimals (1.6) without conversion.
+                     */
+                    double value = r.doubleValue();
+                    double reciprocal = (value > 0.0 ? 1.0 / value : 0.0);
+
+                    boolean isWholeReciprocal = (value > 0.0 && value < 1.0
+                            && Math.abs(reciprocal - Math.rint(reciprocal)) < 0.0001);
+
+                    if (isWholeReciprocal)
+                    {
+                        sb.append("1/").append((long) Math.rint(reciprocal));
+                    }
+
+                    else
+                    {
+                        sb.append(r.toSimpleString(true));
+                    }
                 }
 
                 if (i < arr.length - 1)

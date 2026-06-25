@@ -213,6 +213,21 @@ public class RationalNumber extends Number
             return String.format(Locale.ROOT, "Invalid rational number detected (%d/%d)", numerator, divisor);
         }
 
+        if (divisor == 1)
+        {
+            return String.valueOf(numerator);
+        }
+
+        return String.format(Locale.ROOT, "%.4f", getFraction());
+    }
+
+    public String toString2()
+    {
+        if (divisor == 0)
+        {
+            return String.format(Locale.ROOT, "Invalid rational number detected (%d/%d)", numerator, divisor);
+        }
+
         String decimalString = String.format(Locale.ROOT, "%.4f", getFraction());
 
         if (numerator % divisor == 0)
@@ -307,6 +322,23 @@ public class RationalNumber extends Number
      * @return the simple string representation
      */
     public String toSimpleString(boolean decimalAllowed)
+    {
+        if (hasIntegerValue())
+        {
+            return decimalAllowed ? String.format(Locale.ROOT, "%.1f", doubleValue()) : Long.toString(longValue());
+        }
+
+        if (decimalAllowed)
+        {
+            DecimalFormat df = new DecimalFormat("0.####", ROOT_SYMBOLS);
+
+            return df.format(doubleValue());
+        }
+
+        return toString();
+    }
+
+    public String toSimpleString2(boolean decimalAllowed)
     {
         if (hasIntegerValue())
         {
