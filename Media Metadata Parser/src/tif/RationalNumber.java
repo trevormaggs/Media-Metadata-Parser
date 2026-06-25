@@ -99,7 +99,8 @@ public class RationalNumber extends Number
      */
     public RationalNumber(int num, int div, DataType type)
     {
-        this(type == DataType.UNSIGNED ? (num & 0xFFFFFFFFL) : num, type == DataType.UNSIGNED ? (div & 0xFFFFFFFFL) : div, type, true);
+        this(type == DataType.UNSIGNED ? (num & 0xFFFFFFFFL) : num,
+                type == DataType.UNSIGNED ? (div & 0xFFFFFFFFL) : div, type, true);
     }
 
     /**
@@ -156,7 +157,7 @@ public class RationalNumber extends Number
     @Override
     public int intValue()
     {
-        return (int) getFraction();
+        return (int) doubleValue();
     }
 
     /**
@@ -172,7 +173,7 @@ public class RationalNumber extends Number
     @Override
     public long longValue()
     {
-        return (long) getFraction();
+        return (long) doubleValue();
     }
 
     /**
@@ -185,7 +186,7 @@ public class RationalNumber extends Number
     @Override
     public float floatValue()
     {
-        return (float) getFraction();
+        return (float) doubleValue();
     }
 
     /**
@@ -196,7 +197,12 @@ public class RationalNumber extends Number
     @Override
     public double doubleValue()
     {
-        return getFraction();
+        if (divisor == 0)
+        {
+            return (numerator == 0) ? Double.NaN : (numerator > 0 ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY);
+        }
+
+        return (double) numerator / (double) divisor;
     }
 
     /**
@@ -218,27 +224,7 @@ public class RationalNumber extends Number
             return String.valueOf(numerator);
         }
 
-        return String.format(Locale.ROOT, "%.4f", getFraction());
-    }
-
-    public String toString2()
-    {
-        if (divisor == 0)
-        {
-            return String.format(Locale.ROOT, "Invalid rational number detected (%d/%d)", numerator, divisor);
-        }
-
-        String decimalString = String.format(Locale.ROOT, "%.4f", getFraction());
-
-        if (numerator % divisor == 0)
-        {
-            return decimalString;
-        }
-
-        else
-        {
-            return String.format(Locale.ROOT, "%d/%d (%s)", numerator, divisor, decimalString);
-        }
+        return String.format(Locale.ROOT, "%.4f", doubleValue());
     }
 
     /**
@@ -252,8 +238,7 @@ public class RationalNumber extends Number
      * @param obj
      *        the object to compare against
      * @return {@code true} if the specified object is mathematically equal to this rational number
-     *         and
-     *         shares the same data type interpretation; {@code false} otherwise
+     *         and shares the same data type interpretation; {@code false} otherwise
      */
     @Override
     public boolean equals(Object obj)
@@ -309,6 +294,7 @@ public class RationalNumber extends Number
      * <p>
      * Formatting rules applied:
      * </p>
+     * 
      * <ul>
      * <li>When decimal output is enabled, whole numbers are formatted with one trailing decimal
      * (e.g., "8.0").</li>
@@ -330,26 +316,7 @@ public class RationalNumber extends Number
 
         if (decimalAllowed)
         {
-            DecimalFormat df = new DecimalFormat("0.####", ROOT_SYMBOLS);
-
-            return df.format(doubleValue());
-        }
-
-        return toString();
-    }
-
-    public String toSimpleString2(boolean decimalAllowed)
-    {
-        if (hasIntegerValue())
-        {
-            return decimalAllowed ? String.format(Locale.ROOT, "%.1f", doubleValue()) : Long.toString(longValue());
-        }
-
-        if (decimalAllowed)
-        {
-            // Allows up to 4 decimal places, but drops unnecessary trailing zeros
-            DecimalFormat df = new DecimalFormat("0.####", ROOT_SYMBOLS);
-            return df.format(doubleValue());
+            return new DecimalFormat("0.####", ROOT_SYMBOLS).format(doubleValue());
         }
 
         return toString();
@@ -367,27 +334,6 @@ public class RationalNumber extends Number
      */
     private static long gcd(long a, long b)
     {
-        if (b == 0)
-        {
-            return a;
-        }
-
-        return gcd(b, a % b);
-    }
-
-    /**
-     * Computes and returns the rational number as a double-precision floating-point value.
-     *
-     * @return the floating-point result of numerator divided by divisor, or special floating-point
-     *         constants if the denominator is zero
-     */
-    private double getFraction()
-    {
-        if (divisor == 0)
-        {
-            return (numerator == 0) ? Double.NaN : (numerator > 0 ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY);
-        }
-
-        return (double) numerator / (double) divisor;
+        return (b == 0) ? a : gcd(b, a % b);
     }
 }

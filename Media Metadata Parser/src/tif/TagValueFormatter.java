@@ -3,7 +3,6 @@ package tif;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -748,6 +747,7 @@ public final class TagValueFormatter
         else if (hint == TagHint.HINT_BYTE_STREAM)
         {
             result = "Binary Data Stream";
+
             if (data != null)
             {
                 int byteLength = (data instanceof byte[] ? ((byte[]) data).length : data instanceof int[] ? ((int[]) data).length * 4 : 0);
@@ -856,11 +856,10 @@ public final class TagValueFormatter
                      */
                     double value = r.doubleValue();
                     double reciprocal = (value > 0.0 ? 1.0 / value : 0.0);
-
-                    boolean isWholeReciprocal = (value > 0.0 && value < 1.0
+                    boolean flip = (value > 0.0 && value < 1.0
                             && Math.abs(reciprocal - Math.rint(reciprocal)) < 0.0001);
 
-                    if (isWholeReciprocal)
+                    if (flip)
                     {
                         sb.append("1/").append((long) Math.rint(reciprocal));
                     }
@@ -909,24 +908,6 @@ public final class TagValueFormatter
         else if (data instanceof String)
         {
             result = ((String) data).trim();
-        }
-
-        else if (data instanceof String[])
-        {
-            String[] arr = (String[]) data;
-            StringBuilder sb = new StringBuilder();
-
-            for (int i = 0; i < arr.length; i++)
-            {
-                if (arr[i] != null)
-                {
-                    sb.append(arr[i].trim());
-                }
-
-                sb.append(i < arr.length - 1 ? " " : "");
-            }
-
-            result = sb.toString().trim();
         }
 
         else

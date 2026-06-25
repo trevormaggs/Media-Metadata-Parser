@@ -174,6 +174,9 @@ public enum TagIFD_Exif implements Taggable
             case EXIF_SCENE_TYPE:
                 return translateSceneType(val);
 
+            case EXIF_GAIN_CONTROL:
+                return translateGainControl(val);
+
             case EXIF_APERTURE_VALUE:
                 return translateApexAperture(val);
 
@@ -185,9 +188,6 @@ public enum TagIFD_Exif implements Taggable
 
             case EXIF_LIGHT_SOURCE:
                 return Taggable.translateLightSource(val);
-
-            case EXIF_GAIN_CONTROL:
-                return translateGainControl(val);
 
             case EXIF_CONTRAST:
             case EXIF_SATURATION:
@@ -262,9 +262,7 @@ public enum TagIFD_Exif implements Taggable
      */
     private String translateExposureMode(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
+        switch (Taggable.convertToInt(val))
         {
             case 0:
                 return "Auto exposure";
@@ -299,9 +297,7 @@ public enum TagIFD_Exif implements Taggable
      */
     private String translateExposureProgram(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
+        switch (Taggable.convertToInt(val))
         {
             case 0:
                 return "Not defined";
@@ -350,9 +346,7 @@ public enum TagIFD_Exif implements Taggable
      */
     private String translateFocalPlaneResolutionUnit(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
+        switch (Taggable.convertToInt(val))
         {
             case 1:
                 return "None";
@@ -389,9 +383,7 @@ public enum TagIFD_Exif implements Taggable
      */
     private String translateCustomRendered(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
+        switch (Taggable.convertToInt(val))
         {
             case 0:
                 return "Normal process";
@@ -419,9 +411,7 @@ public enum TagIFD_Exif implements Taggable
      */
     private String translateWhiteBalance(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
+        switch (Taggable.convertToInt(val))
         {
             case 0:
                 return "Auto white balance";
@@ -448,9 +438,7 @@ public enum TagIFD_Exif implements Taggable
      */
     private String translateSceneCaptureType(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
+        switch (Taggable.convertToInt(val))
         {
             case 0:
                 return "Standard";
@@ -483,9 +471,7 @@ public enum TagIFD_Exif implements Taggable
      */
     private String translateColorSpace(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
+        switch (Taggable.convertToInt(val))
         {
             case 1:
                 return "sRGB";
@@ -533,9 +519,7 @@ public enum TagIFD_Exif implements Taggable
      */
     private String translateFlash(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
+        switch (Taggable.convertToInt(val))
         {
             case 0:
                 return "Did not fire";
@@ -613,8 +597,7 @@ public enum TagIFD_Exif implements Taggable
      */
     private String translateCompositeImage(Object val)
     {
-        int num = Taggable.convertToInt(val);
-        switch (num)
+        switch (Taggable.convertToInt(val))
         {
             case 1:
                 return "Not a Composite Image";
@@ -645,9 +628,7 @@ public enum TagIFD_Exif implements Taggable
      */
     private String translateMeteringMode(Object val)
     {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
+        switch (Taggable.convertToInt(val))
         {
             case 0:
                 return "Unknown";
@@ -694,6 +675,43 @@ public enum TagIFD_Exif implements Taggable
     {
         int num = Taggable.convertToInt(val);
         return num == 1 ? "Directly photographed" : "Unknown (" + num + ")";
+    }
+
+    /**
+     * Converts an EXIF GainControl value into a human-readable description.
+     *
+     * <p>
+     * The GainControl tag indicates the degree of overall image gain adjustment applied to the
+     * sensor signal prior to digitisation (closely related to ISO behaviour).
+     * </p>
+     *
+     * @param val
+     *        the raw GainControl tag value
+     * @return a descriptive gain control adjustment string, or the default translated value if the
+     *         value is not recognised
+     */
+    private String translateGainControl(Object val)
+    {
+        switch (Taggable.convertToInt(val))
+        {
+            case 0:
+                return "None";
+
+            case 1:
+                return "Low gain up";
+
+            case 2:
+                return "High gain up";
+
+            case 3:
+                return "Low gain down";
+
+            case 4:
+                return "High gain down";
+
+            default:
+                return Taggable.super.translate(val);
+        }
     }
 
     /**
@@ -901,44 +919,5 @@ public enum TagIFD_Exif implements Taggable
         }
 
         return Taggable.super.translate(val);
-    }
-
-    /**
-     * Converts an EXIF GainControl value into a human-readable description.
-     *
-     * <p>
-     * The GainControl tag indicates the degree of overall image gain adjustment applied to the
-     * sensor signal prior to digitisation (closely related to ISO behaviour).
-     * </p>
-     *
-     * @param val
-     *        the raw GainControl tag value
-     * @return a descriptive gain control adjustment string, or the default translated value if the
-     *         value is not recognised
-     */
-    private String translateGainControl(Object val)
-    {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
-        {
-            case 0:
-                return "None";
-
-            case 1:
-                return "Low gain up";
-
-            case 2:
-                return "High gain up";
-
-            case 3:
-                return "Low gain down";
-
-            case 4:
-                return "High gain down";
-
-            default:
-                return Taggable.super.translate(val);
-        }
     }
 }
