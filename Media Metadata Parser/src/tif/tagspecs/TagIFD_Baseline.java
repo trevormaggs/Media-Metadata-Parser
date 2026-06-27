@@ -183,7 +183,7 @@ public enum TagIFD_Baseline implements Taggable
                 return translateOrientation(val);
 
             case IFD_RESOLUTION_UNIT:
-                return translateResolutionUnit(val);
+                return Taggable.translateResolutionUnit(val);
 
             case IFD_YCB_CR_POSITIONING:
                 return translateYCbCr(val);
@@ -303,33 +303,6 @@ public enum TagIFD_Baseline implements Taggable
 
             case 8:
                 return "Rotate 270 CW";
-
-            default:
-                return Taggable.super.translate(val);
-        }
-    }
-
-    /**
-     * Translates TIFF density unit flags into human-readable measurement units.
-     *
-     * @param val
-     *        the raw resolution unit data container
-     * @return the measurement metric label
-     */
-    private String translateResolutionUnit(Object val)
-    {
-        int num = Taggable.convertToInt(val);
-
-        switch (num)
-        {
-            case 1:
-                return "None";
-
-            case 2:
-                return "inches";
-
-            case 3:
-                return "cm";
 
             default:
                 return Taggable.super.translate(val);

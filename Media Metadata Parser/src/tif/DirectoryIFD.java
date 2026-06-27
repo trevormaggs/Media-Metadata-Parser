@@ -174,7 +174,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
             // Tag, Type, and Count Information
             sb.append(String.format(MetadataConstants.FORMATTER, "Tag Name", getTag() + " (Tag ID: " + String.format("0x%04X", getTagID()) + ")"));
             sb.append(String.format(MetadataConstants.FORMATTER, "Field Type", getFieldType() + " (count: " + getCount() + ")"));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Value", TagValueFormatter.toStringValue(this)));
+            sb.append(String.format(MetadataConstants.FORMATTER, "Value", TagValueTranslator.toStringValue(this)));
             sb.append(String.format(MetadataConstants.FORMATTER, "Hint", getTag().getHint()));
 
             if (getByteLength() > IFDHandler.ENTRY_MAX_VALUE_LENGTH)
@@ -397,7 +397,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public int getIntValue(Taggable tag)
     {
-        return TagValueFormatter.getIntValue(getTagEntry(tag));
+        return TagValueTranslator.getIntValue(getTagEntry(tag));
     }
 
     /**
@@ -409,7 +409,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public int[] getIntArray(Taggable tag)
     {
-        return TagValueFormatter.getIntArray(getTagEntry(tag));
+        return TagValueTranslator.getIntArray(getTagEntry(tag));
     }
 
     /**
@@ -421,7 +421,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public long getLongValue(Taggable tag)
     {
-        return TagValueFormatter.getLongValue(getTagEntry(tag));
+        return TagValueTranslator.getLongValue(getTagEntry(tag));
     }
 
     /**
@@ -433,7 +433,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public long[] getLongArray(Taggable tag)
     {
-        return TagValueFormatter.getLongArray(getTagEntry(tag));
+        return TagValueTranslator.getLongArray(getTagEntry(tag));
     }
 
     /**
@@ -445,7 +445,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public float getFloatValue(Taggable tag)
     {
-        return TagValueFormatter.getFloatValue(getTagEntry(tag));
+        return TagValueTranslator.getFloatValue(getTagEntry(tag));
     }
 
     /**
@@ -457,7 +457,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public float[] getFloatArray(Taggable tag)
     {
-        return TagValueFormatter.getFloatArray(getTagEntry(tag));
+        return TagValueTranslator.getFloatArray(getTagEntry(tag));
     }
 
     /**
@@ -469,7 +469,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public double getDoubleValue(Taggable tag)
     {
-        return TagValueFormatter.getDoubleValue(getTagEntry(tag));
+        return TagValueTranslator.getDoubleValue(getTagEntry(tag));
     }
 
     /**
@@ -481,7 +481,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public double[] getDoubleArray(Taggable tag)
     {
-        return TagValueFormatter.getDoubleArray(getTagEntry(tag));
+        return TagValueTranslator.getDoubleArray(getTagEntry(tag));
     }
 
     /**
@@ -496,7 +496,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public RationalNumber getRationalValue(Taggable tag)
     {
-        return TagValueFormatter.getRationalValue(getTagEntry(tag));
+        return TagValueTranslator.getRationalValue(getTagEntry(tag));
     }
 
     /**
@@ -508,7 +508,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
      */
     public RationalNumber[] getRationalArrayValue(Taggable tag)
     {
-        return TagValueFormatter.getRationalArray(getTagEntry(tag));
+        return TagValueTranslator.getRationalArray(getTagEntry(tag));
     }
 
     /**
@@ -533,7 +533,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
                     getDirectoryType().getDescription()));
         }
 
-        return TagValueFormatter.toStringValue(entry);
+        return TagValueTranslator.toStringValue(entry);
     }
 
     /**
@@ -563,7 +563,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
                     getDirectoryType().getDescription()));
         }
 
-        return TagValueFormatter.getZonedDateTime(entry);
+        return TagValueTranslator.getZonedDateTime(entry);
     }
 
     /**

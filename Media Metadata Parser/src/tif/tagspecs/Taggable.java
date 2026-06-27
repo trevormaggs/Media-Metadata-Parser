@@ -2,7 +2,7 @@ package tif.tagspecs;
 
 import tif.DirectoryIdentifier;
 import tif.TagHint;
-import tif.TagValueFormatter;
+import tif.TagValueTranslator;
 
 public interface Taggable
 {
@@ -44,7 +44,7 @@ public interface Taggable
      */
     default String translate(Object val)
     {
-        return (val == null ? "" : TagValueFormatter.toStringValue(val, getHint()));
+        return (val == null ? "" : TagValueTranslator.toStringValue(val, getHint()));
     }
 
     /**
@@ -99,6 +99,44 @@ public interface Taggable
         }
 
         return -1;
+    }
+
+    /**
+     * Translates standard resolution units shared between baseline TIFF and EXIF focal plane
+     * configurations.
+     * 
+     * <p>
+     * This utility is shared by {@code IFD_RESOLUTION_UNIT} (0x0128) in baseline directories, as
+     * well as {@code EXIF_FOCAL_PLANE_RESOLUTION_UNIT} (0xA210) within EXIF metadata
+     * sub-directories.
+     * </p>
+     * 
+     * @param val
+     *        the raw unit tag value container
+     * @return the human-readable unit string, or a default fallback if unmapped
+     */
+    static String translateResolutionUnit(Object val)
+    {
+        switch (Taggable.convertToInt(val))
+        {
+            case 1:
+                return "None";
+
+            case 2:
+                return "inch";
+
+            case 3:
+                return "cm";
+
+            case 4:
+                return "mm";
+
+            case 5:
+                return "um";
+
+            default:
+                return String.valueOf(val).trim();
+        }
     }
 
     /**

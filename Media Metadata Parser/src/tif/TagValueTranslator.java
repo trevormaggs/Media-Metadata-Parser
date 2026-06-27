@@ -23,7 +23,7 @@ import util.SmartDateParser;
  * @version 1.0
  * @since 20 June 2026
  */
-public final class TagValueFormatter
+public final class TagValueTranslator
 {
     private static final int ENCODING_HEADER_LENGTH = 8;
     private static final Map<String, Charset> ENCODING_MAP;
@@ -44,7 +44,7 @@ public final class TagValueFormatter
      * @throws UnsupportedOperationException
      *         to indicate that instantiation is not supported
      */
-    private TagValueFormatter()
+    private TagValueTranslator()
     {
         throw new UnsupportedOperationException("Not intended for instantiation");
     }
@@ -851,8 +851,8 @@ public final class TagValueFormatter
                     /*
                      * Make numbers look like standard camera settings. Tiny decimal numbers, such
                      * as 0.004, are flipped into fractions, such as 1/250, so they read like normal
-                     * shutter speeds. Likewise for a lens aperture of 1.6, bypass this conversion
-                     * completely and just print normally as decimals (1.6) without conversion.
+                     * shutter speeds. Likewise for a lens aperture of 1.6, just print normally as
+                     * decimals (1.6) without conversion.
                      */
                     double value = r.doubleValue();
                     double reciprocal = (value > 0.0 ? 1.0 / value : 0.0);

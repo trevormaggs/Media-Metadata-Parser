@@ -22,8 +22,7 @@ import java.util.Objects;
  */
 public class RationalNumber extends Number
 {
-    private static final DecimalFormatSymbols ROOT_SYMBOLS = new DecimalFormatSymbols(Locale.ROOT);
-
+    private static final DecimalFormatSymbols SIMPLE_DECIMAL_FORMAT = new DecimalFormatSymbols(Locale.ROOT);
     public final long numerator;
     public final long divisor;
     public final boolean unsignedType;
@@ -316,7 +315,7 @@ public class RationalNumber extends Number
 
         if (decimalAllowed)
         {
-            return new DecimalFormat("0.####", ROOT_SYMBOLS).format(doubleValue());
+            return new DecimalFormat("0.####", SIMPLE_DECIMAL_FORMAT).format(doubleValue());
         }
 
         return toString();
