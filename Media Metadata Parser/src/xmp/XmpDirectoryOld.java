@@ -9,21 +9,26 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import common.Directory;
 import common.MetadataConstants;
+import xmp.XmpDirectoryOld.XmpRecord;
 
 /**
  * Stores a collection of {@link XmpRecord} objects representing XMP metadata.
- * Refactored to support metadata value translation and flexible path query profiles.
  *
  * @author Trevor Maggs
- * @version 1.2
- * @since 28 June 2026
+ * @version 1.1
+ * @since 10 November 2025
  */
-public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
+public final class XmpDirectoryOld implements Directory<XmpRecord>
 {
     private final Map<String, XmpRecord> propertyMap;
 
     /**
      * Represents a single and immutable XMP property record.
+     * 
+     * <p>
+     * Each {@code XmpRecord} encapsulates the namespace URI, cleaned property path, and the
+     * property value. It is immutable and self-contained.
+     * </p>
      */
     public static final class XmpRecord
     {
@@ -34,13 +39,23 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
         private final String prefix;
         private final String name;
 
+        /**
+         * Constructs an immutable {@code XmpRecord} instance to hold a single record.
+         *
+         * @param namespace
+         *        the namespace URI of the property
+         * @param path
+         *        the path of the property (e.g., dc:creator)
+         * @param value
+         *        the value of the property
+         */
         public XmpRecord(String namespace, String path, String value)
         {
-            this.path = Objects.requireNonNull(path, "Path cannot be null").trim();
-            this.value = (value != null) ? value.trim() : "";
-            this.namespace = (namespace != null) ? namespace.trim() : "";
+            this.namespace = namespace;
+            this.path = path;
+            this.value = value;
 
-            Matcher matcher = REGEX_PATH.matcher(this.path);
+            Matcher matcher = REGEX_PATH.matcher(path);
 
             if (matcher.matches())
             {
@@ -51,7 +66,7 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
             else
             {
                 this.prefix = "";
-                this.name = this.path;
+                this.name = path;
             }
         }
 
@@ -61,36 +76,28 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
             return namespace;
         }
 
-        /** @return the path of the property (e.g., dc:creator) */
+        /** @return the path of the property */
         public String getPath()
         {
             return path;
         }
 
-        /** @return the short namespace identifier identifier string */
+        /** @return the short identifier of the path */
         public String getPrefix()
         {
             return prefix;
         }
 
-        /** @return the isolated local property tag identifier name */
+        /** @return the property name of the path */
         public String getName()
         {
             return name;
         }
 
-        /** @return the raw string value of the property */
+        /** @return the value of the property */
         public String getValue()
         {
             return value;
-        }
-
-        /**
-         * * @return the human-readable translated representation matching ExifTool rules
-         */
-        public String getTranslatedValue()
-        {
-            return XmpTagTranslator.translate(prefix, name, value);
         }
 
         @Override
@@ -108,9 +115,7 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
 
             XmpRecord other = (XmpRecord) obj;
 
-            return Objects.equals(namespace, other.namespace)
-                    && Objects.equals(path, other.path)
-                    && Objects.equals(value, other.value);
+            return Objects.equals(namespace, other.namespace) && Objects.equals(path, other.path) && Objects.equals(value, other.value);
         }
 
         @Override
@@ -119,6 +124,11 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
             return Objects.hash(namespace, path, value);
         }
 
+        /**
+         * Returns a string representation of this {@link XmpRecord} object.
+         *
+         * @return formatted string describing the entry’s key characteristics
+         */
         @Override
         public String toString()
         {
@@ -126,37 +136,23 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
             sb.append(String.format(MetadataConstants.FORMATTER, "Namespace", getNamespace()));
             sb.append(String.format(MetadataConstants.FORMATTER, "Prefix", getPrefix()));
             sb.append(String.format(MetadataConstants.FORMATTER, "Name", getName()));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Raw Value", getValue()));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Translated Value", getTranslatedValue()));
+            sb.append(String.format(MetadataConstants.FORMATTER, "Full Path", getPath()));
+            sb.append(String.format(MetadataConstants.FORMATTER, "Value", getValue()));
 
             return sb.toString();
         }
     }
 
-    public XmpDirectory()
+    /**
+     * Constructs an empty XMP directory.
+     */
+    public XmpDirectoryOld()
     {
         this.propertyMap = new LinkedHashMap<>();
     }
 
     /**
-     * Looks up an XMP property by its raw qualified path string (e.g., "dc:creator").
-     *
-     * @param qualifiedPath
-     *        The path string key
-     * @return An Optional containing the matching record
-     */
-    public Optional<XmpRecord> getRecord(String qualifiedPath)
-    {
-        if (qualifiedPath == null)
-        {
-            return Optional.empty();
-        }
-
-        return Optional.ofNullable(propertyMap.get(qualifiedPath.trim()));
-    }
-
-    /**
-     * Retrieves the raw string value corresponding to the specified property wrapper.
+     * Retrieves the string value corresponding to the specified property path descriptor.
      *
      * @param prop
      *        an XmpProperty instance containing a fully qualified path key
@@ -164,69 +160,96 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
      */
     public Optional<String> getValueByPath(XmpProperty prop)
     {
-        if (prop == null)
-        {
-            return Optional.empty();
-        }
+        XmpRecord xmp = propertyMap.get(prop.getQualifiedPath());
 
-        return getRecord(prop.getQualifiedPath()).map(XmpRecord::getValue);
+        return (xmp != null) ? Optional.of(xmp.getValue()) : Optional.empty();
     }
 
     /**
-     * Retrieves the formatted, translated string value for a given property type wrapper.
+     * Adds a single {@link XmpRecord} to this directory.
      *
      * @param prop
-     *        an XmpProperty instance containing a fully qualified path key
-     * @return an Optional containing the translated presentation value string
+     *        the XmpRecord to be added
      */
-    public Optional<String> getTranslatedValueByPath(XmpProperty prop)
-    {
-        if (prop == null)
-        {
-            return Optional.empty();
-        }
-
-        return getRecord(prop.getQualifiedPath()).map(XmpRecord::getTranslatedValue);
-    }
-
     @Override
     public void add(XmpRecord prop)
     {
         Objects.requireNonNull(prop, "Property cannot be null");
+
         propertyMap.put(prop.getPath(), prop);
     }
 
+    /**
+     * Removes a {@code XmpRecord} property from this directory.
+     *
+     * @param prop
+     *        {@code XmpRecord} object to remove
+     * @return {@code true} if an element was removed as a result of this invocation
+     * 
+     * @throws NullPointerException
+     *         if {@code prop} is null
+     */
     @Override
     public boolean remove(XmpRecord prop)
     {
         Objects.requireNonNull(prop, "Property cannot be null");
+
         return (propertyMap.remove(prop.getPath()) != null);
     }
 
+    /**
+     * Checks if a specific {@link XmpRecord} property is present in this directory.
+     *
+     * @param prop
+     *        the XmpRecord to check for
+     * @return {@code true} if the property is found, otherwise {@code false}
+     */
     @Override
     public boolean contains(XmpRecord prop)
     {
         return (prop != null && propertyMap.containsKey(prop.getPath()));
     }
 
+    /**
+     * Returns the number of {@link XmpRecord} objects in this directory.
+     *
+     * @return the size of the directory
+     */
     @Override
     public int size()
     {
         return propertyMap.size();
     }
 
+    /**
+     * Checks whether this directory contains any {@link XmpRecord} objects.
+     *
+     * @return {@code true} if this directory contains no records, otherwise {@code false}
+     */
     @Override
     public boolean isEmpty()
     {
         return propertyMap.isEmpty();
     }
 
+    /**
+     * Returns an iterator over the extracted XMP properties. The properties are returned in the
+     * order they appeared in the original XMP payload.
+     * 
+     * @return an iterator of {@link XmpRecord} objects
+     */
     @Override
     public Iterator<XmpRecord> iterator()
     {
         return propertyMap.values().iterator();
     }
 
+    /**
+     * Returns a string representation of this directory, which is the concatenation of the string
+     * representations of all contained {@link XmpRecord} objects, each on a new line.
+     *
+     * @return a multi-line string representing the properties in the directory
+     */
     @Override
     public String toString()
     {

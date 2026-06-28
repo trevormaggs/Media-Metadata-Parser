@@ -180,15 +180,15 @@ public class PngParser extends AbstractImageParser<PngMetadata>
     {
         super(fpath);
 
+        this.dataLoaded = false;
+        this.metadata = new PngMetadata();
+
         String ext = Utils.getFileExtension(getImageFile());
 
         if (!ext.equalsIgnoreCase("png"))
         {
             LOGGER.warn(formatExtensionErrorMessage());
         }
-
-        this.dataLoaded = false;
-        this.metadata = new PngMetadata();
     }
 
     /**

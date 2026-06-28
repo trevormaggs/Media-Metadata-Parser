@@ -1,8 +1,10 @@
 package tif;
 
+import java.time.ZonedDateTime;
 import java.util.Locale;
 import tif.tagspecs.TagIFD_GPS;
 import tif.tagspecs.Taggable;
+import util.SmartDateParser;
 
 public final class GpsDataManager
 {
@@ -13,79 +15,79 @@ public final class GpsDataManager
 
     public static String getDisplayValue(Object val, TagIFD_GPS tag)
     {
-        if (val == null || tag == null)
+        if (val != null && tag != null)
         {
-            return "";
+            switch (tag)
+            {
+                case GPS_LATITUDE_REF: // 0x0001
+                    return translateLatitudeRef(val);
+
+                case GPS_LATITUDE: // 0x0002
+                    return formatCoordinate(val);
+
+                case GPS_LONGITUDE_REF: // 0x0003
+                    return translateLongitudeRef(val);
+
+                case GPS_LONGITUDE: // 0x0004
+                    return formatCoordinate(val);
+
+                case GPS_ALTITUDE_REF: // 0x0005
+                    return translateAltitudeRef(val);
+
+                case GPS_ALTITUDE: // 0x0006
+                    return formatAltitude(val);
+
+                case GPS_TIME_STAMP: // 0x0007
+                    return formatTimeStamp(val);
+
+                case GPS_STATUS: // 0x0009
+                    return translateStatus(val);
+
+                case GPS_MEASURE_MODE: // 0x000A
+                    return translateMeasureMode(val);
+
+                case GPS_SPEED_REF: // 0x000C
+                    return translateSpeedRef(val);
+
+                case GPS_TRACK_REF: // 0x000E
+                    return translateDirectionRef(val);
+
+                case GPS_TRACK: // 0x000F
+                    return formatBearing(val);
+
+                case GPS_IMG_DIRECTION_REF: // 0x0010
+                    return translateDirectionRef(val);
+
+                case GPS_IMG_DIRECTION: // 0x0011
+                    return formatBearing(val);
+
+                case GPS_DEST_LATITUDE: // 0x0014
+                    return formatCoordinate(val);
+
+                case GPS_DEST_LONGITUDE: // 0x0016
+                    return formatCoordinate(val);
+
+                case GPS_DEST_BEARING_REF: // 0x0017
+                    return translateDirectionRef(val);
+
+                case GPS_DEST_BEARING: // 0x0018
+                    return formatBearing(val);
+
+                case GPS_DEST_DISTANCE_REF: // 0x0019
+                    return translateDestDistanceRef(val);
+
+                case GPS_DATE_STAMP: // 0x001D
+                    return formatDateStamp(val);
+
+                case GPS_DIFFERENTIAL: // 0x001E
+                    return translateDifferential(val);
+
+                default:
+                    return String.valueOf(val).trim();
+            }
         }
 
-        switch (tag)
-        {
-            case GPS_LATITUDE_REF: // 0x0001
-                return translateLatitudeRef(val);
-
-            case GPS_LATITUDE: // 0x0002
-                return formatCoordinate(val);
-
-            case GPS_LONGITUDE_REF: // 0x0003
-                return translateLongitudeRef(val);
-
-            case GPS_LONGITUDE: // 0x0004
-                return formatCoordinate(val);
-
-            case GPS_ALTITUDE_REF: // 0x0005
-                return translateAltitudeRef(val);
-
-            case GPS_ALTITUDE: // 0x0006
-                return formatAltitude(val);
-
-            case GPS_TIME_STAMP: // 0x0007
-                return formatTimeStamp(val);
-
-            case GPS_STATUS: // 0x0009
-                return translateStatus(val);
-
-            case GPS_MEASURE_MODE: // 0x000A
-                return translateMeasureMode(val);
-
-            case GPS_SPEED_REF: // 0x000C
-                return translateSpeedRef(val);
-
-            case GPS_TRACK_REF: // 0x000E
-                return translateDirectionRef(val);
-
-            case GPS_TRACK: // 0x000F
-                return formatBearing(val);
-
-            case GPS_IMG_DIRECTION_REF: // 0x0010
-                return translateDirectionRef(val);
-
-            case GPS_IMG_DIRECTION: // 0x0011
-                return formatBearing(val);
-
-            case GPS_DEST_LATITUDE: // 0x0014
-                return formatCoordinate(val);
-
-            case GPS_DEST_LONGITUDE: // 0x0016
-                return formatCoordinate(val);
-
-            case GPS_DEST_BEARING_REF: // 0x0017
-                return translateDirectionRef(val);
-
-            case GPS_DEST_BEARING: // 0x0018
-                return formatBearing(val);
-
-            case GPS_DEST_DISTANCE_REF: // 0x0019
-                return translateDestDistanceRef(val);
-
-            case GPS_DATE_STAMP: // 0x001D
-                return formatDateStamp(val);
-
-            case GPS_DIFFERENTIAL: // 0x001E
-                return translateDifferential(val);
-
-            default:
-                return String.valueOf(val).trim();
-        }
+        return "";
     }
 
     /**
@@ -143,6 +145,7 @@ public final class GpsDataManager
         {
             return "East";
         }
+
         if ("W".equalsIgnoreCase(ref))
         {
             return "West";
@@ -175,15 +178,10 @@ public final class GpsDataManager
 
     private static String formatAltitude(Object val)
     {
+        // This also catches RationalNumber
         if (val instanceof Number)
         {
             double alt = ((Number) val).doubleValue();
-            return alt == (long) alt ? String.format(Locale.ROOT, "%d m", (long) alt) : alt + " m";
-        }
-
-        if (val instanceof RationalNumber)
-        {
-            double alt = ((RationalNumber) val).doubleValue();
             return alt == (long) alt ? String.format(Locale.ROOT, "%d m", (long) alt) : alt + " m";
         }
 
@@ -192,22 +190,21 @@ public final class GpsDataManager
 
     private static String formatTimeStamp(Object val)
     {
-        RationalNumber[] timeArray = TagValueTranslator.toRationalArray(val);
+        RationalNumber[] arr = TagValueTranslator.toRationalArray(val);
 
-        if (timeArray != null && timeArray.length >= 3 && timeArray[0] != null && timeArray[1] != null && timeArray[2] != null)
+        if (arr != null && arr.length >= 3)
         {
-            try
+            RationalNumber h = arr[0];
+            RationalNumber m = arr[1];
+            RationalNumber s = arr[2];
+
+            if (h != null && m != null && s != null)
             {
-                int hours = (int) Math.round(timeArray[0].doubleValue());
-                int minutes = (int) Math.round(timeArray[1].doubleValue());
-                int seconds = (int) Math.round(timeArray[2].doubleValue());
+                int hours = (int) Math.round(h.doubleValue());
+                int minutes = (int) Math.round(m.doubleValue());
+                int seconds = (int) Math.round(s.doubleValue());
 
                 return String.format(Locale.ROOT, "%02d:%02d:%02d", hours, minutes, seconds);
-            }
-
-            catch (Exception exc)
-            {
-                // Nothing to do
             }
         }
 
@@ -317,19 +314,51 @@ public final class GpsDataManager
 
     private static String formatBearing(Object val)
     {
-        RationalNumber[] bearingArray = TagValueTranslator.toRationalArray(val);
+        String str = String.valueOf(val).trim();
+        RationalNumber[] arr = TagValueTranslator.toRationalArray(val);
 
-        if (bearingArray != null && bearingArray.length > 0 && bearingArray[0] != null)
+        if (arr != null && arr.length > 0 && arr[0] != null)
         {
-            return String.valueOf(bearingArray[0].doubleValue());
+            double bearing = arr[0].doubleValue();
+
+            if (Double.isFinite(bearing) && bearing >= 0.0)
+            {
+                if (bearing == (long) bearing)
+                {
+                    str = String.format(Locale.ROOT, "%d", (long) bearing);
+                }
+
+                else
+                {
+                    str = String.format(Locale.ROOT, "%.4f", bearing).replaceAll("0+$", "").replaceAll("\\.$", "");
+                }
+            }
         }
 
-        if (val instanceof RationalNumber)
+        else if (val instanceof Number)
         {
-            return String.valueOf(((RationalNumber) val).doubleValue());
+            double bearing = ((Number) val).doubleValue();
+
+            if (Double.isFinite(bearing) && bearing >= 0.0)
+            {
+                if (bearing == (long) bearing)
+                {
+                    str = String.format(Locale.ROOT, "%d", (long) bearing);
+                }
+
+                else
+                {
+                    str = String.format(Locale.ROOT, "%.4f", bearing).replaceAll("0+$", "").replaceAll("\\.$", "");
+                }
+            }
         }
 
-        return String.valueOf(val).trim();
+        else
+        {
+            str = str.startsWith("[") ? "" : str;
+        }
+
+        return str;
     }
 
     /**
@@ -363,24 +392,18 @@ public final class GpsDataManager
 
     private static String formatDateStamp(Object val)
     {
-        String rawDate = String.valueOf(val);
-
-        if (rawDate != null)
+        if (val != null && String.valueOf(val).trim().length() > 0)
         {
-            String cleanDate = rawDate.trim().replace('-', ':').replace('/', ':').split(" ")[0];
-            String[] parts = cleanDate.split(":");
+            String rawDate = String.valueOf(val).trim();
 
-            if (parts.length == 3 && parts[0].length() == 4)
+            ZonedDateTime zdt = SmartDateParser.convertToZonedDateTime(rawDate);
+
+            if (zdt != null)
             {
-                return cleanDate;
+                return SmartDateParser.convertToLocalisedDateTime(zdt, Locale.getDefault());
             }
 
-            if (parts.length == 3 && parts[2].length() == 4)
-            {
-                return parts[2] + ":" + parts[1] + ":" + parts[0];
-            }
-
-            return cleanDate;
+            return rawDate;
         }
 
         return "";

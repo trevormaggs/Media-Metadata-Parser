@@ -781,7 +781,7 @@ public final class TagValueTranslator
             ZonedDateTime zdt = toZonedDateTime(data);
 
             // zdt.format(DateTimeFormatter.ofPattern("dd MMM yyyy @ HH:mm:ss z"))
-            result = (zdt != null) ? SmartDateParser.convertToLocalisedDateTime(dt, Locale.forLanguageTag("en-AU")) : dt;
+            result = (zdt != null) ? SmartDateParser.convertToLocalisedDateTime(dt, Locale.getDefault()) : dt;
         }
 
         else if (hint == TagHint.HINT_MASK)
@@ -851,7 +851,7 @@ public final class TagValueTranslator
                     /*
                      * Make numbers look like standard camera settings. Tiny decimal numbers, such
                      * as 0.004, are flipped into fractions, such as 1/250, so they read like normal
-                     * shutter speeds. Likewise for a lens aperture of 1.6, just print normally as
+                     * shutter speeds. Likewise for a lens aperture of f1.6, just print normally as
                      * decimals (1.6) without conversion.
                      */
                     double value = r.doubleValue();

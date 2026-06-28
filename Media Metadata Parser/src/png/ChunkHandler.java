@@ -170,7 +170,6 @@ public class ChunkHandler implements ImageHandler
             if (signature.length == PNG_SIGNATURE_BYTES.length && Arrays.equals(signature, PNG_SIGNATURE_BYTES))
             {
                 parseChunks();
-                return true;
             }
 
             else
@@ -185,9 +184,14 @@ public class ChunkHandler implements ImageHandler
             LOGGER.error(exc.getMessage(), exc);
         }
 
-        chunks.clear();
+        if (chunks.isEmpty())
+        {
+            chunks.clear();
+            LOGGER.info("No chunks extracted from PNG file [" + imageFile + "]");
+            return false;
+        }
 
-        return false;
+        return true;
     }
 
     /**
@@ -506,11 +510,6 @@ public class ChunkHandler implements ImageHandler
             }
 
             position++;
-        }
-
-        if (chunks.isEmpty())
-        {
-            LOGGER.info("No chunks extracted from PNG file [" + imageFile + "]");
         }
     }
 

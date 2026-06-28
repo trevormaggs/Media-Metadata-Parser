@@ -130,15 +130,15 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
     {
         super(fpath);
 
+        this.dataLoaded = false;
+        this.metadata = new TifMetadata(DigitalSignature.JPG, ByteOrder.BIG_ENDIAN);
+
         String ext = Utils.getFileExtension(getImageFile());
 
         if (!ext.equalsIgnoreCase("jpg") && !ext.equalsIgnoreCase("jpeg"))
         {
             LOGGER.warn(formatExtensionErrorMessage());
         }
-
-        this.dataLoaded = false;
-        this.metadata = new TifMetadata(DigitalSignature.JPG, ByteOrder.BIG_ENDIAN);
     }
 
     /**

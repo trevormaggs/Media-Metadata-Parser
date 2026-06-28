@@ -43,15 +43,15 @@ public class TifParser extends AbstractImageParser<TifMetadata>
     {
         super(fpath);
 
+        this.dataLoaded = false;
+        this.metadata = new TifMetadata();
+
         String ext = Utils.getFileExtension(getImageFile());
 
         if (!ext.equalsIgnoreCase("tif") && !ext.equalsIgnoreCase("tiff") && !ext.equalsIgnoreCase("dng"))
         {
             LOGGER.warn(formatExtensionErrorMessage());
         }
-
-        this.dataLoaded = false;
-        this.metadata = new TifMetadata();
     }
 
     /**

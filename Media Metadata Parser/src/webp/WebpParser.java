@@ -100,6 +100,9 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
     public WebpParser(Path fpath)
     {
         super(fpath);
+        
+        this.dataLoaded = false;
+        this.metadata = new TifMetadata(DigitalSignature.WEBP, RiffHandler.WEBP_BYTE_ORDER);
 
         String ext = Utils.getFileExtension(getImageFile());
 
@@ -107,9 +110,6 @@ public class WebpParser extends AbstractImageParser<TifMetadata>
         {
             LOGGER.warn(formatExtensionErrorMessage());
         }
-
-        this.dataLoaded = false;
-        this.metadata = new TifMetadata(DigitalSignature.WEBP, RiffHandler.WEBP_BYTE_ORDER);
     }
 
     /**

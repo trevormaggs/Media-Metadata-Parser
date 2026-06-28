@@ -117,7 +117,8 @@ public class RationalNumber extends Number
     }
 
     /**
-     * Simplifies or reduces a fraction by finding the greatest common divisor (GCD).
+     * Normalises a fraction by moving signs to the numerator and reducing the terms to their lowest
+     * form using the greatest common divisor (GCD).
      *
      * @param numerator
      *        the top number of the fraction
@@ -125,9 +126,9 @@ public class RationalNumber extends Number
      *        the bottom number of the fraction
      * @param type
      *        a flag indicating the signed/unsigned type for the resulting instance
-     * @return an instance of the {@code RationalNumber} class representing the simplified fraction
+     * @return an instance of the {@code RationalNumber} class representing the normalised fraction
      */
-    public static RationalNumber simplify(long numerator, long divisor, DataType type)
+    public RationalNumber normalise(long numerator, long divisor, DataType type)
     {
         return new RationalNumber(numerator, divisor, type, true);
     }
@@ -140,7 +141,7 @@ public class RationalNumber extends Number
      */
     public RationalNumber negate()
     {
-        return simplify(-numerator, divisor, DataType.SIGNED);
+        return normalise(-numerator, divisor, DataType.SIGNED);
     }
 
     /**

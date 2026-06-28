@@ -44,15 +44,15 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
     {
         super(fpath);
 
+        this.dataLoaded = false;
+        this.metadata = new TifMetadata(DigitalSignature.HEIF, BoxHandler.HEIF_BYTE_ORDER);
+
         String ext = Utils.getFileExtension(getImageFile());
 
         if (!ext.equalsIgnoreCase("heic") && !ext.equalsIgnoreCase("heif") && !ext.equalsIgnoreCase("hif"))
         {
             LOGGER.warn(formatExtensionErrorMessage());
         }
-
-        this.dataLoaded = false;
-        this.metadata = new TifMetadata(DigitalSignature.HEIF, BoxHandler.HEIF_BYTE_ORDER);
     }
 
     /**

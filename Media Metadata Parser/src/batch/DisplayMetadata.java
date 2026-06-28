@@ -13,10 +13,7 @@ import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
 import png.PngMetadataProvider;
 import tif.DirectoryIFD;
-import tif.DirectoryIdentifier;
-import tif.GpsDataManager;
 import tif.TifMetadataProvider;
-import tif.tagspecs.TagIFD_GPS;
 import tif.tagspecs.Taggable;
 import xmp.XmpDirectory;
 import xmp.XmpDirectory.XmpRecord;
@@ -161,46 +158,6 @@ public final class DisplayMetadata
      * @param tif
      *        the metadata provider supplying TIFF directories and associated data
      */
-    private void displayTifMetadata2(TifMetadataProvider tif)
-    {
-        for (DirectoryIFD ifd : tif)
-        {
-            DirectoryIdentifier dirType = ifd.getDirectoryType();
-            String groupName = "[" + dirType.getDescription() + "]";
-
-            for (DirectoryIFD.EntryIFD entry : ifd)
-            {
-                String value;
-                Taggable tag = entry.getTag();
-                String name = getDisplayName(dirType, tag);
-
-                // Intercept GPS directories to allow multi-tag aggregation context
-                if (tag instanceof TagIFD_GPS && dirType == DirectoryIdentifier.IFD_GPS_SUBIFD_DIRECTORY)
-                {
-                    value = GpsDataManager.getDisplayValue(ifd, (TagIFD_GPS) tag);
-                }
-
-                else
-                {
-                    Object rawData = entry.getData();
-                    value = (tag == null || rawData == null) ? "" : tag.translate(rawData);
-                }
-
-                System.out.printf(COLUMN_FORMAT, groupName, name, value);
-            }
-        }
-
-        if (tif.hasXmpData())
-        {
-            XmpDirectory xmp = tif.getXmpDirectory();
-
-            for (XmpRecord record : xmp)
-            {
-                // System.out.printf("%s\n", record.getPrefix());
-            }
-        }
-    }
-
     private void displayTifMetadata(TifMetadataProvider tif)
     {
         for (DirectoryIFD ifd : tif)
@@ -211,10 +168,11 @@ public final class DisplayMetadata
             for (DirectoryIFD.EntryIFD entry : ifd)
             {
                 Taggable tag = entry.getTag();
+
                 Object rawData = entry.getData();
                 String name = getDisplayName(dirType, tag);
                 String value = (tag == null || rawData == null) ? "" : tag.translate(rawData);
-   
+
                 System.out.printf(COLUMN_FORMAT, groupName, name, value);
             }
         }
@@ -225,7 +183,30 @@ public final class DisplayMetadata
 
             for (XmpRecord record : xmp)
             {
-                // System.out.printf("%s\n", record.getPrefix());
+                String prefix = record.getPrefix();
+                String name = record.getName();
+
+                // Skip structural language metadata fields that Exiftool suppresses implicitly
+                if (name.contains("/xml:lang") || name.contains("exif:Fired") || name.contains("exif:Mode"))
+                {
+                    continue;
+                }
+
+                String groupName = (prefix != null && !prefix.isEmpty() ? "[XMP-" + prefix + "]" : "[XMP]");
+
+                if (name.contains("ICCProfile"))
+                {
+                    name = "ICCProfileName";
+                }
+
+                String translatedValue = record.getTranslatedValue();
+                // translatedValue = record.getValue();
+
+                name = (name == null || name.isEmpty())
+                        ? "Unknown"
+                        : name.substring(0, 1).toUpperCase() + name.substring(1);
+
+                System.out.printf(COLUMN_FORMAT, groupName, name, translatedValue);
             }
         }
     }
