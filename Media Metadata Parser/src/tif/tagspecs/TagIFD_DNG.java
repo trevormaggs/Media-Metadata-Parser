@@ -213,7 +213,7 @@ public enum TagIFD_DNG implements Taggable
         {
             case IFD_DNG_VERSION:
             case IFD_DNG_BACKWARD_VERSION:
-                return translateVersion(val);
+                return Taggable.translateVersion(val);
 
             case IFD_CALIBRATION_ILLUMINANT1:
             case IFD_CALIBRATION_ILLUMINANT2:
@@ -225,103 +225,15 @@ public enum TagIFD_DNG implements Taggable
                 if (val.getClass().isArray()) return "[" + Array.getLength(val) + " elements]";
             break;
 
-            /*
-             * case IFD_PREVIEW_COLOR_SPACE:
-             * if (val instanceof Number)
-             * {
-             * int space = ((Number) val).intValue();
-             * switch (space)
-             * {
-             * case 1: return "sRGB";
-             * case 2: return "Adobe RGB";
-             * case 3: return "ProPhoto RGB";
-             * case 4: return "Gray Gamma 2.2";
-             * case 5: return "Gray Gamma 1.8";
-             * default: return "Unknown (" + space + ")";
-             * }
-             * }
-             * break;
-             * 
-             * case IFD_PROFILE_EMBED_POLICY:
-             * if (val instanceof Number)
-             * {
-             * int policy = ((Number) val).intValue();
-             * switch (policy)
-             * {
-             * case 0: return "Allow Copying";
-             * case 1: return "Embed Never";
-             * case 2: return "Embed If Restrictive";
-             * default: return "Unknown (" + policy + ")";
-             * }
-             * }
-             * break;
-             * 
-             * case IFD_PROFILE_HUE_SAT_MAP_ENCODING:
-             * case IFD_PROFILE_LOOK_TABLE_ENCODING:
-             * if (val instanceof Number)
-             * {
-             * int encoding = ((Number) val).intValue();
-             * switch (encoding)
-             * {
-             * case 0: return "Linear Reference Space";
-             * case 1: return "sRGB Space";
-             * default: return "Unknown (" + encoding + ")";
-             * }
-             * }
-             * break;
-             * 
-             * case IFD_COLORIMETRIC_REFERENCE:
-             * if (val instanceof Number)
-             * {
-             * int ref = ((Number) val).intValue();
-             * switch (ref)
-             * {
-             * case 0: return "XYZ";
-             * case 1: return "ProPhoto RGB";
-             * default: return "Unknown (" + ref + ")";
-             * }
-             * }
-             * break;
-             * 
-             * case IFD_DEPTH_FORMAT:
-             * if (val instanceof Number)
-             * {
-             * int depthFmt = ((Number) val).intValue();
-             * switch (depthFmt)
-             * {
-             * case 0: return "Unknown";
-             * case 1: return "Linear";
-             * case 2: return "Inverse (1/Distance)";
-             * default: return "Unknown (" + depthFmt + ")";
-             * }
-             * }
-             * break;
-             * 
-             * case IFD_DEPTH_MEASURE_TYPE:
-             * if (val instanceof Number)
-             * {
-             * int measureType = ((Number) val).intValue();
-             * switch (measureType)
-             * {
-             * case 0: return "Optical Axis";
-             * case 1: return "Optical Ray";
-             * default: return "Unknown (" + measureType + ")";
-             * }
-             * }
-             * break;
-             * 
-             * case IFD_DEPTH_UNITS:
-             * if (val instanceof Number)
-             * {
-             * int depthUnits = ((Number) val).intValue();
-             * switch (depthUnits)
-             * {
-             * case 0: return "Meters";
-             * default: return "Unknown (" + depthUnits + ")";
-             * }
-             * }
-             * break;
-             */
+            case IFD_PREVIEW_COLOR_SPACE:
+            case IFD_PROFILE_EMBED_POLICY:
+            case IFD_PROFILE_HUE_SAT_MAP_ENCODING:
+            case IFD_PROFILE_LOOK_TABLE_ENCODING:
+            case IFD_COLORIMETRIC_REFERENCE:
+            case IFD_DEPTH_FORMAT:
+            case IFD_DEPTH_MEASURE_TYPE:
+            case IFD_DEPTH_UNITS:
+            break;
 
             default:
             break;
@@ -330,18 +242,101 @@ public enum TagIFD_DNG implements Taggable
         return Taggable.super.translate(val);
     }
 
-    private String translateVersion(Object val)
-    {
-        if (val instanceof int[])
-        {
-            int[] ver = (int[]) val;
-
-            if (ver.length >= 4)
-            {
-                return String.format("%d.%d.%d.%d", ver[0], ver[1], ver[2], ver[3]);
-            }
-        }
-
-        return String.valueOf(val);
-    }
+    /*
+     * case IFD_PREVIEW_COLOR_SPACE:
+     * if (val instanceof Number)
+     * {
+     * int space = ((Number) val).intValue();
+     * switch (space)
+     * {
+     * case 1: return "sRGB";
+     * case 2: return "Adobe RGB";
+     * case 3: return "ProPhoto RGB";
+     * case 4: return "Gray Gamma 2.2";
+     * case 5: return "Gray Gamma 1.8";
+     * default: return "Unknown (" + space + ")";
+     * }
+     * }
+     * break;
+     * 
+     * case IFD_PROFILE_EMBED_POLICY:
+     * if (val instanceof Number)
+     * {
+     * int policy = ((Number) val).intValue();
+     * switch (policy)
+     * {
+     * case 0: return "Allow Copying";
+     * case 1: return "Embed Never";
+     * case 2: return "Embed If Restrictive";
+     * default: return "Unknown (" + policy + ")";
+     * }
+     * }
+     * break;
+     * 
+     * case IFD_PROFILE_HUE_SAT_MAP_ENCODING:
+     * case IFD_PROFILE_LOOK_TABLE_ENCODING:
+     * if (val instanceof Number)
+     * {
+     * int encoding = ((Number) val).intValue();
+     * switch (encoding)
+     * {
+     * case 0: return "Linear Reference Space";
+     * case 1: return "sRGB Space";
+     * default: return "Unknown (" + encoding + ")";
+     * }
+     * }
+     * break;
+     * 
+     * case IFD_COLORIMETRIC_REFERENCE:
+     * if (val instanceof Number)
+     * {
+     * int ref = ((Number) val).intValue();
+     * switch (ref)
+     * {
+     * case 0: return "XYZ";
+     * case 1: return "ProPhoto RGB";
+     * default: return "Unknown (" + ref + ")";
+     * }
+     * }
+     * break;
+     * 
+     * case IFD_DEPTH_FORMAT:
+     * if (val instanceof Number)
+     * {
+     * int depthFmt = ((Number) val).intValue();
+     * switch (depthFmt)
+     * {
+     * case 0: return "Unknown";
+     * case 1: return "Linear";
+     * case 2: return "Inverse (1/Distance)";
+     * default: return "Unknown (" + depthFmt + ")";
+     * }
+     * }
+     * break;
+     * 
+     * case IFD_DEPTH_MEASURE_TYPE:
+     * if (val instanceof Number)
+     * {
+     * int measureType = ((Number) val).intValue();
+     * switch (measureType)
+     * {
+     * case 0: return "Optical Axis";
+     * case 1: return "Optical Ray";
+     * default: return "Unknown (" + measureType + ")";
+     * }
+     * }
+     * break;
+     * 
+     * case IFD_DEPTH_UNITS:
+     * if (val instanceof Number)
+     * {
+     * int depthUnits = ((Number) val).intValue();
+     * switch (depthUnits)
+     * {
+     * case 0: return "Meters";
+     * default: return "Unknown (" + depthUnits + ")";
+     * }
+     * }
+     * break;
+     */
 }

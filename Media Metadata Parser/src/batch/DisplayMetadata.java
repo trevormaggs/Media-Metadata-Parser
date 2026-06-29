@@ -17,6 +17,7 @@ import tif.TifMetadataProvider;
 import tif.tagspecs.Taggable;
 import xmp.XmpDirectory;
 import xmp.XmpDirectory.XmpRecord;
+import xmp.XmpProperty;
 
 /**
  * Utility class to print media metadata in a format emulating the output style of
@@ -27,8 +28,8 @@ import xmp.XmpDirectory.XmpRecord;
  * formats in a column-aligned view.
  *
  * @author Trevor Maggs
- * @version 1.1
- * @since 2 June 2026
+ * @version 1.2
+ * @since 29 June 2026
  */
 public final class DisplayMetadata
 {
@@ -78,6 +79,8 @@ public final class DisplayMetadata
                     parser.readMetadata();
                     Metadata<?> meta = parser.getMetadata();
 
+                    System.out.printf("======== %s ========%n", fpath);
+
                     displaySystemMetadata(fpath);
 
                     if (meta != null && meta.hasMetadata())
@@ -110,7 +113,6 @@ public final class DisplayMetadata
      *
      * @param path
      *        the file whose attributes are to be displayed
-     *
      * @throws IOException
      *         if the file system attributes cannot be read
      */
@@ -136,7 +138,6 @@ public final class DisplayMetadata
      *
      * @param millis
      *        the timestamp in milliseconds since the Unix epoch
-     *
      * @return a string in the format
      *         {@code yyyy:MM:dd HH:mm:ss±HH:mm}, using the system default time zone
      */
@@ -147,13 +148,6 @@ public final class DisplayMetadata
 
     /**
      * Displays metadata contained within a TIFF-based metadata structure.
-     *
-     * <p>
-     * This method iterates through each IFD directory, translates tag identifiers and values into
-     * human-readable form, and prints them using ExifTool-style group names. The metadata may
-     * originate from a native TIFF file or from TIFF-based EXIF data embedded in formats such as
-     * JPEG or HEIC.
-     * </p>
      *
      * @param tif
      *        the metadata provider supplying TIFF directories and associated data
@@ -168,7 +162,6 @@ public final class DisplayMetadata
             for (DirectoryIFD.EntryIFD entry : ifd)
             {
                 Taggable tag = entry.getTag();
-
                 Object rawData = entry.getData();
                 String name = getDisplayName(dirType, tag);
                 String value = (tag == null || rawData == null) ? "" : tag.translate(rawData);
@@ -183,30 +176,33 @@ public final class DisplayMetadata
 
             for (XmpRecord record : xmp)
             {
+                String displayName;
+                String translatedValue;
                 String prefix = record.getPrefix();
-                String name = record.getName();
+                String rawName = record.getName();
+                XmpProperty xmpProp = XmpProperty.fromQualifiedPath(record.getQualifierPath());
 
                 // Skip structural language metadata fields that Exiftool suppresses implicitly
-                if (name.contains("/xml:lang") || name.contains("exif:Fired") || name.contains("exif:Mode"))
+                if (rawName == null || rawName.contains("/xml:lang") || rawName.contains("exif:Fired") || rawName.contains("exif:Mode"))
                 {
                     continue;
                 }
 
-                String groupName = (prefix != null && !prefix.isEmpty() ? "[XMP-" + prefix + "]" : "[XMP]");
-
-                if (name.contains("ICCProfile"))
+                if (xmpProp == XmpProperty.UNKNOWN)
                 {
-                    name = "ICCProfileName";
+                    displayName = XmpProperty.format(rawName);
+                    translatedValue = XmpProperty.UNKNOWN.translate(record.getValue());
                 }
 
-                String translatedValue = record.getTranslatedValue();
-                // translatedValue = record.getValue();
+                else
+                {
+                    displayName = xmpProp.getDescription();
+                    translatedValue = xmpProp.translate(record.getValue());
+                }
 
-                name = (name == null || name.isEmpty())
-                        ? "Unknown"
-                        : name.substring(0, 1).toUpperCase() + name.substring(1);
+                String groupName = (!prefix.isEmpty() ? "[XMP-" + prefix + "]" : "[XMP]");
 
-                System.out.printf(COLUMN_FORMAT, groupName, name, translatedValue);
+                System.out.printf(COLUMN_FORMAT, groupName, displayName, translatedValue);
             }
         }
     }

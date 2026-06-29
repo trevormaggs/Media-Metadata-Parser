@@ -15,7 +15,7 @@ public enum NameSpace
     DC("dc", "http://purl.org/dc/elements/1.1/"),
 
     /** XMP Basic schema. */
-    XPM("xmp", "http://ns.adobe.com/xap/1.0/"),
+    XMP("xmp", "http://ns.adobe.com/xap/1.0/"),
 
     /** XMP Media Management schema. */
     XMPMM("xmpMM", "http://ns.adobe.com/xap/1.0/mm/"),

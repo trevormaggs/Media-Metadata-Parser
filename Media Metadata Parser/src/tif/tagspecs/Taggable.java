@@ -101,6 +101,21 @@ public interface Taggable
         return -1;
     }
 
+    static String translateVersion(Object val)
+    {
+        if (val instanceof int[])
+        {
+            int[] ver = (int[]) val;
+
+            if (ver.length >= 4)
+            {
+                return String.format("%d.%d.%d.%d", ver[0], ver[1], ver[2], ver[3]);
+            }
+        }
+
+        return String.valueOf(val);
+    }
+
     /**
      * Translates standard resolution units shared between baseline TIFF and EXIF focal plane
      * configurations.

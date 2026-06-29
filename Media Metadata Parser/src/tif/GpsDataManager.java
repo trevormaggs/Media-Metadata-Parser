@@ -19,6 +19,9 @@ public final class GpsDataManager
         {
             switch (tag)
             {
+                case GPS_VERSION_ID: // 0x0000
+                    return Taggable.translateVersion(val);
+
                 case GPS_LATITUDE_REF: // 0x0001
                     return translateLatitudeRef(val);
 
@@ -116,15 +119,23 @@ public final class GpsDataManager
 
     private static String formatCoordinate(Object val)
     {
-        RationalNumber[] rationals = TagValueTranslator.toRationalArray(val);
+        RationalNumber[] arr = TagValueTranslator.toRationalArray(val);
 
-        if (rationals != null && rationals.length == 3 && rationals[0] != null && rationals[1] != null && rationals[2] != null)
+        if (arr != null && arr.length >= 3)
         {
-            double degrees = rationals[0].doubleValue();
-            double minutes = rationals[1].doubleValue();
-            double seconds = rationals[2].doubleValue();
+            RationalNumber d = arr[0];
+            RationalNumber m = arr[1];
+            RationalNumber s = arr[2];
 
-            return String.format(Locale.ROOT, "%.0f deg %.0f' %.2f\"", degrees, minutes, seconds);
+            if (d != null && m != null && s != null)
+            {
+                // Degrees and minutes are whole units
+                double degrees = d.doubleValue();
+                double minutes = m.doubleValue();
+                double seconds = s.doubleValue();
+
+                return String.format(Locale.ROOT, "%.0f deg %.0f' %.2f\"", degrees, minutes, seconds);
+            }
         }
 
         return "";

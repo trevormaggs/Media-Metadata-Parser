@@ -67,9 +67,9 @@ public final class MediaMetadataConsole
             cli.addDefinition("-e", FlagType.ARG_BLANK);
             cli.addDefinition("-m", FlagType.ARG_OPTIONAL);
             cli.addDefinition("-f", FlagType.ARG_BLANK);
-            cli.addDefinition("-l", FlagType.SEP_OPTIONAL);
-            cli.addDefinition("-k", FlagType.ARG_BLANK);
-            cli.addDefinition("-s", FlagType.ARG_BLANK);
+            cli.addDefinition("-i", FlagType.SEP_OPTIONAL);
+            cli.addDefinition("-S", FlagType.ARG_BLANK);
+            cli.addDefinition("-X", FlagType.ARG_BLANK);
             cli.addDefinition("--desc", FlagType.ARG_BLANK);
             cli.addDefinition("-v", FlagType.ARG_BLANK);
             cli.addDefinition("--version", FlagType.ARG_BLANK);
@@ -98,7 +98,7 @@ public final class MediaMetadataConsole
      */
     private static void showUsage()
     {
-        System.out.format("Usage: %s [-p prefix] [-t target directory] [-e] [-m date taken] [-f] [-l <File 1> ... <File n>] [-k] [-s] [--desc] [-v|--version] [-h|--help] [-d|--debug] <Source Directory>%n",
+        System.out.format("Usage: %s [-p prefix] [-t target directory] [-e] [-m date taken] [-f] [-i=<File 1> ... <File n>] [-S] [-X] [--desc] [-v|--version] [-h|--help] [-d|--debug] <Source Directory>%n",
                 ProjectBuildInfo.getInstance(MediaMetadataConsole.class).getShortFileName());
     }
 
@@ -110,13 +110,13 @@ public final class MediaMetadataConsole
         showUsage();
         System.out.println("\nOptions:");
         System.out.println("  -p <prefix>        Prepend copied files with user-defined prefix");
-        System.out.println("  -t <directory>     Target directory where copied files are saved");
+        System.out.println("  -t <directory>     Target directory where copied files are saved. Default is '" + MediaBatchProcessor.DEFAULT_TARGET_DIRECTORY + "'");
         System.out.println("  -e                 Embed date and time in copied file names");
         System.out.println("  -m <date>          Modify file's 'Date Taken' metadata properties if empty");
         System.out.println("  -f                 Force user-defined date modification regardless of metadata. -m flag must be specified");
-        System.out.println("  -l <files...>      Comma-separated list of specific file names to process");
-        System.out.println("  -k                 Skip media files (videos, etc)");
-        System.out.println("  -s                 List detailed metadata entries");
+        System.out.println("  -i=<files...>      Includes comma-separated list of specific file names to process");
+        System.out.println("  -S                 Skip other media files");
+        System.out.println("  -X                 Display detailed metadata entries similar to 'exiftool -G1 -a -s -u'");
         System.out.println("  --desc             Sort the images in descending order");
         System.out.println("  -v                 Display last build date");
         System.out.println("  -h                 Display this help message and exit");
@@ -156,15 +156,15 @@ public final class MediaMetadataConsole
                 .target(cli.getValueByFlag("-t"))
                 .embedDateTime(cli.existsFlag("-e"))
                 .userDate(cli.getValueByFlag("-m"))
-                .skipVideo(cli.existsFlag("-k"))
-                .showMetadata(cli.existsFlag("-s"))
+                .skipVideo(cli.existsFlag("-S"))
+                .showMetadata(cli.existsFlag("-X"))
                 .descending(cli.existsFlag("--desc"))
                 .forceDateChange(cli.existsFlag("-f"))
                 .debug(cli.existsFlag("-d") || cli.existsFlag("--debug"));
 
-        if (cli.existsFlag("-l") && cli.getValueLength("-l") > 0)
+        if (cli.existsFlag("-i") && cli.getValueLength("-i") > 0)
         {
-            builder.fileSet(cli.getValuesByFlag("-l"));
+            builder.fileSet(cli.getValuesByFlag("-i"));
         }
 
         try

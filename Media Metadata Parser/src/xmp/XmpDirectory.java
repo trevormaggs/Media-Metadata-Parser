@@ -62,7 +62,7 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
         }
 
         /** @return the path of the property (e.g., dc:creator) */
-        public String getPath()
+        public String getQualifierPath()
         {
             return path;
         }
@@ -83,14 +83,6 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
         public String getValue()
         {
             return value;
-        }
-
-        /**
-         * * @return the human-readable translated representation matching ExifTool rules
-         */
-        public String getTranslatedValue()
-        {
-            return XmpTagTranslator.translate(prefix, name, value);
         }
 
         @Override
@@ -124,10 +116,10 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
         {
             StringBuilder sb = new StringBuilder();
             sb.append(String.format(MetadataConstants.FORMATTER, "Namespace", getNamespace()));
+            sb.append(String.format(MetadataConstants.FORMATTER, "Qualifier Path", getQualifierPath()));
             sb.append(String.format(MetadataConstants.FORMATTER, "Prefix", getPrefix()));
             sb.append(String.format(MetadataConstants.FORMATTER, "Name", getName()));
             sb.append(String.format(MetadataConstants.FORMATTER, "Raw Value", getValue()));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Translated Value", getTranslatedValue()));
 
             return sb.toString();
         }
@@ -172,41 +164,26 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
         return getRecord(prop.getQualifiedPath()).map(XmpRecord::getValue);
     }
 
-    /**
-     * Retrieves the formatted, translated string value for a given property type wrapper.
-     *
-     * @param prop
-     *        an XmpProperty instance containing a fully qualified path key
-     * @return an Optional containing the translated presentation value string
-     */
-    public Optional<String> getTranslatedValueByPath(XmpProperty prop)
-    {
-        if (prop == null)
-        {
-            return Optional.empty();
-        }
 
-        return getRecord(prop.getQualifiedPath()).map(XmpRecord::getTranslatedValue);
-    }
 
     @Override
     public void add(XmpRecord prop)
     {
         Objects.requireNonNull(prop, "Property cannot be null");
-        propertyMap.put(prop.getPath(), prop);
+        propertyMap.put(prop.getQualifierPath(), prop);
     }
 
     @Override
     public boolean remove(XmpRecord prop)
     {
         Objects.requireNonNull(prop, "Property cannot be null");
-        return (propertyMap.remove(prop.getPath()) != null);
+        return (propertyMap.remove(prop.getQualifierPath()) != null);
     }
 
     @Override
     public boolean contains(XmpRecord prop)
     {
-        return (prop != null && propertyMap.containsKey(prop.getPath()));
+        return (prop != null && propertyMap.containsKey(prop.getQualifierPath()));
     }
 
     @Override
