@@ -121,6 +121,130 @@ public enum TagIFD_Private implements Taggable
         {
             bytes = (byte[]) val;
         }
+        else if (val instanceof int[])
+        {
+            bytes = ByteValueConverter.castToByteArray((int[]) val);
+        }
+        else
+        {
+            return Taggable.super.translate(val);
+        }
+
+        psdlist.clear();
+
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        byte[] signature = "8BIM".getBytes(StandardCharsets.US_ASCII);
+        byte[] nextSig = new byte[4];
+
+        buffer.order(ByteOrder.BIG_ENDIAN);
+
+        while (buffer.remaining() >= 12)
+        {
+            buffer.mark();
+            buffer.get(nextSig); 
+
+            if (Arrays.equals(nextSig, signature))
+            {
+                short resID = buffer.getShort(); 
+                int length = buffer.get() & 0xFF; 
+                int skip = ((length + 1) % 2 == 0 ? 0 : 1); 
+
+                buffer.position(buffer.position() + length + skip);
+
+                if (buffer.remaining() < 4)
+                {
+                    break;
+                }
+
+                int dataSize = buffer.getInt(); 
+                int padding = (dataSize % 2 == 0 ? 0 : 1);
+                int nextPos = buffer.position() + dataSize + padding;
+
+                if (nextPos <= buffer.limit())
+                {
+                    byte[] data = new byte[dataSize];
+                    buffer.get(data);
+
+                    // Skip 1 byte if the data size was odd
+                    if (padding > 0 && buffer.remaining() >= padding)
+                    {
+                        buffer.get();
+                    }
+
+                    buffer.position(nextPos);
+
+                    switch (resID)
+                    {
+                        case 0x03ED: // ResolutionInfo
+                            translateResolutionInfo(data);
+                        break;
+
+                        case 0x040A: // Copyright flag
+                            psdlist.add("Copyright Flag");
+                            psdlist.add(data.length > 0 && data[0] == 1 ? "True" : "False");
+                        break;
+
+                        case 0x0426: // PrintScaleInfo (Contains Style, Position, and Scale)
+                            if (data.length >= 14) {
+                                ByteBuffer printBuffer = ByteBuffer.wrap(data).order(ByteOrder.BIG_ENDIAN);
+                                short styleType = printBuffer.getShort();
+                                float xPos = printBuffer.getFloat();
+                                float yPos = printBuffer.getFloat();
+                                float scale = printBuffer.getFloat();
+
+                                String styleStr = "Centered";
+                                if (styleType == 1) styleStr = "Size to Fit";
+                                else if (styleType == 2) styleStr = "User Defined";
+
+                                psdlist.add("Print Style");
+                                psdlist.add(styleStr);
+
+                                psdlist.add("Print Position");
+                                psdlist.add(String.format(Locale.ROOT, "%.0f %.0f", xPos, yPos));
+
+                                psdlist.add("Print Scale");
+                                psdlist.add(String.format(Locale.ROOT, "%g", scale).replace(".00000", ""));
+                            }
+                        break;
+
+                        default:
+                        break;
+                    }
+                }
+                else
+                {
+                    break; 
+                }
+                continue;
+            }
+            else
+            {
+                buffer.reset();
+                buffer.get();
+            }
+        }
+
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < psdlist.size(); i += 2)
+        {
+            if (i + 1 < psdlist.size())
+            {
+                result.append(String.format(Locale.ROOT, PHOTOSHOP_ROW_FORMAT, "[Photoshop]", psdlist.get(i), psdlist.get(i + 1)));
+                result.append(System.lineSeparator());
+            }
+        }
+
+        return result.toString().trim();
+    }
+
+    private String translatePhotoshopInfo2(Object val)
+    {
+        byte[] bytes;
+
+        if (val instanceof byte[])
+        {
+            bytes = (byte[]) val;
+        }
 
         else if (val instanceof int[])
         {
@@ -131,6 +255,8 @@ public enum TagIFD_Private implements Taggable
         {
             return Taggable.super.translate(val);
         }
+
+        psdlist.clear();
 
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
         byte[] signature = "8BIM".getBytes(StandardCharsets.US_ASCII);
@@ -215,6 +341,10 @@ public enum TagIFD_Private implements Taggable
                     {
                         case 0x03ED: // ResolutionInfo
                             translateResolutionInfo(data);
+                        break;
+
+                        case 0x041C: // PrintPosition
+                            translatePrintPosition(data);
                         break;
 
                         case 0x040A: // Copyright flag
@@ -302,8 +432,8 @@ public enum TagIFD_Private implements Taggable
 
             // Bytes 14 and 15 are HeightUnit (ignored)
 
-            String hUnits= (hResUnit == 1) ? "inches" : "cm";
-            String vUnits= (vResUnit == 1) ? "inches" : "cm";
+            String hUnits = (hResUnit == 1) ? "inches" : "cm";
+            String vUnits = (vResUnit == 1) ? "inches" : "cm";
 
             psdlist.add("X Resolution");
             psdlist.add(String.format(Locale.ROOT, "%d", hRes));
@@ -317,6 +447,45 @@ public enum TagIFD_Private implements Taggable
             psdlist.add("Displayed Units Y");
             psdlist.add(vUnits);
         }
+    }
+
+    /*
+     * Data Type,Field Name,Size,Description / Meaning
+     * 
+     * short,colorHandling,2
+     * bytes,"0 = Let Printer Determine Colors, 1 = Let Photoshop Manage Colors"
+     * 
+     * short,renderingIntent,2
+     * bytes,"Match intent style (0 = Perceptual, 1 = Relative Colorimetric, etc.)"
+     * 
+     * byte,proofPrint,1
+     * byte,"Boolean flag flag (0 = Off, 1 = Hard Proof Profile Simulation active)"
+     * 
+     * byte,bkgdColor,1 byte,Flag setting for printing a custom page background color strip
+     */
+
+    /*
+     * Data Type,Field Name,Size,Value Type / Units
+     * 
+     * float,xPosition,4 bytes,32-bit Big-Endian IEEE-754 Single-Precision Float
+     * 
+     * float,yPosition,4 bytes,32-bit Big-Endian IEEE-754 Single-Precision Float
+     */
+    private static void translatePrintPosition(byte[] data)
+    {
+        if (data == null || data.length < 8)
+        {
+            return;
+        }
+
+        int posXBits = ((data[0] & 0xFF) << 24) | ((data[1] & 0xFF) << 16) | ((data[2] & 0xFF) << 8) | (data[3] & 0xFF);
+        float xPosition = Float.intBitsToFloat(posXBits);
+
+        int posYBits = ((data[4] & 0xFF) << 24) | ((data[5] & 0xFF) << 16) | ((data[6] & 0xFF) << 8) | (data[7] & 0xFF);
+        float yPosition = Float.intBitsToFloat(posYBits);
+
+        psdlist.add("Print Position");
+        psdlist.add(String.format(Locale.ROOT, "%.0f %.0f", xPosition, yPosition));
     }
 
     private static void translateResolutionInfo2(byte[] data)
