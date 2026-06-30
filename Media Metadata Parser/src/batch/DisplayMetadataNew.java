@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import common.AbstractImageParser;
 import common.ImageParserFactory;
 import common.Metadata;
@@ -23,43 +24,28 @@ import xmp.XmpProperty;
  * Utility class to print media metadata in a format emulating the output style of
  * {@code exiftool -G1 -a -s -u}.
  *
- * This class coordinates file discovery through a {@link MetadataScanner}, displays file system
- * attributes under the standard {@code [System]} group, and renders metadata from supported image
- * formats in a column-aligned view.
- *
  * @author Trevor Maggs
- * @version 1.2
- * @since 29 June 2026
+ * @version 1.3
+ * @since 30 June 2026
  */
-public final class DisplayMetadata
+public final class DisplayMetadataNew
 {
+    // Exact ExifTool metrics: 15 chars for group, 32 chars for short tag name key
     private static final String COLUMN_FORMAT = "%-15s%-32s: %s%n";
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private final MetadataScanner scanner;
 
-    /**
-     * Creates an instance for displaying metadata name/value attributes, similar to the output
-     * format produced by {@code exiftool -G1 -a -s -u}.
-     *
-     * @param config
-     *        the configuration containing the validated source parameters and
-     *        filters supplied on the command line
-     */
-    public DisplayMetadata(BatchConfiguration config)
+    public DisplayMetadataNew(BatchConfiguration config)
     {
         this.scanner = new MetadataScanner(config);
     }
 
-    /**
-     * Executes the metadata extraction pipeline for all matching records discovered by the scanner.
-     */
     public void execute()
     {
         try
         {
             scanner.start();
         }
-
         catch (Exception exc)
         {
             System.err.println("Fatal: Failed to initialise metadata scanner: " + exc.getMessage());
@@ -89,7 +75,6 @@ public final class DisplayMetadata
                         {
                             displayTifMetadata((TifMetadataProvider) meta);
                         }
-
                         else if (meta instanceof PngMetadataProvider)
                         {
                             displayPngMetadata((PngMetadataProvider) meta);
@@ -99,7 +84,6 @@ public final class DisplayMetadata
                     System.out.println();
                 }
             }
-
             catch (Exception exc)
             {
                 System.err.printf("Warning: Skipping metadata display for [%s] due to error: %s%n", fpath.getFileName(), exc.getMessage());
@@ -107,15 +91,6 @@ public final class DisplayMetadata
         }
     }
 
-    /**
-     * Displays file system attributes for the specified path using the standard {@code [System]}
-     * metadata group.
-     *
-     * @param path
-     *        the file whose attributes are to be displayed
-     * @throws IOException
-     *         if the file system attributes cannot be read
-     */
     private void displaySystemMetadata(Path path) throws IOException
     {
         String group = "[System]";
@@ -133,25 +108,11 @@ public final class DisplayMetadata
         System.out.print(sb);
     }
 
-    /**
-     * Formats an epoch timestamp as an ExifTool-style date/time string.
-     *
-     * @param millis
-     *        the timestamp in milliseconds since the Unix epoch
-     * @return a string in the format
-     *         {@code yyyy:MM:dd HH:mm:ss±HH:mm}, using the system default time zone
-     */
     private String formatTimestamp(long millis)
     {
         return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault()).format(DTF);
     }
 
-    /**
-     * Displays metadata contained within a TIFF-based metadata structure.
-     *
-     * @param tif
-     *        the metadata provider supplying TIFF directories and associated data
-     */
     private void displayTifMetadata(TifMetadataProvider tif)
     {
         for (DirectoryIFD ifd : tif)
@@ -168,10 +129,9 @@ public final class DisplayMetadata
 
                 if (value.contains("\n"))
                 {
-                    //System.out.printf("LOOK: %s\n", value);
-                    System.out.println(value);
+                    System.out.print(value + System.lineSeparator());
                 }
-
+                
                 else
                 {
                     System.out.printf(COLUMN_FORMAT, groupName, name, value);
@@ -191,7 +151,6 @@ public final class DisplayMetadata
                 String rawName = record.getName();
                 XmpProperty xmpProp = XmpProperty.fromQualifiedPath(record.getQualifierPath());
 
-                // Skip structural language metadata fields that Exiftool suppresses implicitly
                 if (rawName == null || rawName.contains("/xml:lang") || rawName.contains("exif:Fired") || rawName.contains("exif:Mode"))
                 {
                     continue;
@@ -202,15 +161,17 @@ public final class DisplayMetadata
                     displayName = XmpProperty.format(rawName);
                     translatedValue = XmpProperty.UNKNOWN.translate(record.getValue());
                 }
-
                 else
                 {
                     displayName = xmpProp.getDescription();
                     translatedValue = xmpProp.translate(record.getValue());
                 }
 
-                String groupName = (!prefix.isEmpty() ? "[XMP-" + prefix + "]" : "[XMP]");
+                // Sanitize XMP names and values to mirror short tag code keys and clean floating-point formats
+                displayName = cleanTagName(displayName);
+                translatedValue = cleanNumericValue(translatedValue);
 
+                String groupName = (!prefix.isEmpty() ? "[XMP-" + prefix + "]" : "[XMP]");
                 System.out.printf(COLUMN_FORMAT, groupName, displayName, translatedValue);
             }
         }
@@ -221,14 +182,11 @@ public final class DisplayMetadata
         // Placeholder for native text chunk printing
     }
 
-    /**
-     * Applies cosmetic display label transformations to match unique ExifTool output styles.
-     */
     private String getDisplayName(tif.DirectoryIdentifier dir, Taggable tag)
     {
         if (tag == null)
         {
-            return "Unknown Tag";
+            return "UnknownTag";
         }
 
         if (dir == tif.DirectoryIdentifier.IFD_DIRECTORY_IFD1)
@@ -237,13 +195,48 @@ public final class DisplayMetadata
             {
                 return "ThumbnailOffset";
             }
-
             if (tag == tif.tagspecs.TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT_LENGTH)
             {
                 return "ThumbnailLength";
             }
         }
 
-        return tag.getDescription();
+        return cleanTagName(tag.getDescription());
+    }
+
+    /**
+     * Reconstitutes description labels into strict ExifTool programmatic short keys
+     * by normalizing casing adjustments and stripping invalid delimiter characters.
+     */
+    private String cleanTagName(String desc)
+    {
+        if (desc == null) return "";
+        // Keep slash symbols safe when identifying nested arrays, otherwise wipe non-word entities
+        String step1 = desc.replaceAll("[\\s\\-_\\(\\)]+", "");
+        return step1.replace("/", "");
+    }
+
+    /**
+     * Formats trailing scientific decimals passed up by structural XMP parsers to align
+     * with standard presentation.
+     */
+    private String cleanNumericValue(String value)
+    {
+        if (value == null) return "";
+        try
+        {
+            // If it behaves like a standard trailing decimal, strip redundant formatting
+            if (value.contains(".") && value.matches("^-?\\d*\\.\\d+$"))
+            {
+                double d = Double.parseDouble(value);
+                if (d == (long) d)
+                {
+                    return String.format(Locale.ROOT, "%d", (long) d);
+                }
+                return String.format(Locale.ROOT, "%.4f", d).replaceAll("0+$", "").replaceAll("\\.$", "");
+            }
+        }
+        catch (NumberFormatException ignored) {}
+        return value;
     }
 }
