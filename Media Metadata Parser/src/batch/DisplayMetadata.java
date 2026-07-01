@@ -14,6 +14,7 @@ import filesystem.FileInspector;
 import png.PngMetadataProvider;
 import tif.DirectoryIFD;
 import tif.TifMetadataProvider;
+import tif.tagspecs.TagIFD_Private;
 import tif.tagspecs.Taggable;
 import xmp.XmpDirectory;
 import xmp.XmpDirectory.XmpRecord;
@@ -166,18 +167,14 @@ public final class DisplayMetadata
                 String name = getDisplayName(dirType, tag);
                 String value = (tag == null || rawData == null) ? "" : tag.translate(rawData);
 
-                if (value.contains("\n"))
-                {
-                    //System.out.printf("LOOK: %s\n", value);
-                    System.out.println(value);
-                }
-
-                else
+                if (!value.isEmpty())
                 {
                     System.out.printf(COLUMN_FORMAT, groupName, name, value);
                 }
             }
         }
+
+        TagIFD_Private.displayPhotoshopTags();
 
         if (tif.hasXmpData())
         {

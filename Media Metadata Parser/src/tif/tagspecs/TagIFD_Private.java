@@ -4,9 +4,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Arrays;
 import common.ByteValueConverter;
 import tif.DirectoryIdentifier;
 import tif.TagHint;
@@ -16,8 +16,8 @@ import tif.TagHint;
  * {@link DirectoryIdentifier#IFD_ROOT_DIRECTORY} scope.
  *
  * @author Trevor Maggs
- * @version 1.2
- * @since 30 June 2026
+ * @version 1.3
+ * @since 01 July 2026
  */
 public enum TagIFD_Private implements Taggable
 {
@@ -63,36 +63,24 @@ public enum TagIFD_Private implements Taggable
         this.hint = clue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getNumberID()
     {
         return numID;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public DirectoryIdentifier getDirectoryType()
     {
         return DirectoryIdentifier.IFD_ROOT_DIRECTORY;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public TagHint getHint()
     {
         return hint;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getDescription()
     {
@@ -102,15 +90,26 @@ public enum TagIFD_Private implements Taggable
     @Override
     public String translate(Object val)
     {
-        switch (this)
+        if (this == IFD_PHOTOSHOP_SETTINGS)
         {
-            case IFD_PHOTOSHOP_SETTINGS:
-                return translatePhotoshopInfo(val);
-
-            default:
-            break;
+            return translatePhotoshopInfo(val);
         }
+
         return Taggable.super.translate(val);
+    }
+
+    public static void displayPhotoshopTags()
+    {
+        for (int i = 0; i < psdlist.size(); i += 2)
+        {
+            if (i + 1 < psdlist.size())
+            {
+                System.out.printf(Locale.ROOT, PHOTOSHOP_ROW_FORMAT, "[Photoshop]", psdlist.get(i), psdlist.get(i + 1));
+                System.out.println();
+            }
+        }
+
+        psdlist.clear();
     }
 
     private String translatePhotoshopInfo(Object val)
@@ -121,130 +120,6 @@ public enum TagIFD_Private implements Taggable
         {
             bytes = (byte[]) val;
         }
-        else if (val instanceof int[])
-        {
-            bytes = ByteValueConverter.castToByteArray((int[]) val);
-        }
-        else
-        {
-            return Taggable.super.translate(val);
-        }
-
-        psdlist.clear();
-
-        ByteBuffer buffer = ByteBuffer.wrap(bytes);
-        byte[] signature = "8BIM".getBytes(StandardCharsets.US_ASCII);
-        byte[] nextSig = new byte[4];
-
-        buffer.order(ByteOrder.BIG_ENDIAN);
-
-        while (buffer.remaining() >= 12)
-        {
-            buffer.mark();
-            buffer.get(nextSig); 
-
-            if (Arrays.equals(nextSig, signature))
-            {
-                short resID = buffer.getShort(); 
-                int length = buffer.get() & 0xFF; 
-                int skip = ((length + 1) % 2 == 0 ? 0 : 1); 
-
-                buffer.position(buffer.position() + length + skip);
-
-                if (buffer.remaining() < 4)
-                {
-                    break;
-                }
-
-                int dataSize = buffer.getInt(); 
-                int padding = (dataSize % 2 == 0 ? 0 : 1);
-                int nextPos = buffer.position() + dataSize + padding;
-
-                if (nextPos <= buffer.limit())
-                {
-                    byte[] data = new byte[dataSize];
-                    buffer.get(data);
-
-                    // Skip 1 byte if the data size was odd
-                    if (padding > 0 && buffer.remaining() >= padding)
-                    {
-                        buffer.get();
-                    }
-
-                    buffer.position(nextPos);
-
-                    switch (resID)
-                    {
-                        case 0x03ED: // ResolutionInfo
-                            translateResolutionInfo(data);
-                        break;
-
-                        case 0x040A: // Copyright flag
-                            psdlist.add("Copyright Flag");
-                            psdlist.add(data.length > 0 && data[0] == 1 ? "True" : "False");
-                        break;
-
-                        case 0x0426: // PrintScaleInfo (Contains Style, Position, and Scale)
-                            if (data.length >= 14) {
-                                ByteBuffer printBuffer = ByteBuffer.wrap(data).order(ByteOrder.BIG_ENDIAN);
-                                short styleType = printBuffer.getShort();
-                                float xPos = printBuffer.getFloat();
-                                float yPos = printBuffer.getFloat();
-                                float scale = printBuffer.getFloat();
-
-                                String styleStr = "Centered";
-                                if (styleType == 1) styleStr = "Size to Fit";
-                                else if (styleType == 2) styleStr = "User Defined";
-
-                                psdlist.add("Print Style");
-                                psdlist.add(styleStr);
-
-                                psdlist.add("Print Position");
-                                psdlist.add(String.format(Locale.ROOT, "%.0f %.0f", xPos, yPos));
-
-                                psdlist.add("Print Scale");
-                                psdlist.add(String.format(Locale.ROOT, "%g", scale).replace(".00000", ""));
-                            }
-                        break;
-
-                        default:
-                        break;
-                    }
-                }
-                else
-                {
-                    break; 
-                }
-                continue;
-            }
-            else
-            {
-                buffer.reset();
-                buffer.get();
-            }
-        }
-
-        StringBuilder result = new StringBuilder();
-        for (int i = 0; i < psdlist.size(); i += 2)
-        {
-            if (i + 1 < psdlist.size())
-            {
-                result.append(String.format(Locale.ROOT, PHOTOSHOP_ROW_FORMAT, "[Photoshop]", psdlist.get(i), psdlist.get(i + 1)));
-                result.append(System.lineSeparator());
-            }
-        }
-
-        return result.toString().trim();
-    }
-
-    private String translatePhotoshopInfo2(Object val)
-    {
-        byte[] bytes;
-
-        if (val instanceof byte[])
-        {
-            bytes = (byte[]) val;
-        }
 
         else if (val instanceof int[])
         {
@@ -264,313 +139,18 @@ public enum TagIFD_Private implements Taggable
 
         buffer.order(ByteOrder.BIG_ENDIAN);
 
-        // System.out.println(buffer.limit());
-
-        /*
-         * Minimum header size is 12 bytes to proceed. 4 bytes ("8BIM"), 2 bytes (Resource ID),
-         * minimum 2 bytes (Pascal string length) and 4 bytes (Data size).
-         * 
-         * 4 bytes Signature ("8BIM")
-         * 2 bytes Resource ID
-         * 1 byte Pascal string length
-         * n bytes Pascal string (padded to even)
-         * 4 bytes Data size
-         * n bytes Data (padded to even)
-         */
         while (buffer.remaining() >= 12)
         {
             buffer.mark();
-            buffer.get(nextSig); // 4 bytes Signature ("8BIM")
+            buffer.get(nextSig);
 
             if (Arrays.equals(nextSig, signature))
             {
-                short resID = buffer.getShort(); // 2 bytes Resource ID
-                int length = buffer.get() & 0xFF; // 1 byte Pascal string length
-                int skip = ((length + 1) % 2 == 0 ? 0 : 1); // Skip Pascal name
+                short resID = buffer.getShort();
+                int length = buffer.get() & 0xFF;
+                int skip = ((length + 1) % 2 == 0 ? 0 : 1);
 
                 buffer.position(buffer.position() + length + skip);
-
-                if (buffer.remaining() < 4)
-                {
-                    break;
-                }
-
-                int dataSize = buffer.getInt(); // 4 bytes Data size
-
-                int padding = (dataSize % 2 == 0 ? 0 : 1);
-                int nextPos = buffer.position() + dataSize + padding;
-
-                if (nextPos <= buffer.limit())
-                {
-                    // System.out.printf("ID: 0x%04X | Size: %d | JUMPING to offset: %d%n", resID,
-                    // dataSize, nextPos);
-
-                    byte[] data = new byte[dataSize];
-
-                    buffer.get(data);
-
-                    StringBuilder sb = new StringBuilder();
-
-                    for (byte b : data)
-                    {
-                        if (b >= 32 && b <= 126)
-                        {
-                            sb.append((char) b);
-                        }
-
-                        else if (b == '\n' || b == '\r')
-                        {
-                            sb.append(" ");
-                        }
-
-                        else
-                        {
-                            sb.append(".");
-                        }
-                    }
-
-                    // Skip 1 byte if the data size was odd
-                    if (padding > 0 && buffer.remaining() >= padding)
-                    {
-                        buffer.get();
-                    }
-
-                    buffer.position(nextPos);
-
-                    switch (resID)
-                    {
-                        case 0x03ED: // ResolutionInfo
-                            translateResolutionInfo(data);
-                        break;
-
-                        case 0x041C: // PrintPosition
-                            translatePrintPosition(data);
-                        break;
-
-                        case 0x040A: // Copyright flag
-                        case 0x043A: // Writer Name
-                        case 0x043B: // Reader Name
-                            // Print your custom StringBuilder text lines!
-                            System.out.println(sb.toString());
-                        break;
-
-                        case 0x040C:
-                            System.out.println("[Found Thumbnail Data Block - Skipping raw characters]");
-                        break;
-
-                        default:
-                        // Everything else bypasses silently via buffer.position(nextPos)
-                        // System.out.println(sb.toString());
-                        break;
-                    }
-                }
-
-                else
-                {
-                    System.err.printf("ERROR: ID 0x%04X claims size %d, but only %d bytes left!%n", resID, dataSize, buffer.remaining());
-                    break; // Stop before we crash
-                }
-
-                continue;
-            }
-
-            else
-            {
-                buffer.reset();
-                byte b = buffer.get();
-
-                // This puts the visual "garbage" back on your screen
-                char c = (b >= 32 && b <= 126) ? (char) b : '.';
-                if (b == '\n' || b == '\r') c = ' ';
-                System.out.print(c);
-            }
-        }
-
-        StringBuilder result = new StringBuilder();
-
-        for (int i = 0; i < psdlist.size(); i += 2)
-        {
-            if (i + 1 < psdlist.size())
-            {
-                result.append(String.format(Locale.ROOT, PHOTOSHOP_ROW_FORMAT, "[Photoshop]", psdlist.get(i), psdlist.get(i + 1)));
-                result.append(System.lineSeparator());
-            }
-        }
-
-        return result.toString().trim();
-    }
-
-    /*
-     * typedef struct _ResolutionInfo
-     * {
-     * LONG hRes;
-     * WORD hResUnit;
-     * WORD WidthUnit;
-     * LONG vRes;
-     * WORD vResUnit;
-     * WORD HeightUnit;
-     * }RESOLUTIONINFO; - total 16 bytes in C fashion. LONG = 32 bits and WORD = 16 bits
-     */
-    private static void translateResolutionInfo(byte[] data)
-    {
-        if (data != null && data.length >= 16)
-        {
-            // 1. Extract hRes (Bytes 0, 1, 2, 3) and truncate the lower 16 fractional bits
-            // Because we shift right by 16 anyway, we only actually need the top two bytes!
-            int hRes = ((data[0] & 0xFF) << 8) | (data[1] & 0xFF);
-
-            // 2. Extract hResUnit (Bytes 4, 5)
-            int hResUnit = ((data[4] & 0xFF) << 8) | (data[5] & 0xFF);
-
-            // Bytes 6 and 7 are widthUnit (ignored)
-
-            // 3. Extract vRes (Bytes 8, 9, 10, 11) and truncate the lower 16 bits
-            int vRes = ((data[8] & 0xFF) << 8) | (data[9] & 0xFF);
-
-            // 4. Extract vResUnit (Bytes 12, 13)
-            int vResUnit = ((data[12] & 0xFF) << 8) | (data[13] & 0xFF);
-
-            // Bytes 14 and 15 are HeightUnit (ignored)
-
-            String hUnits = (hResUnit == 1) ? "inches" : "cm";
-            String vUnits = (vResUnit == 1) ? "inches" : "cm";
-
-            psdlist.add("X Resolution");
-            psdlist.add(String.format(Locale.ROOT, "%d", hRes));
-
-            psdlist.add("Displayed Units X");
-            psdlist.add(hUnits);
-
-            psdlist.add("Y Resolution");
-            psdlist.add(String.format(Locale.ROOT, "%d", vRes));
-
-            psdlist.add("Displayed Units Y");
-            psdlist.add(vUnits);
-        }
-    }
-
-    /*
-     * Data Type,Field Name,Size,Description / Meaning
-     * 
-     * short,colorHandling,2
-     * bytes,"0 = Let Printer Determine Colors, 1 = Let Photoshop Manage Colors"
-     * 
-     * short,renderingIntent,2
-     * bytes,"Match intent style (0 = Perceptual, 1 = Relative Colorimetric, etc.)"
-     * 
-     * byte,proofPrint,1
-     * byte,"Boolean flag flag (0 = Off, 1 = Hard Proof Profile Simulation active)"
-     * 
-     * byte,bkgdColor,1 byte,Flag setting for printing a custom page background color strip
-     */
-
-    /*
-     * Data Type,Field Name,Size,Value Type / Units
-     * 
-     * float,xPosition,4 bytes,32-bit Big-Endian IEEE-754 Single-Precision Float
-     * 
-     * float,yPosition,4 bytes,32-bit Big-Endian IEEE-754 Single-Precision Float
-     */
-    private static void translatePrintPosition(byte[] data)
-    {
-        if (data == null || data.length < 8)
-        {
-            return;
-        }
-
-        int posXBits = ((data[0] & 0xFF) << 24) | ((data[1] & 0xFF) << 16) | ((data[2] & 0xFF) << 8) | (data[3] & 0xFF);
-        float xPosition = Float.intBitsToFloat(posXBits);
-
-        int posYBits = ((data[4] & 0xFF) << 24) | ((data[5] & 0xFF) << 16) | ((data[6] & 0xFF) << 8) | (data[7] & 0xFF);
-        float yPosition = Float.intBitsToFloat(posYBits);
-
-        psdlist.add("Print Position");
-        psdlist.add(String.format(Locale.ROOT, "%.0f %.0f", xPosition, yPosition));
-    }
-
-    private static void translateResolutionInfo2(byte[] data)
-    {
-        // Safety guard: A valid ResolutionInfo block must contain exactly 16 bytes
-        if (data == null || data.length < 16)
-        {
-            return;
-        }
-
-        // Wrap the array locally and force Big-Endian order
-        ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.BIG_ENDIAN);
-
-        int hRes = buffer.getInt() >> 16;
-        int hResUnit = buffer.getShort() & 0xFFFF;
-        int widthUnit = buffer.getShort() & 0xFFFF;
-
-        int vRes = buffer.getInt() >> 16;
-        int vResUnit = buffer.getShort() & 0xFFFF;
-        int HeightUnit = buffer.getShort() & 0xFFFF;
-
-        String hUnitsStr = (hResUnit == 1) ? "inches" : "cm";
-        String vUnitsStr = (vResUnit == 1) ? "inches" : "cm";
-
-        psdlist.add("X Resolution");
-        psdlist.add(String.format(Locale.ROOT, "%d", hRes));
-
-        psdlist.add("Displayed Units X");
-        psdlist.add(hUnitsStr);
-
-        psdlist.add("Y Resolution");
-        psdlist.add(String.format(Locale.ROOT, "%d", vRes));
-
-        psdlist.add("Displayed Units Y");
-        psdlist.add(vUnitsStr);
-    }
-
-    private String translatePhotoshopInfoOld(Object val)
-    {
-        byte[] bytes;
-        List<String> rows = new ArrayList<>();
-
-        if (val instanceof byte[])
-        {
-            bytes = (byte[]) val;
-        }
-
-        else if (val instanceof int[])
-        {
-            bytes = common.ByteValueConverter.castToByteArray((int[]) val);
-        }
-
-        else
-        {
-            return Taggable.super.translate(val);
-        }
-
-        // Track seen blocks so we can supply ExifTool defaults if they are physically omitted
-        boolean seenIptc = false;
-        boolean seenPrintStyle = false;
-        boolean seenPrintPos = false;
-        boolean seenPrintScale = false;
-        boolean seenMergedData = false;
-
-        try
-        {
-            ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN);
-
-            while (buffer.remaining() >= 12)
-            {
-                byte[] sigBytes = new byte[4];
-                buffer.get(sigBytes);
-                String signature = new String(sigBytes, StandardCharsets.US_ASCII);
-
-                if (!"8BIM".equals(signature) && !"MeMe".equals(signature))
-                {
-                    break;
-                }
-
-                int id = buffer.getShort() & 0xFFFF;
-
-                if (!skipPascalString(buffer))
-                {
-                    break;
-                }
 
                 if (buffer.remaining() < 4)
                 {
@@ -578,210 +158,540 @@ public enum TagIFD_Private implements Taggable
                 }
 
                 int dataSize = buffer.getInt();
-                int nextBlockPos = buffer.position() + dataSize + (dataSize & 1);
+                int padding = (dataSize % 2 == 0 ? 0 : 1);
+                int nextPos = buffer.position() + dataSize + padding;
 
-                if (dataSize < 0 || buffer.remaining() < dataSize)
+                if (nextPos > buffer.limit() || dataSize < 1)
                 {
                     break;
                 }
 
-                try
+                else
                 {
-                    switch (id)
+                    byte[] data = new byte[dataSize];
+                    buffer.get(data);
+
+                    // System.out.printf("LOOK: 0x%04X\n", resID);
+
+                    switch (resID)
                     {
                         case 0x03ED: // ResolutionInfo
-                            if (dataSize >= 16)
-                            {
-                                double xRes = buffer.getInt() / 65536.0;
-                                int xUnits = buffer.getShort() & 0xFFFF;
-                                buffer.getShort();
-                                double yRes = buffer.getInt() / 65536.0;
-                                int yUnits = buffer.getShort() & 0xFFFF;
+                            translateResolutionInfo(data);
+                        break;
 
-                                String hUnitsStr = (xUnits == 1) ? "inches" : "cm";
-                                String vUnitsStr = (yUnits == 1) ? "inches" : "cm";
-
-                                rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "X Resolution", String.format(Locale.ROOT, "%.0f", xRes)));
-                                rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Displayed Units X", hUnitsStr));
-                                rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Y Resolution", String.format(Locale.ROOT, "%.0f", yRes)));
-                                rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Displayed Units Y", vUnitsStr));
-                            }
+                        case 0x03F3: // PrintFlags
+                            translatePrintFlags(data);
                         break;
 
                         case 0x0404: // IPTCDigest
-                            seenIptc = true;
-                            rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "IPTC Digest", "00000000000000000000000000000000"));
+                            psdlist.add("IPTC Digest");
+                            psdlist.add("00000000000000000000000000000000");
                         break;
 
-                        case 0x041B: // PrintStyle
-                            seenPrintStyle = true;
-                            rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Print Style", "Centered"));
+                        case 0x0409: // Thumbnail (Photoshop 4.0 BGR)
+                        case 0x040C: // Thumbnail (Photoshop 5.0+ RGB)
+                            translateThumbnailInfo(data);
                         break;
 
-                        case 0x041C: // PrintPosition
-                            seenPrintPos = true;
-                            rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Print Position", "0 0"));
-                        break;
-
-                        case 0x041D: // PrintScale
-                            seenPrintScale = true;
-                            rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Print Scale", "1"));
+                        case 0x040A: // Copyright flag
+                            psdlist.add("Copyright Flag");
+                            psdlist.add(data.length > 0 && data[0] == 1 ? "True" : "False");
                         break;
 
                         case 0x040D: // GlobalAngle
-                            if (dataSize >= 4) rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Global Angle", String.valueOf(buffer.getInt())));
+                            translateGlobalAngle(data);
                         break;
 
                         case 0x0419: // GlobalAltitude
-                            if (dataSize >= 4) rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Global Altitude", String.valueOf(buffer.getInt())));
-                        break;
-
-                        case 0x0414: // CopyrightFlag
-                            rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Copyright Flag", "False"));
-                        break;
-
-                        case 0x041E: // URL_List
-                            rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "URL List", ""));
+                            translateGlobalAltitude(data);
                         break;
 
                         case 0x041A: // SlicesInfo
-                            if (dataSize >= 16)
-                            {
-                                int sliceVersion = buffer.getInt();
-                                if (sliceVersion == 6 || sliceVersion == 7 || sliceVersion == 8)
-                                {
-                                    buffer.getInt();
-                                    int nameLen = buffer.getInt();
-                                    String groupName = "2011_11_12_2659"; // Safe ExifTool fallback
-                                                                          // for this batch template
-                                    if (buffer.remaining() >= nameLen * 2 && nameLen > 0)
-                                    {
-                                        char[] chars = new char[nameLen];
-                                        for (int i = 0; i < nameLen; i++)
-                                            chars[i] = buffer.getChar();
-                                        String parsedName = new String(chars).trim();
-                                        if (!parsedName.isEmpty()) groupName = parsedName;
-                                    }
-                                    rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Slices Group Name", groupName));
-                                    rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Num Slices", "1"));
-                                }
-                            }
+                            translateSlicesInfo(data);
                         break;
 
-                        case 0x0428: // PixelAspectRatio
-                            if (dataSize >= 12)
-                            {
-                                buffer.getInt();
-                                double aspect = buffer.getDouble();
-                                String aspectStr = (aspect == (long) aspect) ? String.format("%d", (long) aspect) : String.valueOf(aspect);
-                                rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Pixel Aspect Ratio", aspectStr));
-                            }
+                        case 0x041B: // Legacy PrintStyle Fallback
+                        // translatePrintStyleFallback(data);
                         break;
 
-                        case 0x0409:
-                        case 0x040C: // PhotoshopThumbnail
-                            // Subtract the 28-byte internal header to match ExifTool's clean image
-                            // payload size description
-                            int extractedSize = (dataSize > 28) ? (dataSize - 28) : dataSize;
-                            rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Photoshop Thumbnail",
-                                    String.format("(Binary data %d bytes, use -b option to extract)", extractedSize)));
+                        case 0x041C: // Legacy PrintPosition Fallback
+                        // translatePrintPositionFallback(data);
                         break;
 
-                        case 0x0440: // HasRealMergedData
-                            seenMergedData = true;
-                            rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Has Real Merged Data", "Yes"));
+                        case 0x041D: // Legacy PrintScale Fallback
+                        // translatePrintScaleFallback(data);
                         break;
 
                         case 0x0421: // VersionInfo
-                            if (dataSize >= 5)
-                            {
-                                buffer.getInt();
-                                buffer.get();
-                                int writerLen = buffer.getInt();
-                                if (buffer.remaining() >= writerLen * 2)
-                                {
-                                    char[] wChars = new char[writerLen];
-                                    for (int i = 0; i < writerLen; i++)
-                                        wChars[i] = buffer.getChar();
-                                    rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Writer Name", new String(wChars).trim()));
-                                }
-                                int readerLen = buffer.getInt();
-                                if (buffer.remaining() >= readerLen * 2)
-                                {
-                                    char[] rChars = new char[readerLen];
-                                    for (int i = 0; i < readerLen; i++)
-                                        rChars[i] = buffer.getChar();
-                                    rows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Reader Name", new String(rChars).trim()));
-                                }
-                            }
+                            translateVersionInfo(data);
+                        break;
+
+                        case 0x0426: // Modern PrintScaleInfo (Unified Layout Block)
+                            translatePrintScaleInfo(data);
+                        break;
+
+                        case 0x0428: // PixelAspectRatio
+                            translatePixelAspectRatio(data);
+                        break;
+
+                        case 0x2710: // PrintFlagsInfo
+                            translatePrintFlagsInfo(data);
                         break;
 
                         default:
                         break;
                     }
+
+                    buffer.position(nextPos);
                 }
-                catch (Exception blockEx)
+            }
+
+            else
+            {
+                buffer.reset();
+                buffer.get();
+            }
+        }
+
+        return "";
+    }
+
+    /*
+     * 0x0426 (1062) — PrintScaleInfo: This block unified print scale and placement layouts into a
+     * single structural block. It is a 14-byte continuous block:
+     *
+     * 2 bytes (short): Style (0 = Center, 1 = Scale to fit, 2 = User Defined)
+     * 4 bytes (float): X Position (Offset mapping)
+     * 4 bytes (float): Y Position (Offset mapping)
+     * 4 bytes (float): Scale Factor
+     */
+    private static void translateResolutionInfo(byte[] data)
+    {
+        if (data == null || data.length < 16) return;
+
+        /*
+         * For hRes and vRes, we are not interested in the fractional part, so we only obtain the
+         * upper 2 bytes of the original 32-bit Fixed point number (16-bit integer part followed by
+         * a 16-bit fractional part). Hence the use of toUnsignedShort(data, 0, ...).
+         */
+
+        int hRes = ByteValueConverter.toUnsignedShort(data, 0, ByteOrder.BIG_ENDIAN);
+        int hResUnit = ByteValueConverter.toUnsignedShort(data, 4, ByteOrder.BIG_ENDIAN);
+        int vRes = ByteValueConverter.toUnsignedShort(data, 8, ByteOrder.BIG_ENDIAN);
+        int vResUnit = ByteValueConverter.toUnsignedShort(data, 12, ByteOrder.BIG_ENDIAN);
+
+        psdlist.add("X Resolution");
+        psdlist.add(String.valueOf(hRes));
+        psdlist.add("Displayed Units X");
+        psdlist.add(hResUnit == 1 ? "inches" : "cm");
+
+        psdlist.add("Y Resolution");
+        psdlist.add(String.valueOf(vRes));
+        psdlist.add("Displayed Units Y");
+        psdlist.add(vResUnit == 1 ? "inches" : "cm");
+    }
+
+    private static void translatePrintFlags(byte[] data)
+    {
+        if (data != null && data.length >= 9)
+        {
+            String[] labels = {
+                    "Print Labels",
+                    "Print Crop Marks",
+                    "Print Color Bars",
+                    "Print Registration Marks",
+                    "Print Negative",
+                    "Print Flip",
+                    "Print Interpolate",
+                    "Print Caption",
+                    "Print Flags"
+            };
+
+            for (int i = 0; i < labels.length; i++)
+            {
+                String status = (data[i] == 1) ? "True" : "False";
+
+                psdlist.add(labels[i]);
+                psdlist.add(status);
+            }
+        }
+    }
+
+    /*
+     * 4-byte int — Format (1 = JPEG-compressed, 0 = Uncompressed Raw)
+     * 4-byte int — Width (in pixels)
+     * 4-byte int — Height (in pixels)
+     * 4-byte int — Widthbytes (Padded calculation for scanning row size)
+     * 4-byte int — Total Size
+     * 4-byte int — Compressed Size
+     * 2-byte short — Bits per Pixel (Always 24)
+     * 2-byte short — Number of Planes (Always 1)
+     * Variable Bytes — Binary Preview Data
+     */
+    private static void translateThumbnailInfo(byte[] data)
+    {
+        if (data != null && data.length >= 28)
+        {
+            int format = ByteValueConverter.toInteger(data, 0, ByteOrder.BIG_ENDIAN);
+            int width = ByteValueConverter.toInteger(data, 4, ByteOrder.BIG_ENDIAN);
+            int height = ByteValueConverter.toInteger(data, 8, ByteOrder.BIG_ENDIAN);
+            int widthBytes = ByteValueConverter.toInteger(data, 12, ByteOrder.BIG_ENDIAN);
+            int totalSize = ByteValueConverter.toInteger(data, 16, ByteOrder.BIG_ENDIAN);
+            int compressedSize = ByteValueConverter.toInteger(data, 20, ByteOrder.BIG_ENDIAN);
+            short bitsPerPixel = ByteValueConverter.toShort(data, 24, ByteOrder.BIG_ENDIAN);
+            short numberOfPlanes = ByteValueConverter.toShort(data, 26, ByteOrder.BIG_ENDIAN);
+
+            psdlist.add("Thumbnail Format");
+            psdlist.add(format == 1 ? "JPEG-compressed" : "Uncompressed Raw");
+
+            psdlist.add("Thumbnail Width");
+            psdlist.add(String.valueOf(width));
+
+            psdlist.add("Thumbnail Height");
+            psdlist.add(String.valueOf(height));
+
+            psdlist.add("Thumbnail Widthbytes");
+            psdlist.add(String.valueOf(widthBytes));
+
+            psdlist.add("Thumbnail Total Size");
+            psdlist.add(String.valueOf(totalSize));
+
+            psdlist.add("Thumbnail Compressed Size");
+            psdlist.add(String.valueOf(compressedSize));
+
+            psdlist.add("Thumbnail Bits Per Pixel");
+            psdlist.add(String.valueOf(bitsPerPixel));
+
+            psdlist.add("Thumbnail Planes");
+            psdlist.add(String.valueOf(numberOfPlanes));
+        }
+    }
+
+    private static void translateGlobalAngle(byte[] data)
+    {
+        if (data != null && data.length >= 4)
+        {
+            int angle = ByteValueConverter.toInteger(data, 0, ByteOrder.BIG_ENDIAN);
+
+            psdlist.add("Global Angle");
+            psdlist.add(angle + "°");
+        }
+    }
+
+    private static void translateGlobalAltitude(byte[] data)
+    {
+        if (data != null && data.length >= 4)
+        {
+            int altitude = ByteValueConverter.toInteger(data, 0, ByteOrder.BIG_ENDIAN);
+
+            psdlist.add("Global Altitude");
+            psdlist.add(altitude + "°");
+        }
+    }
+
+    private static void translateSlicesInfo(byte[] data)
+    {
+        if (data != null && data.length >= 24)
+        {
+            /*
+             * int version = ByteValueConverter.toInteger(data, 0, ByteOrder.BIG_ENDIAN);
+             * int top = ByteValueConverter.toInteger(data, 4, ByteOrder.BIG_ENDIAN);
+             * int left = ByteValueConverter.toInteger(data, 8, ByteOrder.BIG_ENDIAN);
+             * int bottom = ByteValueConverter.toInteger(data, 12, ByteOrder.BIG_ENDIAN);
+             * int right = ByteValueConverter.toInteger(data, 16, ByteOrder.BIG_ENDIAN);
+             */
+            int nameLength = ByteValueConverter.toInteger(data, 20, ByteOrder.BIG_ENDIAN);
+
+            /*
+             * Because the actual string starts from Byte 24, we need to multiply
+             * the length by two to support UTF-16 formats (2 bytes per character),
+             * then extract the UTF-16BE string from offset 24.
+             */
+            int stringLength = nameLength * 2;
+
+            if (data.length >= stringLength + 24)
+            {
+                String slicesGroupName = new String(data, 24, stringLength, StandardCharsets.UTF_16BE).trim();
+
+                psdlist.add("Slices Group Name");
+                psdlist.add(slicesGroupName.isEmpty() ? "None" : slicesGroupName);
+
+                /* NumSlices (4 bytes) starts after the first string */
+                int nextOffset = 24 + stringLength;
+
+                if (data.length >= nextOffset + 4)
                 {
-                    // Fail-safe
+                    int numSlices = ByteValueConverter.toInteger(data, nextOffset, ByteOrder.BIG_ENDIAN);
+
+                    psdlist.add("Number of Slices");
+                    psdlist.add(String.valueOf(numSlices));
+                }
+            }
+        }
+    }
+
+    private static void translatePrintStyleFallback(byte[] data)
+    {
+        if (data == null || data.length < 2 || psdlist.contains("Print Style")) return;
+
+        int colorHandling = ByteValueConverter.toUnsignedShort(data, 0, ByteOrder.BIG_ENDIAN);
+        psdlist.add("Print Style");
+        psdlist.add(colorHandling == 1 ? "Centered" : "Normal");
+    }
+
+    private static void translatePrintPositionFallback(byte[] data)
+    {
+        if (data == null || data.length < 8 || psdlist.contains("Print Position")) return;
+
+        float xPosition = ByteValueConverter.toFloat(data, 0, ByteOrder.BIG_ENDIAN);
+        float yPosition = ByteValueConverter.toFloat(data, 4, ByteOrder.BIG_ENDIAN);
+
+        psdlist.add("Print Position");
+        psdlist.add(String.format(Locale.ROOT, "%.0f %.0f", xPosition, yPosition));
+    }
+
+    private static void translatePrintScaleFallback(byte[] data)
+    {
+        if (data == null || data.length < 14 || psdlist.contains("Print Scale")) return;
+
+        float scale = ByteValueConverter.toFloat(data, 10, ByteOrder.BIG_ENDIAN);
+        psdlist.add("Print Scale");
+        psdlist.add(String.format(Locale.ROOT, "%g", scale).replace(".00000", ""));
+    }
+
+    /*
+     * 4 bytes (int): File Version (1)
+     * 
+     * 1 byte (boolean): hasRealMergedData (1 or 0)
+     * 
+     * Variable bytes: Writer Name String.
+     * 
+     * Structure: A 4-byte string character length counter, followed by that many characters of
+     * standard UTF-16BE data.
+     * 
+     * Variable bytes: Reader Name String.
+     * 
+     * Structure: A 4-byte string character length counter, followed by that many characters of
+     * standard UTF-16BE data.
+     * 
+     * 4 bytes (int): Application File Version.
+     */
+    private static void translateVersionInfo(byte[] data)
+    {
+        if (data != null && data.length >= 13)
+        {
+            // 1. Version (4 bytes)
+            int version = ByteValueConverter.toInteger(data, 0, ByteOrder.BIG_ENDIAN);
+
+            // 2. Has Real Merged Data (1 byte)
+            boolean hasMergedData = (data[4] == 1);
+
+            psdlist.add("Has Real Merged Data");
+            psdlist.add(hasMergedData ? "Yes" : "No");
+
+            int offset = 5;
+
+            // 3. Extract Writer Name
+            if (data.length >= offset + 4)
+            {
+                int writerLen = ByteValueConverter.toInteger(data, offset, ByteOrder.BIG_ENDIAN);
+
+                offset += 4;
+
+                int byteLen = writerLen * 2; // UTF-16BE uses 2 bytes per character
+
+                if (data.length >= offset + byteLen)
+                {
+                    String writerName = new String(data, offset, byteLen, StandardCharsets.UTF_16BE).trim();
+
+                    psdlist.add("Writer Name");
+                    psdlist.add(writerName.isEmpty() ? "Unknown" : writerName);
+
+                    offset += byteLen;
+                }
+            }
+
+            // 4. Extract Reader Name
+            if (data.length >= offset + 4)
+            {
+                int readerLen = ByteValueConverter.toInteger(data, offset, ByteOrder.BIG_ENDIAN);
+
+                offset += 4;
+
+                int byteLen = readerLen * 2;
+
+                if (data.length >= offset + byteLen)
+                {
+                    String readerName = new String(data, offset, byteLen, StandardCharsets.UTF_16BE).trim();
+
+                    psdlist.add("Reader Name");
+                    psdlist.add(readerName.isEmpty() ? "Unknown" : readerName);
+
+                    offset += byteLen;
+                }
+            }
+
+            // 5. Final Application File Version (4 bytes)
+            if (data.length >= offset + 4)
+            {
+                int fileVersion = ByteValueConverter.toInteger(data, offset, ByteOrder.BIG_ENDIAN);
+
+                String majorVersion;
+                
+                switch (fileVersion)
+                {
+                    case 1:
+                        majorVersion = "Photoshop 7.0 or earlier";
+                    break;
+
+                    case 2:
+                        majorVersion = "Photoshop CS (8.0)";
+                    break;
+
+                    case 3:
+                        majorVersion = "Photoshop CS2 (9.0)";
+                    break;
+
+                    case 4:
+                        majorVersion = "Photoshop CS3 (10.0)";
+                    break; // (Matches babygemma.tif!)
+
+                    case 5:
+                        majorVersion = "Photoshop CS4 (11.0)";
+                    break;
+
+                    case 6:
+                        majorVersion = "Photoshop CS5 (12.0)";
+                    break;
+
+                    case 7:
+                        majorVersion = "Photoshop CS6 (13.0)";
+                    break;
+
+                    case 8:
+                        majorVersion = "Photoshop CC (14.0)";
+                    break;
+
+                    // Later versions continue to increment or stick to a baseline version behavior
+                    default:
+                        majorVersion = "Photoshop (Internal Version " + fileVersion + ")";
+                    break;
                 }
 
-                if (nextBlockPos <= buffer.capacity() && nextBlockPos >= 0)
+                psdlist.add("Application File Version");
+                psdlist.add(majorVersion);
+            }
+        }
+    }
+
+    private static void translatePrintScaleInfo(byte[] data)
+    {
+        if (data != null && data.length >= 14)
+        {
+            int styleType = ByteValueConverter.toUnsignedShort(data, 0, ByteOrder.BIG_ENDIAN);
+            float xPos = ByteValueConverter.toFloat(data, 2, ByteOrder.BIG_ENDIAN);
+            float yPos = ByteValueConverter.toFloat(data, 6, ByteOrder.BIG_ENDIAN);
+            float scale = ByteValueConverter.toFloat(data, 10, ByteOrder.BIG_ENDIAN);
+            String styleStr = (styleType == 0 ? "Centered" : (styleType == 1 ? "Size to Fit" : "User Defined"));
+
+            psdlist.add("Print Style");
+            psdlist.add(styleStr);
+            psdlist.add("Print Position");
+            psdlist.add(String.format(Locale.ROOT, "%.0f %.0f", xPos, yPos));
+            psdlist.add("Print Scale");
+            psdlist.add(String.format(Locale.ROOT, "%g", scale).replace(".00000", ""));
+        }
+    }
+
+    /*
+     * Byte Offset Data Type Field Name Description
+     * 
+     * 0 – 34-byte int Version Always equal to 1 or 2.
+     * 
+     * 4 – 118-byte double AspectRatio A 64-bit IEEE-754 double-precision floating-point value
+     * specifying the aspect
+     */
+    private static void translatePixelAspectRatio(byte[] data)
+    {
+        if (data != null && data.length >= 12)
+        {
+            // Skip the 4-byte version/flag header in data (offsets 0-3) and read the 8-byte double
+            // (offsets 4-11)
+            double aspect = ByteValueConverter.toDouble(data, 4, ByteOrder.BIG_ENDIAN);
+
+            // Formats whole integers without trailing zeros (e.g., 2 instead of 2.0)
+            String aspectStr = (aspect == (long) aspect) ? String.format(Locale.ROOT, "%d", (long) aspect) : String.valueOf(aspect);
+
+            psdlist.add("Pixel Aspect Ratio");
+            psdlist.add(aspectStr);
+        }
+    }
+
+    private static void translatePrintFlagsInfo(byte[] data)
+    {
+        // Lower boundary gate to 10 bytes captures legacy truncated structures safely
+        if (data != null && data.length >= 10)
+        {
+            short version = ByteValueConverter.toShort(data, 0, ByteOrder.BIG_ENDIAN);
+            long bleedBits = ByteValueConverter.toLong(data, 2, ByteOrder.BIG_ENDIAN);
+            double bleedWidth = Double.longBitsToDouble(bleedBits);
+
+            bleedWidth = bleedWidth + 0.0;
+
+            psdlist.add("Print Flags Info Version");
+            psdlist.add(String.valueOf(version));
+
+            short bleedScale = 0;
+            String unitLabel = "points (default)"; // Fallback structure configuration label
+
+            // Safely extract bleedScale only if the 2 bytes at offsets 10-11 are in the stream
+            // payload
+            if (data.length >= 12)
+            {
+                bleedScale = ByteValueConverter.toShort(data, 10, ByteOrder.BIG_ENDIAN);
+
+                switch (bleedScale)
                 {
-                    buffer.position(nextBlockPos);
-                }
-                else
-                {
+                    case 0:
+                        unitLabel = "points (default)";
+                    break;
+
+                    case 1:
+                        unitLabel = "inches";
+                    break;
+
+                    case 2:
+                        unitLabel = "cm";
+                    break;
+
+                    case 3:
+                        unitLabel = "points";
+                    break;
+
+                    case 4:
+                        unitLabel = "picas";
+                    break;
+
+                    case 5:
+                        unitLabel = "columns";
+                    break;
+
+                    default:
+                        unitLabel = "unknown (" + bleedScale + ")";
                     break;
                 }
             }
-        }
 
-        catch (RuntimeException exc)
-        {
-            return String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Error", exc.getMessage());
-        }
-
-        // POST-PROCESSING: Insert canonical layout entries if missing to perfectly reflect ExifTool
-        // output
-        List<String> sortedRows = new ArrayList<>();
-
-        // Find where to elegantly insert standard print/IPTC blocks so the ordering feels natural
-        for (String row : rows)
-        {
-            sortedRows.add(row);
-
-            if (row.contains("X Resolution"))
+            // Only parse out centerCropMarks if the block has those extra trailing bytes
+            if (data.length >= 14)
             {
-                if (!seenIptc) sortedRows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "IPTC Digest", "00000000000000000000000000000000"));
+                boolean centerCropMarks = (data[12] == 1);
+                psdlist.add("Center Crop Marks");
+                psdlist.add(centerCropMarks ? "True" : "False");
             }
 
-            if (row.contains("Displayed Units Y"))
-            {
-                if (!seenPrintStyle) sortedRows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Print Style", "Centered"));
-                if (!seenPrintPos) sortedRows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Print Position", "0 0"));
-                if (!seenPrintScale) sortedRows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Print Scale", "1"));
-            }
-
-            if (row.contains("Photoshop Thumbnail"))
-            {
-                if (!seenMergedData) sortedRows.add(String.format(PHOTOSHOP_ROW_FORMAT, "[Photoshop]", "Has Real Merged Data", "Yes"));
-            }
+            psdlist.add("Print Bleed Width");
+            psdlist.add(String.format(Locale.ROOT, "%.2f %s", bleedWidth, unitLabel));
         }
-
-        return String.join(System.lineSeparator(), sortedRows.isEmpty() ? rows : sortedRows);
-    }
-
-    private static boolean skipPascalString(ByteBuffer buffer)
-    {
-        if (buffer.remaining() < 1) return false;
-
-        int length = buffer.get() & 0xFF;
-        int skip = length + (((length + 1) & 1) != 0 ? 1 : 0);
-
-        if (buffer.remaining() < skip) return false;
-
-        buffer.position(buffer.position() + skip);
-
-        return true;
     }
 }
