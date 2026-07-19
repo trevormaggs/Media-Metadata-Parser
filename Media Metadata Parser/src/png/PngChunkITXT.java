@@ -1,0 +1,330 @@
+package png;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.zip.InflaterInputStream;
+import common.ByteValueConverter;
+import common.MetadataConstants;
+import common.Utils;
+import logger.LogFactory;
+import tif.TagHint;
+
+/**
+ * Extended to support an {@code iTXt} chunk in a PNG file, which stores international text data.
+ *
+ * <p>
+ * This chunk supports both compressed and uncompressed UTF-8 encoded text, along with optional
+ * language and translated keyword metadata.
+ * </p>
+ *
+ * <table border="1" cellpadding="5" cellspacing="0">
+ * <caption><strong>The {@code iTXt} chunk layout consists of the following
+ * fields</strong></caption>
+ * <thead>
+ * <tr>
+ * <th align="left">Field</th>
+ * <th align="left">Description</th>
+ * </tr>
+ * </thead>
+ * <tbody>
+ * <tr>
+ * <td>Keyword (Latin-1)</td>
+ * <td>1–79 bytes + null terminator</td>
+ * </tr>
+ * <tr>
+ * <td>Compression flag</td>
+ * <td>1 byte (0 = uncompressed, 1 = compressed)</td>
+ * </tr>
+ * <tr>
+ * <td>Compression method</td>
+ * <td>1 byte (must be 0 for zlib/deflate)</td>
+ * </tr>
+ * <tr>
+ * <td>Language tag (Latin-1)</td>
+ * <td>null-terminated string</td>
+ * </tr>
+ * <tr>
+ * <td>Translated keyword (UTF-8)</td>
+ * <td>null-terminated string</td>
+ * </tr>
+ * <tr>
+ * <td>Text (UTF-8)</td>
+ * <td>compressed or plain text depending on the compression flag</td>
+ * </tr>
+ * </tbody>
+ * </table>
+ *
+ * @author Trevor Maggs
+ * @version 1.0
+ * @since 13 August 2025
+ */
+public class PngChunkITXT extends PngChunk implements TextualChunk
+{
+    private static final LogFactory LOGGER = LogFactory.getLogger(PngChunkITXT.class);
+    private final String keyword;
+    private final TextKeyword textKeyword;
+    private final String text;
+    private final int compressionFlag;
+    private final String languageTag;
+    private final String translatedKeyword;
+    private final long textDataOffset;
+
+    /**
+     * Constructs a new {@code PngChunkITXT} with the specified parameters.
+     *
+     * @param length
+     *        the length of the chunk's data field (excluding type and CRC)
+     * @param typeBytes
+     *        the raw 4-byte chunk type
+     * @param crc32
+     *        the CRC value read from the file
+     * @param data
+     *        raw chunk data
+     * @param offsetStart
+     *        the absolute physical position in the file where the chunk begins
+     */
+    public PngChunkITXT(long length, byte[] typeBytes, int crc32, byte[] data, long offsetStart)
+    {
+        super(length, typeBytes, crc32, data, offsetStart);
+
+        int pos = 0;
+        String parsedKeyword;
+        int deflaterFlag;
+        byte[] processedData;
+        String parsedLanguage;
+        String parsedTranslated;
+
+        try
+        {
+            // Read to length of keyword from offset 0
+            parsedKeyword = ByteValueConverter.readNullTerminatedString(data, 0, StandardCharsets.ISO_8859_1);
+            pos = parsedKeyword.length() + 1;
+
+            if (parsedKeyword.isEmpty() || parsedKeyword.length() > 79)
+            {
+                throw new IllegalStateException("Invalid iTXt keyword length (must be 1–79 characters)");
+            }
+
+            else if (pos < data.length)
+            {
+                // Read one byte after length of keyword plus one null character
+                deflaterFlag = data[pos++] & 0xFF;
+
+                if (deflaterFlag != 0 && deflaterFlag != 1)
+                {
+                    throw new IllegalStateException("Invalid compression flag in iTXt. It should be 0 or 1. Found: [" + deflaterFlag + "]");
+                }
+
+                /*
+                 * Read one byte after compressionFlag.
+                 *
+                 * Compression method is always present (even if compression flag == 0),
+                 * but only used when compressed.
+                 */
+                int compressionMethod = data[pos++] & 0xFF;
+
+                if (deflaterFlag == 1 && compressionMethod != 0)
+                {
+                    throw new IllegalStateException("Invalid iTXt compression method. Expected 0. Found: [" + compressionMethod + "]");
+                }
+
+                // Read to length of language after compressionMethod
+                parsedLanguage = ByteValueConverter.readNullTerminatedString(data, pos, StandardCharsets.ISO_8859_1);
+                pos += parsedLanguage.length() + 1;
+
+                // Read to length of translated keyword after languageTag plus one null character
+                parsedTranslated = ByteValueConverter.readNullTerminatedString(data, pos, StandardCharsets.UTF_8);
+                pos += parsedTranslated.getBytes(StandardCharsets.UTF_8).length + 1;
+
+                // Text field (compressed or uncompressed)
+                if (deflaterFlag == 1)
+                {
+                    byte[] compressed = Arrays.copyOfRange(data, pos, data.length);
+
+                    try (InflaterInputStream inflater = new InflaterInputStream(new ByteArrayInputStream(compressed)))
+                    {
+                        processedData = ByteValueConverter.readAllBytes(inflater);
+                    }
+                }
+
+                else
+                {
+                    processedData = Arrays.copyOfRange(data, pos, data.length);
+                }
+            }
+
+            else
+            {
+                throw new IllegalStateException("Unexpected end of chunk data detected");
+            }
+        }
+
+        catch (IOException | IllegalStateException exc)
+        {
+            LOGGER.error(exc.getMessage() + ". Payload: [" + ByteValueConverter.toHex(getPayloadArray()) + "]", exc);
+
+            this.keyword = "";
+            this.textKeyword = TextKeyword.OTHER;
+            this.text = "";
+            this.compressionFlag = -1;
+            this.languageTag = "";
+            this.translatedKeyword = "";
+            this.textDataOffset = -1;
+
+            return;
+        }
+
+        this.keyword = parsedKeyword;
+        this.textKeyword = TextKeyword.fromIdentifierString(parsedKeyword);
+        this.text = (processedData == null ? "" : new String(processedData, StandardCharsets.UTF_8));
+        this.compressionFlag = deflaterFlag;
+        this.languageTag = parsedLanguage;
+        this.translatedKeyword = parsedTranslated;
+        this.textDataOffset = pos;
+    }
+
+    /**
+     * Gets the keyword extracted from the iTXt chunk.
+     *
+     * @return the keyword
+     */
+    @Override
+    public String getKeyword()
+    {
+        return keyword;
+    }
+
+    /**
+     * Provides easy, type-safe retrieval of the resolved keyword enum token.
+     *
+     * @return the associated {@link TextKeyword} constant, or {@link TextKeyword#OTHER} if unknown
+     */
+    @Override
+    public TextKeyword getTextKeyword()
+    {
+        return textKeyword;
+    }
+
+    /**
+     * Resolves the clean, formatted tag configuration compatible with ExifTool formatting rules.
+     */
+    @Override
+    public String getFormattedKeyword()
+    {
+        String key = keyword.replace(" ", "").replace("-", "");
+
+        if (languageTag != null && !languageTag.trim().isEmpty())
+        {
+            return key + "-" + languageTag.trim();
+        }
+
+        return key;
+    }
+
+    /**
+     * Gets the text extracted from the iTXt chunk.
+     *
+     * @return the UTF-8 text, otherwise an empty string if it was not decoded
+     */
+    @Override
+    public String getText()
+    {
+        return text;
+    }
+
+    /**
+     * Checks whether this chunk contains a specific textual keyword.
+     *
+     * @param keyword
+     *        the {@link TextKeyword} to search for
+     *
+     * @return true if found, false otherwise
+     *
+     * @throws IllegalArgumentException
+     *         if the specified keyword is null
+     */
+    @Override
+    public boolean hasKeyword(TextKeyword keyword)
+    {
+        if (keyword == null)
+        {
+            throw new IllegalArgumentException("Keyword cannot be null");
+        }
+
+        return textKeyword == keyword;
+    }
+
+    /**
+     * Gets the language tag extracted from the iTXt chunk.
+     *
+     * @return the language tag
+     */
+    public String getLanguageTag()
+    {
+        return languageTag;
+    }
+
+    /**
+     * Gets the translated keyword extracted from the iTXt chunk.
+     *
+     * @return the translated keyword
+     */
+    public String getTranslatedKeyword()
+    {
+        return translatedKeyword;
+    }
+
+    /**
+     * Validates that the compression flag is enabled for this chunk.
+     *
+     * @return true if the compression flag is set to one
+     */
+    public boolean isCompressed()
+    {
+        return (compressionFlag == 1);
+    }
+
+    /**
+     * Returns the relative byte offset within the chunk's data segment where the actual text or XML
+     * content begins.
+     *
+     * <p>
+     * This offset accounts for the variable-length iTXt header fields (Keyword, Language Tag, etc)
+     * and points to the first byte of the textual payload itself only.
+     * </p>
+     *
+     * @return the number of bytes from the start of the data segment to the beginning of the
+     *         text/XML
+     */
+    public long getTextOffset()
+    {
+        return textDataOffset;
+    }
+
+    /**
+     * Returns a string representation of the chunk's properties and contents.
+     *
+     * @return a formatted string describing this chunk
+     */
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append(super.toString());
+        sb.append(String.format(MetadataConstants.FORMATTER, "Keyword", getKeyword()));
+        sb.append(String.format(MetadataConstants.FORMATTER, "Translated Keyword", getTranslatedKeyword()));
+        sb.append(String.format(MetadataConstants.FORMATTER, "Language Tag", getLanguageTag()));
+        sb.append(String.format(MetadataConstants.FORMATTER, "Text", getText()));
+
+        if (textKeyword.getHint() == TagHint.HINT_DATE)
+        {
+            String formattedDate = Utils.formatDateString(getText(), Utils.LOCALE_AU);
+            sb.append(String.format(MetadataConstants.FORMATTER, "Formatted Date", formattedDate));
+        }
+
+        return sb.toString();
+    }
+}

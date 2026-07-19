@@ -1,0 +1,13 @@
+batch
+common
+common.binary
+gui
+gui.login
+heif
+heif.boxes
+jpg
+png
+tif
+tif.tagspecs
+webp
+xmp
