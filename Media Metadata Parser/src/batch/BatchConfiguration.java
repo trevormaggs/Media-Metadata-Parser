@@ -10,7 +10,7 @@ import java.util.Set;
 
 /**
  * An immutable configuration object representing the validated parameters for a batch processing
- * operation.
+ * operation. This is a POJO class.
  *
  * <p>
  * This class provides a snapshot of settings produced by {@link BatchBuilder} after validation has
@@ -69,7 +69,7 @@ public final class BatchConfiguration
     BatchConfiguration(Path source, Path target, String prefix, ZonedDateTime userDate, String[] fileSet, boolean forceDateChange, boolean embedDateTime, boolean skipVideo, boolean showMetadata, boolean descending, boolean debug)
     {
         this.source = source;
-        this.target = (target.toString().isEmpty() ? target : Paths.get(MediaBatchProcessor.DEFAULT_TARGET_DIRECTORY));
+        this.target = (target == null || target.toString().isEmpty()) ? Paths.get(MediaBatchProcessor.DEFAULT_TARGET_DIRECTORY) : target;
         this.prefix = (prefix == null ? "" : prefix);
         this.userDate = userDate;
         this.fileSet = (fileSet == null ? Collections.emptySet() : Collections.unmodifiableSet(new HashSet<>(Arrays.asList(fileSet))));
@@ -98,7 +98,6 @@ public final class BatchConfiguration
      */
     public Path getTarget()
     {
-        System.out.printf("LOOK: %s\n", target);
         return target;
     }
 

@@ -11,9 +11,8 @@ import java.time.ZonedDateTime;
  * 
  * <p>
  * This class serves as the central entry point for defining and validating batch-processing
- * parameters. It can produce a self-initiating {@link MediaMetadataConsole} via {@link #build()}
- * for CLI applications, or an immutable {@link BatchConfiguration} via {@link #buildConfig()} for
- * custom implementations such as GUI.
+ * parameters. After validation, {@link #build()} returns an immutable {@link BatchConfiguration}
+ * that can be used by command-line, GUI, or other application front ends.
  * </p>
  * 
  * <p>
@@ -21,15 +20,13 @@ import java.time.ZonedDateTime;
  * </p>
  * 
  * <pre>
- * <code>
- * MediaMetadataConsole console = new BatchBuilder()
- * .source("D:\\Media\\Photos")
- * .target("local\\images")
- * .prefix("holiday")
- * .descending(true)
- * .userDate("26 04 2006")
- * .build();
- * </code>
+ * BatchConfiguration config = new BatchBuilder()
+ *         .source("D:\\Media\\Photos")
+ *         .target("local\\images")
+ *         .prefix("holiday")
+ *         .descending(true)
+ *         .userDate("26 04 2006")
+ *         .build();
  * </pre>
  * 
  * <p>
@@ -37,50 +34,27 @@ import java.time.ZonedDateTime;
  * </p>
  * 
  * <pre>
- * <code>
- * MediaMetadataConsole config = new BatchBuilder()
- * .source(txtField.getText())
- * .buildConfig();
- * </code>
+ * BatchConfiguration config = new BatchBuilder()
+ *         .source(txtField.getText())
+ *         .build();
  * </pre>
  *
  * @author Trevor Maggs
- * @version 1.0
+ * @version 1.1
  * @since 24 April 2026
  */
 public final class BatchBuilder
 {
-    /** Source directory containing media files to process. */
     private String bd_sourceDir = MediaBatchProcessor.DEFAULT_SOURCE_DIRECTORY;
-
-    /** Filename prefix applied to generated output files. */
     private String bd_prefix = MediaBatchProcessor.DEFAULT_IMAGE_PREFIX;
-
-    /** Target directory for processed files. */
     private String bd_target = MediaBatchProcessor.DEFAULT_TARGET_DIRECTORY;
-
-    /** Determines whether the media date should be embedded in generated filenames. */
     private boolean bd_embedDateTime = false;
-
-    /** User-supplied date string prior to parsing and validation. */
     private String bd_userDate = "";
-
-    /** Indicates whether existing metadata dates should be overwritten. */
     private boolean bd_force = false;
-
-    /** Optional list of filenames explicitly selected for processing. */
     private String[] bd_files = new String[0];
-
-    /** Indicates whether video files should be excluded from processing. */
     private boolean bd_skipVideoFiles = false;
-
-    /** Indicates whether metadata information should be displayed instead of processing files. */
     private boolean bd_displayMetadata = false;
-
-    /** Indicates whether chronological ordering should be descending. */
     private boolean bd_descending = false;
-
-    /** Indicates whether diagnostic logging should be enabled. */
     private boolean bd_debug = false;
 
     /**
@@ -92,9 +66,9 @@ public final class BatchBuilder
      */
     public BatchBuilder source(String s)
     {
-        if (s != null)
+        if (s != null && !s.trim().isEmpty())
         {
-            bd_sourceDir = s;
+            bd_sourceDir = s.trim();
         }
 
         return this;
@@ -109,9 +83,9 @@ public final class BatchBuilder
      */
     public BatchBuilder target(String t)
     {
-        if (t != null)
+        if (t != null && !t.trim().isEmpty())
         {
-            bd_target = t;
+            bd_target = t.trim();
         }
 
         return this;
@@ -128,15 +102,14 @@ public final class BatchBuilder
     {
         if (p != null)
         {
-            bd_prefix = p;
+            bd_prefix = p.trim();
         }
 
         return this;
     }
 
     /**
-     * Sets a specific date used to override both the EXIF {@code Date Taken} metadata and the file
-     * system modification timestamp.
+     * Sets the user-supplied date to be used during processing.
      *
      * @param d
      *        the date and time string to be used for processing
@@ -146,15 +119,15 @@ public final class BatchBuilder
     {
         if (d != null)
         {
-            bd_userDate = d;
+            bd_userDate = d.trim();
         }
 
         return this;
     }
 
     /**
-     * Specifies a defined set of individual files to copy, rather than processing the entire source
-     * directory.
+     * Specifies the set of files to process instead of processing every supported file in the
+     * source directory.
      *
      * @param f
      *        a string array of specific filenames
@@ -164,18 +137,22 @@ public final class BatchBuilder
     {
         if (f != null)
         {
-            bd_files = f;
+            bd_files = new String[f.length];
+
+            for (int i = 0; i < f.length; i++)
+            {
+                bd_files[i] = (f[i] != null ? f[i].trim() : "");
+            }
         }
 
         return this;
     }
 
     /**
-     * Forces the system to prioritise the user-defined date, regardless of any existing metadata
-     * present in the file.
-     *
+     * Specifies whether the user-supplied date should replace any existing metadata dates.
+     * 
      * @param b
-     *        {@code true} to force the user-defined date to replace existing metadata dates
+     *        {@code true} to replace existing metadata dates with the user-supplied date
      * @return this builder instance to allow method chaining
      */
     public BatchBuilder forceDateChange(boolean b)
@@ -211,10 +188,10 @@ public final class BatchBuilder
     }
 
     /**
-     * Configures the builder to display a list of metadata entries for the processed files.
+     * Specifies whether metadata information should be displayed instead of processing the files.
      *
      * @param b
-     *        {@code true} to enable metadata display
+     *        {@code true} to display metadata instead of processing files
      * @return this builder instance to allow method chaining
      */
     public BatchBuilder showMetadata(boolean b)
@@ -237,7 +214,7 @@ public final class BatchBuilder
     }
 
     /**
-     * Enables or disables debug mode for more verbose logging.
+     * Enables or disables diagnostic logging.
      *
      * @param b
      *        {@code true} to enable debugging
@@ -250,63 +227,33 @@ public final class BatchBuilder
     }
 
     /**
-     * Validates the current builder state and creates a new {@link MediaMetadataConsole} instance.
+     * Constructs and returns a validated BatchConfiguration.
      *
-     * <p>
-     * This is the preferred entry point for command-line applications, where the resulting console
-     * instance manages execution of the configured batch operation.
-     * </p>
-     *
-     * @return a new console instance configured using the validated builder state
-     *
-     * @throws IllegalStateException
-     *         if the configuration fails validation
+     * @return the fully initialised BatchConfiguration instance
+     * 
+     * @throws BatchErrorException
+     *         if one or more configuration values fail validation
      */
-    public MediaMetadataConsole build()
+    public BatchConfiguration build() throws BatchErrorException
     {
-        return new MediaMetadataConsole(buildConfig());
-    }
-
-    /**
-     * Validates the current configuration and returns an immutable {@link BatchConfiguration}
-     * snapshot.
-     *
-     * @return a validated immutable configuration object
-     *
-     * @throws IllegalStateException
-     *         if one or more configuration constraints are violated
-     */
-    public BatchConfiguration buildConfig()
-    {
-        validate();
+        if (bd_force && (bd_userDate == null || bd_userDate.isEmpty()))
+        {
+            throw new BatchErrorException("Force flag (-f) requires a target date (-m)");
+        }
 
         ZonedDateTime parsedDate = util.SmartDateParser.convertToZonedDateTime(bd_userDate);
 
-        return new BatchConfiguration(Paths.get(bd_sourceDir), Paths.get(bd_target),
-                bd_prefix, parsedDate,
-                bd_files, bd_force,
-                bd_embedDateTime, bd_skipVideoFiles,
-                bd_displayMetadata, bd_descending,
+        return new BatchConfiguration(
+                Paths.get(bd_sourceDir),
+                Paths.get(bd_target),
+                bd_prefix,
+                parsedDate,
+                bd_files,
+                bd_force,
+                bd_embedDateTime,
+                bd_skipVideoFiles,
+                bd_displayMetadata,
+                bd_descending,
                 bd_debug);
-    }
-
-    /**
-     * Validates the builder's state against internal constraint rules to maintain configuration
-     * integrity.
-     * 
-     * <p>
-     * This validation ensures that a user-defined date is supplied whenever forced date
-     * modification is enabled.
-     * </p>
-     * 
-     * @throws IllegalStateException
-     *         if forced date modification is enabled without a user-defined date
-     */
-    private void validate()
-    {
-        if (bd_force && (bd_userDate == null || bd_userDate.trim().isEmpty()))
-        {
-            throw new IllegalStateException("Force flag (-f) requires a target date (-m)");
-        }
     }
 }

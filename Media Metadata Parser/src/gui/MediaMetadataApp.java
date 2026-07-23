@@ -1,21 +1,47 @@
 package gui;
 
 import java.io.File;
+import java.time.LocalDate;
 import java.util.List;
+import batch.BatchBuilder;
+import batch.BatchConfiguration;
+import batch.BatchErrorException;
+import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Side;
+import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.RowConstraints;
+import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -37,7 +63,8 @@ public class MediaMetadataApp extends Application
     private final Button clearLogBtn;
     private final Button exitBtn;
     private final Button viewBtn;
-
+    private final ProgressBar progressBar;
+    private ProgressListener progressAdapter;
     private Stage stage;
 
     public MediaMetadataApp()
@@ -54,6 +81,7 @@ public class MediaMetadataApp extends Application
         this.clearLogBtn = new Button();
         this.exitBtn = new Button();
         this.viewBtn = new Button();
+        this.progressBar = new ProgressBar(0.0);
     }
 
     public static class FileRecord
@@ -94,11 +122,11 @@ public class MediaMetadataApp extends Application
     @Override
     public void start(Stage root)
     {
-        RowConstraints staticRow = new RowConstraints();
-        staticRow.setVgrow(Priority.NEVER); // Keep controls at natural height
+        RowConstraints fixedRow = new RowConstraints();
+        fixedRow.setVgrow(Priority.NEVER); // Keep controls at natural height
 
-        RowConstraints growingRow = new RowConstraints();
-        growingRow.setVgrow(Priority.ALWAYS); // Expand log pane fill space
+        RowConstraints fillRow = new RowConstraints();
+        fillRow.setVgrow(Priority.ALWAYS); // Expand log pane fill space
 
         this.stage = root;
         stage.setTitle("Image Metadata Structure Viewer");
@@ -107,7 +135,7 @@ public class MediaMetadataApp extends Application
         formGrid.setHgap(10);
         formGrid.setVgap(10);
         formGrid.setPadding(new Insets(15));
-        formGrid.getRowConstraints().addAll(staticRow, staticRow, growingRow, staticRow, staticRow);
+        formGrid.getRowConstraints().addAll(fixedRow, fixedRow, fillRow, fixedRow, fixedRow);
 
         addTopPane(formGrid);
         addMiddlePane(formGrid);
@@ -123,8 +151,7 @@ public class MediaMetadataApp extends Application
     }
 
     /**
-     * Builds and adds the application's top configuration panel to the specified
-     * root grid pane.
+     * Builds and adds the application's top configuration panel to the specified root grid pane.
      *
      * @param pane
      *        the root {@link GridPane} to which the configuration panel is added
@@ -136,63 +163,55 @@ public class MediaMetadataApp extends Application
         ActionHandler actionHandler = new ActionHandler(sourceMenu);
 
         // Row 1
+        HBox sourceHbox = new HBox(10);
         Label sourceLabel = new Label("Source Directory");
         sourceLabel.setPrefWidth(labelWidth);
-
         sourceText.setPromptText("Directory or files...");
         sourceText.setPrefWidth(300);
         sourceText.setMaxWidth(300);
-
+        sourceText.setText("E:\\ImageBatchDir");
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new DirectoryPopupHandler(sourceText, "Select Source Directory"));
-        sourceMenu.getItems().addAll(selectFolder, selectFiles);
-
         selectFiles.setText("Select Specific Files...");
         selectFiles.setOnAction(actionHandler);
+        sourceMenu.getItems().addAll(selectFolder, selectFiles);
         sourceBtn.setText("Browse...");
         sourceBtn.setOnAction(actionHandler);
-
-        HBox sourceHbox = new HBox(10);
-        sourceHbox.getChildren().addAll(sourceLabel, sourceText, createSpacer(), sourceBtn);
+        sourceHbox.getChildren().addAll(sourceLabel, sourceText, fillRow(), sourceBtn);
 
         // Row 2
+        HBox targetHbox = new HBox(10);
         Label targetLabel = new Label("Target Directory");
         targetLabel.setPrefWidth(labelWidth);
-
         TextField targetText = new TextField();
+        targetText.setId("targetText");
         targetText.setText(MediaBatchProcessor.DEFAULT_TARGET_DIRECTORY);
         targetText.setPrefWidth(300);
         targetText.setMaxWidth(300);
-
         Button targetBtn = new Button("Browse...");
         targetBtn.setOnAction(new DirectoryPopupHandler(targetText, "Select Target Directory"));
-
-        HBox targetHbox = new HBox(10);
-        targetHbox.getChildren().addAll(targetLabel, targetText, createSpacer(), targetBtn);
+        targetHbox.getChildren().addAll(targetLabel, targetText, fillRow(), targetBtn);
 
         // Row 3
+        HBox prefixHbox = new HBox(10);
         Label prefixLabel = new Label("File Prefix Name");
         prefixLabel.setPrefWidth(labelWidth);
-
         prefixText.setText(MediaBatchProcessor.DEFAULT_IMAGE_PREFIX);
         prefixText.setPromptText("Example: Holiday_Trip_");
         prefixText.setPrefWidth(300);
         prefixText.setMaxWidth(300);
-
-        HBox prefixHbox = new HBox(10);
-        prefixHbox.getChildren().addAll(prefixLabel, prefixText, createSpacer());
+        prefixHbox.getChildren().addAll(prefixLabel, prefixText, fillRow());
 
         // Row 4
+        HBox modifyDateHbox = new HBox(10);
         Label dateLabel = new Label("Modify Date Taken");
         dateLabel.setPrefWidth(labelWidth);
-
         modifyDatePicker.setPromptText("Select date...");
         modifyDatePicker.setPrefWidth(300);
         modifyDatePicker.setMaxWidth(300);
+        modifyDateHbox.getChildren().addAll(dateLabel, modifyDatePicker, fillRow());
 
-        HBox modifyDateHbox = new HBox(10);
-        modifyDateHbox.getChildren().addAll(dateLabel, modifyDatePicker, createSpacer());
-
+        // Combine boxes
         VBox contentPane = new VBox(12);
         contentPane.setPadding(new Insets(10));
         contentPane.getChildren().addAll(sourceHbox, targetHbox, prefixHbox, modifyDateHbox);
@@ -201,25 +220,22 @@ public class MediaMetadataApp extends Application
         titledPane.setCollapsible(false);
         titledPane.setMaxWidth(Double.MAX_VALUE);
         titledPane.setFocusTraversable(false);
-
         GridPane.setHgrow(titledPane, Priority.ALWAYS);
 
         pane.add(titledPane, 0, 0);
     }
 
     /**
-     * Builds and adds the application's processing options panel to the specified
+     * Builds and adds the application's processing options and statistics panels to the specified
      * root grid pane.
      *
      * <p>
-     * The panel groups the application's processing-related options into a
-     * two-column arrangement of check boxes. The check boxes are enclosed within
-     * a bordered container, allowing additional information panels, such as
-     * processing statistics, to be added alongside in the future.
+     * Both panels are wrapped in side-by-side TitledPanes that expand equally to fill the available
+     * width.
      * </p>
      *
      * @param pane
-     *        the root {@link GridPane} to which the processing options panel is added
+     *        the root {@link GridPane} to which the panels are added
      */
     private void addMiddlePane(GridPane pane)
     {
@@ -230,6 +246,11 @@ public class MediaMetadataApp extends Application
         CheckBox debugCheck = new CheckBox("Enable Debugging");
         CheckBox[] processingChecks = {embedDateTimeCheck, forceDateChangeCheck, skipVideoCheck, descendingCheck, debugCheck};
 
+        embedDateTimeCheck.setId("embedDateTimeCheck");
+        forceDateChangeCheck.setId("forceDateChangeCheck");
+        skipVideoCheck.setId("skipVideoCheck");
+        descendingCheck.setId("descendingCheck");
+        debugCheck.setId("debugCheck");
         skipVideoCheck.setSelected(true);
         showMetadataCheck.setText("Display Metadata");
 
@@ -241,29 +262,36 @@ public class MediaMetadataApp extends Application
         VBox leftCol = new VBox(10, embedDateTimeCheck, forceDateChangeCheck, skipVideoCheck);
         VBox rightCol = new VBox(10, showMetadataCheck, descendingCheck, debugCheck);
 
-        HBox checkBoxPane = new HBox(40, leftCol, rightCol);
-        HBox.setHgrow(checkBoxPane, Priority.ALWAYS);
-        checkBoxPane.setPadding(new Insets(10));
-        checkBoxPane.setBorder(new Border(new BorderStroke(Color.LIGHTGRAY, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, new BorderWidths(1))));
+        HBox checkBoxPane = new HBox(15, leftCol, rightCol);
+        checkBoxPane.setPadding(new Insets(10, 5, 10, 5));
+
+        TitledPane optionsTitledPane = new TitledPane("Processing Options", checkBoxPane);
+        optionsTitledPane.setCollapsible(false);
+        optionsTitledPane.setFocusTraversable(false);
+        optionsTitledPane.setMaxWidth(Double.MAX_VALUE);
+        optionsTitledPane.setMaxHeight(Double.MAX_VALUE);
 
         VBox statPane = new VBox(8);
         statPane.setPadding(new Insets(10));
-        statPane.setPrefWidth(240);
-        statPane.setBorder(new Border(new BorderStroke(Color.LIGHTGRAY, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, new BorderWidths(1))));
 
         Label statLabel = new Label("Statistics");
         statLabel.setStyle("-fx-font-weight: bold;");
-
         statPane.getChildren().add(statLabel);
 
-        TitledPane titledPane = new TitledPane("Processing Options", new HBox(20, checkBoxPane, statPane));
-        titledPane.setCollapsible(false);
-        titledPane.setMaxWidth(Double.MAX_VALUE);
-        titledPane.setFocusTraversable(false);
+        TitledPane statsTitledPane = new TitledPane("Statistics", statPane);
+        statsTitledPane.setCollapsible(false);
+        statsTitledPane.setFocusTraversable(false);
+        statsTitledPane.setMaxWidth(Double.MAX_VALUE);
+        statsTitledPane.setMaxHeight(Double.MAX_VALUE);
 
-        GridPane.setHgrow(titledPane, Priority.ALWAYS);
+        HBox middleRow = new HBox(15, optionsTitledPane, statsTitledPane);
+        GridPane.setHgrow(middleRow, Priority.ALWAYS);
 
-        pane.add(titledPane, 0, 1);
+        // Forces both inner panes to have equal 50/50 width
+        optionsTitledPane.prefWidthProperty().bind(middleRow.widthProperty().subtract(15).divide(2));
+        statsTitledPane.prefWidthProperty().bind(middleRow.widthProperty().subtract(15).divide(2));
+
+        pane.add(middleRow, 0, 1);
     }
 
     /**
@@ -309,8 +337,6 @@ public class MediaMetadataApp extends Application
      * display the processing summary.
      * </p>
      *
-     * @see https://github.com/jjenkov/javafx-examples/blob/main/src/main/java/com/jenkov/javafx/concurrency/ConcurrencyExample.java
-     *
      * @param pane
      *        the root {@link GridPane} to which the actions panel is added
      */
@@ -321,17 +347,15 @@ public class MediaMetadataApp extends Application
         actionBtn.setText("Run Batch Process");
         actionBtn.setOnAction(actionHandler);
 
-        ProgressBar progressBar = new ProgressBar(0.0);
         progressBar.setPrefWidth(220);
         progressBar.prefHeightProperty().bind(actionBtn.heightProperty());
+        progressAdapter = new JavaFXProgressAdapter(progressBar);
 
         viewBtn.setText("View Summary...");
         viewBtn.setOnAction(actionHandler);
         viewBtn.prefHeightProperty().bind(actionBtn.heightProperty());
 
-        ProgressListener progressAdapter = new JavaFXProgressAdapter(progressBar);
-
-        HBox buttonBox = new HBox(15, actionBtn, progressBar, createSpacer(), viewBtn);
+        HBox buttonBox = new HBox(15, actionBtn, progressBar, fillRow(), viewBtn);
         buttonBox.setPadding(new Insets(10));
 
         TitledPane titledPane = new TitledPane("Actions", buttonBox);
@@ -362,7 +386,7 @@ public class MediaMetadataApp extends Application
         exitBtn.setText("Exit");
         exitBtn.setOnAction(actionHandler);
 
-        HBox controlLayout = new HBox(10, cancelBtn, clearLogBtn, createSpacer(), exitBtn);
+        HBox controlLayout = new HBox(10, cancelBtn, clearLogBtn, fillRow(), exitBtn);
         controlLayout.setPadding(new Insets(5, 0, 0, 0));
 
         GridPane.setHgrow(controlLayout, Priority.ALWAYS);
@@ -398,22 +422,39 @@ public class MediaMetadataApp extends Application
     }
 
     /**
-     * Executes the selected batch operation on a background thread.
-     *
-     * <p>
-     * Depending on the selected application mode, this method either processes the selected media
-     * files or retrieves their Exif metadata for display.
-     * </p>
+     * Executes the operation on a background thread using UI input parameters.
      */
     private void executeBatchProcess()
     {
+        BatchConfiguration config;
         boolean metaDisplay = showMetadataCheck.isSelected();
 
         logArea.clear();
         logArea.appendText("[INFO] Initializing batch process...\n");
+
         actionBtn.setDisable(true);
         cancelBtn.setDisable(false);
 
+        // Reset progress bar
+        if (progressBar != null)
+        {
+            progressBar.setProgress(0.0);
+        }
+
+        try
+        {
+            config = buildConfiguration();
+        }
+
+        catch (BatchErrorException exc)
+        {
+            logArea.appendText("[ERROR] Configuration error: " + exc.getMessage() + "\n");
+            actionBtn.setDisable(false);
+            cancelBtn.setDisable(true);
+            return;
+        }
+
+        // 2. Dispatch job to background thread
         Thread workerThread = new Thread(new Runnable()
         {
             @Override
@@ -421,24 +462,12 @@ public class MediaMetadataApp extends Application
             {
                 try
                 {
-                    for (int i = 1; i <= 5; i++)
-                    {
-                        Thread.sleep(500);
-
-                        final String msg = "[PROCESS] Handled Image_" + i + ".jpg\n";
-
-                        Platform.runLater(new Runnable()
-                        {
-                            @Override
-                            public void run()
-                            {
-                                logArea.appendText(msg);
-                            }
-                        });
-                    }
-
                     if (metaDisplay)
                     {
+                        // Metadata display path
+                        DisplayMetadata display = new DisplayMetadata(config);
+                        display.execute();
+
                         Platform.runLater(new Runnable()
                         {
                             @Override
@@ -451,6 +480,16 @@ public class MediaMetadataApp extends Application
 
                     else
                     {
+                        // Batch processing path
+                        MediaBatchProcessor processor = new MediaBatchProcessor(config);
+
+                        if (progressAdapter != null)
+                        {
+                            processor.addProgressListener(progressAdapter);
+                        }
+
+                        processor.execute();
+
                         Platform.runLater(new Runnable()
                         {
                             @Override
@@ -462,16 +501,14 @@ public class MediaMetadataApp extends Application
                     }
                 }
 
-                catch (InterruptedException exc)
+                catch (BatchErrorException exc)
                 {
-                    Thread.currentThread().interrupt();
-
                     Platform.runLater(new Runnable()
                     {
                         @Override
                         public void run()
                         {
-                            logArea.appendText("[INFO] Batch process was interrupted.\n");
+                            logArea.appendText("[ERROR] " + exc.getMessage() + "\n");
                         }
                     });
                 }
@@ -479,13 +516,12 @@ public class MediaMetadataApp extends Application
                 catch (Exception exc)
                 {
                     exc.printStackTrace();
-
                     Platform.runLater(new Runnable()
                     {
                         @Override
                         public void run()
                         {
-                            logArea.appendText("[ERROR] " + exc.getMessage() + "\n");
+                            logArea.appendText("[ERROR] Unexpected error: " + exc.getMessage() + "\n");
                         }
                     });
                 }
@@ -507,6 +543,74 @@ public class MediaMetadataApp extends Application
 
         workerThread.setDaemon(true);
         workerThread.start();
+    }
+
+    /**
+     * Builds a BatchConfiguration directly from the JavaFX UI controls using getId().
+     */
+    private BatchConfiguration buildConfiguration() throws BatchErrorException
+    {
+        Parent root = stage.getScene().getRoot();
+
+        // Retrieve fields dynamically by ID
+        TextField targetText = getById(root, "targetText");
+        CheckBox embedDateTime = getById(root, "embedDateTimeCheck");
+        CheckBox forceDateChange = getById(root, "forceDateChangeCheck");
+        CheckBox skipVideo = getById(root, "skipVideoCheck");
+        CheckBox descending = getById(root, "descendingCheck");
+        CheckBox debug = getById(root, "debugCheck");
+
+        String targetPath = (targetText != null ? targetText.getText() : null);
+        LocalDate dateValue = modifyDatePicker.getValue();
+        String userDateStr = (dateValue != null ? dateValue.toString() : null);
+
+        BatchBuilder builder = new BatchBuilder()
+                .source(sourceText.getText())
+                .target(targetPath)
+                .prefix(prefixText.getText())
+                .userDate(userDateStr)
+                .showMetadata(showMetadataCheck.isSelected());
+
+        if (embedDateTime != null) builder.embedDateTime(embedDateTime.isSelected());
+        if (forceDateChange != null) builder.forceDateChange(forceDateChange.isSelected());
+        if (skipVideo != null) builder.skipVideo(skipVideo.isSelected());
+        if (descending != null) builder.descending(descending.isSelected());
+        if (debug != null) builder.debug(debug.isSelected());
+
+        return builder.build();
+    }
+
+    /**
+     * Traverses the scene graph and uses getId() to match the target ID.
+     * (Java 8 Compatible)
+     */
+    @SuppressWarnings("unchecked")
+    private <T extends Node> T getById(Node root, String id)
+    {
+        if (root != null && id != null)
+        {
+            if (id.equals(root.getId()))
+            {
+                return (T) root;
+            }
+
+            else if (root instanceof Parent)
+            {
+                ObservableList<Node> nodes = ((Parent) root).getChildrenUnmodifiable();
+
+                for (Node child : nodes)
+                {
+                    T result = getById(child, id);
+
+                    if (result != null)
+                    {
+                        return result;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     private void cancelBatchProcess()
@@ -606,7 +710,7 @@ public class MediaMetadataApp extends Application
         dialog.showAndWait();
     }
 
-    private Region createSpacer()
+    private Region fillRow()
     {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);

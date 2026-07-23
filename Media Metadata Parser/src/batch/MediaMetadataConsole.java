@@ -2,6 +2,7 @@ package batch;
 
 import cli.CommandFlagParser;
 import cli.FlagType;
+import progressbar.ConsoleProgressBar;
 import util.ProjectBuildInfo;
 
 /**
@@ -9,30 +10,30 @@ import util.ProjectBuildInfo;
  *
  * <p>
  * This class coordinates the application lifecycle from argument parsing through task dispatching.
- * It leverages a {@link MetadataScanner} to discover media files and routes execution based on the
- * supplied command-line options.
+ * It leverages a scanner to discover media files and routes execution based on the specified
+ * command-line options.
  * </p>
  *
  * <p>
- * Depending on the configuration, this console either displays detailed media metadata or delegates
- * to the {@link MediaBatchProcessor} for file renaming and batch processing.
+ * Depending on the configuration, this console either displays detailed media metadata, similar to
+ * the output format of {@code exiftool -G1 -a -s} or delegates to the processor for file renaming
+ * and batch processing.
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.0
+ * @version 1.1
  * @since 2 June 2026
  */
 public final class MediaMetadataConsole
 {
-    // private static final LogFactory LOGGER = LogFactory.getLogger(MediaMetadataConsole.class);
     private final BatchConfiguration config;
 
     /**
      * Constructs a console instance using a validated configuration.
      *
      * <p>
-     * This constructor is typically invoked through {@link BatchBuilder#build()} to ensure that all
-     * configuration constraints and path validations have been met.
+     * Typically constructed directly using a {@link BatchConfiguration} produced by
+     * {@link BatchBuilder#build()}.
      * </p>
      *
      * @param config
@@ -53,7 +54,6 @@ public final class MediaMetadataConsole
      *
      * @param arguments
      *        the raw command-line arguments
-     *
      * @return a configured {@link CommandFlagParser}
      */
     private static CommandFlagParser scanArguments(String[] arguments)
@@ -169,7 +169,9 @@ public final class MediaMetadataConsole
 
         try
         {
-            MediaMetadataConsole console = builder.build();
+            BatchConfiguration config = builder.build();
+            MediaMetadataConsole console = new MediaMetadataConsole(config);
+
             console.run();
         }
 
@@ -209,6 +211,8 @@ public final class MediaMetadataConsole
         else
         {
             MediaBatchProcessor processor = new MediaBatchProcessor(config);
+
+            processor.addProgressListener(new ConsoleProgressBar());
             processor.execute();
 
             System.out.println("Done");
