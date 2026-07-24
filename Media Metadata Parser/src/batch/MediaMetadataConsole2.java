@@ -24,7 +24,7 @@ import util.ProjectBuildInfo;
  * @version 1.1
  * @since 2 June 2026
  */
-public final class MediaMetadataConsole
+public final class MediaMetadataConsole2
 {
     private final BatchConfiguration config;
 
@@ -39,7 +39,7 @@ public final class MediaMetadataConsole
      * @param config
      *        the immutable configuration containing validated parameters
      */
-    public MediaMetadataConsole(BatchConfiguration config)
+    public MediaMetadataConsole2(BatchConfiguration config)
     {
         this.config = config;
     }
@@ -99,7 +99,7 @@ public final class MediaMetadataConsole
     private static void showUsage()
     {
         System.out.format("Usage: %s [-p prefix] [-t target directory] [-e] [-m date taken] [-f] [-i=<File 1> ... <File n>] [-S] [-X] [--desc] [-v|--version] [-h|--help] [-d|--debug] <Source Directory>%n",
-                ProjectBuildInfo.getInstance(MediaMetadataConsole.class).getShortFileName());
+                ProjectBuildInfo.getInstance(MediaMetadataConsole2.class).getShortFileName());
     }
 
     /**
@@ -146,7 +146,7 @@ public final class MediaMetadataConsole
 
         if (cli.existsFlag("-v") || cli.existsFlag("--version"))
         {
-            System.out.printf("Build date: %s%n", ProjectBuildInfo.getInstance(MediaMetadataConsole.class).getBuildDate());
+            System.out.printf("Build date: %s%n", ProjectBuildInfo.getInstance(MediaMetadataConsole2.class).getBuildDate());
             System.exit(0);
         }
 
@@ -170,7 +170,7 @@ public final class MediaMetadataConsole
         try
         {
             BatchConfiguration config = builder.build();
-            MediaMetadataConsole console = new MediaMetadataConsole(config);
+            MediaMetadataConsole2 console = new MediaMetadataConsole2(config);
             console.run();
         }
 
@@ -210,6 +210,7 @@ public final class MediaMetadataConsole
         else
         {
             MediaBatchProcessor processor = new MediaBatchProcessor(config);
+
             processor.addProgressListener(new ConsoleProgressBar());
             processor.execute();
 
@@ -225,6 +226,6 @@ public final class MediaMetadataConsole
      */
     public static void main(String[] args)
     {
-        MediaMetadataConsole.execute(args);
+        MediaMetadataConsole2.execute(args);
     }
 }

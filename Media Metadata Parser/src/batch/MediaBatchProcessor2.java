@@ -19,6 +19,7 @@ import heif.HeifDatePatcher;
 import jpg.JpgDatePatcher;
 import logger.LogFactory;
 import png.PngDatePatcher;
+import progressbar.ConsoleProgressBar;
 import progressbar.ProgressListener;
 import tif.TiffDatePatcher;
 import util.SystemInfo;
@@ -29,32 +30,34 @@ import webp.WebPDatePatcher;
  * them according to metadata timestamps.
  *
  * <p>
- * This processor implements a "surgical" strategy. It never modifies source files. Instead, it
+ * This processor implements a "surgical" strategy: it never modifies source files. Instead, it
  * creates a renamed copy in the target directory and applies binary patches to the metadata
- * segments of the copy to ensure chronological integrity across JPEG, TIFF, DNG, PNG, WebP, and
- * HEIF formats.
+ * segments of the copy to ensure chronological integrity across JPEG, TIFF, PNG, WebP, and HEIF
+ * formats.
  * </p>
  *
  * <p>
  * A built-in 10-second offset is applied to user-defined dates to prevent metadata collisions and
- * ensure stable sorting in downstream applications, such as Windows Photos or Apple Photos.
+ * ensure stable sorting in downstream applications (like Windows Photos or Apple Photos).
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.1
  * @since 5 May 2026
  */
-public final class MediaBatchProcessor
+public final class MediaBatchProcessor2
 {
-    public static final String DEFAULT_SOURCE_DIRECTORY = ".";
-    public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
-    public static final String DEFAULT_IMAGE_PREFIX = "image";
-    private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessor.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessor2.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("ddMMMyyyy");
     private static final long TEN_SECOND_OFFSET = 10L;
+    private final FileVisitor<Path> deleteVisitor;
     private final List<ProgressListener> listeners;
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
+
+    public static final String DEFAULT_SOURCE_DIRECTORY = ".";
+    public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
+    public static final String DEFAULT_IMAGE_PREFIX = "image";
 
     /**
      * Constructs a batch processor using the specified configuration.
@@ -62,26 +65,49 @@ public final class MediaBatchProcessor
      * @param config
      *        the validated configuration used for batch execution
      */
-    public MediaBatchProcessor(BatchConfiguration config)
+    public MediaBatchProcessor2(BatchConfiguration config)
     {
         this.config = config;
         this.scanner = new MetadataScanner(config);
         this.listeners = new ArrayList<>();
+        this.deleteVisitor = new SimpleFileVisitor<Path>()
+        {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
+            {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException
+            {
+                if (exc != null)
+                {
+                    throw exc;
+                }
+
+                else if (!dir.equals(config.getTarget()))
+                {
+                    Files.delete(dir);
+                }
+
+                return FileVisitResult.CONTINUE;
+            }
+        };
     }
 
     /**
-     * Registers a progress listener to receive updates during both scanning and processing
-     * execution phases.
+     * Registers a listener used to respond to progress updates during the batch execution.
      *
      * @param listener
-     *        the progress listener to register
+     *        the progress listener to add
      */
     public void addProgressListener(ProgressListener listener)
     {
         if (listener != null)
         {
             this.listeners.add(listener);
-            this.scanner.addProgressListener(listener);
         }
     }
 
@@ -90,7 +116,7 @@ public final class MediaBatchProcessor
      * and processing the configured media files.
      *
      * <p>
-     * By design, this method is final to ensure that subclasses cannot accidentally override the
+     * Note that this method is final to ensure that subclasses cannot accidentally override the
      * core processing workflow.
      * </p>
      *
@@ -101,8 +127,8 @@ public final class MediaBatchProcessor
     {
         prepareTargetDirectory();
         startLogging();
+
         scanner.start();
-        resetListeners();
 
         int count = 1;
         int index = 1;
@@ -110,7 +136,11 @@ public final class MediaBatchProcessor
 
         if (total > 0)
         {
+            addProgressListener(new ConsoleProgressBar(0, total));
+
             LOGGER.info("Starting batch process for [" + total + "] files...");
+
+            System.out.println("Processing [" + total + "] files");
 
             for (MediaRecord record : scanner)
             {
@@ -124,7 +154,7 @@ public final class MediaBatchProcessor
                     processRecord(record, index++, total);
                 }
 
-                /* Notify all registered listeners (GUI adapters, console bars, loggers) */
+                /* Notify all registered listeners of the loop progress */
                 for (ProgressListener listener : listeners)
                 {
                     listener.onProgressUpdate(count, total);
@@ -138,18 +168,7 @@ public final class MediaBatchProcessor
 
         else
         {
-            LOGGER.info("No valid media files found in [" + config.getSource() + "]");
-        }
-    }
-
-    /**
-     * Resets internal progress state across all registered listeners.
-     */
-    private void resetListeners()
-    {
-        for (ProgressListener listener : listeners)
-        {
-            listener.reset();
+            System.out.println("No valid media files found in [" + config.getSource() + "]");
         }
     }
 
@@ -253,8 +272,8 @@ public final class MediaBatchProcessor
     {
         if (config.isForceDateChange() && config.getUserDate() != null)
         {
-            long extraSeconds = (index - 1) * TEN_SECOND_OFFSET;
-            return FileTime.from(config.getUserDate().plusSeconds(extraSeconds).toInstant());
+            long secondsToAdd = (index - 1) * TEN_SECOND_OFFSET;
+            return FileTime.from(config.getUserDate().plusSeconds(secondsToAdd).toInstant());
         }
 
         return record.getNaturalDate();
@@ -267,7 +286,8 @@ public final class MediaBatchProcessor
      *        the media record
      * @param index
      *        the batch index used for numerical padding (for example, 001, 002, and so on)
-     * @time the timestamp to embed if enabled
+     * @param time
+     *        the timestamp to embed if enabled
      * @return the generated filename for the copied media file
      */
     private String generateTargetName(MediaRecord record, int index, FileTime time)
@@ -303,8 +323,8 @@ public final class MediaBatchProcessor
      * Prepares the target directory by ensuring it exists and is empty.
      *
      * <p>
-     * An exception is thrown if the target directory is identical to the source directory to
-     * prevent accidental data loss during cleanup.
+     * Safety check: an exception is thrown if the target directory is identical to the source
+     * directory to prevent accidental data loss during cleanup.
      * </p>
      *
      * @throws BatchErrorException
@@ -320,32 +340,6 @@ public final class MediaBatchProcessor
                 {
                     throw new BatchErrorException("Target directory cannot be the same as source directory");
                 }
-
-                FileVisitor<Path> deleteVisitor = new SimpleFileVisitor<Path>()
-                {
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
-                    {
-                        Files.delete(file);
-                        return FileVisitResult.CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException
-                    {
-                        if (exc != null)
-                        {
-                            throw exc;
-                        }
-
-                        else if (!dir.equals(config.getTarget()))
-                        {
-                            Files.delete(dir);
-                        }
-
-                        return FileVisitResult.CONTINUE;
-                    }
-                };
 
                 Files.walkFileTree(config.getTarget(), deleteVisitor);
             }

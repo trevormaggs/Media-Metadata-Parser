@@ -47,7 +47,6 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import progressbar.JavaFXProgressAdapter;
-import progressbar.ProgressListener;
 
 public class MediaMetadataApp extends Application
 {
@@ -64,7 +63,6 @@ public class MediaMetadataApp extends Application
     private final Button exitBtn;
     private final Button viewBtn;
     private final ProgressBar progressBar;
-    private ProgressListener progressAdapter;
     private Stage stage;
 
     public MediaMetadataApp()
@@ -349,7 +347,6 @@ public class MediaMetadataApp extends Application
 
         progressBar.setPrefWidth(220);
         progressBar.prefHeightProperty().bind(actionBtn.heightProperty());
-        progressAdapter = new JavaFXProgressAdapter(progressBar);
 
         viewBtn.setText("View Summary...");
         viewBtn.setOnAction(actionHandler);
@@ -435,12 +432,6 @@ public class MediaMetadataApp extends Application
         actionBtn.setDisable(true);
         cancelBtn.setDisable(false);
 
-        // Reset progress bar
-        if (progressBar != null)
-        {
-            progressBar.setProgress(0.0);
-        }
-
         try
         {
             config = buildConfiguration();
@@ -454,7 +445,7 @@ public class MediaMetadataApp extends Application
             return;
         }
 
-        // 2. Dispatch job to background thread
+        // Dispatch job to background thread
         Thread workerThread = new Thread(new Runnable()
         {
             @Override
@@ -480,14 +471,9 @@ public class MediaMetadataApp extends Application
 
                     else
                     {
-                        // Batch processing path
                         MediaBatchProcessor processor = new MediaBatchProcessor(config);
 
-                        if (progressAdapter != null)
-                        {
-                            processor.addProgressListener(progressAdapter);
-                        }
-
+                        processor.addProgressListener(new JavaFXProgressAdapter(progressBar));
                         processor.execute();
 
                         Platform.runLater(new Runnable()
@@ -630,6 +616,13 @@ public class MediaMetadataApp extends Application
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Select Source Files");
 
+        File defaultDir = new File("E:\\ImageBatchDir");
+
+        if (defaultDir.exists() && defaultDir.isDirectory())
+        {
+            chooser.setInitialDirectory(defaultDir);
+        }
+
         List<File> files = chooser.showOpenMultipleDialog(stage);
 
         if (files != null && !files.isEmpty())
@@ -734,6 +727,13 @@ public class MediaMetadataApp extends Application
         {
             DirectoryChooser chooser = new DirectoryChooser();
             chooser.setTitle(dialogTitle);
+
+            File defaultDir = new File("E:\\ImageBatchDir");
+
+            if (defaultDir.exists() && defaultDir.isDirectory())
+            {
+                chooser.setInitialDirectory(defaultDir);
+            }
 
             Window window = targetField.getScene().getWindow();
             File folder = chooser.showDialog(window);
