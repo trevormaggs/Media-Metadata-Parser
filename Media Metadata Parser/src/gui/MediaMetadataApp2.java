@@ -48,27 +48,25 @@ import javafx.stage.Stage;
 import javafx.stage.Window;
 import progressbar.JavaFXProgressAdapter;
 
-public class MediaMetadataApp extends Application
+public class MediaMetadataApp2 extends Application
 {
-
+    private final TextField sourceText;
     private final Button sourceBtn;
-    private final ContextMenu sourceMenu;
     private final MenuItem selectFiles;
+    private final CheckBox showMetadataCheck;
+    private final TextField prefixText;
+    private final DatePicker modifyDatePicker;
     private final Button actionBtn;
-    private final ProgressBar progressBar;
-
-    // private final TextField sourceText;
-    // private final CheckBox showMetadataCheck;
-    // private final TextField prefixText;
-    // private final DatePicker modifyDatePicker;
     private final Button cancelBtn;
     private final TextArea logArea;
     private final Button clearLogBtn;
     private final Button exitBtn;
     private final Button viewBtn;
-
+    private final ProgressBar progressBar;
     private Stage stage;
 
+    private final ContextMenu sourceMenu; 
+    
     private static final String SRCID = "srcId";
     private static final String TGTID = "tgtId";
     private static final String PFXID = "pfxId";
@@ -76,29 +74,26 @@ public class MediaMetadataApp extends Application
     private static final String EMBID = "embId";
     private static final String FORID = "forId";
     private static final String SKPID = "skpId";
-    private static final String SHWID = "shwId";
     private static final String SRTID = "srtId";
     private static final String DBGID = "dbgId";
 
-    public MediaMetadataApp()
+    public MediaMetadataApp2()
     {
-        this.sourceBtn = new Button();
         this.sourceMenu = new ContextMenu();
+        
+        this.sourceBtn = new Button();
+        this.sourceText = new TextField();
         this.selectFiles = new MenuItem();
+        this.showMetadataCheck = new CheckBox();
+        this.prefixText = new TextField();
+        this.modifyDatePicker = new DatePicker();
         this.actionBtn = new Button();
-        this.progressBar = new ProgressBar(0.0);
-
-        // this.sourceText = new TextField();
-        // this.showMetadataCheck = new CheckBox();
-        // this.prefixText = new TextField();
-        // this.modifyDatePicker = new DatePicker();
-
         this.cancelBtn = new Button();
         this.logArea = new TextArea();
         this.clearLogBtn = new Button();
         this.exitBtn = new Button();
         this.viewBtn = new Button();
-
+        this.progressBar = new ProgressBar(0.0);
     }
 
     public static class FileRecord
@@ -164,7 +159,7 @@ public class MediaMetadataApp extends Application
         stage.setScene(scene);
         stage.show();
 
-        configureDynamicNodes(formGrid);
+        configureDynamicNodes();
     }
 
     /**
@@ -182,8 +177,6 @@ public class MediaMetadataApp extends Application
         HBox sourceHbox = new HBox(10);
         Label sourceLabel = new Label("Source Directory");
         sourceLabel.setPrefWidth(labelWidth);
-        TextField sourceText = new TextField();
-        sourceText.setId(SRCID);
         sourceText.setPromptText("Directory or files...");
         sourceText.setPrefWidth(300);
         sourceText.setMaxWidth(300);
@@ -214,8 +207,6 @@ public class MediaMetadataApp extends Application
         HBox prefixHbox = new HBox(10);
         Label prefixLabel = new Label("File Prefix Name");
         prefixLabel.setPrefWidth(labelWidth);
-        TextField prefixText = new TextField();
-        prefixText.setId(PFXID);
         prefixText.setText(MediaBatchProcessor.DEFAULT_IMAGE_PREFIX);
         prefixText.setPromptText("Example: Holiday_Trip_");
         prefixText.setPrefWidth(300);
@@ -226,8 +217,6 @@ public class MediaMetadataApp extends Application
         HBox modifyDateHbox = new HBox(10);
         Label dateLabel = new Label("Modify Date Taken");
         dateLabel.setPrefWidth(labelWidth);
-        DatePicker modifyDatePicker = new DatePicker();
-        modifyDatePicker.setId(DTMID);
         modifyDatePicker.setPromptText("Select date...");
         modifyDatePicker.setPrefWidth(300);
         modifyDatePicker.setMaxWidth(300);
@@ -261,7 +250,9 @@ public class MediaMetadataApp extends Application
      */
     private void addMiddlePane(GridPane pane)
     {
-        // Left Titled Pane - Processing Options
+        showMetadataCheck.setText("Display Metadata");
+
+        // Left Titled Pane - Processing Options 
         TitledPane optionsTitledPane = new TitledPane();
         optionsTitledPane.setText("Processing Options");
 
@@ -277,9 +268,6 @@ public class MediaMetadataApp extends Application
 
         CheckBox descendingCheck = new CheckBox("Sort Descending");
         descendingCheck.setId("descendingCheck");
-
-        CheckBox showMetadataCheck = new CheckBox("Display Metadata");
-        descendingCheck.setId(SHWID);
 
         CheckBox debugCheck = new CheckBox("Enable Debugging");
         debugCheck.setId("debugCheck");
@@ -420,14 +408,6 @@ public class MediaMetadataApp extends Application
         clearLogBtn.setOnAction(actionHandler);
         exitBtn.setText("Exit");
         exitBtn.setOnAction(actionHandler);
-        exitBtn.setOnAction(new EventHandler<ActionEvent>()
-        {
-            @Override
-            public void handle(ActionEvent event)
-            {
-                Platform.exit();
-            }
-        });
 
         HBox controlLayout = new HBox(10, cancelBtn, clearLogBtn, fillRow(), exitBtn);
         controlLayout.setPadding(new Insets(5, 0, 0, 0));
@@ -441,41 +421,27 @@ public class MediaMetadataApp extends Application
      * Configures the dynamic behaviour of the application's user interface by attaching event
      * listeners and binding control properties.
      */
-    private void configureDynamicNodes(Parent root)
+    private void configureDynamicNodes()
     {
-        TextField prefixText = getById(root, PFXID);
-        DatePicker modifyDatePicker = getById(root, DTMID);
-        CheckBox showMetadataCheck = getById(root, SHWID);
+        prefixText.disableProperty().bind(showMetadataCheck.selectedProperty());
+        modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
 
-        if (prefixText != null && showMetadataCheck != null)
+        showMetadataCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
         {
-            prefixText.disableProperty().bind(showMetadataCheck.selectedProperty());
-        }
-
-        if (modifyDatePicker != null && showMetadataCheck != null)
-        {
-            modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
-        }
-
-        if (showMetadataCheck != null && actionBtn != null)
-        {
-            showMetadataCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
+            @Override
+            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue)
             {
-                @Override
-                public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue)
+                if (newValue != null && newValue)
                 {
-                    if (newValue != null && newValue)
-                    {
-                        actionBtn.setText("Display Metadata");
-                    }
-
-                    else
-                    {
-                        actionBtn.setText("Run Batch Process");
-                    }
+                    actionBtn.setText("Display Metadata");
                 }
-            });
-        }
+
+                else
+                {
+                    actionBtn.setText("Run Batch Process");
+                }
+            }
+        });
     }
 
     /**
@@ -484,9 +450,7 @@ public class MediaMetadataApp extends Application
     private void executeBatchProcess()
     {
         BatchConfiguration config;
-        Parent root = stage.getScene().getRoot();
-        CheckBox showMetadata = getById(root, SHWID);
-        boolean metaDisplay = (showMetadata == null ? false : showMetadata.isSelected());
+        boolean metaDisplay = showMetadataCheck.isSelected();
 
         logArea.clear();
         logArea.appendText("[INFO] Initializing batch process...\n");
@@ -599,24 +563,25 @@ public class MediaMetadataApp extends Application
     private BatchConfiguration buildConfiguration() throws BatchErrorException
     {
         Parent root = stage.getScene().getRoot();
-        TextField sourceText = getById(root, SRCID);
-        TextField targetText = getById(root, TGTID);
-        TextField prefixText = getById(root, PFXID);
-        DatePicker modifyDatePicker = getById(root, DTMID);
+
+        // Retrieve fields dynamically by ID
+        TextField targetText = getById(root, "targetText");
+        CheckBox embedDateTime = getById(root, "embedDateTimeCheck");
+        CheckBox forceDateChange = getById(root, "forceDateChangeCheck");
+        CheckBox skipVideo = getById(root, "skipVideoCheck");
+        CheckBox descending = getById(root, "descendingCheck");
+        CheckBox debug = getById(root, "debugCheck");
+
+        String targetPath = (targetText != null ? targetText.getText() : null);
         LocalDate dateValue = modifyDatePicker.getValue();
-        CheckBox embedDateTime = getById(root, EMBID);
-        CheckBox forceDateChange = getById(root, FORID);
-        CheckBox skipVideo = getById(root, SKPID);
-        CheckBox showMetadata = getById(root, SHWID);
-        CheckBox descending = getById(root, SRTID);
-        CheckBox debug = getById(root, DBGID);
+        String userDateStr = (dateValue != null ? dateValue.toString() : null);
 
         BatchBuilder builder = new BatchBuilder()
-                .source(sourceText == null ? null : sourceText.getText())
-                .target((targetText == null ? null : targetText.getText()))
+                .source(sourceText.getText())
+                .target(targetPath)
                 .prefix(prefixText.getText())
-                .userDate(dateValue == null ? null : dateValue.toString())
-                .showMetadata(showMetadata.isSelected());
+                .userDate(userDateStr)
+                .showMetadata(showMetadataCheck.isSelected());
 
         if (embedDateTime != null) builder.embedDateTime(embedDateTime.isSelected());
         if (forceDateChange != null) builder.forceDateChange(forceDateChange.isSelected());
@@ -674,39 +639,34 @@ public class MediaMetadataApp extends Application
      */
     private void handleFileSelection()
     {
-        TextField sourceText = getById(stage.getScene().getRoot(), SRCID);
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Select Source Files");
 
-        if (sourceText != null)
+        File defaultDir = new File("E:\\ImageBatchDir");
+
+        if (defaultDir.exists() && defaultDir.isDirectory())
         {
-            FileChooser chooser = new FileChooser();
-            chooser.setTitle("Select Source Files");
+            chooser.setInitialDirectory(defaultDir);
+        }
 
-            File defaultDir = new File("E:\\ImageBatchDir");
+        List<File> files = chooser.showOpenMultipleDialog(stage);
 
-            if (defaultDir.exists() && defaultDir.isDirectory())
+        if (files != null && !files.isEmpty())
+        {
+            StringBuilder sb = new StringBuilder();
+
+            for (int i = 0; i < files.size(); i++)
             {
-                chooser.setInitialDirectory(defaultDir);
-            }
+                sb.append(files.get(i).getName());
 
-            List<File> files = chooser.showOpenMultipleDialog(stage);
-
-            if (files != null && !files.isEmpty())
-            {
-                StringBuilder sb = new StringBuilder();
-
-                for (int i = 0; i < files.size(); i++)
+                if (i < files.size() - 1)
                 {
-                    sb.append(files.get(i).getName());
-
-                    if (i < files.size() - 1)
-                    {
-                        sb.append(", ");
-                    }
+                    sb.append(", ");
                 }
-
-                sourceText.setText(sb.toString());
-                sourceText.setTooltip(new Tooltip(sb.toString()));
             }
+
+            sourceText.setText(sb.toString());
+            sourceText.setTooltip(new Tooltip(sb.toString()));
         }
     }
 
@@ -815,31 +775,6 @@ public class MediaMetadataApp extends Application
      * Handles action events generated by the application's user interface controls.
      */
     private class ActionHandler implements EventHandler<ActionEvent>
-    {
-        @Override
-        public void handle(ActionEvent event)
-        {
-            Object source = event.getSource();
-
-            if (source == sourceBtn && sourceMenu != null)
-            {
-                sourceMenu.show(sourceBtn, Side.BOTTOM, 0, 0);
-            }
-
-            else if (source == selectFiles)
-            {
-                handleFileSelection();
-            }
-
-            else if (source == actionBtn)
-            {
-                executeBatchProcess();
-            }
-        }
-    }
-
-    @Deprecated
-    private class ActionHandler3 implements EventHandler<ActionEvent>
     {
         @Override
         public void handle(ActionEvent event)
