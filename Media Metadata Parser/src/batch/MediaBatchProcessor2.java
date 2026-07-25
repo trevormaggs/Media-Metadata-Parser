@@ -44,18 +44,17 @@ import webp.WebPDatePatcher;
  * @version 1.2
  * @since 5 May 2026
  */
-public final class MediaBatchProcessor
+public final class MediaBatchProcessor2
 {
     public static final String DEFAULT_SOURCE_DIRECTORY = ".";
     public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
     public static final String DEFAULT_IMAGE_PREFIX = "image";
-    private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessor.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessor2.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("ddMMMyyyy");
     private static final long TEN_SECOND_OFFSET = 10L;
     private final List<ProgressListener> listeners;
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
-    private volatile boolean cancelled = false;
 
     /**
      * Constructs a batch processor using the specified configuration.
@@ -63,7 +62,7 @@ public final class MediaBatchProcessor
      * @param config
      *        the validated configuration used for batch execution
      */
-    public MediaBatchProcessor(BatchConfiguration config)
+    public MediaBatchProcessor2(BatchConfiguration config)
     {
         this.config = config;
         this.scanner = new MetadataScanner(config);
@@ -84,24 +83,6 @@ public final class MediaBatchProcessor
             this.listeners.add(listener);
             this.scanner.addProgressListener(listener);
         }
-    }
-
-    /**
-     * Signals the processor to abort execution at the earliest safe opportunity.
-     */
-    public void cancel()
-    {
-        cancelled = true;
-    }
-
-    /**
-     * Returns whether execution cancellation was requested.
-     *
-     * @return {@code true} if cancel was requested, otherwise {@code false}
-     */
-    public boolean isCancelled()
-    {
-        return cancelled;
     }
 
     /**
@@ -133,12 +114,6 @@ public final class MediaBatchProcessor
 
             for (MediaRecord record : scanner)
             {
-                if (cancelled || Thread.currentThread().isInterrupted())
-                {
-                    LOGGER.warn("Batch process was cancelled by the user after " + (count - 1) + " files.");
-                    throw new BatchErrorException("Batch process cancelled by user");
-                }
-
                 if (record.isVideoFormat() && config.isSkipVideo())
                 {
                     LOGGER.info("File [" + record.getPath() + "] skipped");
