@@ -52,10 +52,10 @@ public final class MediaBatchProcessor
     private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessor.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("ddMMMyyyy");
     private static final long TEN_SECOND_OFFSET = 10L;
+    private volatile boolean cancelled = false;
     private final List<ProgressListener> listeners;
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
-    private volatile boolean cancelled = false;
 
     /**
      * Constructs a batch processor using the specified configuration.
@@ -87,21 +87,27 @@ public final class MediaBatchProcessor
     }
 
     /**
-     * Signals the processor to abort execution at the earliest safe opportunity.
+     * Signals the scanner to abort execution at the earliest opportunity.
      */
     public void cancel()
     {
         cancelled = true;
+
+        if (scanner != null)
+        {
+            scanner.cancel();
+        }
     }
 
     /**
      * Returns whether execution cancellation was requested.
      *
-     * @return {@code true} if cancel was requested, otherwise {@code false}
+     * @return {@code true} if cancellation has been requested or the current thread has been
+     *         interrupted, otherwise {@code false}
      */
     public boolean isCancelled()
     {
-        return cancelled;
+        return (cancelled || Thread.currentThread().isInterrupted());
     }
 
     /**
@@ -120,6 +126,7 @@ public final class MediaBatchProcessor
     {
         prepareTargetDirectory();
         startLogging();
+
         scanner.start();
         resetListeners();
 
@@ -133,15 +140,15 @@ public final class MediaBatchProcessor
 
             for (MediaRecord record : scanner)
             {
-                if (cancelled || Thread.currentThread().isInterrupted())
+                if (isCancelled())
                 {
-                    LOGGER.warn("Batch process was cancelled by the user after " + (count - 1) + " files.");
-                    throw new BatchErrorException("Batch process cancelled by user");
+                    LOGGER.warn("Batch process was cancelled by user after processing " + (count - 1) + " files.");
+                    return;
                 }
 
                 if (record.isVideoFormat() && config.isSkipVideo())
                 {
-                    LOGGER.info("File [" + record.getPath() + "] skipped");
+                    LOGGER.info("File [" + record.getPath().getFileName() + "] skipped");
                 }
 
                 else
@@ -149,7 +156,7 @@ public final class MediaBatchProcessor
                     processRecord(record, index++, total);
                 }
 
-                /* Notify all registered listeners (GUI adapters, console bars, loggers) */
+                /* Notify all registered listeners */
                 for (ProgressListener listener : listeners)
                 {
                     listener.onProgressUpdate(count, total);
@@ -204,13 +211,22 @@ public final class MediaBatchProcessor
      */
     private void processRecord(MediaRecord record, int index, int total) throws BatchErrorException
     {
+        Path targetPath = null;
+
         try
         {
             FileTime effectiveTime = calculateEffectiveTime(record, index);
             String newName = generateTargetName(record, index, effectiveTime);
-            Path targetPath = config.getTarget().resolve(newName);
+            targetPath = config.getTarget().resolve(newName);
 
             Files.copy(record.getPath(), targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+
+            if (isCancelled())
+            {
+                Files.deleteIfExists(targetPath);
+                LOGGER.warn("Processing interrupted for [" + record.getPath().getFileName() + "]. Cleaned up temporary target file.");
+                return;
+            }
 
             if (record.isMetadataEmpty())
             {
@@ -219,6 +235,8 @@ public final class MediaBatchProcessor
 
             else if (config.isForceDateChange())
             {
+                // TODO: May need to add one for DNG
+
                 if (record.isTIF())
                 {
                     TiffDatePatcher.patchAllDates(targetPath, effectiveTime, true);
@@ -253,9 +271,23 @@ public final class MediaBatchProcessor
 
         catch (IOException exc)
         {
-            String msg = "I/O error detected with [" + record.getPath().getFileName() + "]";
-            LOGGER.error(msg, exc);
+            /* Clean up partial or corrupt file if an error occurred during copy or patch */
+            if (targetPath != null)
+            {
+                try
+                {
+                    Files.deleteIfExists(targetPath);
+                }
 
+                catch (IOException exc2)
+                {
+                    // Ignore failure during rollback cleanup
+                }
+            }
+
+            String msg = "I/O error detected with [" + record.getPath().getFileName() + "]";
+
+            LOGGER.error(msg, exc);
             throw new BatchErrorException(msg, exc);
         }
     }
@@ -292,7 +324,8 @@ public final class MediaBatchProcessor
      *        the media record
      * @param index
      *        the batch index used for numerical padding (for example, 001, 002, and so on)
-     * @time the timestamp to embed if enabled
+     * @param time
+     *        the timestamp to embed if enabled
      * @return the generated filename for the copied media file
      */
     private String generateTargetName(MediaRecord record, int index, FileTime time)

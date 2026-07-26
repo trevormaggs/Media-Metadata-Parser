@@ -21,21 +21,22 @@ import common.Metadata;
 import progressbar.ProgressListener;
 
 /**
- * Facilitates the discovery and metadata extraction of media files within a directory tree.
- * 
- * <p>
- * Progress updates are broadcast to registered {@link ProgressListener} instances during scanning
- * to provide real-time UI feedback without coupling to specific frameworks.
- * </p>
+ * Discovers media files within a directory tree and extracts their metadata.
  *
+ * <p>
+ * Progress updates are broadcast to registered {@link ProgressListener} instances during scanning,
+ * providing real-time feedback without coupling the scanner to a specific user interface framework.
+ * </p>
+ * 
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.3
  * @since 1 May 2026
  */
 public class MetadataScanner implements Iterable<MediaRecord>
 {
-    private final Set<MediaRecord> imageSet;
+    private volatile boolean cancelled;
     private final BatchConfiguration config;
+    private final Set<MediaRecord> imageSet;
     private final List<ProgressListener> listeners;
     private int fileCount;
 
@@ -47,6 +48,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      */
     protected MetadataScanner(BatchConfiguration settings)
     {
+        this.cancelled = false;
         this.config = settings;
         this.listeners = new ArrayList<>();
         this.imageSet = new TreeSet<>(new Comparator<MediaRecord>()
@@ -71,10 +73,14 @@ public class MetadataScanner implements Iterable<MediaRecord>
         });
     }
 
-    @Override
-    public Iterator<MediaRecord> iterator()
+    /**
+     * Returns the total number of media records discovered during scanning.
+     *
+     * @return the number of discovered media records
+     */
+    public int getRecordCount()
     {
-        return imageSet.iterator();
+        return imageSet.size();
     }
 
     /**
@@ -92,60 +98,96 @@ public class MetadataScanner implements Iterable<MediaRecord>
     }
 
     /**
-     * Initiates the file system traversal to discover media and extract metadata.
+     * Signals the scanner to abort execution at the earliest opportunity.
+     */
+    public void cancel()
+    {
+        cancelled = true;
+    }
+
+    /**
+     * Returns whether execution cancellation was requested.
+     *
+     * @return {@code true} if cancellation has been requested or the current thread has been
+     *         interrupted, otherwise {@code false}
+     */
+    public boolean isCancelled()
+    {
+        return (cancelled || Thread.currentThread().isInterrupted());
+    }
+
+    /**
+     * Initiates the file system traversal to discover media files and extract their metadata. If
+     * cancellation is requested, scanning terminates as soon as practical.
      * 
      * @throws BatchErrorException
      *         if a critical I/O error occurs or the source directory is inaccessible
      */
     public final void start() throws BatchErrorException
     {
-        FileVisitor<Path> visitor = createImageVisitor();
-
-        try
+        if (!isCancelled())
         {
-            fileCount = config.getFileSet().size();
+            FileVisitor<Path> visitor = createImageVisitor();
 
-            if (fileCount > 0)
+            try
             {
-                int count = 1;
+                fileCount = config.getFileSet().size();
 
-                for (String fileName : config.getFileSet())
+                if (fileCount > 0)
                 {
-                    Path fpath = config.getSource().resolve(fileName);
+                    int count = 1;
 
-                    if (Files.exists(fpath) && Files.isRegularFile(fpath))
+                    for (String fileName : config.getFileSet())
                     {
-                        visitor.visitFile(fpath, Files.readAttributes(fpath, BasicFileAttributes.class));
-                    }
+                        Path fpath = config.getSource().resolve(fileName);
 
-                    notifyListeners(count++, fileCount);
+                        if (Files.exists(fpath) && Files.isRegularFile(fpath))
+                        {
+                            FileVisitResult result = visitor.visitFile(fpath, Files.readAttributes(fpath, BasicFileAttributes.class));
+
+                            if (result == FileVisitResult.TERMINATE)
+                            {
+                                break;
+                            }
+                        }
+
+                        notifyListeners(count++, fileCount);
+                    }
+                }
+
+                else
+                {
+                    fileCount = (int) countRegularFiles();
+                    Files.walkFileTree(config.getSource(), visitor);
                 }
             }
-            
-            else
+
+            catch (Exception exc)
             {
-                fileCount = (int) countRegularFiles();
-                Files.walkFileTree(config.getSource(), visitor);
+                throw new BatchErrorException(exc.getMessage(), exc);
             }
         }
-        
-        catch (Exception exc)
+
+        else
         {
-            throw new BatchErrorException(exc.getMessage(), exc);
+            // TODO: consider adding a Logger?
+            // LOGGER.warn("Batch process was cancelled by user after processing " + (count - 1) + " files.");
         }
     }
 
     /**
-     * Notifies all registered listeners of current scanning progress.
+     * Counts the number of regular files within the configured source directory.
+     *
+     * <p>
+     * The count is used to assist progress reporting prior to the metadata scan. The operation may
+     * terminate early if cancellation is detected.
+     * </p>
+     *
+     * @return the number of regular files discovered
+     *
+     * @throws IOException
+     *         if an I/O error occurs while traversing the directory tree
      */
-    private void notifyListeners(int current, int total)
-    {
-        for (ProgressListener listener : listeners)
-        {
-            listener.onProgressUpdate(current, total);
-        }
-    }
-
     protected long countRegularFiles() throws IOException
     {
         long regularFilesCount = 0;
@@ -156,6 +198,11 @@ public class MetadataScanner implements Iterable<MediaRecord>
 
             while (iterator.hasNext())
             {
+                if (isCancelled())
+                {
+                    break;
+                }
+
                 Path path = iterator.next();
 
                 if (Files.isRegularFile(path))
@@ -169,13 +216,14 @@ public class MetadataScanner implements Iterable<MediaRecord>
     }
 
     /**
-     * Returns the total number of media records discovered during scanning.
+     * Creates the {@link FileVisitor} used to traverse the source directory and extract metadata
+     * from supported media files.
+     *
+     * @return the configured file visitor
+     *
+     * @throws BatchErrorException
+     *         if the configured source path is not a valid directory
      */
-    public int getRecordCount()
-    {
-        return imageSet.size();
-    }
-
     private FileVisitor<Path> createImageVisitor() throws BatchErrorException
     {
         if (!Files.isDirectory(config.getSource()))
@@ -190,6 +238,11 @@ public class MetadataScanner implements Iterable<MediaRecord>
             @Override
             public FileVisitResult visitFile(Path fpath, BasicFileAttributes attr) throws IOException
             {
+                if (isCancelled())
+                {
+                    return FileVisitResult.TERMINATE;
+                }
+
                 if (config.getFileSet().size() > 0 && !config.getFileSet().contains(fpath.getFileName().toString()))
                 {
                     return FileVisitResult.CONTINUE;
@@ -200,11 +253,12 @@ public class MetadataScanner implements Iterable<MediaRecord>
                 try
                 {
                     AbstractImageParser<?> parser = ImageParserFactory.getParser(fpath);
+
                     parser.readMetadata();
                     Metadata<?> meta = parser.getMetadata();
                     imageSet.add(new MediaRecord(fpath, meta, meta.getImageFormat(), attr.lastModifiedTime()));
                 }
-                
+
                 catch (UnsupportedOperationException exc)
                 {
                     // Gracefully skip unsupported file formats
@@ -215,6 +269,40 @@ public class MetadataScanner implements Iterable<MediaRecord>
 
                 return FileVisitResult.CONTINUE;
             }
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException
+            {
+                return (isCancelled() ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE);
+            }
         };
+    }
+
+    /**
+     * Notifies all registered progress listeners of the current scan progress.
+     *
+     * @param current
+     *        the current progress position
+     * @param total
+     *        the total number of files to process
+     */
+    private void notifyListeners(int current, int total)
+    {
+        for (ProgressListener listener : listeners)
+        {
+            listener.onProgressUpdate(current, total);
+        }
+    }
+
+    /**
+     * Returns an iterator over the discovered media records. Records are returned in the sort order
+     * defined by the current {@link BatchConfiguration}.
+     * 
+     * @return an iterator over the discovered media records
+     */
+    @Override
+    public Iterator<MediaRecord> iterator()
+    {
+        return imageSet.iterator();
     }
 }

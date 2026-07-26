@@ -52,7 +52,6 @@ import progressbar.JavaFXProgressAdapter;
 
 public class MediaMetadataApp extends Application
 {
-
     private final Button sourceBtn;
     private final MenuItem selectFiles;
     private final Button actionBtn;
@@ -942,6 +941,7 @@ public class MediaMetadataApp extends Application
                 {
                     logArea.appendText("\n[SUCCESS] Exif data retrieved successfully.\n");
                 }
+
                 else
                 {
                     logArea.appendText("\n[SUCCESS] Batch processing complete.\n");
@@ -960,6 +960,7 @@ public class MediaMetadataApp extends Application
                 {
                     logArea.appendText("[ERROR] " + exc.getMessage() + "\n");
                 }
+
                 else
                 {
                     exc.printStackTrace();
@@ -987,7 +988,117 @@ public class MediaMetadataApp extends Application
 
     private void cleanupTaskState()
     {
+        actionBtn.getScene().getRoot().requestFocus();
         cancelBtn.setDisable(true);
         actionBtn.setDisable(false);
+        processor = null;
+    }
+
+    private void executeBatchProcessTest()
+    {
+        TextArea logArea = (TextArea) clearLogBtn.getUserData();
+        if (logArea == null) return;
+
+        logArea.clear();
+        logArea.appendText("[INFO] Initializing batch process...\n");
+
+        boolean metaDisplay;
+        BatchConfiguration config;
+
+        try
+        {
+            CheckBox showMetadata = getById(SHWID);
+
+            metaDisplay = (showMetadata != null && showMetadata.isSelected());
+            config = buildConfiguration();
+        }
+
+        catch (BatchErrorException exc)
+        {
+            logArea.appendText("[ERROR] Configuration error: " + exc.getMessage() + "\n");
+            return;
+        }
+
+        actionBtn.setDisable(true);
+        cancelBtn.setDisable(false);
+
+        Task<Void> batchTask = new Task<Void>()
+        {
+            @Override
+            protected Void call() throws Exception
+            {
+                if (metaDisplay)
+                {
+                    DisplayMetadata display = new DisplayMetadata(config);
+                    display.execute();
+                }
+
+                else
+                {
+                    processor = new MediaBatchProcessor(config);
+                    processor.addProgressListener(new JavaFXProgressAdapter(progressBar));
+                    processor.execute();
+                }
+
+                return null;
+            }
+
+            @Override
+            protected void done()
+            {
+                // Always runs on JavaFX Application Thread after succeeded/failed/cancelled
+                cleanupTaskState();
+            }
+        };
+
+        batchTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
+        {
+            @Override
+            public void handle(WorkerStateEvent event)
+            {
+                if (metaDisplay)
+                {
+                    logArea.appendText("\n[SUCCESS] Exif data retrieved successfully.\n");
+                }
+
+                else
+                {
+                    logArea.appendText("\n[SUCCESS] Batch processing complete.\n");
+                }
+            }
+        });
+
+        batchTask.setOnFailed(new EventHandler<WorkerStateEvent>()
+        {
+            @Override
+            public void handle(WorkerStateEvent event)
+            {
+                Throwable exc = batchTask.getException();
+                if (exc instanceof BatchErrorException)
+                {
+                    logArea.appendText("[ERROR] " + exc.getMessage() + "\n");
+                }
+
+                else
+                {
+                    exc.printStackTrace();
+                    logArea.appendText("[ERROR] Unexpected error: " + exc.getMessage() + "\n");
+                }
+            }
+        });
+
+        batchTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
+        {
+            @Override
+            public void handle(WorkerStateEvent event)
+            {
+                logArea.appendText("[WARNING] Batch process was cancelled.\n");
+            }
+        });
+
+        // Start background thread
+        Thread workerThread = new Thread(batchTask);
+        workerThread.setDaemon(true);
+        workerThread.start();
     }
 }
