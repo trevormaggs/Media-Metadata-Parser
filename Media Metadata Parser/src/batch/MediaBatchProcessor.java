@@ -286,8 +286,8 @@ public final class MediaBatchProcessor
             }
 
             String msg = "I/O error detected with [" + record.getPath().getFileName() + "]";
-
             LOGGER.error(msg, exc);
+            
             throw new BatchErrorException(msg, exc);
         }
     }
@@ -435,7 +435,7 @@ public final class MediaBatchProcessor
 
             LogFactory.configure(logPath.toString());
             LogFactory.setDebug(config.isDebug());
-            LogFactory.setTrace(true);
+            LogFactory.setTrace(false);
 
             LOGGER.info("MediaBatchProcessor initialised");
             LOGGER.info("Source: " + config.getSource().toAbsolutePath());

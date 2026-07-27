@@ -67,16 +67,6 @@ public class MediaMetadataApp2 extends Application
 
     private final ContextMenu sourceMenu; 
     
-    private static final String SRCID = "srcId";
-    private static final String TGTID = "tgtId";
-    private static final String PFXID = "pfxId";
-    private static final String DTMID = "dtmId";
-    private static final String EMBID = "embId";
-    private static final String FORID = "forId";
-    private static final String SKPID = "skpId";
-    private static final String SRTID = "srtId";
-    private static final String DBGID = "dbgId";
-
     public MediaMetadataApp2()
     {
         this.sourceMenu = new ContextMenu();

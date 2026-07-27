@@ -167,12 +167,6 @@ public class MetadataScanner implements Iterable<MediaRecord>
                 throw new BatchErrorException(exc.getMessage(), exc);
             }
         }
-
-        else
-        {
-            // TODO: consider adding a Logger?
-            // LOGGER.warn("Batch process was cancelled by user after processing " + (count - 1) + " files.");
-        }
     }
 
     /**
@@ -196,12 +190,8 @@ public class MetadataScanner implements Iterable<MediaRecord>
         {
             Iterator<Path> iterator = stream.iterator();
 
-            while (iterator.hasNext())
+            while (!isCancelled() && iterator.hasNext())
             {
-                if (isCancelled())
-                {
-                    break;
-                }
 
                 Path path = iterator.next();
 
@@ -233,7 +223,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
 
         return new SimpleFileVisitor<Path>()
         {
-            private int scannedCount = 0;
+            private int count = 0;
 
             @Override
             public FileVisitResult visitFile(Path fpath, BasicFileAttributes attr) throws IOException
@@ -248,7 +238,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
                     return FileVisitResult.CONTINUE;
                 }
 
-                scannedCount++;
+                count++;
 
                 try
                 {
@@ -265,7 +255,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
                 }
 
                 /* Notify listeners across both directory walk and file set modes */
-                notifyListeners(scannedCount, fileCount);
+                notifyListeners(count, fileCount);
 
                 return FileVisitResult.CONTINUE;
             }
