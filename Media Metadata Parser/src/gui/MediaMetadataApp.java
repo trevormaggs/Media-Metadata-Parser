@@ -6,7 +6,6 @@ import java.util.List;
 import batch.BatchBuilder;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
-import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -14,10 +13,11 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ObservableList;
-import javafx.concurrent.Task;
+import javafx.concurrent.Worker;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -46,7 +46,6 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
-import progressbar.JavaFXProgressAdapter;
 
 public class MediaMetadataApp extends Application
 {
@@ -57,12 +56,13 @@ public class MediaMetadataApp extends Application
 
     private final Button exitBtn;
     private final ProgressBar progressBar;
+    private final Label progressLabel;
 
     private final Button cancelBtn;
     private final Button viewBtn;
 
     private Stage stage;
-    private MediaBatchProcessor processor;
+    private BatchTask activeTask;
 
     private static final String SRCID = "srcId";
     private static final String TGTID = "tgtId";
@@ -84,6 +84,7 @@ public class MediaMetadataApp extends Application
 
         this.exitBtn = new Button();
         this.progressBar = new ProgressBar(0.0);
+        this.progressLabel = new Label("");
 
         this.cancelBtn = new Button();
         this.viewBtn = new Button();
@@ -376,14 +377,19 @@ public class MediaMetadataApp extends Application
         actionBtn.setText("Run Batch Process");
         actionBtn.setOnAction(actionHandler);
 
-        progressBar.setPrefWidth(220);
+        progressBar.setPrefWidth(160);
         progressBar.prefHeightProperty().bind(actionBtn.heightProperty());
+        progressLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #555555;");
 
-        viewBtn.setText("View Summary...");
-        viewBtn.setOnAction(actionHandler);
-        viewBtn.prefHeightProperty().bind(actionBtn.heightProperty());
+        HBox progressBox = new HBox(8, progressBar, progressLabel);
+        progressBox.setAlignment(Pos.CENTER_LEFT);
 
-        HBox buttonBox = new HBox(15, actionBtn, progressBar, fillRow(), viewBtn);
+        cancelBtn.setDisable(true);
+        cancelBtn.setText("Cancel");
+        cancelBtn.setOnAction(actionHandler);
+
+        HBox buttonBox = new HBox(12, actionBtn, progressBox, fillRow(), cancelBtn);
+        buttonBox.setAlignment(Pos.CENTER_LEFT);
         buttonBox.setPadding(new Insets(10));
 
         TitledPane titledPane = new TitledPane("Actions", buttonBox);
@@ -406,9 +412,9 @@ public class MediaMetadataApp extends Application
     {
         ActionHandler actionHandler = new ActionHandler();
 
-        cancelBtn.setDisable(true);
-        cancelBtn.setText("Cancel Process");
-        cancelBtn.setOnAction(actionHandler);
+        viewBtn.setText("View Summary...");
+        viewBtn.setOnAction(actionHandler);
+        viewBtn.prefHeightProperty().bind(actionBtn.heightProperty());
 
         clearLogBtn.setText("Clear Log");
         clearLogBtn.setOnAction(actionHandler);
@@ -416,7 +422,7 @@ public class MediaMetadataApp extends Application
         exitBtn.setText("Exit");
         exitBtn.setOnAction(actionHandler);
 
-        HBox controlLayout = new HBox(10, cancelBtn, clearLogBtn, fillRow(), exitBtn);
+        HBox controlLayout = new HBox(10, viewBtn, clearLogBtn, fillRow(), exitBtn);
         controlLayout.setPadding(new Insets(5, 0, 0, 0));
 
         GridPane.setHgrow(controlLayout, Priority.ALWAYS);
@@ -552,11 +558,14 @@ public class MediaMetadataApp extends Application
             {
                 TextArea logArea = (TextArea) clearLogBtn.getUserData();
 
-                logArea.appendText("[WARNING] Batch process cancellation requested.\n");
-
-                if (processor != null)
+                if (logArea != null)
                 {
-                    processor.cancel();
+                    logArea.appendText("[WARNING] Batch process cancellation requested.\n");
+                }
+
+                if (activeTask != null)
+                {
+                    activeTask.cancelProcessor();
                 }
             }
 
@@ -570,8 +579,8 @@ public class MediaMetadataApp extends Application
     private void executeBatchProcess()
     {
         BatchConfiguration config;
-        TextArea logArea = (TextArea) clearLogBtn.getUserData();
         CheckBox showMetadata = getById(SHWID);
+        TextArea logArea = (TextArea) clearLogBtn.getUserData();
         boolean metaDisplay = (showMetadata != null && showMetadata.isSelected());
 
         if (logArea == null)
@@ -580,7 +589,7 @@ public class MediaMetadataApp extends Application
         }
 
         logArea.clear();
-        logArea.appendText("[INFO] Initializing batch process...\n");
+        logArea.appendText("[INFO] Phase 1: Scanning files...\n");
 
         try
         {
@@ -590,90 +599,65 @@ public class MediaMetadataApp extends Application
         catch (BatchErrorException exc)
         {
             logArea.appendText("[ERROR] Configuration error: " + exc.getMessage() + "\n");
+            progressLabel.setText("Configuration error");
             return;
         }
 
         actionBtn.setDisable(true);
         cancelBtn.setDisable(false);
-
-        Task<Void> batchTask = new Task<Void>()
+        activeTask = new BatchTask(config, logArea, progressBar, metaDisplay);
+        progressLabel.textProperty().bind(activeTask.messageProperty());
+        activeTask.stateProperty().addListener(new ChangeListener<Worker.State>()
         {
             @Override
-            protected Void call() throws Exception
+            public void changed(ObservableValue<? extends Worker.State> observable, Worker.State oldState, Worker.State newState)
             {
-                if (metaDisplay)
+                if (newState == Worker.State.SUCCEEDED || newState == Worker.State.FAILED || newState == Worker.State.CANCELLED)
                 {
-                    DisplayMetadata display = new DisplayMetadata(config);
-                    display.execute();
-                }
+                    actionBtn.getScene().getRoot().requestFocus();
+                    cancelBtn.setDisable(true);
+                    actionBtn.setDisable(false);
+                    activeTask = null;
 
-                else
-                {
-                    processor = new MediaBatchProcessor(config);
-                    processor.addProgressListener(new JavaFXProgressAdapter(progressBar));
-                    processor.execute();
-                }
-
-                return null;
-            }
-
-            @Override
-            protected void succeeded()
-            {
-                if (metaDisplay)
-                {
-                    logArea.appendText("\n[SUCCESS] Exif data retrieved successfully.\n");
-                }
-
-                else
-                {
-                    logArea.appendText("\n[SUCCESS] Batch processing complete.\n");
-                }
-            }
-
-            @Override
-            protected void failed()
-            {
-                Throwable exc = getException();
-                Throwable cause = (exc != null && exc.getCause() != null) ? exc.getCause() : exc;
-
-                if (cause instanceof BatchErrorException)
-                {
-                    logArea.appendText("[ERROR] " + cause.getMessage() + "\n");
-                }
-
-                else if (cause != null)
-                {
-                    cause.printStackTrace();
-                    logArea.appendText("[ERROR] Unexpected error: " + cause.getMessage() + "\n");
-                }
-            }
-
-            @Override
-            protected void cancelled()
-            {
-                logArea.appendText("[WARNING] Batch process was cancelled.\n");
-            }
-
-            @Override
-            protected void done()
-            {
-                processor = null;
-
-                Platform.runLater(new Runnable()
-                {
-                    @Override
-                    public void run()
+                    new Thread(new Runnable()
                     {
-                        actionBtn.getScene().getRoot().requestFocus();
-                        cancelBtn.setDisable(true);
-                        actionBtn.setDisable(false);
-                    }
-                });
-            }
-        };
+                        @Override
+                        public void run()
+                        {
+                            try
+                            {
+                                Thread.sleep(3000);
 
-        Thread workerThread = new Thread(batchTask);
+                                Platform.runLater(new Runnable()
+                                {
+                                    @Override
+                                    public void run()
+                                    {
+                                        // Clear label
+                                        progressLabel.textProperty().unbind();
+                                        progressLabel.setText("");
+
+                                        // Clear progress bar after 3 seconds
+                                        if (progressBar != null)
+                                        {
+                                            progressBar.progressProperty().unbind();
+                                            progressBar.setProgress(0.0);
+                                        }
+                                    }
+                                });
+                            }
+
+                            catch (InterruptedException ignored)
+                            {
+                                // Task thread finished/interrupted
+                            }
+                        }
+                    }).start();
+                }
+            }
+        });
+
+        Thread workerThread = new Thread(activeTask);
         workerThread.setDaemon(true);
         workerThread.start();
     }
@@ -726,7 +710,7 @@ public class MediaMetadataApp extends Application
             FileChooser chooser = new FileChooser();
             chooser.setTitle("Select Source Files");
 
-            File defaultDir = new File("E:\\ImageBatchDir");
+            File defaultDir = new File(System.getProperty("user.home"));
 
             if (defaultDir.exists() && defaultDir.isDirectory())
             {
