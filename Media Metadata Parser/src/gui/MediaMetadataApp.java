@@ -37,6 +37,11 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -56,7 +61,6 @@ public class MediaMetadataApp extends Application
 
     private final Button exitBtn;
     private final ProgressBar progressBar;
-    private final Label progressLabel;
 
     private final Button cancelBtn;
     private final Button viewBtn;
@@ -84,7 +88,6 @@ public class MediaMetadataApp extends Application
 
         this.exitBtn = new Button();
         this.progressBar = new ProgressBar(0.0);
-        this.progressLabel = new Label("");
 
         this.cancelBtn = new Button();
         this.viewBtn = new Button();
@@ -177,6 +180,7 @@ public class MediaMetadataApp extends Application
         sourceText.setPrefWidth(300);
         sourceText.setMaxWidth(300);
         sourceText.setText("E:\\ImageBatchDir");
+        sourceText.setEditable(false);
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new DirectoryPopupHandler(sourceText, "Select Source Directory"));
         selectFiles.setText("Select Specific Files...");
@@ -379,7 +383,10 @@ public class MediaMetadataApp extends Application
 
         progressBar.setPrefWidth(160);
         progressBar.prefHeightProperty().bind(actionBtn.heightProperty());
+
+        Label progressLabel = new Label("");
         progressLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #555555;");
+        progressBar.setUserData(progressLabel);
 
         HBox progressBox = new HBox(8, progressBar, progressLabel);
         progressBox.setAlignment(Pos.CENTER_LEFT);
@@ -436,6 +443,7 @@ public class MediaMetadataApp extends Application
      */
     private void configureDynamicNodes(Parent pane)
     {
+        TextField sourceText = getById(SRCID);
         TextField prefixText = getById(pane, PFXID);
         DatePicker modifyDatePicker = getById(pane, DTMID);
         CheckBox showMetadataCheck = getById(pane, SHWID);
@@ -461,10 +469,65 @@ public class MediaMetadataApp extends Application
                     {
                         actionBtn.setText("Display Metadata");
                     }
-
                     else
                     {
                         actionBtn.setText("Run Batch Process");
+                    }
+                }
+            });
+        }
+
+        if (sourceText != null)
+        {
+            sourceText.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>()
+            {
+                @Override
+                public void handle(KeyEvent event)
+                {
+                    KeyCodeCombination shortcut = new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN);
+
+                    if (shortcut.match(event))
+                    {
+                        Clipboard clipboard = Clipboard.getSystemClipboard();
+
+                        if (clipboard.hasString())
+                        {
+                            String pastedText = clipboard.getString().trim();
+                            File path = new File(pastedText);
+
+                            if (path.exists())
+                            {
+                                sourceText.setText(pastedText);
+                                sourceText.setUserData(path.isDirectory() ? pastedText : path.getParent());
+                                sourceText.setTooltip(new Tooltip(pastedText));
+                            }
+
+                            else if (pastedText.contains(","))
+                            {
+                                String[] parts = pastedText.split(",");
+                                File firstFile = new File(parts[0].trim());
+
+                                if (firstFile.exists())
+                                {
+                                    sourceText.setText(pastedText);
+                                    sourceText.setUserData(firstFile.getParent());
+                                    sourceText.setTooltip(new Tooltip(pastedText));
+                                }
+
+                                else
+                                {
+                                    sourceText.setText(pastedText);
+                                    sourceText.setTooltip(new Tooltip(pastedText));
+                                }
+                            }
+
+                            else
+                            {
+                                System.out.println("Pasted path does not exist [" + pastedText + "]");
+                            }
+                        }
+
+                        event.consume(); // Prevent default JavaFX handling
                     }
                 }
             });
@@ -582,6 +645,7 @@ public class MediaMetadataApp extends Application
         CheckBox showMetadata = getById(SHWID);
         TextArea logArea = (TextArea) clearLogBtn.getUserData();
         boolean metaDisplay = (showMetadata != null && showMetadata.isSelected());
+        Label progressLabel = (Label) progressBar.getUserData();
 
         if (logArea == null)
         {
@@ -633,16 +697,11 @@ public class MediaMetadataApp extends Application
                                     @Override
                                     public void run()
                                     {
-                                        // Clear label
+                                        // Clean up
                                         progressLabel.textProperty().unbind();
                                         progressLabel.setText("");
-
-                                        // Clear progress bar after 3 seconds
-                                        if (progressBar != null)
-                                        {
-                                            progressBar.progressProperty().unbind();
-                                            progressBar.setProgress(0.0);
-                                        }
+                                        progressBar.progressProperty().unbind();
+                                        progressBar.setProgress(0.0);
                                     }
                                 });
                             }
@@ -668,9 +727,11 @@ public class MediaMetadataApp extends Application
     private BatchConfiguration buildConfiguration() throws BatchErrorException
     {
         TextField sourceText = getById(SRCID);
+        String filename = sourceText.getText().trim();
         TextField targetText = getById(TGTID);
         TextField prefixText = getById(PFXID);
         DatePicker modifyDatePicker = getById(DTMID);
+        LocalDate dateValue = (modifyDatePicker != null) ? modifyDatePicker.getValue() : null;
         CheckBox embedDateTime = getById(EMBID);
         CheckBox forceDateChange = getById(FORID);
         CheckBox skipVideo = getById(SKPID);
@@ -678,10 +739,32 @@ public class MediaMetadataApp extends Application
         CheckBox descending = getById(SRTID);
         CheckBox debug = getById(DBGID);
 
-        LocalDate dateValue = (modifyDatePicker != null) ? modifyDatePicker.getValue() : null;
+        BatchBuilder builder = new BatchBuilder();
 
-        return new BatchBuilder()
-                .source(sourceText == null ? null : sourceText.getText())
+        if (!filename.isEmpty())
+        {
+            String parentDir = (String) sourceText.getUserData();
+
+            if (parentDir != null || filename.contains(","))
+            {
+                String[] parts = filename.split(",");
+                String[] files = new String[parts.length];
+
+                for (int i = 0; i < parts.length; i++)
+                {
+                    files[i] = parts[i].trim();
+                }
+
+                builder.source(parentDir == null ? new File(filename).getParent() : parentDir).fileSet(files);
+            }
+
+            else
+            {
+                builder.source(filename);
+            }
+        }
+
+        return builder
                 .target(targetText == null ? null : targetText.getText())
                 .prefix(prefixText == null ? null : prefixText.getText())
                 .userDate(dateValue == null ? null : dateValue.toString())
@@ -721,6 +804,8 @@ public class MediaMetadataApp extends Application
 
             if (files != null && !files.isEmpty())
             {
+                File parentDir = files.get(0).getParentFile();
+
                 StringBuilder sb = new StringBuilder();
 
                 for (int i = 0; i < files.size(); i++)
@@ -735,6 +820,11 @@ public class MediaMetadataApp extends Application
 
                 sourceText.setText(sb.toString());
                 sourceText.setTooltip(new Tooltip(sb.toString()));
+
+                if (parentDir != null)
+                {
+                    sourceText.setUserData(parentDir.getAbsolutePath());
+                }
             }
         }
     }

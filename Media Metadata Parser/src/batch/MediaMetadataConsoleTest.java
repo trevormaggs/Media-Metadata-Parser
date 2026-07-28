@@ -12,12 +12,12 @@ import util.ProjectBuildInfo;
  * @version 1.2
  * @since 2 June 2026
  */
-public final class MediaMetadataConsole
+public final class MediaMetadataConsoleTest
 {
     private final BatchConfiguration config;
     private MediaBatchProcessor activeProcessor;
 
-    public MediaMetadataConsole(BatchConfiguration config)
+    public MediaMetadataConsoleTest(BatchConfiguration config)
     {
         this.config = config;
     }
@@ -190,6 +190,6 @@ public final class MediaMetadataConsole
 
     public static void main(String[] args)
     {
-        MediaMetadataConsole.execute(args);
+        //MediaMetadataConsole.execute(args);
     }
 }

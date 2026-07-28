@@ -44,7 +44,7 @@ import webp.WebPDatePatcher;
  * @version 1.2
  * @since 5 May 2026
  */
-public final class MediaBatchProcessor
+public final class MediaBatchProcessor implements AutoCloseable
 {
     public static final String DEFAULT_SOURCE_DIRECTORY = ".";
     public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
@@ -124,53 +124,62 @@ public final class MediaBatchProcessor
      */
     public final void execute() throws BatchErrorException
     {
-        prepareTargetDirectory();
-        startLogging();
-
-        scanner.start();
-        resetListeners();
-
-        int count = 1;
-        int index = 1;
-        int total = scanner.getRecordCount();
-
-        if (total > 0)
+        try
         {
-            LOGGER.info("Starting batch process for [" + total + "] files...");
+            prepareTargetDirectory();
+            startLogging();
 
-            for (MediaRecord record : scanner)
+            scanner.start();
+            resetListeners();
+
+            int count = 1;
+            int index = 1;
+            int total = scanner.getRecordCount();
+
+            if (total > 0)
             {
-                if (isCancelled())
+                LOGGER.info("Starting batch process for [" + total + "] files...");
+
+                for (MediaRecord record : scanner)
                 {
-                    LOGGER.warn("Batch process was cancelled by user after processing " + (count - 1) + " files.");
-                    return;
+                    if (isCancelled())
+                    {
+                        LOGGER.warn("Batch process was cancelled by user after processing " + (count - 1) + " files.");
+                        return;
+                    }
+
+                    if (record.isVideoFormat() && config.isSkipVideo())
+                    {
+                        LOGGER.info("File [" + record.getPath().getFileName() + "] skipped");
+                    }
+
+                    else
+                    {
+                        processRecord(record, index++, total);
+                    }
+
+                    /* Notify all registered listeners */
+                    for (ProgressListener listener : listeners)
+                    {
+                        listener.onProgressUpdate(count, total);
+                    }
+
+                    count++;
                 }
 
-                if (record.isVideoFormat() && config.isSkipVideo())
-                {
-                    LOGGER.info("File [" + record.getPath().getFileName() + "] skipped");
-                }
-
-                else
-                {
-                    processRecord(record, index++, total);
-                }
-
-                /* Notify all registered listeners */
-                for (ProgressListener listener : listeners)
-                {
-                    listener.onProgressUpdate(count, total);
-                }
-
-                count++;
+                LOGGER.info("Batch processing completed successfully");
             }
 
-            LOGGER.info("Batch processing completed successfully");
+            else
+            {
+                LOGGER.info("No valid media files found in [" + config.getSource() + "]");
+            }
+
         }
 
-        else
+        finally
         {
-            LOGGER.info("No valid media files found in [" + config.getSource() + "]");
+            close();
         }
     }
 
@@ -183,6 +192,19 @@ public final class MediaBatchProcessor
         {
             listener.reset();
         }
+    }
+
+    /**
+     * Releases active logging resources and underlying OS file handles.
+     * 
+     * <p>
+     * Implements {@link AutoCloseable} to allow safety within try-with-resources blocks.
+     * </p>
+     */
+    @Override
+    public void close()
+    {
+        LogFactory.close();
     }
 
     /**
@@ -287,7 +309,7 @@ public final class MediaBatchProcessor
 
             String msg = "I/O error detected with [" + record.getPath().getFileName() + "]";
             LOGGER.error(msg, exc);
-            
+
             throw new BatchErrorException(msg, exc);
         }
     }
