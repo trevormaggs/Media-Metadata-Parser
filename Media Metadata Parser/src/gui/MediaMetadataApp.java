@@ -51,6 +51,8 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.beans.InvalidationListener;
+import javafx.beans.Observable;
 
 public class MediaMetadataApp extends Application
 {
@@ -171,7 +173,6 @@ public class MediaMetadataApp extends Application
         ActionHandler actionHandler = new ActionHandler();
 
         // Row 1
-        HBox sourceHbox = new HBox(10);
         Label sourceLabel = new Label("Source Directory");
         sourceLabel.setPrefWidth(labelWidth);
         TextField sourceText = new TextField();
@@ -180,7 +181,7 @@ public class MediaMetadataApp extends Application
         sourceText.setPrefWidth(300);
         sourceText.setMaxWidth(300);
         sourceText.setText("E:\\ImageBatchDir");
-        sourceText.setEditable(false);
+        // sourceText.setEditable(false);
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new DirectoryPopupHandler(sourceText, "Select Source Directory"));
         selectFiles.setText("Select Specific Files...");
@@ -190,10 +191,10 @@ public class MediaMetadataApp extends Application
         sourceBtn.setText("Browse...");
         sourceBtn.setUserData(sourceMenu);
         sourceBtn.setOnAction(actionHandler);
+        HBox sourceHbox = new HBox(10);
         sourceHbox.getChildren().addAll(sourceLabel, sourceText, fillRow(), sourceBtn);
 
         // Row 2
-        HBox targetHbox = new HBox(10);
         Label targetLabel = new Label("Target Directory");
         targetLabel.setPrefWidth(labelWidth);
         TextField targetText = new TextField();
@@ -203,10 +204,10 @@ public class MediaMetadataApp extends Application
         targetText.setMaxWidth(300);
         Button targetBtn = new Button("Browse...");
         targetBtn.setOnAction(new DirectoryPopupHandler(targetText, "Select Target Directory"));
+        HBox targetHbox = new HBox(10);
         targetHbox.getChildren().addAll(targetLabel, targetText, fillRow(), targetBtn);
 
         // Row 3
-        HBox prefixHbox = new HBox(10);
         Label prefixLabel = new Label("File Prefix Name");
         prefixLabel.setPrefWidth(labelWidth);
         TextField prefixText = new TextField();
@@ -215,10 +216,10 @@ public class MediaMetadataApp extends Application
         prefixText.setPromptText("Example: Holiday_Trip_");
         prefixText.setPrefWidth(300);
         prefixText.setMaxWidth(300);
+        HBox prefixHbox = new HBox(10);
         prefixHbox.getChildren().addAll(prefixLabel, prefixText, fillRow());
 
         // Row 4
-        HBox modifyDateHbox = new HBox(10);
         Label dateLabel = new Label("Modify Date Taken");
         dateLabel.setPrefWidth(labelWidth);
         DatePicker modifyDatePicker = new DatePicker();
@@ -226,6 +227,7 @@ public class MediaMetadataApp extends Application
         modifyDatePicker.setPromptText("Select date...");
         modifyDatePicker.setPrefWidth(300);
         modifyDatePicker.setMaxWidth(300);
+        HBox modifyDateHbox = new HBox(10);
         modifyDateHbox.getChildren().addAll(dateLabel, modifyDatePicker, fillRow());
 
         // Combine boxes
@@ -257,9 +259,6 @@ public class MediaMetadataApp extends Application
     private void addMiddlePane(GridPane pane)
     {
         // Left Titled Pane - Processing Options
-        TitledPane optionsTitledPane = new TitledPane();
-        optionsTitledPane.setText("Processing Options");
-
         CheckBox embedDateTimeCheck = new CheckBox("Embed Date/Time");
         embedDateTimeCheck.setId(EMBID);
 
@@ -291,6 +290,8 @@ public class MediaMetadataApp extends Application
         HBox checkBoxPane = new HBox(15, leftCol, rightCol);
         checkBoxPane.setPadding(new Insets(10, 5, 10, 5));
 
+        TitledPane optionsTitledPane = new TitledPane();
+        optionsTitledPane.setText("Processing Options");
         optionsTitledPane.setContent(checkBoxPane);
         optionsTitledPane.setCollapsible(false);
         optionsTitledPane.setFocusTraversable(false);
@@ -298,9 +299,6 @@ public class MediaMetadataApp extends Application
         optionsTitledPane.setMaxHeight(Double.MAX_VALUE);
 
         // Right Titled Pane - Statistics
-        TitledPane statsTitledPane = new TitledPane();
-        statsTitledPane.setText("Statistics");
-
         VBox statPane = new VBox(8);
         statPane.setPadding(new Insets(10));
 
@@ -308,6 +306,8 @@ public class MediaMetadataApp extends Application
         // statLabel.setStyle("-fx-font-weight: bold;");
         // statPane.getChildren().add(statLabel);
 
+        TitledPane statsTitledPane = new TitledPane();
+        statsTitledPane.setText("Statistics");
         statsTitledPane.setContent(statPane);
         statsTitledPane.setCollapsible(false);
         statsTitledPane.setFocusTraversable(false);
@@ -320,7 +320,7 @@ public class MediaMetadataApp extends Application
 
         // Forces both inner panes to have equal 50/50 width
         optionsTitledPane.prefWidthProperty().bind(middleRow.widthProperty().subtract(15).divide(2));
-        statsTitledPane.prefWidthProperty().bind(middleRow.widthProperty().subtract(15).divide(2));
+        statsTitledPane.prefWidthProperty().bind(optionsTitledPane.prefWidthProperty());
 
         pane.add(middleRow, 0, 1);
     }
@@ -339,24 +339,21 @@ public class MediaMetadataApp extends Application
     private void addLogPane(GridPane pane)
     {
         TextArea logArea = new TextArea();
-        VBox.setVgrow(logArea, Priority.ALWAYS);
-
         logArea.setEditable(false);
         logArea.setFocusTraversable(false);
         logArea.setStyle("-fx-font-family: 'Monospaced'; -fx-font-size: 11px;");
         logArea.setPromptText("Console output...");
         logArea.setMaxWidth(Double.MAX_VALUE);
         logArea.setMaxHeight(Double.MAX_VALUE);
-
-        clearLogBtn.setUserData(logArea);
+        VBox.setVgrow(logArea, Priority.ALWAYS);
 
         VBox logContent = new VBox(logArea);
-
         TitledPane titledPane = new TitledPane("Execution Log", logContent);
         titledPane.setCollapsible(false);
         titledPane.setMaxWidth(Double.MAX_VALUE);
         titledPane.setFocusTraversable(false);
 
+        clearLogBtn.setUserData(logArea);
         GridPane.setHgrow(titledPane, Priority.ALWAYS);
         GridPane.setVgrow(titledPane, Priority.ALWAYS);
 
@@ -458,27 +455,29 @@ public class MediaMetadataApp extends Application
             modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
         }
 
-        if (showMetadataCheck != null && actionBtn != null)
+        showMetadataCheck.selectedProperty().addListener(new InvalidationListener()
         {
-            showMetadataCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
+            @Override
+            public void invalidated(Observable observable)
             {
-                @Override
-                public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue)
-                {
-                    if (newValue != null && newValue)
-                    {
-                        actionBtn.setText("Display Metadata");
-                    }
-                    else
-                    {
-                        actionBtn.setText("Run Batch Process");
-                    }
-                }
-            });
-        }
+                actionBtn.setText(showMetadataCheck.isSelected() ? "Display Metadata" : "Run Batch Process");
+            }
+        });
 
         if (sourceText != null)
         {
+            sourceText.focusedProperty().addListener(new InvalidationListener()
+            {
+                @Override
+                public void invalidated(Observable observable)
+                {
+                    if (!sourceText.isFocused())
+                    {
+                        sourceText.setText(sourceText.getText().trim());
+                    }
+                }
+            });
+            
             sourceText.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>()
             {
                 @Override
@@ -793,11 +792,11 @@ public class MediaMetadataApp extends Application
             FileChooser chooser = new FileChooser();
             chooser.setTitle("Select Source Files");
 
-            File defaultDir = new File(System.getProperty("user.home"));
+            File sourceDir = new File(sourceText.getText().isEmpty() ? System.getProperty("user.home") : sourceText.getText());
 
-            if (defaultDir.exists() && defaultDir.isDirectory())
+            if (sourceDir.isDirectory())
             {
-                chooser.setInitialDirectory(defaultDir);
+                chooser.setInitialDirectory(sourceDir);
             }
 
             List<File> files = chooser.showOpenMultipleDialog(stage);
