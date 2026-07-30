@@ -457,7 +457,7 @@ public final class MediaBatchProcessor implements AutoCloseable
 
             LogFactory.configure(logPath.toString());
             LogFactory.setDebug(config.isDebug());
-            LogFactory.setTrace(false);
+            LogFactory.setTrace(true);
 
             LOGGER.info("MediaBatchProcessor initialised");
             LOGGER.info("Source: " + config.getSource().toAbsolutePath());

@@ -5,18 +5,15 @@ import javafx.application.Platform;
 import javafx.scene.control.TextArea;
 import logger.LogListener;
 
+// LogFactory.addLogListener(new JavaFXLogListener(logTextArea));
+
 public class JavaFXLogListener implements LogListener
 {
     private final TextArea textArea;
 
     public JavaFXLogListener(TextArea textArea)
     {
-        if (textArea == null)
-        {
-            throw new IllegalArgumentException("TextArea cannot be null");
-        }
-
-        this.textArea = textArea;
+        this.textArea = java.util.Objects.requireNonNull(textArea, "TextArea is undefined");
     }
 
     @Override
@@ -27,7 +24,7 @@ public class JavaFXLogListener implements LogListener
             @Override
             public void run()
             {
-                textArea.appendText("[" + level + "] " + message + System.lineSeparator());
+                textArea.appendText(message + System.lineSeparator());
             }
         });
     }

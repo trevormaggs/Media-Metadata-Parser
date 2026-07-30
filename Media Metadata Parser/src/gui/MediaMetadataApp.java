@@ -7,8 +7,11 @@ import batch.BatchBuilder;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.MediaBatchProcessor;
+import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.InvalidationListener;
+import javafx.beans.Observable;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -22,6 +25,7 @@ import javafx.geometry.Side;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
@@ -38,6 +42,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -51,8 +56,8 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
-import javafx.beans.InvalidationListener;
-import javafx.beans.Observable;
+import javafx.util.Duration;
+import logger.LogFactory;
 
 public class MediaMetadataApp extends Application
 {
@@ -60,6 +65,7 @@ public class MediaMetadataApp extends Application
     private final MenuItem selectFiles;
     private final Button actionBtn;
     private final Button clearLogBtn;
+    private final Button copyLogBtn;
 
     private final Button exitBtn;
     private final ProgressBar progressBar;
@@ -87,6 +93,7 @@ public class MediaMetadataApp extends Application
         this.selectFiles = new MenuItem();
         this.actionBtn = new Button();
         this.clearLogBtn = new Button();
+        this.copyLogBtn = new Button();
 
         this.exitBtn = new Button();
         this.progressBar = new ProgressBar(0.0);
@@ -358,6 +365,8 @@ public class MediaMetadataApp extends Application
         GridPane.setVgrow(titledPane, Priority.ALWAYS);
 
         pane.add(titledPane, 0, 2);
+
+        LogFactory.addLogListener(new JavaFXLogListener(logArea));
     }
 
     /**
@@ -388,11 +397,15 @@ public class MediaMetadataApp extends Application
         HBox progressBox = new HBox(8, progressBar, progressLabel);
         progressBox.setAlignment(Pos.CENTER_LEFT);
 
+        copyLogBtn.setText("Copy Log");
+        copyLogBtn.setOnAction(actionHandler);
+
         cancelBtn.setDisable(true);
         cancelBtn.setText("Cancel");
         cancelBtn.setOnAction(actionHandler);
 
-        HBox buttonBox = new HBox(12, actionBtn, progressBox, fillRow(), cancelBtn);
+        // Added copyLogBtn next to cancelBtn
+        HBox buttonBox = new HBox(12, actionBtn, progressBox, fillRow(), copyLogBtn, cancelBtn);
         buttonBox.setAlignment(Pos.CENTER_LEFT);
         buttonBox.setPadding(new Insets(10));
 
@@ -411,6 +424,9 @@ public class MediaMetadataApp extends Application
      *
      * @param pane
      *        the root {@link GridPane} to which the control panel is added
+     */
+    /**
+     * Builds and adds the application's bottom control panel.
      */
     private void addBottomPane(GridPane pane)
     {
@@ -477,7 +493,7 @@ public class MediaMetadataApp extends Application
                     }
                 }
             });
-            
+
             sourceText.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>()
             {
                 @Override
@@ -606,6 +622,38 @@ public class MediaMetadataApp extends Application
                 handleFileSelection();
             }
 
+            else if (source == copyLogBtn)
+            {
+                TextArea logArea = (TextArea) clearLogBtn.getUserData();
+
+                if (logArea != null && !logArea.getText().isEmpty())
+                {
+                    // 1. Copy text to clipboard
+                    ClipboardContent content = new javafx.scene.input.ClipboardContent();
+                    content.putString(logArea.getText());
+                    Clipboard.getSystemClipboard().setContent(content);
+
+                    // 2. Temporarily style the selection highlight color (e.g., soft green or
+                    // bright blue)
+                    String originalStyle = logArea.getStyle();
+                    logArea.setStyle(originalStyle + " -fx-highlight-fill: #a8e6cf; -fx-highlight-text-fill: #000000;");
+
+                    // 3. Highlight/Select all text in logArea
+                    logArea.selectAll();
+
+                    // 4. Remove highlight after 250 milliseconds
+                    PauseTransition flash = new PauseTransition(Duration.millis(550));
+
+                    flash.setOnFinished(e ->
+                    {
+                        logArea.deselect();
+                        logArea.setStyle(originalStyle); // Restore original style
+                    });
+
+                    flash.play();
+                }
+            }
+
             else if (source == clearLogBtn)
             {
                 TextArea logArea = (TextArea) clearLogBtn.getUserData();
@@ -618,13 +666,6 @@ public class MediaMetadataApp extends Application
 
             else if (source == cancelBtn)
             {
-                TextArea logArea = (TextArea) clearLogBtn.getUserData();
-
-                if (logArea != null)
-                {
-                    logArea.appendText("[WARNING] Batch process cancellation requested.\n");
-                }
-
                 if (activeTask != null)
                 {
                     activeTask.cancelProcessor();
@@ -652,7 +693,6 @@ public class MediaMetadataApp extends Application
         }
 
         logArea.clear();
-        logArea.appendText("[INFO] Phase 1: Scanning files...\n");
 
         try
         {
@@ -661,7 +701,6 @@ public class MediaMetadataApp extends Application
 
         catch (BatchErrorException exc)
         {
-            logArea.appendText("[ERROR] Configuration error: " + exc.getMessage() + "\n");
             progressLabel.setText("Configuration error");
             return;
         }
@@ -681,6 +720,11 @@ public class MediaMetadataApp extends Application
                     cancelBtn.setDisable(true);
                     actionBtn.setDisable(false);
                     activeTask = null;
+
+                    if (newState == Worker.State.SUCCEEDED)
+                    {
+                        showCompletionDialog();
+                    }
 
                     new Thread(new Runnable()
                     {
@@ -893,6 +937,20 @@ public class MediaMetadataApp extends Application
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         return spacer;
+    }
+
+    /**
+     * Displays a popup dialog confirming batch completion.
+     */
+    private void showCompletionDialog()
+    {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+
+        alert.setTitle("Process Complete");
+        alert.setHeaderText(null);
+        alert.setContentText("Batch processing completed successfully!");
+        alert.initOwner(stage); // Locks focus to current window until dismissed
+        alert.showAndWait();
     }
 
     public static void main(String[] args)
