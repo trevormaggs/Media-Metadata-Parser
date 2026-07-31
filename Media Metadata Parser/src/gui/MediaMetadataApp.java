@@ -958,7 +958,7 @@ public class MediaMetadataApp extends Application
         alert.setTitle("Process Complete");
         alert.setHeaderText(null);
         alert.setContentText("Batch processing completed");
-        //alert.initOwner(stage); // Locks focus to current window until dismissed
+        alert.initOwner(stage); // Locks focus to current window until dismissed
         alert.showAndWait();
     }
 
