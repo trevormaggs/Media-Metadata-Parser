@@ -387,15 +387,17 @@ public class MediaMetadataApp extends Application
         actionBtn.setText("Run Batch Process");
         actionBtn.setOnAction(actionHandler);
 
-        progressBar.setPrefWidth(160);
-        progressBar.prefHeightProperty().bind(actionBtn.heightProperty());
+        progressBar.setPrefWidth(180);
+        progressBar.setMaxWidth(180);
 
         Label progressLabel = new Label("");
         progressLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #555555;");
+        progressLabel.setMaxWidth(180);
         progressBar.setUserData(progressLabel);
 
-        HBox progressBox = new HBox(8, progressBar, progressLabel);
-        progressBox.setAlignment(Pos.CENTER_LEFT);
+        // Stack bar and label, set alignment to TOP_LEFT
+        VBox progressBox = new VBox(4, progressBar, progressLabel);
+        progressBox.setAlignment(Pos.TOP_LEFT);
 
         copyLogBtn.setText("Copy Log");
         copyLogBtn.setOnAction(actionHandler);
@@ -404,9 +406,9 @@ public class MediaMetadataApp extends Application
         cancelBtn.setText("Cancel");
         cancelBtn.setOnAction(actionHandler);
 
-        // Added copyLogBtn next to cancelBtn
+        // Align row children to TOP_LEFT so the top edges of actionBtn and progressBox match up
         HBox buttonBox = new HBox(12, actionBtn, progressBox, fillRow(), copyLogBtn, cancelBtn);
-        buttonBox.setAlignment(Pos.CENTER_LEFT);
+        buttonBox.setAlignment(Pos.TOP_LEFT);
         buttonBox.setPadding(new Insets(10));
 
         TitledPane titledPane = new TitledPane("Actions", buttonBox);
@@ -723,7 +725,14 @@ public class MediaMetadataApp extends Application
 
                     if (newState == Worker.State.SUCCEEDED)
                     {
-                        showCompletionDialog();
+                        Platform.runLater(new Runnable()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                showCompletionDialog();
+                            }
+                        });
                     }
 
                     new Thread(new Runnable()
@@ -948,8 +957,8 @@ public class MediaMetadataApp extends Application
 
         alert.setTitle("Process Complete");
         alert.setHeaderText(null);
-        alert.setContentText("Batch processing completed successfully!");
-        alert.initOwner(stage); // Locks focus to current window until dismissed
+        alert.setContentText("Batch processing completed");
+        //alert.initOwner(stage); // Locks focus to current window until dismissed
         alert.showAndWait();
     }
 
