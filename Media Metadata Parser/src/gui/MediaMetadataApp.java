@@ -56,6 +56,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.util.Callback;
 import javafx.util.Duration;
 import logger.LogFactory;
 
@@ -156,7 +157,7 @@ public class MediaMetadataApp extends Application
         formGrid.getRowConstraints().addAll(fixedRow, fixedRow, fillRow, fixedRow, fixedRow);
 
         addTopPane(formGrid);
-        addMiddlePane(formGrid);
+        addMiddlePane2(formGrid);
         addLogPane(formGrid);
         addControlPane(formGrid);
         addBottomPane(formGrid);
@@ -190,7 +191,7 @@ public class MediaMetadataApp extends Application
         sourceText.setText("E:\\ImageBatchDir");
         // sourceText.setEditable(false);
         MenuItem selectFolder = new MenuItem("Select Folder...");
-        selectFolder.setOnAction(new DirectoryPopupHandler(sourceText, "Select Source Directory"));
+        selectFolder.setOnAction(new PickDirectoryHandler(sourceText, "Select Source Directory"));
         selectFiles.setText("Select Specific Files...");
         selectFiles.setOnAction(actionHandler);
         ContextMenu sourceMenu = new ContextMenu();
@@ -210,7 +211,7 @@ public class MediaMetadataApp extends Application
         targetText.setPrefWidth(300);
         targetText.setMaxWidth(300);
         Button targetBtn = new Button("Browse...");
-        targetBtn.setOnAction(new DirectoryPopupHandler(targetText, "Select Target Directory"));
+        targetBtn.setOnAction(new PickDirectoryHandler(targetText, "Select Target Directory"));
         HBox targetHbox = new HBox(10);
         targetHbox.getChildren().addAll(targetLabel, targetText, fillRow(), targetBtn);
 
@@ -259,6 +260,13 @@ public class MediaMetadataApp extends Application
      * Both panels are contained within side-by-side {@link TitledPane} instances that expand
      * equally to fill the available width.
      * </p>
+     *
+     * @param pane
+     *        the root {@link GridPane} to which the panels are added
+     */
+    /**
+     * Creates and attaches the application's processing options and statistics panels to the
+     * specified root {@link GridPane}.
      *
      * @param pane
      *        the root {@link GridPane} to which the panels are added
@@ -312,6 +320,110 @@ public class MediaMetadataApp extends Application
         // Label statLabel = new Label("Statistics");
         // statLabel.setStyle("-fx-font-weight: bold;");
         // statPane.getChildren().add(statLabel);
+
+        TitledPane statsTitledPane = new TitledPane();
+        statsTitledPane.setText("Statistics");
+        statsTitledPane.setContent(statPane);
+        statsTitledPane.setCollapsible(false);
+        statsTitledPane.setFocusTraversable(false);
+        statsTitledPane.setMaxWidth(Double.MAX_VALUE);
+        statsTitledPane.setMaxHeight(Double.MAX_VALUE);
+
+        // Arrange both titled panes side by side
+        HBox middleRow = new HBox(15, optionsTitledPane, statsTitledPane);
+        GridPane.setHgrow(middleRow, Priority.ALWAYS);
+
+        // Forces both inner panes to have equal 50/50 width
+        optionsTitledPane.prefWidthProperty().bind(middleRow.widthProperty().subtract(15).divide(2));
+        statsTitledPane.prefWidthProperty().bind(optionsTitledPane.prefWidthProperty());
+
+        pane.add(middleRow, 0, 1);
+    }
+
+    private void addMiddlePane2(GridPane pane)
+    {
+        // Left Titled Pane - Processing Options
+        CheckBox embedDateTimeCheck = new CheckBox("Embed Date/Time");
+        embedDateTimeCheck.setId(EMBID);
+
+        CheckBox forceDateChangeCheck = new CheckBox("Force Date Change");
+        forceDateChangeCheck.setId(FORID);
+
+        CheckBox skipVideoCheck = new CheckBox("Skip Video Files");
+        skipVideoCheck.setId(SKPID);
+        skipVideoCheck.setSelected(true);
+
+        CheckBox descendingCheck = new CheckBox("Sort Descending");
+        descendingCheck.setId(SRTID);
+
+        CheckBox showMetadataCheck = new CheckBox("Display Metadata");
+        showMetadataCheck.setId(SHWID);
+
+        CheckBox debugCheck = new CheckBox("Enable Debugging");
+        debugCheck.setId(DBGID);
+
+        CheckBox[] processingChecks = {embedDateTimeCheck, forceDateChangeCheck, skipVideoCheck, descendingCheck, debugCheck};
+        VBox leftCol = new VBox(10, embedDateTimeCheck, forceDateChangeCheck, skipVideoCheck);
+        VBox rightCol = new VBox(10, showMetadataCheck, descendingCheck, debugCheck);
+
+        for (CheckBox check : processingChecks)
+        {
+            check.disableProperty().bind(showMetadataCheck.selectedProperty());
+        }
+
+        HBox checkBoxPane = new HBox(15, leftCol, rightCol);
+        checkBoxPane.setPadding(new Insets(10, 5, 10, 5));
+
+        TitledPane optionsTitledPane = new TitledPane();
+        optionsTitledPane.setText("Processing Options");
+        optionsTitledPane.setContent(checkBoxPane);
+        optionsTitledPane.setCollapsible(false);
+        optionsTitledPane.setFocusTraversable(false);
+        optionsTitledPane.setMaxWidth(Double.MAX_VALUE);
+        optionsTitledPane.setMaxHeight(Double.MAX_VALUE);
+
+        // Right Titled Pane - Statistics Table
+        TableView<StatRecord> statsTable = new TableView<>();
+        statsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        statsTable.setFocusTraversable(false);
+
+        statsTable.setFixedCellSize(24.0);
+        statsTable.setPrefHeight(100.0);
+        statsTable.setMinHeight(Region.USE_PREF_SIZE);
+        statsTable.setMaxHeight(Region.USE_PREF_SIZE);
+
+        TableColumn<StatRecord, String> metricCol = new TableColumn<>("Metric");
+
+        metricCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<StatRecord, String>, ObservableValue<String>>()
+        {
+            @Override
+            public ObservableValue<String> call(TableColumn.CellDataFeatures<StatRecord, String> cellData)
+            {
+                return cellData.getValue().metricProperty();
+            }
+        });
+
+        TableColumn<StatRecord, String> valueCol = new TableColumn<>("Value");
+
+        valueCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<StatRecord, String>, ObservableValue<String>>()
+        {
+            @Override
+            public ObservableValue<String> call(TableColumn.CellDataFeatures<StatRecord, String> cellData)
+            {
+                return cellData.getValue().valueProperty();
+            }
+        });
+
+        statsTable.getColumns().add(metricCol);
+        statsTable.getColumns().add(valueCol);
+
+        statsTable.getItems().addAll(
+                new StatRecord("Source Files", "0"),
+                new StatRecord("Target Files", "0"),
+                new StatRecord("Total Size", "0.00 MB"));
+
+        VBox statPane = new VBox(statsTable);
+        statPane.setPadding(new Insets(5));
 
         TitledPane statsTitledPane = new TitledPane();
         statsTitledPane.setText("Statistics");
@@ -966,4 +1078,36 @@ public class MediaMetadataApp extends Application
     {
         launch(args);
     }
+
+    public static class StatRecord
+    {
+        private final SimpleStringProperty metric;
+        private final SimpleStringProperty value;
+
+        public StatRecord(String metric, String value)
+        {
+            this.metric = new SimpleStringProperty(metric);
+            this.value = new SimpleStringProperty(value);
+        }
+
+        public SimpleStringProperty metricProperty()
+        {
+            return metric;
+        }
+
+        public SimpleStringProperty valueProperty()
+        {
+            return value;
+        }
+
+        public String getValue()
+        {
+            return value.get();
+        }
+
+        public void setValue(String value)
+        {
+            this.value.set(value);
+        }
+    }    
 }

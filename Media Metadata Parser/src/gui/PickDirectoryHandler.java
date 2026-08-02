@@ -8,10 +8,10 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
 
 /**
- * Event handler for opening a JavaFX {@link DirectoryChooser} and populating the selected directory
- * path into a target {@link TextField}.
+ * Event handler for opening a JavaFX {@link PickDirectoryHandler} and populating the selected
+ * directory path into a target {@link TextField}.
  */
-public class DirectoryPopupHandler implements EventHandler<ActionEvent>
+public class PickDirectoryHandler implements EventHandler<ActionEvent>
 {
     private final TextField targetField;
     private final String dialogTitle;
@@ -24,7 +24,7 @@ public class DirectoryPopupHandler implements EventHandler<ActionEvent>
      * @param dialogTitle
      *        the title for the file chooser dialog
      */
-    public DirectoryPopupHandler(TextField targetField, String dialogTitle)
+    public PickDirectoryHandler(TextField targetField, String dialogTitle)
     {
         this.targetField = targetField;
         this.dialogTitle = dialogTitle;

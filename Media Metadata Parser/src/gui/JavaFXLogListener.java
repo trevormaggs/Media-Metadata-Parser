@@ -5,8 +5,6 @@ import javafx.application.Platform;
 import javafx.scene.control.TextArea;
 import logger.LogListener;
 
-// LogFactory.addLogListener(new JavaFXLogListener(logTextArea));
-
 public class JavaFXLogListener implements LogListener
 {
     private final TextArea textArea;

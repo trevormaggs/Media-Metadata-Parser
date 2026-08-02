@@ -72,83 +72,80 @@ class BatchTask extends Task<Void>
         {
             processor = new MediaBatchProcessor(config);
 
-            try (MediaBatchProcessor activeProc = processor)
+            if (progressBar != null)
             {
-                if (progressBar != null)
+                processor.addProgressListener(new JavaFXProgressAdapter(progressBar)
                 {
-                    activeProc.addProgressListener(new JavaFXProgressAdapter(progressBar)
+                    private boolean isScanning = true;
+
+                    @Override
+                    public void onProgressUpdate(int current)
                     {
-                        private boolean isScanning = true;
-
-                        @Override
-                        public void onProgressUpdate(int current)
+                        if (!isCancelled())
                         {
-                            if (!isCancelled())
-                            {
-                                super.onProgressUpdate(current);
+                            super.onProgressUpdate(current);
 
-                                if (isScanning)
+                            if (isScanning)
+                            {
+                                updateMessage(String.format("Scanning files (%d found)...", current));
+                            }
+
+                            else
+                            {
+                                updateMessage(String.format("Processing batch (%d files)...", current));
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onProgressUpdate(int current, int total)
+                    {
+                        if (!isCancelled())
+                        {
+                            super.onProgressUpdate(current, total);
+
+                            if (isScanning)
+                            {
+                                if (total > 0)
                                 {
-                                    updateMessage(String.format("Scanning files (%d found)...", current));
+                                    updateMessage(String.format("Scanning files: %d of %d", current, total));
                                 }
 
                                 else
                                 {
-                                    updateMessage(String.format("Processing batch (%d files)...", current));
+                                    updateMessage(String.format("Scanning files (%d)...", current));
                                 }
                             }
-                        }
 
-                        @Override
-                        public void onProgressUpdate(int current, int total)
-                        {
-                            if (!isCancelled())
+                            else
                             {
-                                super.onProgressUpdate(current, total);
-
-                                if (isScanning)
+                                if (total > 0)
                                 {
-                                    if (total > 0)
-                                    {
-                                        updateMessage(String.format("Scanning files: %d of %d", current, total));
-                                    }
-
-                                    else
-                                    {
-                                        updateMessage(String.format("Scanning files (%d)...", current));
-                                    }
+                                    updateMessage(String.format("Processing batch: %d of %d", current, total));
                                 }
 
                                 else
                                 {
-                                    if (total > 0)
-                                    {
-                                        updateMessage(String.format("Processing batch: %d of %d", current, total));
-                                    }
-
-                                    else
-                                    {
-                                        updateMessage(String.format("Processing batch (%d)...", current));
-                                    }
+                                    updateMessage(String.format("Processing batch (%d)...", current));
                                 }
                             }
                         }
+                    }
 
-                        @Override
-                        public void reset()
+                    @Override
+                    public void reset()
+                    {
+                        if (!isCancelled())
                         {
-                            if (!isCancelled())
-                            {
-                                super.reset();
-                                isScanning = false;
-                                updateMessage("Preparing batch processing...");
-                            }
+                            super.reset();
+                            isScanning = false;
+                            updateMessage("Preparing batch processing...");
                         }
-                    });
-                }
-
-                activeProc.execute();
+                    }
+                });
             }
+
+            processor.execute();
         }
 
         return null;

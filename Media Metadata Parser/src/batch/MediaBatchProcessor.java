@@ -44,7 +44,7 @@ import webp.WebPDatePatcher;
  * @version 1.2
  * @since 5 May 2026
  */
-public final class MediaBatchProcessor implements AutoCloseable
+public final class MediaBatchProcessor
 {
     public static final String DEFAULT_SOURCE_DIRECTORY = ".";
     public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
@@ -119,8 +119,13 @@ public final class MediaBatchProcessor implements AutoCloseable
      * core processing workflow.
      * </p>
      *
+     * <p>
+     * <b>Note:</b> Call {@link #addProgressListener} prior to calling this method if you wish to
+     * monitor execution progress via a progress bar or status label.
+     * </p>
+     *
      * @throws BatchErrorException
-     *         if an I/O error has occurred during directory preparation or file processing
+     *         if an I/O error occurs during directory preparation or file processing
      */
     public final void execute() throws BatchErrorException
     {
@@ -174,12 +179,11 @@ public final class MediaBatchProcessor implements AutoCloseable
             {
                 LOGGER.info("No valid media files found in [" + config.getSource() + "]");
             }
-
         }
 
         finally
         {
-            close();
+            LogFactory.close();
         }
     }
 
@@ -192,19 +196,6 @@ public final class MediaBatchProcessor implements AutoCloseable
         {
             listener.reset();
         }
-    }
-
-    /**
-     * Releases active logging resources and underlying OS file handles.
-     * 
-     * <p>
-     * Implements {@link AutoCloseable} to allow safety within try-with-resources blocks.
-     * </p>
-     */
-    @Override
-    public void close()
-    {
-        LogFactory.close();
     }
 
     /**
@@ -418,6 +409,10 @@ public final class MediaBatchProcessor implements AutoCloseable
                             throw exc;
                         }
 
+                        /*
+                         * No need to delete the target directory since we will need it anyway.
+                         * Old sub-directotroes within this target directory are deleted.
+                         */
                         else if (!dir.equals(config.getTarget()))
                         {
                             Files.delete(dir);

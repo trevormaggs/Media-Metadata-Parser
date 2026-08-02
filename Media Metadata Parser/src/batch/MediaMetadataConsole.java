@@ -212,7 +212,6 @@ public final class MediaMetadataConsole
             MediaBatchProcessor processor = new MediaBatchProcessor(config);
             processor.addProgressListener(new ConsoleProgressBar());
             processor.execute();
-            processor.close();
 
             System.out.println("Done");
         }
