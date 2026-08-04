@@ -7,7 +7,6 @@ import java.util.List;
 import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
 import common.DigitalSignature;
-import common.MetadataConstants;
 import common.Utils;
 import logger.LogFactory;
 import tif.tagspecs.TagIFD_Extension;
@@ -171,7 +170,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
         {
             sb.append("\t\t\tTIF Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
-            sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", tif.getByteOrder()));
+            sb.append(String.format(Utils.FORMATTER, "Byte Order", tif.getByteOrder()));
             sb.append(System.lineSeparator());
 
             if (tif.hasMetadata())
@@ -197,7 +196,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
                 sb.append("No XMP metadata found").append(System.lineSeparator());
             }
 
-            sb.append(MetadataConstants.DIVIDER);
+            sb.append(Utils.DIVIDER);
         }
 
         catch (Exception exc)

@@ -127,7 +127,7 @@ public class FileTypeBox extends Box
     {
         StringBuilder sb = new StringBuilder();
 
-        sb.append(Utils.repeatPrint("\t", getHierarchyDepth()));
+        sb.append(Utils.repeatText("\t", getHierarchyDepth()));
         sb.append(String.format("%s '%s':\t\t", this.getClass().getSimpleName(), getFourCC()));
         sb.append(String.format("major-brand='%s', ", getMajorBrand()));
         sb.append(String.format("minor-brand='%s', ", getMinorVersion()));

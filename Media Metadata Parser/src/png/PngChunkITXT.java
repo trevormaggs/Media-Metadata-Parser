@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.zip.InflaterInputStream;
 import common.ByteValueConverter;
-import common.MetadataConstants;
 import common.Utils;
 import logger.LogFactory;
 import tif.TagHint;
@@ -314,15 +313,15 @@ public class PngChunkITXT extends PngChunk implements TextualChunk
         StringBuilder sb = new StringBuilder();
 
         sb.append(super.toString());
-        sb.append(String.format(MetadataConstants.FORMATTER, "Keyword", getKeyword()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Translated Keyword", getTranslatedKeyword()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Language Tag", getLanguageTag()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Text", getText()));
+        sb.append(String.format(Utils.FORMATTER, "Keyword", getKeyword()));
+        sb.append(String.format(Utils.FORMATTER, "Translated Keyword", getTranslatedKeyword()));
+        sb.append(String.format(Utils.FORMATTER, "Language Tag", getLanguageTag()));
+        sb.append(String.format(Utils.FORMATTER, "Text", getText()));
 
         if (textKeyword.getHint() == TagHint.HINT_DATE)
         {
             String formattedDate = Utils.formatDateString(getText(), Utils.LOCALE_AU);
-            sb.append(String.format(MetadataConstants.FORMATTER, "Formatted Date", formattedDate));
+            sb.append(String.format(Utils.FORMATTER, "Formatted Date", formattedDate));
         }
 
         return sb.toString();

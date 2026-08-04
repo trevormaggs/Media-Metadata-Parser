@@ -3,7 +3,6 @@ package png;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import common.MetadataConstants;
 import common.PropertyDisplay;
 import common.Utils;
 
@@ -96,7 +95,7 @@ public class PngChunkTIME extends PngChunk
         String isoDateText = getModificationTime().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         String formattedDate = Utils.formatDateString(isoDateText, Utils.LOCALE_AU);
 
-        sb.append(String.format(MetadataConstants.FORMATTER, "Modification Date", formattedDate));
+        sb.append(String.format(Utils.FORMATTER, "Modification Date", formattedDate));
 
         return sb.toString();
     }

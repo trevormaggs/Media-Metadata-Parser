@@ -101,7 +101,7 @@ public class MetaBox extends FullBox
     @Override
     public void logBoxInfo()
     {
-        String tab = Utils.repeatPrint("\t", getHierarchyDepth());
+        String tab = Utils.repeatText("\t", getHierarchyDepth());
         LOGGER.debug(String.format("%s%s '%s':\t\t(%s)", tab, this.getClass().getSimpleName(), getFourCC(), getHeifType().getBoxCategory()));
     }
 }

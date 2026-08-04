@@ -23,8 +23,21 @@ import java.util.Locale;
  */
 public final class Utils
 {
+    /**
+     * Australian English locale used for application-specific date formatting.
+     */
     public static final Locale LOCALE_AU = new Locale("en", "AU");
+    
+    /**
+     * Format string for printing key/value pairs (i.e. Tag: Value). Output: %-20s: %s\n
+     */
+    public static final String FORMATTER = "%-20s:\t%s%n";
 
+    /**
+     * Separator line used for visual distinction between directories.
+     */
+    public static final String DIVIDER = "--------------------------------------------------";
+    
     /**
      * Prevents direct instantiation.
      *
@@ -37,7 +50,7 @@ public final class Utils
     }
 
     /**
-     * Returns the extension of the image file name, excluding the dot.
+     * Returns the extension of a file name, excluding the dot.
      *
      * <p>
      * If the file name does not contain an extension, an empty string is returned.
@@ -83,7 +96,7 @@ public final class Utils
      *        the number of times to repeat the string
      * @return the resulting formatted string, or an empty string if n is less or equal to 0
      */
-    public static String repeatPrint(String ch, int n)
+    public static String repeatText(String ch, int n)
     {
         if (n <= 0)
         {
@@ -101,7 +114,7 @@ public final class Utils
     }
 
     /**
-     * Validates a box's boundaries before processing.
+     * Validates the header and bounds of a metadata box before processing.
      *
      * @param data
      *        the byte array containing the box data
@@ -224,9 +237,8 @@ public final class Utils
     }
 
     /**
-     * Generates a byte array containing the best-fitting ISO date string to fit a fixed-width XMP
-     * slot.
-     *
+     * Generates a fixed-width byte array containing the best-fitting ISO-8601 date representation.
+     * 
      * <p>
      * Falls back from full ISO (with offset) to short ISO (no offset) to date-only. If the date is
      * shorter than the slot, it is padded with ASCII spaces (0x20) to maintain binary alignment

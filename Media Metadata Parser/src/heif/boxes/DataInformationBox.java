@@ -104,7 +104,7 @@ public class DataInformationBox extends Box
     @Override
     public void logBoxInfo()
     {
-        String tab = Utils.repeatPrint("\t", getHierarchyDepth());
+        String tab = Utils.repeatText("\t", getHierarchyDepth());
         LOGGER.debug(String.format("%s%s '%s':\t\t(%s)", tab, this.getClass().getSimpleName(), getFourCC(), getHeifType().getBoxCategory()));
     }
 
@@ -162,7 +162,7 @@ public class DataInformationBox extends Box
         @Override
         public void logBoxInfo()
         {
-            String tab = Utils.repeatPrint("\t", getHierarchyDepth());
+            String tab = Utils.repeatText("\t", getHierarchyDepth());
             LOGGER.debug(String.format("%s%s '%s':\t\tentryCount=%d", tab, this.getClass().getSimpleName(), getFourCC(), dataEntry.length));
         }
     }
@@ -224,7 +224,7 @@ public class DataInformationBox extends Box
         @Override
         public void logBoxInfo()
         {
-            String tab = Utils.repeatPrint("\t", getHierarchyDepth());
+            String tab = Utils.repeatText("\t", getHierarchyDepth());
             boolean selfContained = (getFlags() & 0x000001) != 0;
 
             StringBuilder sb = new StringBuilder().append(selfContained ? "(Self-Contained) " : "");

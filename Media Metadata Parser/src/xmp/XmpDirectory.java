@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import common.Directory;
-import common.MetadataConstants;
+import common.Utils;
 
 /**
  * Stores a collection of {@link XmpRecord} objects representing XMP metadata properties.
@@ -158,11 +158,11 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
         public String toString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.append(String.format(MetadataConstants.FORMATTER, "Namespace", getNamespace()));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Qualifier Path", getQualifiedPath()));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Prefix", getPrefix()));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Name", getName()));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Raw Value", getValue()));
+            sb.append(String.format(Utils.FORMATTER, "Namespace", getNamespace()));
+            sb.append(String.format(Utils.FORMATTER, "Qualifier Path", getQualifiedPath()));
+            sb.append(String.format(Utils.FORMATTER, "Prefix", getPrefix()));
+            sb.append(String.format(Utils.FORMATTER, "Name", getName()));
+            sb.append(String.format(Utils.FORMATTER, "Raw Value", getValue()));
 
             return sb.toString();
         }
@@ -303,7 +303,7 @@ public final class XmpDirectory implements Directory<XmpDirectory.XmpRecord>
     {
         StringBuilder sb = new StringBuilder();
         sb.append("XMP Metadata (").append(size()).append(" entries)").append(System.lineSeparator());
-        sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+        sb.append(Utils.DIVIDER).append(System.lineSeparator());
 
         for (XmpRecord record : propertyMap.values())
         {

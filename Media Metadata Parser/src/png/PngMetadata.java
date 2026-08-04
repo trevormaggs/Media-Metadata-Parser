@@ -7,7 +7,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import common.DigitalSignature;
-import common.MetadataConstants;
+import common.Utils;
 import png.ChunkType.Category;
 import tif.TifMetadata;
 import tif.TifParser;
@@ -373,7 +373,7 @@ public class PngMetadata implements PngMetadataProvider
         for (Map.Entry<Category, PngDirectory> entry : pngMap.entrySet())
         {
             sb.append("Category: ").append(entry.getKey()).append(System.lineSeparator());
-            sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+            sb.append(Utils.DIVIDER).append(System.lineSeparator());
             sb.append(entry.getValue()).append(System.lineSeparator());
         }
 

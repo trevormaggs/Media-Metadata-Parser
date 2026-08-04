@@ -2,7 +2,7 @@ package webp;
 
 import java.util.Arrays;
 import java.util.Objects;
-import common.MetadataConstants;
+import common.Utils;
 import logger.LogFactory;
 
 /**
@@ -167,9 +167,9 @@ public class WebpChunk
     {
         StringBuilder sb = new StringBuilder();
 
-        sb.append(String.format(MetadataConstants.FORMATTER, "FourCC Type", getType()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Type Value", getTypeValue()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Payload Size", getLength()));
+        sb.append(String.format(Utils.FORMATTER, "FourCC Type", getType()));
+        sb.append(String.format(Utils.FORMATTER, "Type Value", getTypeValue()));
+        sb.append(String.format(Utils.FORMATTER, "Payload Size", getLength()));
 
         return sb.toString();
     }

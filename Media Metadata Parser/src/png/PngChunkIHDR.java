@@ -2,7 +2,7 @@ package png;
 
 import java.nio.ByteBuffer;
 import common.ByteValueConverter;
-import common.MetadataConstants;
+import common.Utils;
 import common.PropertyDisplay;
 import logger.LogFactory;
 
@@ -266,13 +266,13 @@ public class PngChunkIHDR extends PngChunk
         StringBuilder sb = new StringBuilder();
 
         sb.append(super.toString());
-        sb.append(String.format(MetadataConstants.FORMATTER, "Image Width", getWidth()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Image Height", getHeight()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Bit Depth", getBitDepth()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Colour Type", translateColorType()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Compression", translateCompressionMethod()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Filter", translateFilterMethod()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Interlace", translateInterlaceMethod()));
+        sb.append(String.format(Utils.FORMATTER, "Image Width", getWidth()));
+        sb.append(String.format(Utils.FORMATTER, "Image Height", getHeight()));
+        sb.append(String.format(Utils.FORMATTER, "Bit Depth", getBitDepth()));
+        sb.append(String.format(Utils.FORMATTER, "Colour Type", translateColorType()));
+        sb.append(String.format(Utils.FORMATTER, "Compression", translateCompressionMethod()));
+        sb.append(String.format(Utils.FORMATTER, "Filter", translateFilterMethod()));
+        sb.append(String.format(Utils.FORMATTER, "Interlace", translateInterlaceMethod()));
 
         return sb.toString();
     }

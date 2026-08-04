@@ -68,16 +68,16 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
         StringBuilder sb = new StringBuilder();
 
         sb.append("File Attributes").append(System.lineSeparator());
-        sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+        sb.append(Utils.DIVIDER).append(System.lineSeparator());
 
         BasicFileAttributes attr = Files.readAttributes(getImageFile(), BasicFileAttributes.class);
 
         // sb.append(String.format(MetadataConstants.FORMATTER, "File", getImageFile()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "File", getImageFile().getFileName()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Creation Time", DATE_FORMATTER.format(attr.creationTime().toInstant())));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Last Access Time", DATE_FORMATTER.format(attr.lastAccessTime().toInstant())));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Last Modified Time", DATE_FORMATTER.format(attr.lastModifiedTime().toInstant())));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Detected Format", getMetadata().getImageFormat().getFileExtensionName()));
+        sb.append(String.format(Utils.FORMATTER, "File", getImageFile().getFileName()));
+        sb.append(String.format(Utils.FORMATTER, "Creation Time", DATE_FORMATTER.format(attr.creationTime().toInstant())));
+        sb.append(String.format(Utils.FORMATTER, "Last Access Time", DATE_FORMATTER.format(attr.lastAccessTime().toInstant())));
+        sb.append(String.format(Utils.FORMATTER, "Last Modified Time", DATE_FORMATTER.format(attr.lastModifiedTime().toInstant())));
+        sb.append(String.format(Utils.FORMATTER, "Detected Format", getMetadata().getImageFormat().getFileExtensionName()));
 
         return sb.toString();
     }

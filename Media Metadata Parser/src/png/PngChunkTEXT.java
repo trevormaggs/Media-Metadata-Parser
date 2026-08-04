@@ -2,7 +2,6 @@ package png;
 
 import java.nio.charset.StandardCharsets;
 import common.ByteValueConverter;
-import common.MetadataConstants;
 import common.Utils;
 import logger.LogFactory;
 import tif.TagHint;
@@ -53,7 +52,7 @@ public class PngChunkTEXT extends PngChunk implements TextualChunk
         super(length, typeBytes, crc32, data, offsetStart);
 
         byte[] payload = getPayloadArray();
-        
+
         String[] parts = ByteValueConverter.splitNullDelimitedStrings(payload, StandardCharsets.ISO_8859_1);
 
         if (parts.length < 2)
@@ -150,13 +149,13 @@ public class PngChunkTEXT extends PngChunk implements TextualChunk
         StringBuilder sb = new StringBuilder();
 
         sb.append(super.toString());
-        sb.append(String.format(MetadataConstants.FORMATTER, "Keyword", getKeyword()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Text", getText()));
+        sb.append(String.format(Utils.FORMATTER, "Keyword", getKeyword()));
+        sb.append(String.format(Utils.FORMATTER, "Text", getText()));
 
         if (textKeyword.getHint() == TagHint.HINT_DATE)
         {
             String formattedDate = Utils.formatDateString(getText(), Utils.LOCALE_AU);
-            sb.append(String.format(MetadataConstants.FORMATTER, "Formatted Date", formattedDate));
+            sb.append(String.format(Utils.FORMATTER, "Formatted Date", formattedDate));
         }
 
         return sb.toString();

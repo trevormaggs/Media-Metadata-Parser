@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.zip.CRC32;
 import common.ByteValueConverter;
-import common.MetadataConstants;
+import common.Utils;
 import common.PropertyDisplay;
 
 /**
@@ -305,13 +305,13 @@ public class PngChunk
     {
         StringBuilder sb = new StringBuilder();
 
-        sb.append(String.format(MetadataConstants.FORMATTER, "Chunk Type", getType()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "Chunk Byte Length", getLength()));
-        sb.append(String.format(MetadataConstants.FORMATTER, "CRC Value", getCrc()));
+        sb.append(String.format(Utils.FORMATTER, "Chunk Type", getType()));
+        sb.append(String.format(Utils.FORMATTER, "Chunk Byte Length", getLength()));
+        sb.append(String.format(Utils.FORMATTER, "CRC Value", getCrc()));
 
         if (!getType().isTextual())
         {
-            sb.append(String.format(MetadataConstants.FORMATTER, "Binary Data Size", payload.length));
+            sb.append(String.format(Utils.FORMATTER, "Binary Data Size", payload.length));
         }
 
         return sb.toString();

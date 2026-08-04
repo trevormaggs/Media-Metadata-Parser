@@ -1,7 +1,7 @@
 package png;
 
 import common.ByteValueConverter;
-import common.MetadataConstants;
+import common.Utils;
 import common.PropertyDisplay;
 import logger.LogFactory;
 
@@ -119,7 +119,7 @@ public class PngChunkSRGB extends PngChunk
         StringBuilder sb = new StringBuilder();
 
         sb.append(super.toString());
-        sb.append(String.format(MetadataConstants.FORMATTER, "SRGB Rendering", translateRendering()));
+        sb.append(String.format(Utils.FORMATTER, "SRGB Rendering", translateRendering()));
 
         return sb.toString();
     }

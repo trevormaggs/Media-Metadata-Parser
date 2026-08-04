@@ -100,7 +100,7 @@ public class ImageMirrorBox extends Box
     @Override
     public void logBoxInfo()
     {
-        String tab = Utils.repeatPrint("\t", getHierarchyDepth());
+        String tab = Utils.repeatText("\t", getHierarchyDepth());
         LOGGER.debug(String.format("%s%s '%s':\t\taxis=%d, reserved=%d", tab, this.getClass().getSimpleName(), getFourCC(), axis, reserved));
     }
 }

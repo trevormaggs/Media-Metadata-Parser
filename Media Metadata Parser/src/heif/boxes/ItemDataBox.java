@@ -66,7 +66,7 @@ public class ItemDataBox extends Box
     public void logBoxInfo()
     {
         StringBuilder sb = new StringBuilder();
-        String tab = Utils.repeatPrint("\t", getHierarchyDepth());
+        String tab = Utils.repeatText("\t", getHierarchyDepth());
         LOGGER.debug(String.format("%s%s '%s':", tab, this.getClass().getSimpleName(), getFourCC()));
 
         if (data.length < 65)

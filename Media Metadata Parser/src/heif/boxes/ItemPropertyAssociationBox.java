@@ -222,7 +222,7 @@ public class ItemPropertyAssociationBox extends FullBox
     @Override
     public void logBoxInfo()
     {
-        String tab = Utils.repeatPrint("\t", getHierarchyDepth());
+        String tab = Utils.repeatText("\t", getHierarchyDepth());
         LOGGER.debug(String.format("%s%s '%s':\t\tentry_count=%d", tab, this.getClass().getSimpleName(), getFourCC(), entries.length));
 
         for (int i = 0; i < entries.length; i++)

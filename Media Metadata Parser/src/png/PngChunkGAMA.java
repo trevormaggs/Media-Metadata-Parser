@@ -6,7 +6,7 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import common.ByteValueConverter;
-import common.MetadataConstants;
+import common.Utils;
 import common.PropertyDisplay;
 import logger.LogFactory;
 
@@ -122,7 +122,7 @@ public class PngChunkGAMA extends PngChunk
         StringBuilder sb = new StringBuilder();
 
         sb.append(super.toString());
-        sb.append(String.format(MetadataConstants.FORMATTER, "Gamma", translateGamma()));
+        sb.append(String.format(Utils.FORMATTER, "Gamma", translateGamma()));
 
         return sb.toString();
     }

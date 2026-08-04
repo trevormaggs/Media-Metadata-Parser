@@ -7,7 +7,6 @@ import java.util.Optional;
 import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
 import common.DigitalSignature;
-import common.MetadataConstants;
 import common.Utils;
 import heif.boxes.Box;
 import logger.LogFactory;
@@ -164,7 +163,7 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
         {
             sb.append("\t\t\tHEIF Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
-            sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", metadata.getByteOrder()));
+            sb.append(String.format(Utils.FORMATTER, "Byte Order", metadata.getByteOrder()));
             sb.append(System.lineSeparator());
 
             if (tif.hasMetadata())
@@ -190,7 +189,7 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
                 sb.append("No XMP metadata found").append(System.lineSeparator());
             }
 
-            sb.append(MetadataConstants.DIVIDER);
+            sb.append(Utils.DIVIDER);
         }
 
         catch (Exception exc)

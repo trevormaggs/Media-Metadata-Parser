@@ -92,7 +92,7 @@ public class PixelInformationBox extends FullBox
     @Override
     public void logBoxInfo()
     {
-        String tab = Utils.repeatPrint("\t", getHierarchyDepth());
+        String tab = Utils.repeatText("\t", getHierarchyDepth());
         LOGGER.debug(String.format("%s%s '%s':\t\tnumChannels=%s, bitsPerChannel=%s", tab, this.getClass().getSimpleName(), getFourCC(), numChannels, Arrays.toString(bitsPerChannel)));
     }
 }

@@ -19,7 +19,6 @@ import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
 import common.ByteValueConverter;
 import common.DigitalSignature;
-import common.MetadataConstants;
 import common.Utils;
 import common.binary.BinaryInput;
 import common.binary.RandomAccessReader;
@@ -245,7 +244,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
         {
             sb.append("\t\t\tJPG Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
-            sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", jpg.getByteOrder()));
+            sb.append(String.format(Utils.FORMATTER, "Byte Order", jpg.getByteOrder()));
             sb.append(System.lineSeparator());
 
             if (jpg.hasMetadata())
@@ -261,7 +260,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                 sb.append("No EXIF metadata found").append(System.lineSeparator());
             }
 
-            sb.append(System.lineSeparator()).append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+            sb.append(System.lineSeparator()).append(Utils.DIVIDER).append(System.lineSeparator());
 
             if (jpg.hasXmpData())
             {
@@ -273,7 +272,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                 sb.append("No XMP metadata found").append(System.lineSeparator());
             }
 
-            sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+            sb.append(Utils.DIVIDER).append(System.lineSeparator());
 
             if (segmentData.getIcc().isPresent())
             {
@@ -285,7 +284,7 @@ public class JpgParser extends AbstractImageParser<TifMetadata>
                 sb.append("No ICC Profile found").append(System.lineSeparator());
             }
 
-            sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+            sb.append(Utils.DIVIDER).append(System.lineSeparator());
         }
 
         catch (Exception exc)

@@ -2,7 +2,7 @@ package png;
 
 import java.nio.ByteOrder;
 import common.ByteValueConverter;
-import common.MetadataConstants;
+import common.Utils;
 import common.PropertyDisplay;
 
 /**
@@ -149,14 +149,14 @@ public class PngChunkPHYS extends PngChunk
         StringBuilder sb = new StringBuilder();
 
         sb.append(super.toString());
-        sb.append(String.format(MetadataConstants.FORMATTER, "PixelsPerUnitX", pixelsPerUnitX));
-        sb.append(String.format(MetadataConstants.FORMATTER, "PixelsPerUnitY", pixelsPerUnitY));
-        sb.append(String.format(MetadataConstants.FORMATTER, "PixelUnits", translateUnit()));
+        sb.append(String.format(Utils.FORMATTER, "PixelsPerUnitX", pixelsPerUnitX));
+        sb.append(String.format(Utils.FORMATTER, "PixelsPerUnitY", pixelsPerUnitY));
+        sb.append(String.format(Utils.FORMATTER, "PixelUnits", translateUnit()));
 
         if (isMeters())
         {
-            sb.append(String.format(MetadataConstants.FORMATTER, "X Resolution", getXResolutionDPI() + " dpi"));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Y Resolution", getYResolutionDPI() + " dpi"));
+            sb.append(String.format(Utils.FORMATTER, "X Resolution", getXResolutionDPI() + " dpi"));
+            sb.append(String.format(Utils.FORMATTER, "Y Resolution", getYResolutionDPI() + " dpi"));
         }
 
         return sb.toString();

@@ -234,7 +234,7 @@ public class ItemInfoEntry extends FullBox
     @Override
     public void logBoxInfo()
     {
-        String tab = Utils.repeatPrint("\t", getHierarchyDepth());
+        String tab = Utils.repeatText("\t", getHierarchyDepth());
         LOGGER.debug(String.format("%s%d)\t'%s':\t\titem_ID=%d, item_type='%s', contentType='%s'", tab, getItemID(), getFourCC(), getItemID(), getItemType(), getContentType()));
     }
 }

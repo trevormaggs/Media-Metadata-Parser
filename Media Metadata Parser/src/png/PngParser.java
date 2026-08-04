@@ -9,7 +9,6 @@ import java.util.EnumSet;
 import java.util.List;
 import com.adobe.internal.xmp.XMPException;
 import common.AbstractImageParser;
-import common.MetadataConstants;
 import common.Utils;
 import logger.LogFactory;
 import png.ChunkType.Category;
@@ -304,13 +303,13 @@ public class PngParser extends AbstractImageParser<PngMetadata>
         {
             sb.append("\t\t\tPNG Metadata Summary").append(System.lineSeparator()).append(System.lineSeparator());
             sb.append(super.formatDiagnosticString());
-            sb.append(String.format(MetadataConstants.FORMATTER, "Byte Order", png.getByteOrder()));
+            sb.append(String.format(Utils.FORMATTER, "Byte Order", png.getByteOrder()));
             sb.append(System.lineSeparator());
 
             for (PngDirectory dir : png)
             {
                 sb.append(dir.getCategory().getDescription()).append(System.lineSeparator());
-                sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+                sb.append(Utils.DIVIDER).append(System.lineSeparator());
                 sb.append(dir);
                 sb.append(System.lineSeparator());
             }
@@ -323,7 +322,7 @@ public class PngParser extends AbstractImageParser<PngMetadata>
                 if (chunk != null)
                 {
                     sb.append("Embedded EXIF Metadata").append(System.lineSeparator());
-                    sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+                    sb.append(Utils.DIVIDER).append(System.lineSeparator());
 
                     TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
 
@@ -347,12 +346,12 @@ public class PngParser extends AbstractImageParser<PngMetadata>
             if (png.hasXmpData())
             {
                 sb.append("Embedded XMP Payload").append(System.lineSeparator());
-                sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+                sb.append(Utils.DIVIDER).append(System.lineSeparator());
                 sb.append(png.getXmpDirectory());
                 sb.append(System.lineSeparator());
             }
 
-            sb.append(MetadataConstants.DIVIDER).append(System.lineSeparator());
+            sb.append(Utils.DIVIDER).append(System.lineSeparator());
         }
 
         catch (Exception exc)

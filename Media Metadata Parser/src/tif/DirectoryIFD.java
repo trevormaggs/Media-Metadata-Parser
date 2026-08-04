@@ -9,7 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import common.Directory;
-import common.MetadataConstants;
+import common.Utils;
 import tif.DirectoryIFD.EntryIFD;
 import tif.tagspecs.Taggable;
 
@@ -172,20 +172,20 @@ public class DirectoryIFD implements Directory<EntryIFD>
             StringBuilder sb = new StringBuilder();
 
             // Tag, Type, and Count Information
-            sb.append(String.format(MetadataConstants.FORMATTER, "Tag Name", getTag() + " (Tag ID: " + String.format("0x%04X", getTagID()) + ")"));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Field Type", getFieldType() + " (count: " + getCount() + ")"));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Value", TagValueTranslator.toStringValue(this)));
-            sb.append(String.format(MetadataConstants.FORMATTER, "Hint", getTag().getHint()));
+            sb.append(String.format(Utils.FORMATTER, "Tag Name", getTag() + " (Tag ID: " + String.format("0x%04X", getTagID()) + ")"));
+            sb.append(String.format(Utils.FORMATTER, "Field Type", getFieldType() + " (count: " + getCount() + ")"));
+            sb.append(String.format(Utils.FORMATTER, "Value", TagValueTranslator.toStringValue(this)));
+            sb.append(String.format(Utils.FORMATTER, "Hint", getTag().getHint()));
 
             if (getByteLength() > IFDHandler.ENTRY_MAX_VALUE_LENGTH)
             {
-                sb.append(String.format(MetadataConstants.FORMATTER, "Jump Offset", String.format("0x%08X", valueOffset)));
+                sb.append(String.format(Utils.FORMATTER, "Jump Offset", String.format("0x%08X", valueOffset)));
             }
 
             else
             {
                 String hexVal = String.format("0x%08X", valueOffset);
-                sb.append(String.format(MetadataConstants.FORMATTER, "Inline Value", valueOffset + " (" + hexVal + ")"));
+                sb.append(String.format(Utils.FORMATTER, "Inline Value", valueOffset + " (" + hexVal + ")"));
             }
 
             return sb.toString();
@@ -206,12 +206,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
 
             EntryIFD entryIFD = (EntryIFD) o;
 
-            if ((count != entryIFD.count) || (valueOffset != entryIFD.valueOffset) || (fieldType != entryIFD.fieldType))
-            {
-                return false;
-            }
-
-            if (!Objects.equals(tagEnum, entryIFD.tagEnum))
+            if ((count != entryIFD.count) || (valueOffset != entryIFD.valueOffset) || (fieldType != entryIFD.fieldType) || !Objects.equals(tagEnum, entryIFD.tagEnum))
             {
                 return false;
             }
@@ -402,7 +397,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
 
     /**
      * Retrieves the value of the specified tag as an array of integers.
-     * 
+     *
      * @param tag
      *        the enumeration tag identifying the metadata entry
      * @return an array of integers, or an empty array if the tag cannot be determined
@@ -426,7 +421,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
 
     /**
      * Retrieves the value of the specified tag as an array of longs.
-     * 
+     *
      * @param tag
      *        the enumeration tag identifying the metadata entry
      * @return an array of longs, or an empty array if the tag cannot be determined
@@ -450,7 +445,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
 
     /**
      * Retrieves the value of the specified tag as an array of floats.
-     * 
+     *
      * @param tag
      *        the enumeration tag identifying the metadata entry
      * @return an array of floats, or an empty array if the tag cannot be determined
@@ -474,7 +469,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
 
     /**
      * Retrieves the value of the specified tag as an array of doubles.
-     * 
+     *
      * @param tag
      *        the enumeration tag identifying the metadata entry
      * @return an array of doubles, or an empty array if the tag cannot be determined
@@ -538,16 +533,16 @@ public class DirectoryIFD implements Directory<EntryIFD>
 
     /**
      * Returns the value of the specified tag as a {@link ZonedDateTime} object.
-     * 
+     *
      * <p>
      * This method validates that the tag exists in the directory and that its content adheres to a
      * recognised date-time format (including ISO-8601 and regional variations).
      * </p>
-     * 
+     *
      * @param tag
      *        the enumeration tag identifying the metadata entry
      * @return a {@link ZonedDateTime} representing the tag's value
-     * 
+     *
      * @throws IllegalArgumentException
      *         if the tag is missing, or if the value cannot be parsed as a valid date format
      */
@@ -610,7 +605,7 @@ public class DirectoryIFD implements Directory<EntryIFD>
         sb.append("Directory Type - ");
         sb.append(getDirectoryType().getDescription());
         sb.append(String.format(" (%d entries)%n", size()));
-        sb.append(MetadataConstants.DIVIDER);
+        sb.append(Utils.DIVIDER);
         sb.append(System.lineSeparator());
 
         for (EntryIFD entry : this)

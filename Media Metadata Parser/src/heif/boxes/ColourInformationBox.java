@@ -180,7 +180,7 @@ public class ColourInformationBox extends Box
     public void logBoxInfo()
     {
         StringBuilder sb = new StringBuilder();
-        String tab = Utils.repeatPrint("\t", getHierarchyDepth());
+        String tab = Utils.repeatText("\t", getHierarchyDepth());
 
         sb.append(String.format("%s%s '%s':\t\tType=%s", tab, this.getClass().getSimpleName(), getFourCC(), colourType));
 
