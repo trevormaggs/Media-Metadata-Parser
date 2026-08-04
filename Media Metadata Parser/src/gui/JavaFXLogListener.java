@@ -1,5 +1,6 @@
 package gui;
 
+import java.util.Objects;
 import java.util.logging.Level;
 import javafx.application.Platform;
 import javafx.scene.control.TextArea;
@@ -11,7 +12,7 @@ public class JavaFXLogListener implements LogListener
 
     public JavaFXLogListener(TextArea textArea)
     {
-        this.textArea = java.util.Objects.requireNonNull(textArea, "TextArea is undefined");
+        this.textArea = Objects.requireNonNull(textArea, "TextArea is undefined");
     }
 
     @Override

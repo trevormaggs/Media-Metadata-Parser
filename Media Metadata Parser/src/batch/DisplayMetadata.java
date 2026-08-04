@@ -15,6 +15,7 @@ import common.Metadata;
 import common.PropertyDisplay;
 import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
+import logger.LogFactory;
 import png.ChunkType;
 import png.PngChunk;
 import png.PngDirectory;
@@ -43,8 +44,8 @@ import xmp.XmpProperty;
  */
 public final class DisplayMetadata
 {
+    private final BatchConfiguration config;
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
-    private final MetadataScanner scanner;
     private static final EnumSet<ChunkType> DISPLAY_CHUNK_FILTER = EnumSet.of(
             ChunkType.IHDR, ChunkType.gAMA, ChunkType.sRGB, ChunkType.pHYs,
             ChunkType.tEXt, ChunkType.zTXt, ChunkType.iTXt, ChunkType.eXIf,
@@ -64,7 +65,7 @@ public final class DisplayMetadata
      */
     public DisplayMetadata(BatchConfiguration config)
     {
-        this.scanner = new MetadataScanner(config);
+        this.config = config;
     }
 
     /**
@@ -72,14 +73,20 @@ public final class DisplayMetadata
      */
     public void execute()
     {
+        MetadataScanner scanner = new MetadataScanner(config);
+
         try
         {
+            LogFactory.configure("dummy.log");
+            LogFactory logger = LogFactory.getLogger(DisplayMetadata.class);            
+            logger.disable();
+
             scanner.start();
         }
 
         catch (Exception exc)
         {
-            System.err.println("Fatal: Failed to initialise metadata scanner: " + exc.getMessage());
+            System.err.println("Unable to initialise due to an error: " + exc.getMessage());
             return;
         }
 
@@ -213,9 +220,9 @@ public final class DisplayMetadata
         }
 
         // Defer Photoshop listing until after last main IFD listing
-        for (int i = 0; i < photoshopMeta.size(); i++)
+        for (String element : photoshopMeta)
         {
-            System.out.print(photoshopMeta.get(i));
+            System.out.print(element);
         }
 
         if (tif.hasXmpData())

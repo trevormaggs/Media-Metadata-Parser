@@ -1,5 +1,11 @@
-package batch;
+package shell;
 
+import batch.BatchBuilder;
+import batch.BatchConfiguration;
+import batch.BatchErrorException;
+import batch.BatchStatistics;
+import batch.DisplayMetadata;
+import batch.MediaBatchProcessor;
 import cli.CommandFlagParser;
 import cli.FlagType;
 import progressbar.ConsoleProgressBar;
@@ -8,20 +14,55 @@ import util.ProjectBuildInfo;
 /**
  * The primary Command Line Interface (CLI) entry point for media metadata operations.
  *
+ * <p>
+ * This class coordinates the application lifecycle from argument parsing through task dispatching.
+ * It leverages a scanner to discover media files and routes execution based on the specified
+ * command-line options.
+ * </p>
+ *
+ * <p>
+ * Depending on the configuration, this console either displays detailed media metadata, similar to
+ * the output format of {@code exiftool -G1 -a -s} or delegates to the processor for file renaming
+ * and batch processing.
+ * </p>
+ *
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.1
  * @since 2 June 2026
  */
-public final class MediaMetadataConsoleTest
+public final class MediaMetadataConsole
 {
     private final BatchConfiguration config;
-    private MediaBatchProcessor activeProcessor;
+    private volatile MediaBatchProcessor processor;
 
-    public MediaMetadataConsoleTest(BatchConfiguration config)
+    /**
+     * Constructs a console instance using a validated configuration.
+     *
+     * <p>
+     * Typically constructed directly using a {@link BatchConfiguration} produced by
+     * {@link BatchBuilder#build()}.
+     * </p>
+     *
+     * @param config
+     *        the immutable configuration containing validated parameters
+     */
+    public MediaMetadataConsole(BatchConfiguration config)
     {
         this.config = config;
     }
 
+    /**
+     * Configures the supported command-line flags and parses the arguments provided.
+     *
+     * <p>
+     * This method establishes the validation rules for the CLI, defining which flags require
+     * values, which act as switches, and how separator tokens should be handled.
+     * </p>
+     *
+     * @param arguments
+     *        the raw command-line arguments
+     * @return a configured {@link CommandFlagParser}
+     */
     private static CommandFlagParser scanArguments(String[] arguments)
     {
         CommandFlagParser cli = new CommandFlagParser(arguments);
@@ -47,9 +88,11 @@ public final class MediaMetadataConsoleTest
             cli.setFreeArgumentLimit(1);
             cli.parse();
         }
+
         catch (Exception exc)
         {
             System.err.println(exc.getMessage());
+
             showUsage();
             System.exit(1);
         }
@@ -57,12 +100,18 @@ public final class MediaMetadataConsoleTest
         return cli;
     }
 
+    /**
+     * Prints the command usage synopsis.
+     */
     private static void showUsage()
     {
         System.out.format("Usage: %s [-p prefix] [-t target directory] [-e] [-m date taken] [-f] [-i=<File 1> ... <File n>] [-S] [-X] [--desc] [-v|--version] [-h|--help] [-d|--debug] <Source Directory>%n",
                 ProjectBuildInfo.getInstance(MediaMetadataConsole.class).getShortFileName());
     }
 
+    /**
+     * Prints detailed help information describing the available command-line options.
+     */
     private static void showHelp()
     {
         showUsage();
@@ -81,6 +130,17 @@ public final class MediaMetadataConsoleTest
         System.out.println("  -d                 Enable debugging");
     }
 
+    /**
+     * Begins the parsing of the command-line arguments and initialises the configuration builder.
+     *
+     * <p>
+     * This method maps parsed flags to the {@link BatchBuilder} API, validates the resulting
+     * configuration, and executes the requested operation.
+     * </p>
+     *
+     * @param arguments
+     *        the raw command-line arguments
+     */
     private static void execute(String[] arguments)
     {
         CommandFlagParser cli = scanArguments(arguments);
@@ -120,6 +180,7 @@ public final class MediaMetadataConsoleTest
             MediaMetadataConsole console = new MediaMetadataConsole(config);
             console.run();
         }
+
         catch (BatchErrorException exc)
         {
             System.err.println(exc.getMessage());
@@ -129,22 +190,40 @@ public final class MediaMetadataConsoleTest
 
     /**
      * Executes the operation defined by the current configuration.
-     * Registers a JVM shutdown hook to capture SIGINT (Ctrl+C) and trigger cancellation.
      *
-     * @throws BatchErrorException if scanning or subsequent processing fails
+     * <p>
+     * The execution flow follows a three-stage process:
+     * </p>
+     *
+     * <ol>
+     * <li><b>Setup:</b> Registers a JVM shutdown hook to capture SIGINT (Ctrl+C) and trigger
+     * graceful cancellation.</li>
+     * <li><b>Discovery:</b> The {@code MetadataScanner} traverses the source to build a sorted set
+     * of media records.</li>
+     * <li><b>Execution:</b> Depending on the configuration, the system either lists extracted
+     * metadata for inspection or initiates a {@link MediaBatchProcessor} to perform file
+     * operations.</li>
+     * </ol>
+     *
+     * @throws BatchErrorException
+     *         if scanning or subsequent processing fails
      */
     public void run() throws BatchErrorException
     {
-        // 1. Setup the Shutdown Hook to handle Ctrl+C
+        /*
+         * Note the processor instance variable is declared as a volatile field so whenever users
+         * pressed Ctrl-C to interrupt the processing task, the shutdown hook thread can safely
+         * share the original updates across thread boundaries.
+         */
         Thread shutdownHook = new Thread(new Runnable()
         {
             @Override
             public void run()
             {
-                if (activeProcessor != null && !activeProcessor.isCancelled())
+                if (processor != null)
                 {
-                    System.out.println("\n[INFO] Interrupt signal received (Ctrl+C). Cancelling process...");
-                    activeProcessor.cancel();
+                    System.out.println("\nInterrupt signal received (Ctrl+C). Cancelling process...");
+                    processor.cancel();
                 }
             }
         });
@@ -158,38 +237,55 @@ public final class MediaMetadataConsoleTest
                 DisplayMetadata display = new DisplayMetadata(config);
                 display.execute();
             }
+
             else
             {
-                activeProcessor = new MediaBatchProcessor(config);
-                activeProcessor.addProgressListener(new ConsoleProgressBar());
-                activeProcessor.execute();
+                processor = new MediaBatchProcessor(config);
+                processor.addProgressListener(new ConsoleProgressBar());
+                processor.execute();
 
-                if (activeProcessor.isCancelled())
+                if (processor.isCancelled())
                 {
-                    System.out.println("\nProcess cancelled.");
+                    System.out.println("\n[!] Batch process was cancelled. Cleaned up temporary files.");
                 }
+
                 else
                 {
-                    System.out.println("\nDone");
+                    BatchStatistics stat = processor.getStatistics();
+
+                    System.out.println("\n----------------------------------------");
+                    System.out.println(" Batch Processing Complete");
+                    System.out.println("----------------------------------------");
+                    System.out.printf("  Source Files Scanned : %d%n", stat.getSourceFilesCount());
+                    System.out.printf("  Target Files Copied  : %d%n", stat.getTargetFilesCount());
+                    System.out.printf("  Total Size Copied    : %.2f MB%n", stat.getTotalTargetSizeMB());
+                    System.out.println("----------------------------------------");
                 }
             }
         }
+
         finally
         {
-            // 2. Safely remove shutdown hook on normal completion
             try
             {
                 Runtime.getRuntime().removeShutdownHook(shutdownHook);
             }
-            catch (IllegalStateException ignored)
+
+            catch (IllegalStateException exc)
             {
-                // Thrown if the JVM is already shutting down
+                // Just pass through regardless
             }
         }
     }
 
+    /**
+     * Entry point for the application.
+     *
+     * @param args
+     *        the command-line arguments provided at runtime
+     */
     public static void main(String[] args)
     {
-        //MediaMetadataConsole.execute(args);
+        MediaMetadataConsole.execute(args);
     }
 }

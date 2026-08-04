@@ -56,6 +56,7 @@ public final class MediaBatchProcessor
     private final List<ProgressListener> listeners;
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
+    private BatchStatistics stats;
 
     /**
      * Constructs a batch processor using the specified configuration.
@@ -110,6 +111,11 @@ public final class MediaBatchProcessor
         return (cancelled || Thread.currentThread().isInterrupted());
     }
 
+    public BatchStatistics getStatistics()
+    {
+        return (stats == null ? new BatchStatistics(0, 0, 0L) : stats);
+    }
+
     /**
      * Begins the batch-processing workflow by preparing the target directory, initialising logging,
      * and processing the configured media files.
@@ -138,12 +144,13 @@ public final class MediaBatchProcessor
             resetListeners();
 
             int count = 1;
-            int index = 1;
-            int total = scanner.getRecordCount();
+            int processedCount = 1;
+            long totalTargetSize = 0L;
+            int totalSourceFiles = scanner.getRecordCount();
 
-            if (total > 0)
+            if (totalSourceFiles > 0)
             {
-                LOGGER.info("Starting batch process for [" + total + "] files...");
+                LOGGER.info("Starting batch process for [" + totalSourceFiles + "] files...");
 
                 for (MediaRecord record : scanner)
                 {
@@ -160,13 +167,14 @@ public final class MediaBatchProcessor
 
                     else
                     {
-                        processRecord(record, index++, total);
+                        Path pfile = processRecord(record, processedCount++, totalSourceFiles);
+                        totalTargetSize += Files.size(pfile);
                     }
 
                     /* Notify all registered listeners */
                     for (ProgressListener listener : listeners)
                     {
-                        listener.onProgressUpdate(count, total);
+                        listener.onProgressUpdate(count, totalSourceFiles);
                     }
 
                     count++;
@@ -179,6 +187,14 @@ public final class MediaBatchProcessor
             {
                 LOGGER.info("No valid media files found in [" + config.getSource() + "]");
             }
+
+            stats = new BatchStatistics(totalSourceFiles, processedCount - 1, totalTargetSize);
+        }
+
+        catch (IOException exc)
+        {
+            LOGGER.error("I/O error during batch execution", exc);
+            throw new BatchErrorException("Failed to complete batch processing", exc);
         }
 
         finally
@@ -222,7 +238,7 @@ public final class MediaBatchProcessor
      * @throws BatchErrorException
      *         if file I/O or metadata patching fails
      */
-    private void processRecord(MediaRecord record, int index, int total) throws BatchErrorException
+    private Path processRecord(MediaRecord record, int index, int total) throws BatchErrorException
     {
         Path targetPath = null;
 
@@ -234,52 +250,54 @@ public final class MediaBatchProcessor
 
             Files.copy(record.getPath(), targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
 
-            if (isCancelled())
+            if (!isCancelled())
+            {
+                if (record.isMetadataEmpty())
+                {
+                    LOGGER.warn("File [" + record.getPath() + "] contains no metadata. Only file dates were updated");
+                }
+
+                else if (config.isForceDateChange())
+                {
+                    // TODO: May need to add one for DNG
+
+                    if (record.isTIF())
+                    {
+                        TiffDatePatcher.patchAllDates(targetPath, effectiveTime, true);
+                    }
+
+                    else if (record.isJPG())
+                    {
+                        JpgDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                    }
+
+                    else if (record.isPNG())
+                    {
+                        PngDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                    }
+
+                    else if (record.isWebP())
+                    {
+                        WebPDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                    }
+
+                    else if (record.isHEIC())
+                    {
+                        HeifDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                    }
+                }
+
+                BasicFileAttributeView attr = Files.getFileAttributeView(targetPath, BasicFileAttributeView.class);
+                attr.setTimes(effectiveTime, effectiveTime, effectiveTime);
+
+                LOGGER.info(String.format("[%d/%d] Processed: %s -> %s", index, total, record.getPath().getFileName(), newName));
+            }
+
+            else
             {
                 Files.deleteIfExists(targetPath);
                 LOGGER.warn("Processing interrupted for [" + record.getPath().getFileName() + "]. Cleaned up temporary target file.");
-                return;
             }
-
-            if (record.isMetadataEmpty())
-            {
-                LOGGER.warn("File [" + record.getPath() + "] contains no metadata. Only file dates were updated");
-            }
-
-            else if (config.isForceDateChange())
-            {
-                // TODO: May need to add one for DNG
-
-                if (record.isTIF())
-                {
-                    TiffDatePatcher.patchAllDates(targetPath, effectiveTime, true);
-                }
-
-                else if (record.isJPG())
-                {
-                    JpgDatePatcher.patchAllDates(targetPath, effectiveTime, false);
-                }
-
-                else if (record.isPNG())
-                {
-                    PngDatePatcher.patchAllDates(targetPath, effectiveTime, false);
-                }
-
-                else if (record.isWebP())
-                {
-                    WebPDatePatcher.patchAllDates(targetPath, effectiveTime, false);
-                }
-
-                else if (record.isHEIC())
-                {
-                    HeifDatePatcher.patchAllDates(targetPath, effectiveTime, false);
-                }
-            }
-
-            BasicFileAttributeView attr = Files.getFileAttributeView(targetPath, BasicFileAttributeView.class);
-            attr.setTimes(effectiveTime, effectiveTime, effectiveTime);
-
-            LOGGER.info(String.format("[%d/%d] Processed: %s -> %s", index, total, record.getPath().getFileName(), newName));
         }
 
         catch (IOException exc)
@@ -294,7 +312,7 @@ public final class MediaBatchProcessor
 
                 catch (IOException exc2)
                 {
-                    // Ignore failure during rollback cleanup
+                    // Just pass through
                 }
             }
 
@@ -303,6 +321,8 @@ public final class MediaBatchProcessor
 
             throw new BatchErrorException(msg, exc);
         }
+
+        return targetPath;
     }
 
     /**

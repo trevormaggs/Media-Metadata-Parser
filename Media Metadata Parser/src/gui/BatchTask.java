@@ -2,6 +2,7 @@ package gui;
 
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
+import batch.BatchStatistics;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import javafx.concurrent.Task;
@@ -17,7 +18,7 @@ import progressbar.JavaFXProgressAdapter;
  * status to the supplied user interface components without blocking the JavaFX Application Thread.
  * </p>
  */
-class BatchTask extends Task<Void>
+class BatchTask extends Task<BatchStatistics>
 {
     private final BatchConfiguration config;
     private final TextArea logArea;
@@ -46,6 +47,16 @@ class BatchTask extends Task<Void>
     }
 
     /**
+     * Returns the underlying batch processor instance.
+     *
+     * @return the {@link MediaBatchProcessor}, or {@code null} if it is not yet initialised
+     */
+    public MediaBatchProcessor getProcessor()
+    {
+        return processor;
+    }
+
+    /**
      * Cancels the active processing engine if currently running.
      */
     void cancelProcessor()
@@ -59,7 +70,7 @@ class BatchTask extends Task<Void>
     }
 
     @Override
-    protected Void call() throws Exception
+    protected BatchStatistics call() throws Exception
     {
         if (displayMetadata)
         {
@@ -72,80 +83,79 @@ class BatchTask extends Task<Void>
         {
             processor = new MediaBatchProcessor(config);
 
-            if (progressBar != null)
+            processor.addProgressListener(new JavaFXProgressAdapter(progressBar)
             {
-                processor.addProgressListener(new JavaFXProgressAdapter(progressBar)
+                private boolean isScanning = true;
+
+                @Override
+                public void onProgressUpdate(int current)
                 {
-                    private boolean isScanning = true;
-
-                    @Override
-                    public void onProgressUpdate(int current)
+                    if (!isCancelled())
                     {
-                        if (!isCancelled())
-                        {
-                            super.onProgressUpdate(current);
+                        super.onProgressUpdate(current);
 
-                            if (isScanning)
+                        if (isScanning)
+                        {
+                            updateMessage(String.format("Scanning files (%d found)...", current));
+                        }
+
+                        else
+                        {
+                            updateMessage(String.format("Processing batch (%d files)...", current));
+                        }
+                    }
+                }
+
+                @Override
+                public void onProgressUpdate(int current, int total)
+                {
+                    if (!isCancelled())
+                    {
+                        super.onProgressUpdate(current, total);
+
+                        if (isScanning)
+                        {
+                            if (total > 0)
                             {
-                                updateMessage(String.format("Scanning files (%d found)...", current));
+                                updateMessage(String.format("Scanning files: %d of %d", current, total));
                             }
 
                             else
                             {
-                                updateMessage(String.format("Processing batch (%d files)...", current));
+                                updateMessage(String.format("Scanning files (%d)...", current));
                             }
                         }
-                    }
 
-                    @Override
-                    public void onProgressUpdate(int current, int total)
-                    {
-                        if (!isCancelled())
+                        else
                         {
-                            super.onProgressUpdate(current, total);
-
-                            if (isScanning)
+                            if (total > 0)
                             {
-                                if (total > 0)
-                                {
-                                    updateMessage(String.format("Scanning files: %d of %d", current, total));
-                                }
-
-                                else
-                                {
-                                    updateMessage(String.format("Scanning files (%d)...", current));
-                                }
+                                updateMessage(String.format("Processing batch: %d of %d", current, total));
                             }
 
                             else
                             {
-                                if (total > 0)
-                                {
-                                    updateMessage(String.format("Processing batch: %d of %d", current, total));
-                                }
-
-                                else
-                                {
-                                    updateMessage(String.format("Processing batch (%d)...", current));
-                                }
+                                updateMessage(String.format("Processing batch (%d)...", current));
                             }
                         }
                     }
+                }
 
-                    @Override
-                    public void reset()
+                @Override
+                public void reset()
+                {
+                    if (!isCancelled())
                     {
-                        if (!isCancelled())
-                        {
-                            super.reset();
-                            isScanning = false;
-                            updateMessage("Preparing batch processing...");
-                        }
+                        super.reset();
+                        isScanning = false;
+                        updateMessage("Preparing batch processing...");
                     }
-                });
-            }
+                }
+            });
 
             processor.execute();
+
+            return (processor.getStatistics() != null ? processor.getStatistics() : new BatchStatistics(0, 0, 0L));
         }
 
         return null;

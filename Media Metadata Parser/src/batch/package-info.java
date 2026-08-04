@@ -8,7 +8,7 @@
  * <h2>Primary Components:</h2>
  * 
  * <ul>
- * <li><b>{@link batch.MediaMetadataConsole}:</b> The CLI entry point that parses user arguments and initializes the application lifecycle.</li>
+ * <li><b>{@link shell.MediaMetadataConsole}:</b> The CLI entry point that parses user arguments and initializes the application lifecycle.</li>
  * <li><b>{@link batch.BatchBuilder}:</b> A fluent API used to construct an immutable {@link batch.BatchConfiguration}.</li>
  * <li><b>{@link batch.MetadataScanner}:</b> Handles the recursive discovery of media files and extracts initial metadata to create a sorted set of records.</li>
  * <li><b>{@link batch.MediaBatchProcessor}:</b> The execution engine that performs the physical file copying, renaming, and binary metadata patching.</li>

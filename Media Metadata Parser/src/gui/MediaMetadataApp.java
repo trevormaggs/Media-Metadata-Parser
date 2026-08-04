@@ -6,6 +6,7 @@ import java.util.List;
 import batch.BatchBuilder;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
+import batch.BatchStatistics;
 import batch.MediaBatchProcessor;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
@@ -103,35 +104,6 @@ public class MediaMetadataApp extends Application
         this.viewBtn = new Button();
     }
 
-    public static class FileRecord
-    {
-        private final SimpleStringProperty sourceName;
-        private final SimpleStringProperty targetName;
-        private final SimpleStringProperty status;
-
-        public FileRecord(String sourceName, String targetName, String status)
-        {
-            this.sourceName = new SimpleStringProperty(sourceName);
-            this.targetName = new SimpleStringProperty(targetName);
-            this.status = new SimpleStringProperty(status);
-        }
-
-        public SimpleStringProperty sourceNameProperty()
-        {
-            return sourceName;
-        }
-
-        public SimpleStringProperty targetNameProperty()
-        {
-            return targetName;
-        }
-
-        public SimpleStringProperty statusProperty()
-        {
-            return status;
-        }
-    }
-
     /**
      * Initialises the primary JavaFX stage and builds the GUI components for this application.
      *
@@ -157,7 +129,7 @@ public class MediaMetadataApp extends Application
         formGrid.getRowConstraints().addAll(fixedRow, fixedRow, fillRow, fixedRow, fixedRow);
 
         addTopPane(formGrid);
-        addMiddlePane2(formGrid);
+        addMiddlePane(formGrid);
         addLogPane(formGrid);
         addControlPane(formGrid);
         addBottomPane(formGrid);
@@ -191,7 +163,7 @@ public class MediaMetadataApp extends Application
         sourceText.setText("E:\\ImageBatchDir");
         // sourceText.setEditable(false);
         MenuItem selectFolder = new MenuItem("Select Folder...");
-        selectFolder.setOnAction(new PickDirectoryHandler(sourceText, "Select Source Directory"));
+        selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
         selectFiles.setText("Select Specific Files...");
         selectFiles.setOnAction(actionHandler);
         ContextMenu sourceMenu = new ContextMenu();
@@ -211,7 +183,7 @@ public class MediaMetadataApp extends Application
         targetText.setPrefWidth(300);
         targetText.setMaxWidth(300);
         Button targetBtn = new Button("Browse...");
-        targetBtn.setOnAction(new PickDirectoryHandler(targetText, "Select Target Directory"));
+        targetBtn.setOnAction(new FilePickHandler(targetText, "Select Target Directory"));
         HBox targetHbox = new HBox(10);
         targetHbox.getChildren().addAll(targetLabel, targetText, fillRow(), targetBtn);
 
@@ -313,75 +285,6 @@ public class MediaMetadataApp extends Application
         optionsTitledPane.setMaxWidth(Double.MAX_VALUE);
         optionsTitledPane.setMaxHeight(Double.MAX_VALUE);
 
-        // Right Titled Pane - Statistics
-        VBox statPane = new VBox(8);
-        statPane.setPadding(new Insets(10));
-
-        // Label statLabel = new Label("Statistics");
-        // statLabel.setStyle("-fx-font-weight: bold;");
-        // statPane.getChildren().add(statLabel);
-
-        TitledPane statsTitledPane = new TitledPane();
-        statsTitledPane.setText("Statistics");
-        statsTitledPane.setContent(statPane);
-        statsTitledPane.setCollapsible(false);
-        statsTitledPane.setFocusTraversable(false);
-        statsTitledPane.setMaxWidth(Double.MAX_VALUE);
-        statsTitledPane.setMaxHeight(Double.MAX_VALUE);
-
-        // Arrange both titled panes side by side
-        HBox middleRow = new HBox(15, optionsTitledPane, statsTitledPane);
-        GridPane.setHgrow(middleRow, Priority.ALWAYS);
-
-        // Forces both inner panes to have equal 50/50 width
-        optionsTitledPane.prefWidthProperty().bind(middleRow.widthProperty().subtract(15).divide(2));
-        statsTitledPane.prefWidthProperty().bind(optionsTitledPane.prefWidthProperty());
-
-        pane.add(middleRow, 0, 1);
-    }
-
-    private void addMiddlePane2(GridPane pane)
-    {
-        // Left Titled Pane - Processing Options
-        CheckBox embedDateTimeCheck = new CheckBox("Embed Date/Time");
-        embedDateTimeCheck.setId(EMBID);
-
-        CheckBox forceDateChangeCheck = new CheckBox("Force Date Change");
-        forceDateChangeCheck.setId(FORID);
-
-        CheckBox skipVideoCheck = new CheckBox("Skip Video Files");
-        skipVideoCheck.setId(SKPID);
-        skipVideoCheck.setSelected(true);
-
-        CheckBox descendingCheck = new CheckBox("Sort Descending");
-        descendingCheck.setId(SRTID);
-
-        CheckBox showMetadataCheck = new CheckBox("Display Metadata");
-        showMetadataCheck.setId(SHWID);
-
-        CheckBox debugCheck = new CheckBox("Enable Debugging");
-        debugCheck.setId(DBGID);
-
-        CheckBox[] processingChecks = {embedDateTimeCheck, forceDateChangeCheck, skipVideoCheck, descendingCheck, debugCheck};
-        VBox leftCol = new VBox(10, embedDateTimeCheck, forceDateChangeCheck, skipVideoCheck);
-        VBox rightCol = new VBox(10, showMetadataCheck, descendingCheck, debugCheck);
-
-        for (CheckBox check : processingChecks)
-        {
-            check.disableProperty().bind(showMetadataCheck.selectedProperty());
-        }
-
-        HBox checkBoxPane = new HBox(15, leftCol, rightCol);
-        checkBoxPane.setPadding(new Insets(10, 5, 10, 5));
-
-        TitledPane optionsTitledPane = new TitledPane();
-        optionsTitledPane.setText("Processing Options");
-        optionsTitledPane.setContent(checkBoxPane);
-        optionsTitledPane.setCollapsible(false);
-        optionsTitledPane.setFocusTraversable(false);
-        optionsTitledPane.setMaxWidth(Double.MAX_VALUE);
-        optionsTitledPane.setMaxHeight(Double.MAX_VALUE);
-
         // Right Titled Pane - Statistics Table
         TableView<StatRecord> statsTable = new TableView<>();
         statsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -416,11 +319,7 @@ public class MediaMetadataApp extends Application
 
         statsTable.getColumns().add(metricCol);
         statsTable.getColumns().add(valueCol);
-
-        statsTable.getItems().addAll(
-                new StatRecord("Source Files", "0"),
-                new StatRecord("Target Files", "0"),
-                new StatRecord("Total Size", "0.00 MB"));
+        statsTable.getItems().addAll(StatRecord.SOURCE_FILES, StatRecord.TARGET_FILES, StatRecord.TOTAL_SIZE);
 
         VBox statPane = new VBox(statsTable);
         statPane.setPadding(new Insets(5));
@@ -801,88 +700,104 @@ public class MediaMetadataApp extends Application
         boolean metaDisplay = (showMetadata != null && showMetadata.isSelected());
         Label progressLabel = (Label) progressBar.getUserData();
 
-        if (logArea == null)
+        if (logArea != null)
         {
-            return;
-        }
+            logArea.clear();
+            StatRecord.resetAll();
 
-        logArea.clear();
-
-        try
-        {
-            config = buildConfiguration();
-        }
-
-        catch (BatchErrorException exc)
-        {
-            progressLabel.setText("Configuration error");
-            return;
-        }
-
-        actionBtn.setDisable(true);
-        cancelBtn.setDisable(false);
-        activeTask = new BatchTask(config, logArea, progressBar, metaDisplay);
-        progressLabel.textProperty().bind(activeTask.messageProperty());
-        activeTask.stateProperty().addListener(new ChangeListener<Worker.State>()
-        {
-            @Override
-            public void changed(ObservableValue<? extends Worker.State> observable, Worker.State oldState, Worker.State newState)
+            try
             {
-                if (newState == Worker.State.SUCCEEDED || newState == Worker.State.FAILED || newState == Worker.State.CANCELLED)
-                {
-                    actionBtn.getScene().getRoot().requestFocus();
-                    cancelBtn.setDisable(true);
-                    actionBtn.setDisable(false);
-                    activeTask = null;
+                config = buildConfiguration();
+            }
 
-                    if (newState == Worker.State.SUCCEEDED)
+            catch (BatchErrorException exc)
+            {
+                progressLabel.setText("Configuration error");
+                return;
+            }
+
+            actionBtn.setDisable(true);
+            cancelBtn.setDisable(false);
+            activeTask = new BatchTask(config, logArea, progressBar, metaDisplay);
+            progressLabel.textProperty().bind(activeTask.messageProperty());
+
+            activeTask.stateProperty().addListener(new ChangeListener<Worker.State>()
+            {
+                @Override
+                public void changed(ObservableValue<? extends Worker.State> observable, Worker.State oldState, Worker.State newState)
+                {
+                    if (newState == Worker.State.SUCCEEDED || newState == Worker.State.FAILED || newState == Worker.State.CANCELLED)
                     {
-                        Platform.runLater(new Runnable()
+                        actionBtn.getScene().getRoot().requestFocus();
+                        cancelBtn.setDisable(true);
+                        actionBtn.setDisable(false);
+
+                        BatchStatistics stats = activeTask.getValue();
+                        activeTask = null; // Force GC
+
+                        if (newState == Worker.State.SUCCEEDED)
+                        {
+                            Platform.runLater(new Runnable()
+                            {
+                                @Override
+                                public void run()
+                                {
+                                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+
+                                    if (stats != null)
+                                    {
+                                        StatRecord.SOURCE_FILES.setValue(stats.getSourceFilesCount());
+                                        StatRecord.TARGET_FILES.setValue(stats.getTargetFilesCount());
+                                        StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
+                                    }
+
+                                    alert.setTitle("Process Complete");
+                                    alert.setHeaderText(null);
+                                    alert.setContentText("Batch processing completed");
+                                    alert.initOwner(stage);
+                                    alert.showAndWait();
+                                }
+                            });
+                        }
+
+                        new Thread(new Runnable()
                         {
                             @Override
                             public void run()
                             {
-                                showCompletionDialog();
-                            }
-                        });
-                    }
-
-                    new Thread(new Runnable()
-                    {
-                        @Override
-                        public void run()
-                        {
-                            try
-                            {
-                                Thread.sleep(3000);
-
-                                Platform.runLater(new Runnable()
+                                try
                                 {
-                                    @Override
-                                    public void run()
+                                    Thread.sleep(3000);
+
+                                    Platform.runLater(new Runnable()
                                     {
-                                        // Clean up
-                                        progressLabel.textProperty().unbind();
-                                        progressLabel.setText("");
-                                        progressBar.progressProperty().unbind();
-                                        progressBar.setProgress(0.0);
-                                    }
-                                });
-                            }
+                                        @Override
+                                        public void run()
+                                        {
+                                            // Clean up UI status indicators
+                                            progressLabel.textProperty().unbind();
+                                            progressLabel.setText("");
+                                            progressBar.progressProperty().unbind();
+                                            progressBar.setProgress(0.0);
+                                        }
+                                    });
+                                }
 
-                            catch (InterruptedException ignored)
-                            {
-                                // Task thread finished/interrupted
+                                catch (InterruptedException exc)
+                                {
+                                    // Just pass through
+                                }
                             }
-                        }
-                    }).start();
+                        }).start();
+                    }
                 }
-            }
-        });
+            });
 
-        Thread workerThread = new Thread(activeTask);
-        workerThread.setDaemon(true);
-        workerThread.start();
+            Thread workerThread = new Thread(activeTask);
+
+            workerThread.setDaemon(true);
+            workerThread.start();
+        }
     }
 
     /**
@@ -993,6 +908,85 @@ public class MediaMetadataApp extends Application
         }
     }
 
+    private static class StatRecord
+    {
+        private final SimpleStringProperty metric;
+        private final SimpleStringProperty value;
+        private final String defaultValue;
+        static final StatRecord SOURCE_FILES = new StatRecord("Source Files", "0");
+        static final StatRecord TARGET_FILES = new StatRecord("Target Files", "0");
+        static final StatRecord TOTAL_SIZE = new StatRecord("Total Size", "0.00 MB");
+
+        private StatRecord(String metric, String defaultValue)
+        {
+            this.metric = new SimpleStringProperty(metric);
+            this.value = new SimpleStringProperty(defaultValue);
+            this.defaultValue = defaultValue;
+        }
+
+        public SimpleStringProperty metricProperty()
+        {
+            return metric;
+        }
+
+        public SimpleStringProperty valueProperty()
+        {
+            return value;
+        }
+
+        @SuppressWarnings("unused")
+        public String getValue()
+        {
+            return value.get();
+        }
+
+        public void setValue(Object ref)
+        {
+            value.set(String.valueOf(ref));
+        }
+
+        public void reset()
+        {
+            value.set(defaultValue);
+        }
+
+        public static void resetAll()
+        {
+            SOURCE_FILES.reset();
+            TARGET_FILES.reset();
+            TOTAL_SIZE.reset();
+        }
+    }
+
+    public static class FileRecord
+    {
+        private final SimpleStringProperty sourceName;
+        private final SimpleStringProperty targetName;
+        private final SimpleStringProperty status;
+
+        public FileRecord(String sourceName, String targetName, String status)
+        {
+            this.sourceName = new SimpleStringProperty(sourceName);
+            this.targetName = new SimpleStringProperty(targetName);
+            this.status = new SimpleStringProperty(status);
+        }
+
+        public SimpleStringProperty sourceNameProperty()
+        {
+            return sourceName;
+        }
+
+        public SimpleStringProperty targetNameProperty()
+        {
+            return targetName;
+        }
+
+        public SimpleStringProperty statusProperty()
+        {
+            return status;
+        }
+    }
+
     private void showSummaryDialog(Window ownerWindow)
     {
         Dialog<Void> dialog = new Dialog<>();
@@ -1060,54 +1054,8 @@ public class MediaMetadataApp extends Application
         return spacer;
     }
 
-    /**
-     * Displays a popup dialog confirming batch completion.
-     */
-    private void showCompletionDialog()
-    {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-
-        alert.setTitle("Process Complete");
-        alert.setHeaderText(null);
-        alert.setContentText("Batch processing completed");
-        alert.initOwner(stage); // Locks focus to current window until dismissed
-        alert.showAndWait();
-    }
-
     public static void main(String[] args)
     {
         launch(args);
     }
-
-    public static class StatRecord
-    {
-        private final SimpleStringProperty metric;
-        private final SimpleStringProperty value;
-
-        public StatRecord(String metric, String value)
-        {
-            this.metric = new SimpleStringProperty(metric);
-            this.value = new SimpleStringProperty(value);
-        }
-
-        public SimpleStringProperty metricProperty()
-        {
-            return metric;
-        }
-
-        public SimpleStringProperty valueProperty()
-        {
-            return value;
-        }
-
-        public String getValue()
-        {
-            return value.get();
-        }
-
-        public void setValue(String value)
-        {
-            this.value.set(value);
-        }
-    }    
 }
