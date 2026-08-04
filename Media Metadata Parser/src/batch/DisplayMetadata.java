@@ -45,6 +45,7 @@ import xmp.XmpProperty;
 public final class DisplayMetadata
 {
     private final BatchConfiguration config;
+    private static final LogFactory LOGGER = LogFactory.getLogger(DisplayMetadata.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private static final EnumSet<ChunkType> DISPLAY_CHUNK_FILTER = EnumSet.of(
             ChunkType.IHDR, ChunkType.gAMA, ChunkType.sRGB, ChunkType.pHYs,
@@ -77,9 +78,8 @@ public final class DisplayMetadata
 
         try
         {
+            LOGGER.disable();
             LogFactory.configure("dummy.log");
-            LogFactory logger = LogFactory.getLogger(DisplayMetadata.class);            
-            logger.disable();
 
             scanner.start();
         }
