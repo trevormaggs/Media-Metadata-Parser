@@ -67,8 +67,8 @@ public final class MediaBatchProcessor
     public MediaBatchProcessor(BatchConfiguration config)
     {
         this.config = config;
-        this.scanner = new MetadataScanner(config);
         this.listeners = new ArrayList<>();
+        this.scanner = new MetadataScanner(config);
     }
 
     /**
@@ -111,6 +111,18 @@ public final class MediaBatchProcessor
         return (cancelled || Thread.currentThread().isInterrupted());
     }
 
+    /**
+     * Returns the execution statistics for the batch process, including total source files scanned,
+     * target files created, and cumulative file size.
+     *
+     * <p>
+     * If processing has not yet been executed or no valid media files were found, a default
+     * {@link BatchStatistics} object initialised with zeroed metrics is returned.
+     * </p>
+     *
+     * @return the {@link BatchStatistics} containing source count, target count, and total
+     *         processed byte size
+     */
     public BatchStatistics getStatistics()
     {
         return (stats == null ? new BatchStatistics(0, 0, 0L) : stats);
@@ -169,11 +181,11 @@ public final class MediaBatchProcessor
 
                     else
                     {
-                        Path pfile = processRecord(record, processedCount++, totalSourceFiles);
+                        long targetSize = processRecord(record, processedCount++, totalSourceFiles);
 
-                        if (pfile != null && Files.exists(pfile))
+                        if (targetSize != -1)
                         {
-                            totalTargetSize += Files.size(pfile);
+                            totalTargetSize += targetSize;
                         }
                     }
 
@@ -195,27 +207,10 @@ public final class MediaBatchProcessor
             }
         }
 
-        catch (IOException exc)
-        {
-            LOGGER.error("I/O error during batch execution", exc);
-            throw new BatchErrorException("Failed to complete batch processing", exc);
-        }
-
         finally
         {
             stats = new BatchStatistics(totalSourceFiles, processedCount - 1, totalTargetSize);
             LogFactory.close();
-        }
-    }
-
-    /**
-     * Resets internal progress state across all registered listeners.
-     */
-    private void resetListeners()
-    {
-        for (ProgressListener listener : listeners)
-        {
-            listener.reset();
         }
     }
 
@@ -237,16 +232,16 @@ public final class MediaBatchProcessor
      * @param record
      *        the media file record to process
      * @param index
-     *        the current position in the batch used for numbering and offsets
+     *        the 1-based position of the file in the current processing sequence
      * @param total
      *        the total number of files in the batch
-     * @return the path to the newly generated file, or {@code null} if processing was cancelled
+     * @return the file size of the newly generated file, or {@code -1} if processing was cancelled
      *         before completion
      * 
      * @throws BatchErrorException
      *         if file I/O or metadata patching fails
      */
-    private Path processRecord(MediaRecord record, int index, int total) throws BatchErrorException
+    private long processRecord(MediaRecord record, int index, int total) throws BatchErrorException
     {
         Path targetPath = null;
 
@@ -254,61 +249,64 @@ public final class MediaBatchProcessor
         {
             FileTime effectiveTime = calculateEffectiveTime(record, index);
             String newName = generateTargetName(record, index, effectiveTime);
-            targetPath = config.getTarget().resolve(newName);
 
+            targetPath = config.getTarget().resolve(newName);
             Files.copy(record.getPath(), targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
 
-            if (isCancelled())
+            if (!isCancelled())
+            {
+                if (record.isMetadataEmpty())
+                {
+                    LOGGER.warn("File [" + record.getPath() + "] contains no metadata. Only file dates were updated");
+                }
+
+                else if (config.isForceDateChange())
+                {
+                    // TODO: May need to add one for DNG
+
+                    if (record.isTIF())
+                    {
+                        TiffDatePatcher.patchAllDates(targetPath, effectiveTime, true);
+                    }
+
+                    else if (record.isJPG())
+                    {
+                        JpgDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                    }
+
+                    else if (record.isPNG())
+                    {
+                        PngDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                    }
+
+                    else if (record.isWebP())
+                    {
+                        WebPDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                    }
+
+                    else if (record.isHEIC())
+                    {
+                        HeifDatePatcher.patchAllDates(targetPath, effectiveTime, false);
+                    }
+                }
+
+                BasicFileAttributeView view = Files.getFileAttributeView(targetPath, BasicFileAttributeView.class);
+
+                if (view != null)
+                {
+                    view.setTimes(effectiveTime, effectiveTime, effectiveTime);
+                }
+
+                LOGGER.info(String.format("[%d/%d] Processed: %s -> %s", index, total, record.getPath().getFileName(), newName));
+
+                return view.readAttributes().size();
+            }
+
+            else
             {
                 Files.deleteIfExists(targetPath);
                 LOGGER.warn("Processing interrupted for [" + record.getPath().getFileName() + "]. Cleaned up temporary target file.");
-
-                return null;
             }
-
-            if (record.isMetadataEmpty())
-            {
-                LOGGER.warn("File [" + record.getPath() + "] contains no metadata. Only file dates were updated");
-            }
-
-            else if (config.isForceDateChange())
-            {
-                // TODO: May need to add one for DNG
-
-                if (record.isTIF())
-                {
-                    TiffDatePatcher.patchAllDates(targetPath, effectiveTime, true);
-                }
-
-                else if (record.isJPG())
-                {
-                    JpgDatePatcher.patchAllDates(targetPath, effectiveTime, false);
-                }
-
-                else if (record.isPNG())
-                {
-                    PngDatePatcher.patchAllDates(targetPath, effectiveTime, false);
-                }
-
-                else if (record.isWebP())
-                {
-                    WebPDatePatcher.patchAllDates(targetPath, effectiveTime, false);
-                }
-
-                else if (record.isHEIC())
-                {
-                    HeifDatePatcher.patchAllDates(targetPath, effectiveTime, false);
-                }
-            }
-
-            BasicFileAttributeView attr = Files.getFileAttributeView(targetPath, BasicFileAttributeView.class);
-
-            if (attr != null)
-            {
-                attr.setTimes(effectiveTime, effectiveTime, effectiveTime);
-            }
-
-            LOGGER.info(String.format("[%d/%d] Processed: %s -> %s", index, total, record.getPath().getFileName(), newName));
         }
 
         catch (IOException exc1)
@@ -328,27 +326,32 @@ public final class MediaBatchProcessor
             }
 
             String msg = "I/O error detected with [" + record.getPath().getFileName() + "]";
-            LOGGER.error(msg, exc1);
-
             throw new BatchErrorException(msg, exc1);
         }
 
-        return targetPath;
+        return -1L;
     }
 
     /**
      * Determines the effective timestamp for a media record.
      *
      * <p>
-     * If a user-defined date is configured, a fixed offset is applied based on the record position
-     * to ensure unique chronological ordering.
+     * If date changes are forced, the batch configuration guarantees that a user-defined date is
+     * available. A fixed 10-second offset is then applied based on the record position to ensure
+     * unique chronological ordering.
+     * </p>
+     *
+     * <p>
+     * Otherwise, the media record's natural timestamp is returned. The natural timestamp is
+     * determined by the metadata date when available, if no metadata date exists, the user-defined
+     * date is used when configured, otherwise the file's last modified time is used.
      * </p>
      *
      * @param record
      *        the media record being processed
      * @param index
      *        the current index used to calculate the 10-second offset
-     * @return the calculated {@link FileTime} used for metadata and file-system updates
+     * @return the effective {@link FileTime} used for metadata and file-system updates
      */
     private FileTime calculateEffectiveTime(MediaRecord record, int index)
     {
@@ -496,6 +499,17 @@ public final class MediaBatchProcessor
         catch (IOException exc)
         {
             throw new BatchErrorException("Unable to start logging", exc);
+        }
+    }
+
+    /**
+     * Resets internal progress state across all registered listeners.
+     */
+    private void resetListeners()
+    {
+        for (ProgressListener listener : listeners)
+        {
+            listener.reset();
         }
     }
 }

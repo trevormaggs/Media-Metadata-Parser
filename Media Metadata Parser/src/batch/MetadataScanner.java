@@ -192,7 +192,6 @@ public class MetadataScanner implements Iterable<MediaRecord>
 
             while (!isCancelled() && iterator.hasNext())
             {
-
                 Path path = iterator.next();
 
                 if (Files.isRegularFile(path))
@@ -246,7 +245,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
 
                     parser.readMetadata();
                     Metadata<?> meta = parser.getMetadata();
-                    imageSet.add(new MediaRecord(fpath, meta, meta.getImageFormat(), attr.lastModifiedTime()));
+                    imageSet.add(new MediaRecord(fpath, attr, meta));
                 }
 
                 catch (UnsupportedOperationException exc)
@@ -254,8 +253,14 @@ public class MetadataScanner implements Iterable<MediaRecord>
                     // Gracefully skip unsupported file formats
                 }
 
-                /* Notify listeners across both directory walk and file set modes */
-                notifyListeners(count, fileCount);
+                /*
+                 * Notify listeners here only during directory walks.
+                 * file-set mode notifies in start()
+                 */
+                if (config.getFileSet().isEmpty())
+                {
+                    notifyListeners(count, fileCount);
+                }
 
                 return FileVisitResult.CONTINUE;
             }

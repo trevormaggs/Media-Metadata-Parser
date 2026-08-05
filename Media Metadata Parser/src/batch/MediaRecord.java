@@ -1,6 +1,7 @@
 package batch;
 
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.ZonedDateTime;
 import java.util.Objects;
@@ -29,6 +30,7 @@ public final class MediaRecord
     private final Path mediaFile;
     private final Metadata<?> metadata;
     private final DigitalSignature mediaFormat;
+    private final long fileSize;
     private final FileTime fileSystemDate;
     private final boolean hasMetadataContainer;
 
@@ -37,19 +39,18 @@ public final class MediaRecord
      *
      * @param fpath
      *        the path to the media file
+     * @param attr
+     *        the file system attributes recorded during scanning
      * @param meta
-     *        the extracted metadata, or {@code null} if none exists
-     * @param sig
-     *        the detected media format signature
-     * @param ft
-     *        the file system timestamp recorded during scanning
+     *        the extracted metadata container, or {@code null} if none exists
      */
-    public MediaRecord(Path fpath, Metadata<?> meta, DigitalSignature sig, FileTime ft)
+    public MediaRecord(Path fpath, BasicFileAttributes attr, Metadata<?> meta)
     {
         this.mediaFile = fpath;
         this.metadata = meta;
-        this.mediaFormat = sig;
-        this.fileSystemDate = ft;
+        this.mediaFormat = (meta != null ? meta.getImageFormat() : null);
+        this.fileSize = attr.size();
+        this.fileSystemDate = attr.lastModifiedTime();
         this.hasMetadataContainer = (meta != null && meta.hasMetadata());
     }
 
@@ -82,6 +83,26 @@ public final class MediaRecord
     public DigitalSignature getMediaFormat()
     {
         return mediaFormat;
+    }
+
+    /**
+     * Returns the size of the media file in bytes recorded during the scan.
+     *
+     * @return the file size in bytes
+     */
+    public long getFileSize()
+    {
+        return fileSize;
+    }
+
+    /**
+     * Returns the file system's last modified time recorded during the scan.
+     * 
+     * @return the file system date
+     */
+    public FileTime getFileSystemDate()
+    {
+        return fileSystemDate;
     }
 
     /**
@@ -157,16 +178,6 @@ public final class MediaRecord
     }
 
     /**
-     * Returns the file system's last modified time recorded during the scan.
-     * 
-     * @return the file system date
-     */
-    public FileTime getFileSystemDate()
-    {
-        return fileSystemDate;
-    }
-
-    /**
      * Resolves the "chronological truth" for this file. Prioritises embedded metadata timestamps
      * before falling back to the file system's last modified time.
      * 
@@ -211,7 +222,8 @@ public final class MediaRecord
 
         MediaRecord meta = (MediaRecord) other;
 
-        return hasMetadataContainer == meta.hasMetadataContainer
+        return fileSize == meta.fileSize
+                && hasMetadataContainer == meta.hasMetadataContainer
                 && Objects.equals(fileSystemDate, meta.fileSystemDate)
                 && mediaFormat == meta.mediaFormat
                 && Objects.equals(metadata, meta.metadata)
@@ -233,6 +245,7 @@ public final class MediaRecord
         result = 31 * result + Objects.hashCode(metadata);
         result = 31 * result + Objects.hashCode(mediaFormat);
         result = 31 * result + Objects.hashCode(fileSystemDate);
+        result = 31 * result + Long.hashCode(fileSize);
         result = 31 * result + Boolean.hashCode(hasMetadataContainer);
 
         return result;
@@ -248,7 +261,9 @@ public final class MediaRecord
     public String toString()
     {
         StringBuilder line = new StringBuilder();
+
         line.append(String.format("  %-30s %s%n", "[Media File]", getPath()));
+        line.append(String.format("  %-30s %d bytes%n", "[File Size]", getFileSize()));
         line.append(String.format("  %-30s %s%n", "[Metadata]", getMetadata()));
         line.append(String.format("  %-30s %s%n", "[Format]", getMediaFormat()));
         line.append(String.format("  %-30s %s%n", "[Empty Metadata]", isMetadataEmpty()));

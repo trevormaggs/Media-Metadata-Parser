@@ -253,13 +253,13 @@ public final class MediaMetadataConsole
                 {
                     BatchStatistics stat = processor.getStatistics();
 
-                    System.out.println("\n----------------------------------------");
+                    System.out.println("\n------------------------------------------------------");
                     System.out.println(" Batch Processing Complete");
-                    System.out.println("----------------------------------------");
+                    System.out.println("------------------------------------------------------");
                     System.out.printf("  Source Files Scanned : %d%n", stat.getSourceFilesCount());
                     System.out.printf("  Target Files Copied  : %d%n", stat.getTargetFilesCount());
-                    System.out.printf("  Total Size Copied    : %.2f MB%n", stat.getTotalTargetSizeMB());
-                    System.out.println("----------------------------------------");
+                    System.out.printf("  Total Size Copied    : %.2f MB (%,d bytes)%n", stat.getTotalTargetSizeMB(), stat.getTotalTargetSizeBytes());
+                    System.out.println("------------------------------------------------------");
                 }
             }
         }

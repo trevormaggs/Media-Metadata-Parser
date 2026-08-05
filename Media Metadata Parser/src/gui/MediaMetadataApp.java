@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.util.List;
 import batch.BatchBuilder;
 import batch.BatchConfiguration;
-import batch.BatchErrorException;
 import batch.BatchStatistics;
 import batch.MediaBatchProcessor;
 import javafx.animation.PauseTransition;
@@ -36,6 +35,7 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -305,6 +305,25 @@ public class MediaMetadataApp extends Application
                 return cellData.getValue().metricProperty();
             }
         });
+
+        metricCol.setCellFactory(new Callback<TableColumn<StatRecord, String>, TableCell<StatRecord, String>>()
+        {
+            @Override
+            public TableCell<StatRecord, String> call(TableColumn<StatRecord, String> param)
+            {
+                return new TableCell<StatRecord, String>()
+                {
+                    @Override
+                    protected void updateItem(String item, boolean empty)
+                    {
+                        super.updateItem(item, empty);
+                        
+                        setText(empty ? null : item);
+                        setStyle(empty || item == null ? "" : "-fx-font-weight: bold; -fx-text-fill: #666666;");
+                    }
+                };
+            }
+        }); 
 
         TableColumn<StatRecord, String> valueCol = new TableColumn<>("Value");
 
@@ -710,7 +729,7 @@ public class MediaMetadataApp extends Application
                 config = buildConfiguration();
             }
 
-            catch (BatchErrorException exc)
+            catch (Exception exc)
             {
                 progressLabel.setText("Configuration error");
                 return;
@@ -803,7 +822,7 @@ public class MediaMetadataApp extends Application
     /**
      * Builds a BatchConfiguration directly from the JavaFX UI controls using getId().
      */
-    private BatchConfiguration buildConfiguration() throws BatchErrorException
+    private BatchConfiguration buildConfiguration()
     {
         TextField sourceText = getById(SRCID);
         String filename = sourceText.getText().trim();
@@ -910,12 +929,12 @@ public class MediaMetadataApp extends Application
 
     private static class StatRecord
     {
+        private static final StatRecord SOURCE_FILES = new StatRecord("Source Files", "0");
+        private static final StatRecord TARGET_FILES = new StatRecord("Target Files", "0");
+        private static final StatRecord TOTAL_SIZE = new StatRecord("Total Size", "0.00 MB");
         private final SimpleStringProperty metric;
         private final SimpleStringProperty value;
         private final String defaultValue;
-        static final StatRecord SOURCE_FILES = new StatRecord("Source Files", "0");
-        static final StatRecord TARGET_FILES = new StatRecord("Target Files", "0");
-        static final StatRecord TOTAL_SIZE = new StatRecord("Total Size", "0.00 MB");
 
         private StatRecord(String metric, String defaultValue)
         {

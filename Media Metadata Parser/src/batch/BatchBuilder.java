@@ -230,17 +230,9 @@ public final class BatchBuilder
      * Constructs and returns a validated BatchConfiguration.
      *
      * @return the fully initialised BatchConfiguration instance
-     * 
-     * @throws BatchErrorException
-     *         if one or more configuration values fail validation
      */
-    public BatchConfiguration build() throws BatchErrorException
+    public BatchConfiguration build()
     {
-        if (bd_force && (bd_userDate == null || bd_userDate.isEmpty()))
-        {
-            throw new BatchErrorException("Force flag (-f) requires a target date (-m)");
-        }
-
         ZonedDateTime parsedDate = util.SmartDateParser.convertToZonedDateTime(bd_userDate);
 
         return new BatchConfiguration(
