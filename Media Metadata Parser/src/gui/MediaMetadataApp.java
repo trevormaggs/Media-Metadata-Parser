@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 import batch.BatchBuilder;
 import batch.BatchConfiguration;
+import batch.BatchErrorException;
 import batch.BatchStatistics;
 import batch.MediaBatchProcessor;
 import javafx.animation.PauseTransition;
@@ -317,13 +318,13 @@ public class MediaMetadataApp extends Application
                     protected void updateItem(String item, boolean empty)
                     {
                         super.updateItem(item, empty);
-                        
+
                         setText(empty ? null : item);
                         setStyle(empty || item == null ? "" : "-fx-font-weight: bold; -fx-text-fill: #666666;");
                     }
                 };
             }
-        }); 
+        });
 
         TableColumn<StatRecord, String> valueCol = new TableColumn<>("Value");
 
@@ -729,7 +730,7 @@ public class MediaMetadataApp extends Application
                 config = buildConfiguration();
             }
 
-            catch (Exception exc)
+            catch (BatchErrorException exc)
             {
                 progressLabel.setText("Configuration error");
                 return;
@@ -821,8 +822,10 @@ public class MediaMetadataApp extends Application
 
     /**
      * Builds a BatchConfiguration directly from the JavaFX UI controls using getId().
+     * 
+     * @throws BatchErrorException
      */
-    private BatchConfiguration buildConfiguration()
+    private BatchConfiguration buildConfiguration() throws BatchErrorException
     {
         TextField sourceText = getById(SRCID);
         String filename = sourceText.getText().trim();

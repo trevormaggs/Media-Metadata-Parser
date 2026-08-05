@@ -52,6 +52,96 @@ public final class MediaMetadataConsole
     }
 
     /**
+     * Executes the operation defined by the current configuration.
+     *
+     * <p>
+     * The execution flow follows a three-stage process:
+     * </p>
+     *
+     * <ol>
+     * <li><b>Setup:</b> Registers a JVM shutdown hook to capture SIGINT (Ctrl+C) and trigger
+     * graceful cancellation.</li>
+     * <li><b>Discovery:</b> The {@code MetadataScanner} traverses the source to build a sorted set
+     * of media records.</li>
+     * <li><b>Execution:</b> Depending on the configuration, the system either lists extracted
+     * metadata for inspection or initiates a {@link MediaBatchProcessor} to perform file
+     * operations.</li>
+     * </ol>
+     *
+     * @throws BatchErrorException
+     *         if scanning or subsequent processing fails
+     */
+    public void run() throws BatchErrorException
+    {
+        /*
+         * Note the processor instance variable is declared as a volatile field so whenever users
+         * pressed Ctrl-C to interrupt the processing task, the shutdown hook thread can safely
+         * share the original updates across thread boundaries.
+         */
+        Thread shutdownHook = new Thread(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                if (processor != null)
+                {
+                    System.out.println("\nInterrupt signal received (Ctrl+C). Cancelling process...");
+                    processor.cancel();
+                }
+            }
+        });
+
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+
+        try
+        {
+            if (config.isShowMetadata())
+            {
+                DisplayMetadata display = new DisplayMetadata(config);
+                display.execute();
+            }
+
+            else
+            {
+                processor = new MediaBatchProcessor(config);
+                processor.addProgressListener(new ConsoleProgressBar());
+                processor.execute();
+
+                if (processor.isCancelled())
+                {
+                    System.out.println("\n[!] Batch process was cancelled. Cleaned up temporary files.");
+                }
+
+                else
+                {
+                    BatchStatistics stat = processor.getStatistics();
+
+                    System.out.println("\n------------------------------------------------------");
+                    System.out.println(" Batch Processing Complete");
+                    System.out.println("------------------------------------------------------");
+                    System.out.printf("  Source Files Scanned : %d%n", stat.getSourceFilesCount());
+                    System.out.printf("  Target Files Copied  : %d%n", stat.getTargetFilesCount());
+                    System.out.printf("  Total Size Copied    : %.2f MB (%,d bytes)%n", stat.getTotalTargetSizeMB(), stat.getTotalTargetSizeBytes());
+                    System.out.println("------------------------------------------------------");
+                }
+            }
+        }
+
+        finally
+        {
+            try
+            {
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
+            }
+
+            catch (IllegalStateException exc)
+            {
+                // Just pass through regardless
+            }
+        }
+    }
+
+    /**
      * Configures the supported command-line flags and parses the arguments provided.
      *
      * <p>
@@ -181,100 +271,9 @@ public final class MediaMetadataConsole
             console.run();
         }
 
-        catch (BatchErrorException exc)
+        catch (Exception exc)
         {
-            System.err.println(exc.getMessage());
-            System.exit(1);
-        }
-    }
-
-    /**
-     * Executes the operation defined by the current configuration.
-     *
-     * <p>
-     * The execution flow follows a three-stage process:
-     * </p>
-     *
-     * <ol>
-     * <li><b>Setup:</b> Registers a JVM shutdown hook to capture SIGINT (Ctrl+C) and trigger
-     * graceful cancellation.</li>
-     * <li><b>Discovery:</b> The {@code MetadataScanner} traverses the source to build a sorted set
-     * of media records.</li>
-     * <li><b>Execution:</b> Depending on the configuration, the system either lists extracted
-     * metadata for inspection or initiates a {@link MediaBatchProcessor} to perform file
-     * operations.</li>
-     * </ol>
-     *
-     * @throws BatchErrorException
-     *         if scanning or subsequent processing fails
-     */
-    public void run() throws BatchErrorException
-    {
-        /*
-         * Note the processor instance variable is declared as a volatile field so whenever users
-         * pressed Ctrl-C to interrupt the processing task, the shutdown hook thread can safely
-         * share the original updates across thread boundaries.
-         */
-        Thread shutdownHook = new Thread(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                if (processor != null)
-                {
-                    System.out.println("\nInterrupt signal received (Ctrl+C). Cancelling process...");
-                    processor.cancel();
-                }
-            }
-        });
-
-        Runtime.getRuntime().addShutdownHook(shutdownHook);
-
-        try
-        {
-            if (config.isShowMetadata())
-            {
-                DisplayMetadata display = new DisplayMetadata(config);
-                display.execute();
-            }
-
-            else
-            {
-                processor = new MediaBatchProcessor(config);
-                processor.addProgressListener(new ConsoleProgressBar());
-                processor.execute();
-
-                if (processor.isCancelled())
-                {
-                    System.out.println("\n[!] Batch process was cancelled. Cleaned up temporary files.");
-                }
-
-                else
-                {
-                    BatchStatistics stat = processor.getStatistics();
-
-                    System.out.println("\n------------------------------------------------------");
-                    System.out.println(" Batch Processing Complete");
-                    System.out.println("------------------------------------------------------");
-                    System.out.printf("  Source Files Scanned : %d%n", stat.getSourceFilesCount());
-                    System.out.printf("  Target Files Copied  : %d%n", stat.getTargetFilesCount());
-                    System.out.printf("  Total Size Copied    : %.2f MB (%,d bytes)%n", stat.getTotalTargetSizeMB(), stat.getTotalTargetSizeBytes());
-                    System.out.println("------------------------------------------------------");
-                }
-            }
-        }
-
-        finally
-        {
-            try
-            {
-                Runtime.getRuntime().removeShutdownHook(shutdownHook);
-            }
-
-            catch (IllegalStateException exc)
-            {
-                // Just pass through regardless
-            }
+            exc.printStackTrace();
         }
     }
 

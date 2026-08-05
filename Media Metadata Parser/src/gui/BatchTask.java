@@ -6,6 +6,7 @@ import batch.BatchStatistics;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import javafx.concurrent.Task;
+import javafx.scene.control.Alert;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
 import progressbar.JavaFXProgressAdapter;
@@ -185,24 +186,26 @@ class BatchTask extends Task<BatchStatistics>
     {
         updateMessage("Process failed");
 
-        if (logArea == null)
-        {
-            return;
-        }
-
         Throwable exc = getException();
-        Throwable cause = (exc != null && exc.getCause() != null) ? exc.getCause() : exc;
+        String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
 
-        if (cause instanceof BatchErrorException)
+        if (exc instanceof BatchErrorException)
         {
-            logArea.appendText("[ERROR] " + cause.getMessage() + "\n");
+            logArea.appendText("[ERROR] " + msg + "\n");
         }
 
-        else if (cause != null)
+        else if (exc == null)
         {
-            cause.printStackTrace();
-            logArea.appendText("[ERROR] Unexpected error: " + cause.getMessage() + "\n");
+            logArea.appendText("[ERROR] " + msg + "\n");
         }
+
+        else
+        {
+            logArea.appendText("[ERROR] Unexpected error: " + msg + "\n");
+            exc.printStackTrace();
+        }
+
+        showErrorDialog(msg);
     }
 
     @Override
@@ -220,5 +223,14 @@ class BatchTask extends Task<BatchStatistics>
     protected void done()
     {
         processor = null;
+    }
+
+    private void showErrorDialog(String message)
+    {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Processing Error");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }

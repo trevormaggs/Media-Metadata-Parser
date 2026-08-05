@@ -164,7 +164,7 @@ public final class MediaBatchProcessor
 
             if (totalSourceFiles > 0)
             {
-                LOGGER.info("Starting batch process for [" + totalSourceFiles + "] files...");
+                LOGGER.info("Starting batch processing of file [" + totalSourceFiles + "]...");
 
                 for (MediaRecord record : scanner)
                 {
@@ -198,7 +198,7 @@ public final class MediaBatchProcessor
                     count++;
                 }
 
-                LOGGER.info("Batch processing completed successfully");
+                LOGGER.info("Batch processing completed");
             }
 
             else
@@ -263,7 +263,7 @@ public final class MediaBatchProcessor
                 else if (config.isForceDateChange())
                 {
                     // TODO: May need to add one for DNG
-
+                    
                     if (record.isTIF())
                     {
                         TiffDatePatcher.patchAllDates(targetPath, effectiveTime, true);
@@ -488,12 +488,16 @@ public final class MediaBatchProcessor
             LogFactory.setDebug(config.isDebug());
             LogFactory.setTrace(true);
 
-            LOGGER.info("MediaBatchProcessor initialised");
+            LOGGER.info(this.getClass().getSimpleName() + " initialised");
             LOGGER.info("Source: " + config.getSource().toAbsolutePath());
             LOGGER.info("Target: " + config.getTarget().toAbsolutePath());
+            LOGGER.info("Scanned images will be sorted in " + (config.isDescending() ? "descending" : "ascending") + " order");
 
-            String sortOrder = config.isDescending() ? "descending" : "ascending";
-            LOGGER.info("Sorted scanned images in " + sortOrder + " order");
+            if (config.isForceDateChange() && config.getUserDate() != null)
+            {
+                String dtf = config.getUserDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z"));
+                LOGGER.info("Forced date change enabled using [" + dtf + "]");
+            }
         }
 
         catch (IOException exc)

@@ -227,25 +227,37 @@ public final class BatchBuilder
     }
 
     /**
-     * Constructs and returns a validated BatchConfiguration.
+     * Constructs and returns a validated {@link BatchConfiguration}.
      *
-     * @return the fully initialised BatchConfiguration instance
+     * @return the fully initialised {@code BatchConfiguration} instance
+     *
+     * @throws BatchErrorException
+     *         if the batch configuration cannot be constructed, including when the user-defined
+     *         date cannot be parsed
      */
-    public BatchConfiguration build()
+    public BatchConfiguration build() throws BatchErrorException
     {
-        ZonedDateTime parsedDate = util.SmartDateParser.convertToZonedDateTime(bd_userDate);
+        try
+        {
+            ZonedDateTime parsedDate = util.SmartDateParser.convertToZonedDateTime(bd_userDate);
 
-        return new BatchConfiguration(
-                Paths.get(bd_sourceDir),
-                Paths.get(bd_target),
-                bd_prefix,
-                parsedDate,
-                bd_files,
-                bd_force,
-                bd_embedDateTime,
-                bd_skipVideoFiles,
-                bd_displayMetadata,
-                bd_descending,
-                bd_debug);
+            return new BatchConfiguration(
+                    Paths.get(bd_sourceDir),
+                    Paths.get(bd_target),
+                    bd_prefix,
+                    parsedDate,
+                    bd_files,
+                    bd_force,
+                    bd_embedDateTime,
+                    bd_skipVideoFiles,
+                    bd_displayMetadata,
+                    bd_descending,
+                    bd_debug);
+        }
+
+        catch (IllegalArgumentException exc)
+        {
+            throw new BatchErrorException("Failed to parse user date [" + bd_userDate + "]", exc);
+        }
     }
 }

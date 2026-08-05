@@ -1,7 +1,9 @@
 package batch;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -26,6 +28,7 @@ import tif.TifMetadataProvider;
 import tif.tagspecs.PhotoshopManager;
 import tif.tagspecs.TagIFD_Private;
 import tif.tagspecs.Taggable;
+import util.SystemInfo;
 import xmp.XmpDirectory;
 import xmp.XmpDirectory.XmpRecord;
 import xmp.XmpProperty;
@@ -78,9 +81,7 @@ public final class DisplayMetadata
 
         try
         {
-            LOGGER.disable();
-            LogFactory.configure("dummy.log");
-
+            startLogging();
             scanner.start();
         }
 
@@ -321,5 +322,37 @@ public final class DisplayMetadata
         }
 
         return tag.getDescription();
+    }
+
+    /**
+     * Initialises the logging system and records the active configuration.
+     *
+     * @throws BatchErrorException
+     *         if the logging service cannot be established
+     */
+    private void startLogging() throws BatchErrorException
+    {
+        try
+        {
+            String logName = "metadata_" + SystemInfo.getHostname() + ".log";
+            Path logPath = Paths.get(logName);
+
+            if (Files.exists(logPath))
+            {
+                Files.deleteIfExists(logPath);
+            }
+
+            LogFactory.configure(logPath.toString());
+            LogFactory.setDebug(config.isDebug());
+            //LogFactory.disableAll();
+            
+            LOGGER.info(this.getClass().getSimpleName() + " loaded");
+            LOGGER.info("Source: " + config.getSource().toAbsolutePath());
+        }
+
+        catch (IOException exc)
+        {
+            throw new BatchErrorException(exc);
+        }
     }
 }
