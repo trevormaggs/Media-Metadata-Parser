@@ -14,9 +14,10 @@ import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ObservableList;
-import javafx.concurrent.WorkerStateEvent;
+import javafx.concurrent.Worker;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -26,7 +27,6 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
-import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
@@ -62,7 +62,7 @@ import javafx.util.Callback;
 import javafx.util.Duration;
 import logger.LogFactory;
 
-public class MediaMetadataApp extends Application
+public class MediaMetadataApp2 extends Application
 {
     private final Button sourceBtn;
     private final MenuItem selectFiles;
@@ -90,7 +90,7 @@ public class MediaMetadataApp extends Application
     private static final String SRTID = "srtId";
     private static final String DBGID = "dbgId";
 
-    public MediaMetadataApp()
+    public MediaMetadataApp2()
     {
         this.sourceBtn = new Button();
         this.selectFiles = new MenuItem();
@@ -162,7 +162,7 @@ public class MediaMetadataApp extends Application
         sourceText.setPrefWidth(300);
         sourceText.setMaxWidth(300);
         sourceText.setText("E:\\ImageBatchDir");
-        sourceText.setEditable(false);
+        // sourceText.setEditable(false);
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
         selectFiles.setText("Select Specific Files...");
@@ -736,50 +736,80 @@ public class MediaMetadataApp extends Application
                 return;
             }
 
+            actionBtn.setDisable(true);
+            cancelBtn.setDisable(false);
             activeTask = new BatchTask(config, logArea, progressBar, metaDisplay);
             progressLabel.textProperty().bind(activeTask.messageProperty());
 
-            actionBtn.setDisable(true);
-            cancelBtn.setDisable(false);
-
-            activeTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
+            activeTask.stateProperty().addListener(new ChangeListener<Worker.State>()
             {
                 @Override
-                public void handle(WorkerStateEvent event)
+                public void changed(ObservableValue<? extends Worker.State> observable, Worker.State oldState, Worker.State newState)
                 {
-                    BatchStatistics stats = activeTask.getValue();
-
-                    if (stats != null)
+                    if (newState == Worker.State.SUCCEEDED || newState == Worker.State.FAILED || newState == Worker.State.CANCELLED)
                     {
-                        StatRecord.SOURCE_FILES.setValue(stats.getSourceFilesCount());
-                        StatRecord.TARGET_FILES.setValue(stats.getTargetFilesCount());
-                        StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
+                        actionBtn.getScene().getRoot().requestFocus();
+                        cancelBtn.setDisable(true);
+                        actionBtn.setDisable(false);
+
+                        BatchStatistics stats = activeTask.getValue();
+                        activeTask = null; // Force GC
+
+                        if (newState == Worker.State.SUCCEEDED)
+                        {
+                            Platform.runLater(new Runnable()
+                            {
+                                @Override
+                                public void run()
+                                {
+                                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+
+                                    if (stats != null)
+                                    {
+                                        StatRecord.SOURCE_FILES.setValue(stats.getSourceFilesCount());
+                                        StatRecord.TARGET_FILES.setValue(stats.getTargetFilesCount());
+                                        StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
+                                    }
+
+                                    alert.setTitle("Process Complete");
+                                    alert.setHeaderText(null);
+                                    alert.setContentText("Batch processing completed");
+                                    alert.initOwner(stage);
+                                    alert.showAndWait();
+                                }
+                            });
+                        }
+
+                        new Thread(new Runnable()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                try
+                                {
+                                    Thread.sleep(3000);
+
+                                    Platform.runLater(new Runnable()
+                                    {
+                                        @Override
+                                        public void run()
+                                        {
+                                            // Clean up UI status indicators
+                                            progressLabel.textProperty().unbind();
+                                            progressLabel.setText("");
+                                            progressBar.progressProperty().unbind();
+                                            progressBar.setProgress(0.0);
+                                        }
+                                    });
+                                }
+
+                                catch (InterruptedException exc)
+                                {
+                                    // Just pass through
+                                }
+                            }
+                        }).start();
                     }
-
-                    resetControlStates(progressLabel);
-                    launchPopup("Process Complete", "Batch processing completed", AlertType.INFORMATION);
-                }
-            });
-
-            activeTask.setOnFailed(new EventHandler<WorkerStateEvent>()
-            {
-                @Override
-                public void handle(WorkerStateEvent event)
-                {
-                    Throwable exc = activeTask.getException();
-                    String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
-
-                    resetControlStates(progressLabel);
-                    launchPopup("Processing Error", msg, AlertType.ERROR);
-                }
-            });
-
-            activeTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
-            {
-                @Override
-                public void handle(WorkerStateEvent event)
-                {
-                    resetControlStates(progressLabel);
                 }
             });
 
@@ -790,44 +820,9 @@ public class MediaMetadataApp extends Application
         }
     }
 
-    private void resetControlStates(Label progressLabel)
-    {
-        actionBtn.getScene().getRoot().requestFocus();
-        cancelBtn.setDisable(true);
-        actionBtn.setDisable(false);
-        activeTask = null;// Force GC
-
-        PauseTransition delay = new PauseTransition(Duration.seconds(3));
-
-        delay.setOnFinished(new EventHandler<ActionEvent>()
-        {
-            @Override
-            public void handle(ActionEvent event)
-            {
-                progressLabel.textProperty().unbind();
-                progressLabel.setText("");
-                progressBar.progressProperty().unbind();
-                progressBar.setProgress(0.0);
-            }
-        });
-
-        delay.play();
-    }
-
-    private void launchPopup(String title, String msg, AlertType type)
-    {
-        Alert alert = new Alert(type);
-
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(msg);
-        alert.initOwner(stage);
-        alert.showAndWait();
-    }
-
     /**
      * Builds a BatchConfiguration directly from the JavaFX UI controls using getId().
-     *
+     * 
      * @throws BatchErrorException
      */
     private BatchConfiguration buildConfiguration() throws BatchErrorException
@@ -837,7 +832,7 @@ public class MediaMetadataApp extends Application
         TextField targetText = getById(TGTID);
         TextField prefixText = getById(PFXID);
         DatePicker modifyDatePicker = getById(DTMID);
-        LocalDate dateValue = (modifyDatePicker != null ? modifyDatePicker.getValue() : null);
+        LocalDate dateValue = (modifyDatePicker != null) ? modifyDatePicker.getValue() : null;
         CheckBox embedDateTime = getById(EMBID);
         CheckBox forceDateChange = getById(FORID);
         CheckBox skipVideo = getById(SKPID);

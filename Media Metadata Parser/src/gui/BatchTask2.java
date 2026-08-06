@@ -6,6 +6,7 @@ import batch.BatchStatistics;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import javafx.concurrent.Task;
+import javafx.scene.control.Alert;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
 import progressbar.JavaFXProgressAdapter;
@@ -18,7 +19,7 @@ import progressbar.JavaFXProgressAdapter;
  * status to the supplied user interface components without blocking the JavaFX Application Thread.
  * </p>
  */
-class BatchTask extends Task<BatchStatistics>
+class BatchTask2 extends Task<BatchStatistics>
 {
     private final BatchConfiguration config;
     private final TextArea logArea;
@@ -38,7 +39,7 @@ class BatchTask extends Task<BatchStatistics>
      * @param displayMetadata
      *        {@code true} to display metadata instead of processing files
      */
-    BatchTask(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
+    BatchTask2(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
     {
         this.config = config;
         this.logArea = logArea;
@@ -166,14 +167,17 @@ class BatchTask extends Task<BatchStatistics>
     {
         updateMessage("Batch completed");
 
-        if (displayMetadata)
+        if (logArea != null)
         {
-            logArea.appendText("\n[SUCCESS] Exif data retrieved successfully.\n");
-        }
+            if (displayMetadata)
+            {
+                logArea.appendText("\n[SUCCESS] Exif data retrieved successfully.\n");
+            }
 
-        else
-        {
-            logArea.appendText("\n[SUCCESS] Batch processing complete.\n");
+            else
+            {
+                logArea.appendText("\n[SUCCESS] Batch processing complete.\n");
+            }
         }
     }
 
@@ -185,7 +189,12 @@ class BatchTask extends Task<BatchStatistics>
         Throwable exc = getException();
         String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
 
-        if (exc instanceof BatchErrorException || exc == null)
+        if (exc instanceof BatchErrorException)
+        {
+            logArea.appendText("[ERROR] " + msg + "\n");
+        }
+
+        else if (exc == null)
         {
             logArea.appendText("[ERROR] " + msg + "\n");
         }
@@ -193,19 +202,35 @@ class BatchTask extends Task<BatchStatistics>
         else
         {
             logArea.appendText("[ERROR] Unexpected error: " + msg + "\n");
+            exc.printStackTrace();
         }
+
+        showErrorDialog(msg);
     }
 
     @Override
     protected void cancelled()
     {
         updateMessage("Process cancelled");
-        logArea.appendText("[WARNING] Batch process was cancelled.\n");
+
+        if (logArea != null)
+        {
+            logArea.appendText("[WARNING] Batch process was cancelled.\n");
+        }
     }
 
     @Override
     protected void done()
     {
         processor = null;
+    }
+
+    private void showErrorDialog(String message)
+    {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Processing Error");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }
