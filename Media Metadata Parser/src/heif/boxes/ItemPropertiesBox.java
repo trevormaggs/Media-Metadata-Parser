@@ -227,7 +227,7 @@ public class ItemPropertiesBox extends Box
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':", tab, getClass().getSimpleName(), getFourCC()));
+        LOGGER.trace(String.format("%s%s '%s':", tab, getClass().getSimpleName(), getFourCC()));
     }
 
     /**
@@ -281,7 +281,7 @@ public class ItemPropertiesBox extends Box
 
                     if (childBox.getHeifType() == HeifBoxType.UNKNOWN)
                     {
-                        LOGGER.debug("Unknown property box encountered: " + childBox.getFourCC());
+                        LOGGER.trace("Unknown property box encountered: " + childBox.getFourCC());
                     }
 
                     properties.add(childBox);
@@ -350,7 +350,7 @@ public class ItemPropertiesBox extends Box
         public void logBoxInfo()
         {
             String tab = Utils.repeatText("\t", getHierarchyDepth());
-            LOGGER.debug(String.format("%s%s '%s':", tab, getClass().getSimpleName(), getFourCC()));
+            LOGGER.trace(String.format("%s%s '%s':", tab, getClass().getSimpleName(), getFourCC()));
         }
     }
 }

@@ -56,6 +56,7 @@ public final class BatchBuilder
     private boolean bd_displayMetadata = false;
     private boolean bd_descending = false;
     private boolean bd_debug = false;
+    private boolean bd_trace = false;
 
     /**
      * Sets the source directory containing the original media files.
@@ -227,6 +228,19 @@ public final class BatchBuilder
     }
 
     /**
+     * Enables or disables trace logging.
+     *
+     * @param b
+     *        {@code true} to enable trace logging or {@code false} to disable
+     * @return this builder instance to allow method chaining
+     */
+    public BatchBuilder trace(boolean b)
+    {
+        bd_trace = b;
+        return this;
+    }
+
+    /**
      * Constructs and returns a validated {@link BatchConfiguration}.
      *
      * @return the fully initialised {@code BatchConfiguration} instance
@@ -252,7 +266,8 @@ public final class BatchBuilder
                     bd_skipVideoFiles,
                     bd_displayMetadata,
                     bd_descending,
-                    bd_debug);
+                    bd_debug,
+                    bd_trace);
         }
 
         catch (IllegalArgumentException exc)

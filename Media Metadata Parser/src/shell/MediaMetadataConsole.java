@@ -172,6 +172,7 @@ public final class MediaMetadataConsole
             cli.addDefinition("--version", FlagType.ARG_BLANK);
             cli.addDefinition("-d", FlagType.ARG_BLANK);
             cli.addDefinition("--debug", FlagType.ARG_BLANK);
+            cli.addDefinition("--trace", FlagType.ARG_BLANK);
             cli.addDefinition("-h", FlagType.ARG_BLANK);
             cli.addDefinition("--help", FlagType.ARG_BLANK);
 
@@ -195,7 +196,7 @@ public final class MediaMetadataConsole
      */
     private static void showUsage()
     {
-        System.out.format("Usage: %s [-p prefix] [-t target directory] [-e] [-m date taken] [-f] [-i=<File 1> ... <File n>] [-S] [-X] [--desc] [-v|--version] [-h|--help] [-d|--debug] <Source Directory>%n",
+        System.out.format("Usage: %s [-p prefix] [-t target directory] [-e] [-m date taken] [-f] [-i=<File 1> ... <File n>] [-S] [-X] [--desc] [--trace] [-v|--version] [-h|--help] [-d|--debug] <Source Directory>%n",
                 ProjectBuildInfo.getInstance(MediaMetadataConsole.class).getShortFileName());
     }
 
@@ -215,6 +216,7 @@ public final class MediaMetadataConsole
         System.out.println("  -S                 Skip other media files");
         System.out.println("  -X                 Display detailed metadata entries similar to 'exiftool -G1 -a -s -u'");
         System.out.println("  --desc             Sort the images in descending order");
+        System.out.println("  --trace            Enable trace logging");
         System.out.println("  -v                 Display last build date");
         System.out.println("  -h                 Display this help message and exit");
         System.out.println("  -d                 Enable debugging");
@@ -257,7 +259,8 @@ public final class MediaMetadataConsole
                 .showMetadata(cli.existsFlag("-X"))
                 .descending(cli.existsFlag("--desc"))
                 .forceDateChange(cli.existsFlag("-f"))
-                .debug(cli.existsFlag("-d") || cli.existsFlag("--debug"));
+                .debug(cli.existsFlag("-d") || cli.existsFlag("--debug"))
+                .trace(cli.existsFlag("--trace"));
 
         if (cli.existsFlag("-i") && cli.getValueLength("-i") > 0)
         {

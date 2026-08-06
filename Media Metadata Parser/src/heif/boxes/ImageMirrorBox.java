@@ -101,6 +101,6 @@ public class ImageMirrorBox extends Box
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':\t\taxis=%d, reserved=%d", tab, this.getClass().getSimpleName(), getFourCC(), axis, reserved));
+        LOGGER.trace(String.format("%s%s '%s':\t\taxis=%d, reserved=%d", tab, this.getClass().getSimpleName(), getFourCC(), axis, reserved));
     }
 }

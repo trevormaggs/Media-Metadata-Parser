@@ -117,8 +117,6 @@ public final class PngDatePatcher
         {
             if (handler.parseMetadata())
             {
-                LOGGER.info(String.format("Preparing to patch new date in PNG file [%s]", imagePath));
-
                 try (RandomAccessWriter writer = new RandomAccessWriter(imagePath, ChunkHandler.PNG_BYTE_ORDER))
                 {
                     processExifSegment(handler, writer, zdt);
@@ -202,7 +200,7 @@ public final class PngDatePatcher
 
                             chunkModified = true;
                             System.arraycopy(dateBytes, 0, payload, (int) entry.getOffset(), dateBytes.length);
-                            LOGGER.info(String.format("Prepared patch for EXIF tag [%s] with value [%s]", tag, value));
+                            LOGGER.debug(String.format("Patched EXIF tag [%s]. Date/time {%s}", tag, value));
                         }
                     }
                 }
@@ -211,9 +209,7 @@ public final class PngDatePatcher
                 {
                     writer.seek(exifChunk.getDataOffset());
                     writer.writeBytes(payload);
-
                     updateChunkCRC(writer, exifChunk, payload);
-                    LOGGER.info("Surgically patched eXIf chunk with optimised single-write I/O");
                 }
             }
 
@@ -281,7 +277,7 @@ public final class PngDatePatcher
 
                                 chunkModified = true;
                                 System.arraycopy(alignedPatch, 0, rawPayload, (int) (chunk.getTextOffset() + vByteStart), alignedPatch.length);
-                                LOGGER.info(String.format("Date [%s] patched XMP tag [%s]", zdt.format(EXIF_FORMATTER), tag));
+                                LOGGER.debug(String.format("Patched XMP tag [%s]. Date/time {%s}", tag, zdt.format(EXIF_FORMATTER)));
                             }
 
                             else
@@ -345,8 +341,8 @@ public final class PngDatePatcher
             writer.seek(chunk.getDataOffset());
             writer.writeBytes(timePayload);
 
+            LOGGER.debug(String.format("Patched [tIME] chunk. Date/time {%s}", zdt.format(EXIF_FORMATTER)));
             updateChunkCRC(writer, chunk, timePayload);
-            LOGGER.info("Date [" + zdt.format(EXIF_FORMATTER) + "] patched in chunk [tIME (ModifyDate)]");
         }
     }
 
@@ -407,9 +403,8 @@ public final class PngDatePatcher
                                 System.arraycopy(patchBytes, 0, rawPayload, valueOffset, patchBytes.length);
                                 writer.seek(physicalPos);
                                 writer.writeBytes(patchBytes);
+                                LOGGER.debug(String.format("Patched [%s] chunk for keyword [%s]. Date/time {%s}", chunk.getType().getName(), chunk.getKeyword(), dateString));
                                 updateChunkCRC(writer, chunk, rawPayload);
-
-                                LOGGER.info(String.format("Date [%s] patched for keyword [%s] in chunk [%s]", dateString, chunk.getKeyword(), chunk.getType().getName()));
                             }
 
                             else
@@ -493,9 +488,8 @@ public final class PngDatePatcher
                                     System.arraycopy(patchBytes, 0, rawPayload, valueOffset, patchBytes.length);
                                     writer.seek(physicalPos);
                                     writer.writeBytes(patchBytes);
+                                    LOGGER.debug(String.format("Patched [%s] chunk for keyword [%s]. Date/time {%s}", ref.getType().getName(), keyword, dateString));
                                     updateChunkCRC(writer, itxt, rawPayload);
-
-                                    LOGGER.info(String.format("Date [%s] patched for international keyword [%s] in chunk [iTXt]", dateString, keyword));
                                 }
 
                                 else
@@ -547,7 +541,7 @@ public final class PngDatePatcher
             writer.seek(chunk.getDataOffset() + chunk.getLength());
             writer.writeInteger((int) newCrc);
 
-            LOGGER.info(String.format("CRC [0x%08X] updated in %s chunk", newCrc, chunk.getType()));
+            LOGGER.trace(String.format("CRC [0x%08X] updated in %s chunk", newCrc, chunk.getType()));
         }
 
         finally

@@ -199,6 +199,6 @@ public class ColourInformationBox extends Box
             sb.append(" (Unknown colour type)");
         }
 
-        LOGGER.debug(sb.toString());
+        LOGGER.trace(sb.toString());
     }
 }

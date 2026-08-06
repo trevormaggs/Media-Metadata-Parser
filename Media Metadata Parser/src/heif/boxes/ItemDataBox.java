@@ -67,7 +67,7 @@ public class ItemDataBox extends Box
     {
         StringBuilder sb = new StringBuilder();
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':", tab, this.getClass().getSimpleName(), getFourCC()));
+        LOGGER.trace(String.format("%s%s '%s':", tab, this.getClass().getSimpleName(), getFourCC()));
 
         if (data.length < 65)
         {
@@ -84,6 +84,6 @@ public class ItemDataBox extends Box
             sb.append(String.format("\t\tData size: %d bytes (hex dump omitted)", data.length));
         }
 
-        LOGGER.debug(sb.toString());
+        LOGGER.trace(sb.toString());
     }
 }

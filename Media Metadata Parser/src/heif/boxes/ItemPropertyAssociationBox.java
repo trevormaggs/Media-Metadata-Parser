@@ -223,17 +223,17 @@ public class ItemPropertyAssociationBox extends FullBox
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':\t\tentry_count=%d", tab, this.getClass().getSimpleName(), getFourCC(), entries.length));
+        LOGGER.trace(String.format("%s%s '%s':\t\tentry_count=%d", tab, this.getClass().getSimpleName(), getFourCC(), entries.length));
 
         for (int i = 0; i < entries.length; i++)
         {
             ItemPropertyEntry entry = entries[i];
 
-            LOGGER.debug(String.format("\t%s%d)\titem_ID=%d,\tassociation_count=%d", tab, i + 1, entry.getItemID(), entry.getAssociationCount()));
+            LOGGER.trace(String.format("\t%s%d)\titem_ID=%d,\tassociation_count=%d", tab, i + 1, entry.getItemID(), entry.getAssociationCount()));
 
             for (ItemPropertyEntryAssociation assoc : entry.getAssociations())
             {
-                LOGGER.debug(String.format("\t\t\t\t\t%sessential=%s, property_index=%d", tab, assoc.isEssential(), assoc.getPropertyIndex()));
+                LOGGER.trace(String.format("\t\t\t\t\t%sessential=%s, property_index=%d", tab, assoc.isEssential(), assoc.getPropertyIndex()));
             }
         }
     }

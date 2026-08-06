@@ -51,6 +51,7 @@ public final class MediaBatchProcessor
     public static final String DEFAULT_IMAGE_PREFIX = "image";
     private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessor.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("ddMMMyyyy");
+    private static final DateTimeFormatter DTF2 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
     private static final long TEN_SECOND_OFFSET = 10L;
     private volatile boolean cancelled = false;
     private final List<ProgressListener> listeners;
@@ -155,19 +156,21 @@ public final class MediaBatchProcessor
         try
         {
             prepareTargetDirectory();
-            startLogging();
             resetListeners();
+            startLogging();
 
             scanner.start();
 
             totalSourceFiles = scanner.getRecordCount();
 
+            LOGGER.info("Total number of source files scanned: [" + totalSourceFiles + "]");
+
             if (totalSourceFiles > 0)
             {
-                LOGGER.info("Starting batch processing of file [" + totalSourceFiles + "]...");
-
                 for (MediaRecord record : scanner)
                 {
+                    LOGGER.info("Processing file: " + record.getPath().getFileName());
+
                     if (isCancelled())
                     {
                         LOGGER.warn("Batch process was cancelled by user after processing " + (processedCount - 1) + " files.");
@@ -257,13 +260,13 @@ public final class MediaBatchProcessor
             {
                 if (record.isMetadataEmpty())
                 {
-                    LOGGER.warn("File [" + record.getPath() + "] contains no metadata. Only file dates were updated");
+                    LOGGER.warn("File [" + record.getPath() + "] contains no embedded metadata. Only system file dates were updated");
                 }
 
                 else if (config.isForceDateChange())
                 {
                     // TODO: May need to add one for DNG
-                    
+
                     if (record.isTIF())
                     {
                         TiffDatePatcher.patchAllDates(targetPath, effectiveTime, true);
@@ -297,7 +300,9 @@ public final class MediaBatchProcessor
                     view.setTimes(effectiveTime, effectiveTime, effectiveTime);
                 }
 
-                LOGGER.info(String.format("[%d/%d] Processed: %s -> %s", index, total, record.getPath().getFileName(), newName));
+                String formattedDate = effectiveTime.toInstant().atZone(ZoneId.systemDefault()).format(DTF2);
+
+                LOGGER.info(String.format("[File %d/%d] Processed: %s -> %s [Effective date/time: %s]", index, total, record.getPath().getFileName(), newName, formattedDate));
 
                 return view.readAttributes().size();
             }
@@ -405,6 +410,17 @@ public final class MediaBatchProcessor
     }
 
     /**
+     * Resets internal progress state across all registered listeners.
+     */
+    private void resetListeners()
+    {
+        for (ProgressListener listener : listeners)
+        {
+            listener.reset();
+        }
+    }
+
+    /**
      * Prepares the target directory by ensuring it exists and is empty.
      *
      * <p>
@@ -486,7 +502,7 @@ public final class MediaBatchProcessor
 
             LogFactory.configure(logPath.toString());
             LogFactory.setDebug(config.isDebug());
-            LogFactory.setTrace(true);
+            LogFactory.setTrace(config.isTrace());
 
             LOGGER.info(this.getClass().getSimpleName() + " initialised");
             LOGGER.info("Source: " + config.getSource().toAbsolutePath());
@@ -495,25 +511,14 @@ public final class MediaBatchProcessor
 
             if (config.isForceDateChange() && config.getUserDate() != null)
             {
-                String dtf = config.getUserDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z"));
-                LOGGER.info("Forced date change enabled using [" + dtf + "]");
+                String dtf = config.getUserDate().format(DTF2);
+                LOGGER.info("User-defined date override received [" + dtf + "]");
             }
         }
 
         catch (IOException exc)
         {
             throw new BatchErrorException("Unable to start logging", exc);
-        }
-    }
-
-    /**
-     * Resets internal progress state across all registered listeners.
-     */
-    private void resetListeners()
-    {
-        for (ProgressListener listener : listeners)
-        {
-            listener.reset();
         }
     }
 }

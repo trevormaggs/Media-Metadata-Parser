@@ -210,7 +210,6 @@ public class TifMetadata implements TifMetadataProvider
         ifdMap.clear();
         xmpDir = null;
         byteOrder = null;
-        imageFormat = DigitalSignature.TIF;
     }
 
     /**
@@ -307,7 +306,6 @@ public class TifMetadata implements TifMetadataProvider
 
         if (mainDir != null)
         {
-            // TODO: Does IFD0 hold EXIF_DATE_TIME_ORIGINAL? Unlikely?
             if (mainDir.hasTag(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL))
             {
                 return mainDir.getZonedDateTime(TagIFD_Exif.EXIF_DATE_TIME_ORIGINAL);

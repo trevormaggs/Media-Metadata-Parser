@@ -9,15 +9,20 @@ import common.DigitalSignature;
 import common.Metadata;
 
 /**
- * Represents an immutable snapshot of a media file's properties read during a scan.
- * 
+ * Represents an immutable snapshot of a media file captured during a scan.
+ *
  * <p>
- * This record encapsulates the physical location, raw metadata container, verified digital format,
- * and chronological "truth" (Natural Date) of the file.
+ * This package-private class encapsulates the media file's location, extracted metadata, detected
+ * digital format, file system attributes, and the file's chronological "truth" (Natural Date).
  * </p>
- * 
+ *
  * <p>
- * This class is immutable provided that the supplied {@link Metadata} implementation is itself
+ * It is intended solely for internal use within the {@code batch} package as a transport object
+ * between the scanning and processing stages.
+ * </p>
+ *
+ * <p>
+ * Instances are immutable, provided that the supplied {@link Metadata} implementation is itself
  * immutable.
  * </p>
  * 
@@ -25,7 +30,7 @@ import common.Metadata;
  * @version 1.1
  * @since 1 May 2026
  */
-public final class MediaRecord
+final class MediaRecord
 {
     private final Path mediaFile;
     private final Metadata<?> metadata;
@@ -41,17 +46,18 @@ public final class MediaRecord
      *        the path to the media file
      * @param attr
      *        the file system attributes recorded during scanning
-     * @param meta
-     *        the extracted metadata container, or {@code null} if none exists
+     * @param record
+     *        the extracted metadata container, or {@code null} if the file contains no recognised
+     *        metadata
      */
-    public MediaRecord(Path fpath, BasicFileAttributes attr, Metadata<?> meta)
+    MediaRecord(Path fpath, BasicFileAttributes attr, Metadata<?> record)
     {
         this.mediaFile = fpath;
-        this.metadata = meta;
-        this.mediaFormat = (meta != null ? meta.getImageFormat() : null);
+        this.metadata = record;
+        this.mediaFormat = (record != null ? record.getImageFormat() : null);
         this.fileSize = attr.size();
         this.fileSystemDate = attr.lastModifiedTime();
-        this.hasMetadataContainer = (meta != null && meta.hasMetadata());
+        this.hasMetadataContainer = (record != null && record.hasMetadata());
     }
 
     /**
@@ -59,7 +65,7 @@ public final class MediaRecord
      *
      * @return the media file path
      */
-    public Path getPath()
+    Path getPath()
     {
         return mediaFile;
     }
@@ -69,18 +75,18 @@ public final class MediaRecord
      *
      * @return the metadata instance, or {@code null} if no metadata was found
      */
-    public Metadata<?> getMetadata()
+    Metadata<?> getMetadata()
     {
         return metadata;
     }
 
     /**
-     * Returns the media format signature used to identify the file type, normally via magic
-     * numbers.
+     * Returns the digital signature identifying the media format, as determined from the file's
+     * signature (magic number).
      *
-     * @return the media format type
+     * @return the detected media format
      */
-    public DigitalSignature getMediaFormat()
+    DigitalSignature getMediaFormat()
     {
         return mediaFormat;
     }
@@ -90,7 +96,7 @@ public final class MediaRecord
      *
      * @return the file size in bytes
      */
-    public long getFileSize()
+    long getFileSize()
     {
         return fileSize;
     }
@@ -100,18 +106,17 @@ public final class MediaRecord
      * 
      * @return the file system date
      */
-    public FileTime getFileSystemDate()
+    FileTime getFileSystemDate()
     {
         return fileSystemDate;
     }
 
     /**
-     * Indicates whether this media file lacks a valid embedded metadata container, such as EXIF or
-     * XMP.
+     * Indicates whether the media file lacks recognised embedded metadata.
      *
-     * @return true if the file lacks metadata, otherwise false
+     * @return {@code true} if no metadata container was found, otherwise {@code false}
      */
-    public boolean isMetadataEmpty()
+    boolean isMetadataEmpty()
     {
         return !hasMetadataContainer;
     }
@@ -121,7 +126,7 @@ public final class MediaRecord
      *
      * @return true if JPG, otherwise false
      */
-    public boolean isJPG()
+    boolean isJPG()
     {
         return mediaFormat == DigitalSignature.JPG;
     }
@@ -131,7 +136,7 @@ public final class MediaRecord
      * 
      * @return true if PNG, otherwise false
      */
-    public boolean isPNG()
+    boolean isPNG()
     {
         return mediaFormat == DigitalSignature.PNG;
     }
@@ -141,7 +146,7 @@ public final class MediaRecord
      * 
      * @return true if TIFF, otherwise false
      */
-    public boolean isTIF()
+    boolean isTIF()
     {
         return mediaFormat == DigitalSignature.TIF;
     }
@@ -151,7 +156,7 @@ public final class MediaRecord
      *
      * @return true if HEIC, otherwise false
      */
-    public boolean isHEIC()
+    boolean isHEIC()
     {
         return mediaFormat == DigitalSignature.HEIF;
     }
@@ -161,7 +166,7 @@ public final class MediaRecord
      *
      * @return true if WebP, otherwise false
      */
-    public boolean isWebP()
+    boolean isWebP()
     {
         return mediaFormat == DigitalSignature.WEBP;
     }
@@ -172,9 +177,9 @@ public final class MediaRecord
      *
      * @return true if the media is a video, otherwise false
      */
-    public boolean isVideoFormat()
+    boolean isVideoFormat()
     {
-        return mediaFormat.isVideo();
+        return mediaFormat != null && mediaFormat.isVideo();
     }
 
     /**
@@ -183,7 +188,7 @@ public final class MediaRecord
      * 
      * @return the most accurate timestamp available for this media
      */
-    public FileTime getNaturalDate()
+    FileTime getNaturalDate()
     {
         if (hasMetadataContainer)
         {
@@ -199,13 +204,16 @@ public final class MediaRecord
     }
 
     /**
-     * Compares this record with another object. Two records are considered equal if they point to
-     * the same path and share the same metadata and format state.
+     * Compares this media record with another object.
+     *
+     * <p>
+     * Two media records are considered equal if all immutable state used to describe the scanned
+     * file is equal.
+     * </p>
      *
      * @param other
      *        the object to compare
-     * 
-     * @return true if the objects are equal, otherwise false
+     * @return {@code true} if the objects are equal, otherwise {@code false}
      */
     @Override
     public boolean equals(Object other)
@@ -220,14 +228,14 @@ public final class MediaRecord
             return false;
         }
 
-        MediaRecord meta = (MediaRecord) other;
+        MediaRecord record = (MediaRecord) other;
 
-        return fileSize == meta.fileSize
-                && hasMetadataContainer == meta.hasMetadataContainer
-                && Objects.equals(fileSystemDate, meta.fileSystemDate)
-                && mediaFormat == meta.mediaFormat
-                && Objects.equals(metadata, meta.metadata)
-                && Objects.equals(mediaFile, meta.mediaFile);
+        return fileSize == record.fileSize
+                && hasMetadataContainer == record.hasMetadataContainer
+                && Objects.equals(fileSystemDate, record.fileSystemDate)
+                && mediaFormat == record.mediaFormat
+                && Objects.equals(metadata, record.metadata)
+                && Objects.equals(mediaFile, record.mediaFile);
     }
 
     /**

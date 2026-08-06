@@ -105,7 +105,7 @@ public class DataInformationBox extends Box
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':\t\t(%s)", tab, this.getClass().getSimpleName(), getFourCC(), getHeifType().getBoxCategory()));
+        LOGGER.trace(String.format("%s%s '%s':\t\t(%s)", tab, this.getClass().getSimpleName(), getFourCC(), getHeifType().getBoxCategory()));
     }
 
     /**
@@ -163,7 +163,7 @@ public class DataInformationBox extends Box
         public void logBoxInfo()
         {
             String tab = Utils.repeatText("\t", getHierarchyDepth());
-            LOGGER.debug(String.format("%s%s '%s':\t\tentryCount=%d", tab, this.getClass().getSimpleName(), getFourCC(), dataEntry.length));
+            LOGGER.trace(String.format("%s%s '%s':\t\tentryCount=%d", tab, this.getClass().getSimpleName(), getFourCC(), dataEntry.length));
         }
     }
 
@@ -239,7 +239,7 @@ public class DataInformationBox extends Box
                 sb.append("Name='").append(name).append("'");
             }
 
-            LOGGER.debug(String.format("%s%s '%s':\t\t%s", tab, this.getClass().getSimpleName(), getFourCC(), sb.toString().trim()));
+            LOGGER.trace(String.format("%s%s '%s':\t\t%s", tab, this.getClass().getSimpleName(), getFourCC(), sb.toString().trim()));
         }
     }
 }

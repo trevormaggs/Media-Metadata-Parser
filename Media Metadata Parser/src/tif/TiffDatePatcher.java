@@ -165,8 +165,7 @@ public final class TiffDatePatcher
 
             writer.seek(entry.getOffset());
             writer.writeBytes(dateBytes);
-
-            LOGGER.debug(String.format("Patched ASCII tag [%s] at offset %d", tag, entry.getOffset()));
+            LOGGER.debug(String.format("Patched ASCII tag [%s]. Date/time {%s}", tag, value));
         }
 
         else
@@ -213,7 +212,9 @@ public final class TiffDatePatcher
             writer.seek(entry.getOffset());
             writer.writeBytes(timeBytes);
 
-            LOGGER.debug(String.format("Patched GPS_TIME_STAMP rational at offset %d", entry.getOffset()));
+            ZonedDateTime updatedTime = zdt.withZoneSameInstant(ZoneId.of("UTC"));
+            String value = updatedTime.format(GPS_FORMATTER);
+            LOGGER.debug(String.format("Patched [GPS_TIME_STAMP] rational. Date/time {%s}", value));
         }
 
         else
@@ -290,8 +291,7 @@ public final class TiffDatePatcher
                         {
                             writer.seek(physicalPos);
                             writer.writeBytes(alignedPatch);
-
-                            LOGGER.debug(String.format("\t-> Patched XMP tag [%s] at offset %d", tag, physicalPos));
+                            LOGGER.debug(String.format("Patched XMP tag [%s]. Date/time {%s}", tag, zdt.format(EXIF_FORMATTER)));
                         }
 
                         else

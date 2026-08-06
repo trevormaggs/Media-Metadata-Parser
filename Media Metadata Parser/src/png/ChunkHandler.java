@@ -166,7 +166,7 @@ public class ChunkHandler implements ImageHandler
 
             if (parsed && chunks.isEmpty())
             {
-                LOGGER.info("No matching chunks extracted from PNG file [" + imageFile + "]");
+                LOGGER.info("No matching PNG metadata chunks found in file [" + imageFile + "]");
             }
         }
 
@@ -432,8 +432,6 @@ public class ChunkHandler implements ImageHandler
                             LOGGER.warn(msg);
                         }
                     }
-
-                    LOGGER.debug("Chunk type [" + chunkType + "] added for file [" + imageFile + "]");
                 }
             }
 

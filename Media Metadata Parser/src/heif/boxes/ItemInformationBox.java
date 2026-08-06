@@ -175,6 +175,6 @@ public class ItemInformationBox extends FullBox
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':\t\tItem_count=%d", tab, this.getClass().getSimpleName(), getFourCC(), entries.size()));
+        LOGGER.trace(String.format("%s%s '%s':\t\tItem_count=%d", tab, this.getClass().getSimpleName(), getFourCC(), entries.size()));
     }
 }

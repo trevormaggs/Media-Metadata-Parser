@@ -125,6 +125,9 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
                 }
 
                 dataLoaded = true;
+
+                // TODO: Review this and work out when to use it.
+                handler.displayHierarchy();
             }
 
             catch (IOException exc)
@@ -214,7 +217,7 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
      */
     public void logDebugBoxHierarchy(BoxHandler handler)
     {
-        LOGGER.debug("Box hierarchy:");
+        LOGGER.trace("Box hierarchy:");
 
         for (Box box : handler)
         {

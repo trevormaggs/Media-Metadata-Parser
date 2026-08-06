@@ -100,10 +100,10 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
          */
         if (filename.equalsIgnoreCase("." + targetExt) || filename.equalsIgnoreCase(targetExt))
         {
-            return String.format("File [%s] has no proper extension, but contains [%s] data", filename, targetExt.toUpperCase());
+            return String.format("File [%s] has no proper extension, but contains [%s] data", baseName, targetExt.toUpperCase());
         }
 
-        return String.format("File [%s] contains [%s] data but uses an incorrect extension. Expected [%s.%s]", filename, targetExt.toUpperCase(), baseName, targetExt);
+        return String.format("File [%s] contains [%s] data, but expected extension is [.%s]", filename, targetExt.toUpperCase(), targetExt);
     }
 
     /**

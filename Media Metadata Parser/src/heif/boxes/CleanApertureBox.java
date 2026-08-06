@@ -118,6 +118,6 @@ public class CleanApertureBox extends Box
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s': Width=%.2f, Height=%.2f, H-Offset=%.2f, V-Offset=%.2f", tab, getClass().getSimpleName(), getFourCC(), getCleanWidth(), getCleanHeight(), getHorizontalOffset(), getVerticalOffset()));
+        LOGGER.trace(String.format("%s%s '%s': Width=%.2f, Height=%.2f, H-Offset=%.2f, V-Offset=%.2f", tab, getClass().getSimpleName(), getFourCC(), getCleanWidth(), getCleanHeight(), getHorizontalOffset(), getVerticalOffset()));
     }
 }

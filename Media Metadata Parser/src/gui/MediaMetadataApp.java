@@ -62,6 +62,13 @@ import javafx.util.Callback;
 import javafx.util.Duration;
 import logger.LogFactory;
 
+/**
+ * Main JavaFX application entry point for the Media Metadata Structure Viewer.
+ *
+ * @author Trevor Maggs
+ * @version 1.3
+ * @since 1 May 2026
+ */
 public class MediaMetadataApp extends Application
 {
     private final Button sourceBtn;
@@ -90,6 +97,9 @@ public class MediaMetadataApp extends Application
     private static final String SRTID = "srtId";
     private static final String DBGID = "dbgId";
 
+    /**
+     * Public default constructor required by JavaFX reflection runtime.
+     */
     public MediaMetadataApp()
     {
         this.sourceBtn = new Button();
@@ -115,10 +125,10 @@ public class MediaMetadataApp extends Application
     public void start(Stage root)
     {
         RowConstraints fixedRow = new RowConstraints();
-        fixedRow.setVgrow(Priority.NEVER); // Keep controls at natural height
+        fixedRow.setVgrow(Priority.NEVER);
 
         RowConstraints fillRow = new RowConstraints();
-        fillRow.setVgrow(Priority.ALWAYS); // Expand log pane fill space
+        fillRow.setVgrow(Priority.ALWAYS);
 
         this.stage = root;
         stage.setTitle("Image Metadata Structure Viewer");
@@ -142,12 +152,6 @@ public class MediaMetadataApp extends Application
         configureDynamicNodes(formGrid);
     }
 
-    /**
-     * Builds and adds the application's top configuration panel to the specified root grid pane.
-     *
-     * @param pane
-     *        the root {@link GridPane} to which the configuration panel is added
-     */
     private void addTopPane(GridPane pane)
     {
         double labelWidth = 140;
@@ -211,7 +215,6 @@ public class MediaMetadataApp extends Application
         HBox modifyDateHbox = new HBox(10);
         modifyDateHbox.getChildren().addAll(dateLabel, modifyDatePicker, fillRow());
 
-        // Combine boxes
         VBox contentPane = new VBox(12);
         contentPane.setPadding(new Insets(10));
         contentPane.getChildren().addAll(sourceHbox, targetHbox, prefixHbox, modifyDateHbox);
@@ -225,28 +228,8 @@ public class MediaMetadataApp extends Application
         pane.add(titledPane, 0, 0);
     }
 
-    /**
-     * Creates and attaches the application's processing options and statistics panels to the
-     * specified root {@link GridPane}.
-     *
-     * <p>
-     * Both panels are contained within side-by-side {@link TitledPane} instances that expand
-     * equally to fill the available width.
-     * </p>
-     *
-     * @param pane
-     *        the root {@link GridPane} to which the panels are added
-     */
-    /**
-     * Creates and attaches the application's processing options and statistics panels to the
-     * specified root {@link GridPane}.
-     *
-     * @param pane
-     *        the root {@link GridPane} to which the panels are added
-     */
     private void addMiddlePane(GridPane pane)
     {
-        // Left Titled Pane - Processing Options
         CheckBox embedDateTimeCheck = new CheckBox("Embed Date/Time");
         embedDateTimeCheck.setId(EMBID);
 
@@ -286,7 +269,6 @@ public class MediaMetadataApp extends Application
         optionsTitledPane.setMaxWidth(Double.MAX_VALUE);
         optionsTitledPane.setMaxHeight(Double.MAX_VALUE);
 
-        // Right Titled Pane - Statistics Table
         TableView<StatRecord> statsTable = new TableView<>();
         statsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         statsTable.setFocusTraversable(false);
@@ -352,28 +334,15 @@ public class MediaMetadataApp extends Application
         statsTitledPane.setMaxWidth(Double.MAX_VALUE);
         statsTitledPane.setMaxHeight(Double.MAX_VALUE);
 
-        // Arrange both titled panes side by side
         HBox middleRow = new HBox(15, optionsTitledPane, statsTitledPane);
         GridPane.setHgrow(middleRow, Priority.ALWAYS);
 
-        // Forces both inner panes to have equal 50/50 width
         optionsTitledPane.prefWidthProperty().bind(middleRow.widthProperty().subtract(15).divide(2));
         statsTitledPane.prefWidthProperty().bind(optionsTitledPane.prefWidthProperty());
 
         pane.add(middleRow, 0, 1);
     }
 
-    /**
-     * Builds and adds the application's log panel to the specified root grid pane.
-     *
-     * <p>
-     * The panel contains a read-only text area used to display execution messages and status
-     * information.
-     * </p>
-     *
-     * @param pane
-     *        the root {@link GridPane} to which the log panel is added
-     */
     private void addLogPane(GridPane pane)
     {
         TextArea logArea = new TextArea();
@@ -400,17 +369,6 @@ public class MediaMetadataApp extends Application
         LogFactory.addLogListener(new JavaFXLogListener(logArea));
     }
 
-    /**
-     * Builds and adds the application's actions panel to the specified root grid pane.
-     *
-     * <p>
-     * The panel contains controls used to execute the batch process, monitor its progress, and
-     * display the processing summary.
-     * </p>
-     *
-     * @param pane
-     *        the root {@link GridPane} to which the actions panel is added
-     */
     private void addControlPane(GridPane pane)
     {
         ActionHandler actionHandler = new ActionHandler();
@@ -426,7 +384,6 @@ public class MediaMetadataApp extends Application
         progressLabel.setMaxWidth(180);
         progressBar.setUserData(progressLabel);
 
-        // Stack bar and label, set alignment to TOP_LEFT
         VBox progressBox = new VBox(4, progressBar, progressLabel);
         progressBox.setAlignment(Pos.TOP_LEFT);
 
@@ -437,7 +394,6 @@ public class MediaMetadataApp extends Application
         cancelBtn.setText("Cancel");
         cancelBtn.setOnAction(actionHandler);
 
-        // Align row children to TOP_LEFT so the top edges of actionBtn and progressBox match up
         HBox buttonBox = new HBox(12, actionBtn, progressBox, fillRow(), copyLogBtn, cancelBtn);
         buttonBox.setAlignment(Pos.TOP_LEFT);
         buttonBox.setPadding(new Insets(10));
@@ -452,15 +408,6 @@ public class MediaMetadataApp extends Application
         pane.add(titledPane, 0, 3);
     }
 
-    /**
-     * Builds and adds the application's bottom control panel to the specified root grid pane.
-     *
-     * @param pane
-     *        the root {@link GridPane} to which the control panel is added
-     */
-    /**
-     * Builds and adds the application's bottom control panel.
-     */
     private void addBottomPane(GridPane pane)
     {
         ActionHandler actionHandler = new ActionHandler();
@@ -483,10 +430,6 @@ public class MediaMetadataApp extends Application
         pane.add(controlLayout, 0, 4);
     }
 
-    /**
-     * Configures the dynamic behaviour of the application's user interface by attaching event
-     * listeners and binding control properties.
-     */
     private void configureDynamicNodes(Parent pane)
     {
         TextField sourceText = getById(SRCID);
@@ -575,7 +518,7 @@ public class MediaMetadataApp extends Application
                             }
                         }
 
-                        event.consume(); // Prevent default JavaFX handling
+                        event.consume();
                     }
                 }
             });
@@ -587,10 +530,6 @@ public class MediaMetadataApp extends Application
         return getById(stage.getScene().getRoot(), id);
     }
 
-    /**
-     * Traverses the scene graph and uses getId() to match the target ID.
-     * (Java 8 Compatible)
-     */
     @SuppressWarnings("unchecked")
     private <T extends Node> T getById(Node root, String id)
     {
@@ -620,9 +559,6 @@ public class MediaMetadataApp extends Application
         return null;
     }
 
-    /**
-     * Handles action events generated by the application's user interface controls.
-     */
     private class ActionHandler implements EventHandler<ActionEvent>
     {
         @Override
@@ -661,26 +597,21 @@ public class MediaMetadataApp extends Application
 
                 if (logArea != null && !logArea.getText().isEmpty())
                 {
-                    // 1. Copy text to clipboard
-                    ClipboardContent content = new javafx.scene.input.ClipboardContent();
+                    ClipboardContent content = new ClipboardContent();
                     content.putString(logArea.getText());
                     Clipboard.getSystemClipboard().setContent(content);
 
-                    // 2. Temporarily style the selection highlight color (e.g., soft green or
-                    // bright blue)
                     String originalStyle = logArea.getStyle();
                     logArea.setStyle(originalStyle + " -fx-highlight-fill: #a8e6cf; -fx-highlight-text-fill: #000000;");
 
-                    // 3. Highlight/Select all text in logArea
                     logArea.selectAll();
 
-                    // 4. Remove highlight after 250 milliseconds
                     PauseTransition flash = new PauseTransition(Duration.millis(550));
 
                     flash.setOnFinished(e ->
                     {
                         logArea.deselect();
-                        logArea.setStyle(originalStyle); // Restore original style
+                        logArea.setStyle(originalStyle);
                     });
 
                     flash.play();
@@ -783,10 +714,10 @@ public class MediaMetadataApp extends Application
                 }
             });
 
-            Thread workerThread = new Thread(activeTask);
+            Thread worker = new Thread(activeTask);
 
-            workerThread.setDaemon(true);
-            workerThread.start();
+            worker.setDaemon(true);
+            worker.start();
         }
     }
 
@@ -795,7 +726,7 @@ public class MediaMetadataApp extends Application
         actionBtn.getScene().getRoot().requestFocus();
         cancelBtn.setDisable(true);
         actionBtn.setDisable(false);
-        activeTask = null;// Force GC
+        activeTask = null;
 
         PauseTransition delay = new PauseTransition(Duration.seconds(3));
 
@@ -825,11 +756,6 @@ public class MediaMetadataApp extends Application
         alert.showAndWait();
     }
 
-    /**
-     * Builds a BatchConfiguration directly from the JavaFX UI controls using getId().
-     *
-     * @throws BatchErrorException
-     */
     private BatchConfiguration buildConfiguration() throws BatchErrorException
     {
         TextField sourceText = getById(SRCID);
@@ -880,16 +806,10 @@ public class MediaMetadataApp extends Application
                 .descending(descending != null && descending.isSelected())
                 .debug(debug != null && debug.isSelected())
                 .showMetadata(showMetadata != null && showMetadata.isSelected())
+                .trace(false)
                 .build();
     }
 
-    /**
-     * Opens a file chooser to allow the user to select one or more source files.
-     *
-     * <p>
-     * The names of the selected files are displayed in the source text field.
-     * </p>
-     */
     private void handleFileSelection()
     {
         TextField sourceText = getById(stage.getScene().getRoot(), SRCID);
@@ -1027,7 +947,7 @@ public class MediaMetadataApp extends Application
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         TableColumn<FileRecord, String> sourceCol = new TableColumn<>("Source File");
-        sourceCol.setCellValueFactory(new javafx.util.Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
+        sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
         {
             @Override
             public ObservableValue<String> call(TableColumn.CellDataFeatures<FileRecord, String> cellData)
@@ -1038,7 +958,7 @@ public class MediaMetadataApp extends Application
         sourceCol.setPrefWidth(200);
 
         TableColumn<FileRecord, String> targetCol = new TableColumn<>("Target File");
-        targetCol.setCellValueFactory(new javafx.util.Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
+        targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
         {
             @Override
             public ObservableValue<String> call(TableColumn.CellDataFeatures<FileRecord, String> cellData)
@@ -1049,7 +969,7 @@ public class MediaMetadataApp extends Application
         targetCol.setPrefWidth(200);
 
         TableColumn<FileRecord, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(new javafx.util.Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
+        statusCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
         {
             @Override
             public ObservableValue<String> call(TableColumn.CellDataFeatures<FileRecord, String> cellData)

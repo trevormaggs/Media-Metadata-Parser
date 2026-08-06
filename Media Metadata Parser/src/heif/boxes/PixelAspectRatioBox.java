@@ -57,6 +57,6 @@ public class PixelAspectRatioBox extends Box
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s': hSpacing=%d, vSpacing=%d (Ratio: %.2f)", tab, getClass().getSimpleName(), getFourCC(), hSpacing, vSpacing, getAspectRatio()));
+        LOGGER.trace(String.format("%s%s '%s': hSpacing=%d, vSpacing=%d (Ratio: %.2f)", tab, getClass().getSimpleName(), getFourCC(), hSpacing, vSpacing, getAspectRatio()));
     }
 }

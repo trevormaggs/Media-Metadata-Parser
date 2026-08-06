@@ -129,6 +129,6 @@ public class HandlerBox extends FullBox
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':\t\t'%s'", tab, this.getClass().getSimpleName(), getFourCC(), getHandlerType()));
+        LOGGER.trace(String.format("%s%s '%s':\t\t'%s'", tab, this.getClass().getSimpleName(), getFourCC(), getHandlerType()));
     }
 }

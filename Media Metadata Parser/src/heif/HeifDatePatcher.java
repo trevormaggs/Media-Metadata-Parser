@@ -157,6 +157,7 @@ public final class HeifDatePatcher
 
                             raf.seek(physicalPos);
                             raf.writeBytes(output);
+                            LOGGER.debug(String.format("Patched EXIF tag [%s]. Date/time {%s}", tag, value));
                         }
                     }
                 }
@@ -247,8 +248,7 @@ public final class HeifDatePatcher
                                 {
                                     writer.seek(physicalPos);
                                     writer.writeBytes(alignedPatch);
-
-                                    LOGGER.info("Patched XMP tag [" + tag + "] at: " + physicalPos);
+                                    LOGGER.debug(String.format("Patched XMP tag [%s]. Date/time {%s}", tag, zdt.format(EXIF_FORMATTER)));
                                 }
                             }
 

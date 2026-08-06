@@ -1,6 +1,7 @@
 package gui;
 
 import java.io.File;
+import java.util.Objects;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.control.TextField;
@@ -8,13 +9,23 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
 
 /**
- * Event handler for opening a JavaFX {@link FilePickHandler} and populating the selected
- * directory path into a target {@link TextField}.
+ * Event handler for opening a JavaFX {@link DirectoryChooser} and populating the selected directory
+ * path into a target {@link TextField}.
+ * 
+ * <p>
+ * <b>Access Restriction:</b> By careful design, this class is intentionally package-private and
+ * intended strictly for internal use within the {@code gui} package.
+ * </p>
+ * 
+ * @PackagePrivate
+ * @author Trevor Maggs
+ * @version 1.0
+ * @since 6 August 2026
  */
-public class FilePickHandler implements EventHandler<ActionEvent>
+class FilePickHandler implements EventHandler<ActionEvent>
 {
-    private final TextField targetField;
     private final String dialogTitle;
+    private final TextField targetField;
 
     /**
      * Constructs a directory popup handler for a given target text field.
@@ -23,40 +34,46 @@ public class FilePickHandler implements EventHandler<ActionEvent>
      *        the text field to populate with the chosen folder path
      * @param dialogTitle
      *        the title for the file chooser dialog
+     *        
+     * @throws NullPointerException
+     *         if {@code targetField} is {@code null}
      */
-    public FilePickHandler(TextField targetField, String dialogTitle)
+    FilePickHandler(TextField targetField, String dialogTitle)
     {
-        this.targetField = targetField;
-        this.dialogTitle = dialogTitle;
+        this.targetField = Objects.requireNonNull(targetField, "Target text field must not be null");
+        this.dialogTitle = (dialogTitle != null ? dialogTitle : "Select Directory");
     }
 
+    /**
+     * Handles the action event by displaying a {@link DirectoryChooser} modal dialog.
+     *
+     * @param event
+     *        the triggered action event
+     */
     @Override
     public void handle(ActionEvent event)
     {
-        if (targetField != null)
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle(dialogTitle);
+
+        String currentPath = targetField.getText();
+
+        if (currentPath != null && !currentPath.trim().isEmpty())
         {
-            DirectoryChooser chooser = new DirectoryChooser();
-            chooser.setTitle(dialogTitle);
+            File currentFile = new File(currentPath.trim());
 
-            String currentPath = targetField.getText();
-
-            if (currentPath != null && !currentPath.trim().isEmpty())
+            if (currentFile.exists() && currentFile.isDirectory())
             {
-                File currentFile = new File(currentPath.trim());
-
-                if (currentFile.exists() && currentFile.isDirectory())
-                {
-                    chooser.setInitialDirectory(currentFile);
-                }
+                chooser.setInitialDirectory(currentFile);
             }
+        }
 
-            Window window = targetField.getScene() != null ? targetField.getScene().getWindow() : null;
-            File selectedFolder = chooser.showDialog(window);
+        Window window = targetField.getScene() != null ? targetField.getScene().getWindow() : null;
+        File selectedFolder = chooser.showDialog(window);
 
-            if (selectedFolder != null)
-            {
-                targetField.setText(selectedFolder.getAbsolutePath());
-            }
+        if (selectedFolder != null)
+        {
+            targetField.setText(selectedFolder.getAbsolutePath());
         }
     }
 }

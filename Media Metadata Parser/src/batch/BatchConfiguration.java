@@ -34,6 +34,7 @@ public final class BatchConfiguration
     private final boolean showMetadata;
     private final boolean descending;
     private final boolean debug;
+    private final boolean trace;
 
     /**
      * Creates an immutable configuration from validated builder state.
@@ -65,8 +66,11 @@ public final class BatchConfiguration
      *        flag to sort media in reverse chronological order
      * @param debug
      *        flag to enable verbose diagnostic output
+     * @param trace
+     *        flag to enable trace logging
      */
-    BatchConfiguration(Path source, Path target, String prefix, ZonedDateTime userDate, String[] fileSet, boolean forceDateChange, boolean embedDateTime, boolean skipVideo, boolean showMetadata, boolean descending, boolean debug)
+    BatchConfiguration(Path source, Path target, String prefix, ZonedDateTime userDate, String[] fileSet, boolean forceDateChange, boolean embedDateTime, boolean skipVideo, boolean showMetadata, boolean descending, boolean debug,
+            boolean trace)
     {
         this.source = source;
         this.target = (target == null || target.toString().isEmpty()) ? Paths.get(MediaBatchProcessor.DEFAULT_TARGET_DIRECTORY) : target;
@@ -79,6 +83,7 @@ public final class BatchConfiguration
         this.showMetadata = showMetadata;
         this.descending = descending;
         this.debug = debug;
+        this.trace = trace;
     }
 
     /**
@@ -190,5 +195,15 @@ public final class BatchConfiguration
     public boolean isDebug()
     {
         return debug;
+    }
+
+    /**
+     * Indicates whether trace-logging is enabled.
+     *
+     * @return {@code true} if trace mode is enabled, {@code false} otherwise
+     */
+    public boolean isTrace()
+    {
+        return trace;
     }
 }

@@ -79,6 +79,6 @@ public class PrimaryItemBox extends FullBox
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':\t\tPrimaryItemID=%d", tab, this.getClass().getSimpleName(), getFourCC(), getItemID()));
+        LOGGER.trace(String.format("%s%s '%s':\t\tPrimaryItemID=%d", tab, this.getClass().getSimpleName(), getFourCC(), getItemID()));
     }
 }

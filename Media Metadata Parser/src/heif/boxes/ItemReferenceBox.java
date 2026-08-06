@@ -136,7 +136,7 @@ public class ItemReferenceBox extends FullBox
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':", tab, this.getClass().getSimpleName(), getFourCC()));
+        LOGGER.trace(String.format("%s%s '%s':", tab, this.getClass().getSimpleName(), getFourCC()));
     }
 
     /**
@@ -241,7 +241,7 @@ public class ItemReferenceBox extends FullBox
                 }
             }
 
-            LOGGER.debug(sb.toString());
+            LOGGER.trace(sb.toString());
         }
     }
 }

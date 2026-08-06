@@ -203,15 +203,15 @@ public class ItemLocationBox extends FullBox
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':\t\titemCount=%d", tab, this.getClass().getSimpleName(), getFourCC(), items.size()));
+        LOGGER.trace(String.format("%s%s '%s':\t\titemCount=%d", tab, this.getClass().getSimpleName(), getFourCC(), items.size()));
 
         for (ItemLocationEntry item : items)
         {
-            LOGGER.debug(String.format("\t\tItemID=%-4d constructionMethod=%-5d dataRefIdx=%-8d", item.getItemID(), item.getConstructionMethod(), item.getDataReferenceIndex()));
+            LOGGER.trace(String.format("\t\tItemID=%-4d constructionMethod=%-5d dataRefIdx=%-8d", item.getItemID(), item.getConstructionMethod(), item.getDataReferenceIndex()));
 
             for (ExtentData extent : item.getExtents())
             {
-                LOGGER.debug(String.format("\t\t\t\t\tbaseOffset=0x%X extentIndex=%-3d extentOffset=0x%08X  extentLength=%d", extent.getBaseOffset(), extent.getExtentIndex(), extent.getExtentOffset(), extent.getExtentLength()));
+                LOGGER.trace(String.format("\t\t\t\t\tbaseOffset=0x%X extentIndex=%-3d extentOffset=0x%08X  extentLength=%d", extent.getBaseOffset(), extent.getExtentIndex(), extent.getExtentOffset(), extent.getExtentLength()));
             }
         }
     }

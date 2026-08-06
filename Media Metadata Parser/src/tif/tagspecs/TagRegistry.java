@@ -56,7 +56,7 @@ public final class TagRegistry
             {
                 for (Taggable tag : entry.getValue().values())
                 {
-                    LOGGER.debug(String.format("Registered: %-10s | 0x%04X | %s", entry.getKey(), tag.getNumberID(), tag));
+                    LOGGER.trace(String.format("Registered: %-10s | 0x%04X | %s", entry.getKey(), tag.getNumberID(), tag));
                 }
             }
         }

@@ -138,9 +138,9 @@ public final class JpgDatePatcher
                             {
                                 int xmpLength = length - JpgParser.XMP_IDENTIFIER.length;
 
-                                // Optional diagnostic dump of XMP payload to an external XML file
                                 if (xmpDump)
                                 {
+                                    // Optional diagnostic dump of XMP payload to an external XML file
                                     Utils.printFastDumpXML(imagePath, reader.peek(payloadStart + JpgParser.XMP_IDENTIFIER.length, xmpLength));
                                 }
 
@@ -212,8 +212,7 @@ public final class JpgDatePatcher
 
                         writer.seek(physicalPos);
                         writer.writeBytes(dateBytes);
-
-                        LOGGER.debug(String.format("\t-> Patched EXIF tag [%s] at offset %d", tag, physicalPos));
+                        LOGGER.debug(String.format("Patched EXIF tag [%s]. Date/time {%s}", tag, value));
                     }
                 }
 
@@ -232,8 +231,7 @@ public final class JpgDatePatcher
 
                     writer.seek(physicalPos);
                     writer.writeBytes(timeBytes);
-
-                    LOGGER.debug(String.format("\t-> Patched EXIF tag [GPS_TIME_STAMP] at offset %d", physicalPos));
+                    LOGGER.debug(String.format("Patched EXIF tag [GPS_TIME_STAMP]. Date/time {%s}", utc.format(GPS_FORMATTER)));
                 }
             }
         }
@@ -307,8 +305,7 @@ public final class JpgDatePatcher
                         {
                             writer.seek(physicalPos);
                             writer.writeBytes(alignedPatch);
-
-                            LOGGER.debug(String.format("\t-> Patched XMP tag [%s] at offset %d", tag, physicalPos));
+                            LOGGER.debug(String.format("Patched XMP tag [%s]. Date/time {%s}", tag, zdt.format(EXIF_FORMATTER)));
                         }
 
                         else

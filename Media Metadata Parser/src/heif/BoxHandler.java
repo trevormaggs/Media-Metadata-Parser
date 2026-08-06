@@ -143,12 +143,11 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
                     if (HeifBoxType.MEDIA_DATA.equalsTypeName(box.getFourCC()))
                     {
                         reader.skip(box.available(reader));
-                        LOGGER.warn("Media Data box [" + box.getFourCC() + "] detected but not handled");
+                        LOGGER.debug("Media Data box [" + box.getFourCC() + "] detected but not handled");
                     }
 
                     rootBoxes.add(box);
                     walkBoxes(box, 0);
-
                 }
 
                 else
@@ -162,6 +161,7 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
                 LOGGER.error("Malformed box structure or I/O issue detected in [" + (box != null ? box.getFourCC() : "unknown") + "]", exc);
                 break;
             }
+            
         } while (true);
 
         return (!heifBoxMap.isEmpty());
@@ -390,7 +390,6 @@ public class BoxHandler implements ImageHandler, Iterable<Box>
 
                 if (infe != null && isXmpType(infe))
                 {
-                    LOGGER.warn("Fallback XMP segment found using Item ID [" + infe.getItemID() + "]");
                     return (int) infe.getItemID();
                 }
             }

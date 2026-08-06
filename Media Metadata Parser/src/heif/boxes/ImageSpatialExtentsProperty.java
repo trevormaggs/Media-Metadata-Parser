@@ -61,6 +61,6 @@ public class ImageSpatialExtentsProperty extends FullBox
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':\t\timageWidth=%d, imageHeight=%d", tab, this.getClass().getSimpleName(), getFourCC(), imageWidth, imageHeight));
+        LOGGER.trace(String.format("%s%s '%s':\t\timageWidth=%d, imageHeight=%d", tab, this.getClass().getSimpleName(), getFourCC(), imageWidth, imageHeight));
     }
 }

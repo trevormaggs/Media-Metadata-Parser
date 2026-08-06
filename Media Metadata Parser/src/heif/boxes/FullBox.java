@@ -130,6 +130,6 @@ public class FullBox extends Box
     public void logBoxInfo()
     {
         String tab = Utils.repeatText("\t", getHierarchyDepth());
-        LOGGER.debug(String.format("%s%s '%s':v%d flags:0x%06X (%s)", tab, this.getClass().getSimpleName(), getFourCC(), version, flags, getHeifType().getBoxCategory()));
+        LOGGER.trace(String.format("%s%s '%s':v%d flags:0x%06X (%s)", tab, this.getClass().getSimpleName(), getFourCC(), version, flags, getHeifType().getBoxCategory()));
     }
 }

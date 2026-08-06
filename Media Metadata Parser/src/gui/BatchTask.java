@@ -32,7 +32,7 @@ class BatchTask extends Task<BatchStatistics>
      * @param config
      *        the validated batch configuration
      * @param logArea
-     *        the destination for status messages, or {@code null}
+     *        the destination for status messages
      * @param progressBar
      *        the progress bar to update during processing, or {@code null}
      * @param displayMetadata
@@ -51,7 +51,7 @@ class BatchTask extends Task<BatchStatistics>
      *
      * @return the {@link MediaBatchProcessor}, or {@code null} if it is not yet initialised
      */
-    public MediaBatchProcessor getProcessor()
+    MediaBatchProcessor getProcessor()
     {
         return processor;
     }

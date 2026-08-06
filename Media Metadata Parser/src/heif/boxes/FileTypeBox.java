@@ -133,6 +133,6 @@ public class FileTypeBox extends Box
         sb.append(String.format("minor-brand='%s', ", getMinorVersion()));
         sb.append(String.format("compatible-brands='%s'", Arrays.toString(getCompatibleBrands())));
 
-        LOGGER.debug(sb.toString());
+        LOGGER.trace(sb.toString());
     }
 }

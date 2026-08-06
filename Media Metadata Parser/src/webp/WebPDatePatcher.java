@@ -72,8 +72,6 @@ public final class WebPDatePatcher
         {
             if (handler.parseMetadata())
             {
-                LOGGER.info(String.format("Preparing to patch new date in WebP file [%s]", imagePath));
-
                 try (RandomAccessWriter writer = new RandomAccessWriter(imagePath, RiffHandler.WEBP_BYTE_ORDER))
                 {
                     processExifSegment(handler, writer, zdt);
@@ -155,7 +153,7 @@ public final class WebPDatePatcher
 
                             chunkModified = true;
                             System.arraycopy(dateBytes, 0, payload, (int) entry.getOffset() + preambleShift, dateBytes.length);
-                            LOGGER.info(String.format("Prepared patch for EXIF tag [%s] with value [%s]", tag, value));
+                            LOGGER.debug(String.format("Patched EXIF tag [%s]. Date/time {%s}", tag, value));
                         }
                     }
                 }
@@ -164,8 +162,6 @@ public final class WebPDatePatcher
                 {
                     writer.seek(exifChunk.getDataOffset());
                     writer.writeBytes(payload);
-
-                    LOGGER.info("Surgically patched WebP EXIF chunk");
                 }
             }
 
@@ -238,8 +234,7 @@ public final class WebPDatePatcher
 
                                 chunkModified = true;
                                 System.arraycopy(alignedPatch, 0, rawPayload, vByteStart, alignedPatch.length);
-
-                                LOGGER.info(String.format("Date [%s] patched XMP tag [%s]", zdt.format(EXIF_FORMATTER), tag));
+                                LOGGER.debug(String.format("Patched XMP tag [%s]. Date/time {%s}", tag, zdt.format(EXIF_FORMATTER)));
                             }
 
                             else

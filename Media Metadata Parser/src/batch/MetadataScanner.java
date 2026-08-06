@@ -28,11 +28,17 @@ import progressbar.ProgressListener;
  * providing real-time feedback without coupling the scanner to a specific user interface framework.
  * </p>
  * 
+ * <p>
+ * <b>Access Restriction:</b> By careful design, this class is intentionally package-private and
+ * intended strictly for internal use within the {@code batch} package.
+ * </p>
+ * 
+ * @PackagePrivate
  * @author Trevor Maggs
  * @version 1.3
  * @since 1 May 2026
  */
-public class MetadataScanner implements Iterable<MediaRecord>
+class MetadataScanner implements Iterable<MediaRecord>
 {
     private volatile boolean cancelled;
     private final BatchConfiguration config;
@@ -46,7 +52,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      * @param settings
      *        the validated configuration containing source and sorting preferences
      */
-    protected MetadataScanner(BatchConfiguration settings)
+    MetadataScanner(BatchConfiguration settings)
     {
         this.cancelled = false;
         this.config = settings;
@@ -78,7 +84,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      *
      * @return the number of discovered media records
      */
-    public int getRecordCount()
+    int getRecordCount()
     {
         return imageSet.size();
     }
@@ -89,7 +95,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      * @param listener
      *        the listener to notify during the scanning process
      */
-    public void addProgressListener(ProgressListener listener)
+    void addProgressListener(ProgressListener listener)
     {
         if (listener != null)
         {
@@ -100,7 +106,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
     /**
      * Signals the scanner to abort execution at the earliest opportunity.
      */
-    public void cancel()
+    void cancel()
     {
         cancelled = true;
     }
@@ -111,7 +117,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      * @return {@code true} if cancellation has been requested or the current thread has been
      *         interrupted, otherwise {@code false}
      */
-    public boolean isCancelled()
+    boolean isCancelled()
     {
         return (cancelled || Thread.currentThread().isInterrupted());
     }
@@ -123,7 +129,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      * @throws BatchErrorException
      *         if a critical I/O error occurs or the source directory is inaccessible
      */
-    public final void start() throws BatchErrorException
+    final void start() throws BatchErrorException
     {
         if (!isCancelled())
         {
@@ -182,7 +188,7 @@ public class MetadataScanner implements Iterable<MediaRecord>
      * @throws IOException
      *         if an I/O error occurs while traversing the directory tree
      */
-    protected long countRegularFiles() throws IOException
+    long countRegularFiles() throws IOException
     {
         long regularFilesCount = 0;
 
