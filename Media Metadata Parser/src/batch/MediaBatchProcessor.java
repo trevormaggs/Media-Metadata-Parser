@@ -156,14 +156,13 @@ public final class MediaBatchProcessor
         try
         {
             prepareTargetDirectory();
-            resetListeners();
             startLogging();
-
             scanner.start();
-
             totalSourceFiles = scanner.getRecordCount();
-
             LOGGER.info("Total number of source files scanned: [" + totalSourceFiles + "]");
+
+            // Reset progress bar for the next task: processing
+            resetListeners();
 
             if (totalSourceFiles > 0)
             {

@@ -49,6 +49,8 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -162,11 +164,6 @@ public class MediaMetadataApp extends Application
         sourceLabel.setPrefWidth(labelWidth);
         TextField sourceText = new TextField();
         sourceText.setId(SRCID);
-        sourceText.setPromptText("Directory or files...");
-        sourceText.setPrefWidth(300);
-        sourceText.setMaxWidth(300);
-        sourceText.setText("E:\\ImageBatchDir");
-        sourceText.setEditable(false);
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
         selectFiles.setText("Select Specific Files...");
@@ -437,27 +434,28 @@ public class MediaMetadataApp extends Application
         DatePicker modifyDatePicker = getById(pane, DTMID);
         CheckBox showMetadataCheck = getById(pane, SHWID);
 
-        if (prefixText != null && showMetadataCheck != null)
-        {
-            prefixText.disableProperty().bind(showMetadataCheck.selectedProperty());
-        }
-
-        if (modifyDatePicker != null && showMetadataCheck != null)
-        {
-            modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
-        }
-
-        showMetadataCheck.selectedProperty().addListener(new InvalidationListener()
-        {
-            @Override
-            public void invalidated(Observable observable)
-            {
-                actionBtn.setText(showMetadataCheck.isSelected() ? "Display Metadata" : "Run Batch Process");
-            }
-        });
-
         if (sourceText != null)
         {
+            sourceText.setPromptText("Directory or files...");
+            sourceText.setPrefWidth(300);
+            sourceText.setMaxWidth(300);
+            // sourceText.setText("E:\\ImageBatchDir");
+            sourceText.setEditable(false);
+            sourceText.setStyle("-fx-background-color: #EEEEEE; -fx-text-fill: #555555; -fx-border-color: #999999; "
+                    + "-fx-border-radius: 3px; -fx-background-radius: 3px; -fx-cursor: hand;");
+
+            sourceText.setOnMouseClicked(new EventHandler<MouseEvent>()
+            {
+                @Override
+                public void handle(MouseEvent event)
+                {
+                    if (event.getButton() == MouseButton.PRIMARY)
+                    {
+                        sourceBtn.fire();
+                    }
+                }
+            });
+
             sourceText.focusedProperty().addListener(new InvalidationListener()
             {
                 @Override
@@ -489,7 +487,7 @@ public class MediaMetadataApp extends Application
                             if (path.exists())
                             {
                                 sourceText.setText(pastedText);
-                                sourceText.setUserData(path.isDirectory() ? pastedText : path.getParent());
+                                sourceText.setUserData(path.isDirectory() ? null : path.getParent());
                                 sourceText.setTooltip(new Tooltip(pastedText));
                             }
 
@@ -523,6 +521,25 @@ public class MediaMetadataApp extends Application
                 }
             });
         }
+
+        if (prefixText != null && showMetadataCheck != null)
+        {
+            prefixText.disableProperty().bind(showMetadataCheck.selectedProperty());
+        }
+
+        if (modifyDatePicker != null && showMetadataCheck != null)
+        {
+            modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
+        }
+
+        showMetadataCheck.selectedProperty().addListener(new InvalidationListener()
+        {
+            @Override
+            public void invalidated(Observable observable)
+            {
+                actionBtn.setText(showMetadataCheck.isSelected() ? "Display Metadata" : "Run Batch Process");
+            }
+        });
     }
 
     private <T extends Node> T getById(String id)
@@ -664,6 +681,7 @@ public class MediaMetadataApp extends Application
             catch (BatchErrorException exc)
             {
                 progressLabel.setText("Configuration error");
+                launchPopup("Invalid File Selection", "Pasted filenames must include their full folder path.\n\nPlease use the 'Select Specific Files' menu option to choose files directly from disk.", AlertType.ERROR);
                 return;
             }
 
@@ -758,6 +776,7 @@ public class MediaMetadataApp extends Application
 
     private BatchConfiguration buildConfiguration() throws BatchErrorException
     {
+        BatchBuilder builder = new BatchBuilder();
         TextField sourceText = getById(SRCID);
         String filename = sourceText.getText().trim();
         TextField targetText = getById(TGTID);
@@ -771,14 +790,22 @@ public class MediaMetadataApp extends Application
         CheckBox descending = getById(SRTID);
         CheckBox debug = getById(DBGID);
 
-        BatchBuilder builder = new BatchBuilder();
+        if (filename.isEmpty())
+        {
+            throw new BatchErrorException("No source directory or files specified.\n\nPlease select a source folder or specific files before running the batch process.");
+        }
 
-        if (!filename.isEmpty())
+        else
         {
             String parentDir = (String) sourceText.getUserData();
 
-            if (parentDir != null || filename.contains(","))
+            if (filename.contains(","))
             {
+                if (parentDir == null || parentDir.trim().isEmpty())
+                {
+                    throw new BatchErrorException("Individual files detected without a parent folder context.\n\nPlease use the 'Select Specific Files' menu option to select files.");
+                }
+
                 String[] parts = filename.split(",");
                 String[] files = new String[parts.length];
 
@@ -787,7 +814,7 @@ public class MediaMetadataApp extends Application
                     files[i] = parts[i].trim();
                 }
 
-                builder.source(parentDir == null ? new File(filename).getParent() : parentDir).fileSet(files);
+                builder.source(parentDir).fileSet(files);
             }
 
             else

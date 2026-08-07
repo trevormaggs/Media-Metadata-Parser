@@ -34,7 +34,7 @@ class FilePickHandler implements EventHandler<ActionEvent>
      *        the text field to populate with the chosen folder path
      * @param dialogTitle
      *        the title for the file chooser dialog
-     *        
+     * 
      * @throws NullPointerException
      *         if {@code targetField} is {@code null}
      */
@@ -56,19 +56,19 @@ class FilePickHandler implements EventHandler<ActionEvent>
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle(dialogTitle);
 
-        String currentPath = targetField.getText();
+        String currentPath = targetField.getText().trim();
 
-        if (currentPath != null && !currentPath.trim().isEmpty())
+        if (!currentPath.isEmpty())
         {
-            File currentFile = new File(currentPath.trim());
+            File currentFile = new File(currentPath);
 
-            if (currentFile.exists() && currentFile.isDirectory())
+            if (currentFile.isDirectory())
             {
                 chooser.setInitialDirectory(currentFile);
             }
         }
 
-        Window window = targetField.getScene() != null ? targetField.getScene().getWindow() : null;
+        Window window = (targetField.getScene() != null ? targetField.getScene().getWindow() : null);
         File selectedFolder = chooser.showDialog(window);
 
         if (selectedFolder != null)

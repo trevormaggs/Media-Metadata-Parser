@@ -1,0 +1,7 @@
+RepositorySearchDialogSearchPath=E\:\\git
+commit_dialog_history_messages=<?xml version\="1.0" encoding\="UTF-8"?>\r\n<messages>\r\n<message>Major general improvements</message>\r\n<message>BatchTask improved</message>\r\n<message>Minor fixes</message>\r\n<message>More enhancements added</message>\r\n<message>Minor fix</message>\r\n<message>Minor method name changes</message>\r\n<message>More improvements in MediaMetadataApp GUI</message>\r\n<message>Logger improved for JavaFX binding support</message>\r\n<message>Bugs fixed</message>\r\n<message>Testing to see if Logger will work in MediaMetadataApp GUI</message>\r\n</messages>
+eclipse.preferences.version=1
+repositories_view_filters=<?xml version\="1.0" encoding\="UTF-8"?>\r\n<FilterCache/>
+resourcehistory_graph_split=500,500
+resourcehistory_rev_split=700,300
+show_initial_config_dialog=false

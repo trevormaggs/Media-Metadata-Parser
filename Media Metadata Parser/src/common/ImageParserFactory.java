@@ -78,7 +78,7 @@ public final class ImageParserFactory
                 return new WebpParser(fpath);
 
             default:
-                throw new UnsupportedOperationException("Unsupported image format detected [" + fpath.getFileName() + "]");
+                throw new UnsupportedOperationException("No parser available for image format [" + fpath.getFileName() + "]");
         }
     }
 }
