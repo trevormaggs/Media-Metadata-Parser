@@ -10,7 +10,8 @@ import javafx.stage.Window;
 
 /**
  * Event handler for opening a JavaFX {@link DirectoryChooser} and populating the selected directory
- * path into a target {@link TextField}.
+ * path into a target {@link TextField}. Automatically resolves the most appropriate initial
+ * directory when opened.
  * 
  * <p>
  * <b>Access Restriction:</b> By careful design, this class is intentionally package-private and
@@ -19,7 +20,7 @@ import javafx.stage.Window;
  * 
  * @PackagePrivate
  * @author Trevor Maggs
- * @version 1.0
+ * @version 1.1
  * @since 6 August 2026
  */
 class FilePickHandler implements EventHandler<ActionEvent>
@@ -46,6 +47,8 @@ class FilePickHandler implements EventHandler<ActionEvent>
 
     /**
      * Handles the action event by displaying a {@link DirectoryChooser} modal dialog.
+     * Automatically pre-populates the initial directory based on existing field contents
+     * or defaults to the user home directory.
      *
      * @param event
      *        the triggered action event
@@ -53,8 +56,52 @@ class FilePickHandler implements EventHandler<ActionEvent>
     @Override
     public void handle(ActionEvent event)
     {
+        File openDir = resolveInitialDirectory();
         DirectoryChooser chooser = new DirectoryChooser();
+
         chooser.setTitle(dialogTitle);
+        
+        if (openDir != null && openDir.isDirectory())
+        {
+            chooser.setInitialDirectory(openDir);
+        }
+
+        Window window = (targetField.getScene() != null ? targetField.getScene().getWindow() : null);
+        File selectedFolder = chooser.showDialog(window);
+
+        if (selectedFolder != null)
+        {
+            targetField.setText(selectedFolder.getAbsolutePath());
+            targetField.setUserData(null);
+        }
+    }
+
+    /**
+     * Resolves the best starting directory for the popup window. The hierarchical priority is based
+     * on the order: 1) stored directory in user data, 2) text field path (or its parent),
+     * and 3) default user home path.
+     *
+     * @return a valid existing directory {@link File}, or {@code null}
+     */
+    private File resolveInitialDirectory()
+    {
+        File parentDir = null;
+        Object userData = targetField.getUserData();
+
+        if (userData instanceof String)
+        {
+            parentDir = new File((String) userData);
+        }
+        
+        else if (userData instanceof File)
+        {
+            parentDir = (File) userData;
+        }
+
+        if (parentDir != null && parentDir.isDirectory())
+        {
+            return parentDir;
+        }
 
         String currentPath = targetField.getText().trim();
 
@@ -64,16 +111,19 @@ class FilePickHandler implements EventHandler<ActionEvent>
 
             if (currentFile.isDirectory())
             {
-                chooser.setInitialDirectory(currentFile);
+                return currentFile;
+            }
+
+            File parent = currentFile.getParentFile();
+
+            if (parent != null && parent.isDirectory())
+            {
+                return parent;
             }
         }
 
-        Window window = (targetField.getScene() != null ? targetField.getScene().getWindow() : null);
-        File selectedFolder = chooser.showDialog(window);
+        File homeDir = new File(System.getProperty("user.home"));
 
-        if (selectedFolder != null)
-        {
-            targetField.setText(selectedFolder.getAbsolutePath());
-        }
+        return homeDir.isDirectory() ? homeDir : null;
     }
 }

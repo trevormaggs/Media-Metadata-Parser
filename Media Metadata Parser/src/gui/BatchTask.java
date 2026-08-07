@@ -1,5 +1,6 @@
 package gui;
 
+import java.util.function.Consumer;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchStatistics;
@@ -24,6 +25,8 @@ class BatchTask extends Task<BatchStatistics>
     private final TextArea logArea;
     private final ProgressBar progressBar;
     private final boolean displayMetadata;
+    private Consumer<Integer> scanCompleteListener;
+    private Consumer<Integer> fileProcessedListener;
     private volatile MediaBatchProcessor processor;
 
     /**
@@ -44,6 +47,28 @@ class BatchTask extends Task<BatchStatistics>
         this.logArea = logArea;
         this.progressBar = progressBar;
         this.displayMetadata = displayMetadata;
+    }
+
+    /**
+     * Registers a listener to be notified when the initial file scan is completed.
+     * 
+     * @param listener
+     *        the listener to receive the number of files found during the scan
+     */
+    void setOnScanCompleted(Consumer<Integer> listener)
+    {
+        this.scanCompleteListener = listener;
+    }
+
+    /**
+     * Registers a listener to be notified after each file is processed.
+     * 
+     * @param listener
+     *        the listener to receive the number of files processed
+     */
+    void setOnFileProcessed(Consumer<Integer> listener)
+    {
+        this.fileProcessedListener = listener;
     }
 
     /**
@@ -69,6 +94,21 @@ class BatchTask extends Task<BatchStatistics>
         }
     }
 
+    /**
+     * Executes the batch operation on the background thread.
+     * 
+     * <p>
+     * When metadata display is enabled, metadata is retrieved instead of processing the batch.
+     * Otherwise, a {@link MediaBatchProcessor} is created and executed while progress is reported
+     * to the associated JavaFX controls.
+     * </p>
+     * 
+     * @return the statistics produced by the batch processor, or {@code null} when metadata is
+     *         displayed
+     * 
+     * @throws Exception
+     *         if the batch operation fails
+     */
     @Override
     protected BatchStatistics call() throws Exception
     {
@@ -85,6 +125,7 @@ class BatchTask extends Task<BatchStatistics>
 
             processor.addProgressListener(new JavaFXProgressAdapter(progressBar)
             {
+                private int lastScannedCount = 0;
                 private boolean isScanning = true;
 
                 @Override
@@ -96,12 +137,18 @@ class BatchTask extends Task<BatchStatistics>
 
                         if (isScanning)
                         {
+                            lastScannedCount = current;
                             updateMessage(String.format("Scanning files (%d found)...", current));
                         }
 
                         else
                         {
                             updateMessage(String.format("Processing batch (%d files)...", current));
+
+                            if (fileProcessedListener != null)
+                            {
+                                fileProcessedListener.accept(current);
+                            }
                         }
                     }
                 }
@@ -115,6 +162,8 @@ class BatchTask extends Task<BatchStatistics>
 
                         if (isScanning)
                         {
+                            lastScannedCount = (total > 0 ? total : current);
+
                             if (total > 0)
                             {
                                 updateMessage(String.format("Scanning files: %d of %d", current, total));
@@ -137,6 +186,11 @@ class BatchTask extends Task<BatchStatistics>
                             {
                                 updateMessage(String.format("Processing batch (%d)...", current));
                             }
+
+                            if (fileProcessedListener != null)
+                            {
+                                fileProcessedListener.accept(current);
+                            }
                         }
                     }
                 }
@@ -147,6 +201,12 @@ class BatchTask extends Task<BatchStatistics>
                     if (!isCancelled())
                     {
                         super.reset();
+
+                        if (isScanning && scanCompleteListener != null)
+                        {
+                            scanCompleteListener.accept(lastScannedCount);
+                        }
+
                         isScanning = false;
                         updateMessage("Preparing batch processing...");
                     }
@@ -161,6 +221,13 @@ class BatchTask extends Task<BatchStatistics>
         return null;
     }
 
+    /**
+     * Handles successful completion of the background task.
+     * 
+     * <p>
+     * Updates the task status message and records a success message in the log area.
+     * </p>
+     */
     @Override
     protected void succeeded()
     {
@@ -177,6 +244,14 @@ class BatchTask extends Task<BatchStatistics>
         }
     }
 
+    /**
+     * Handles failure of the background task.
+     * 
+     * <p>
+     * Records the exception message in the log area and distinguishes expected
+     * {@link BatchErrorException} failures from unexpected errors.
+     * </p>
+     */
     @Override
     protected void failed()
     {
@@ -196,6 +271,13 @@ class BatchTask extends Task<BatchStatistics>
         }
     }
 
+    /**
+     * Handles cancellation of the background task.
+     * 
+     * <p>
+     * Updates the task status message and records a cancellation warning in the log area.
+     * </p>
+     */
     @Override
     protected void cancelled()
     {
@@ -203,6 +285,13 @@ class BatchTask extends Task<BatchStatistics>
         logArea.appendText("[WARNING] Batch process was cancelled.\n");
     }
 
+    /**
+     * Performs cleanup after the task reaches a terminal state.
+     * 
+     * <p>
+     * Releases the reference to the active {@link MediaBatchProcessor}.
+     * </p>
+     */
     @Override
     protected void done()
     {

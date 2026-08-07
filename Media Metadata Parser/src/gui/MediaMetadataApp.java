@@ -3,6 +3,7 @@ package gui;
 import java.io.File;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.function.Consumer;
 import batch.BatchBuilder;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
@@ -93,11 +94,12 @@ public class MediaMetadataApp extends Application
     private static final String PFXID = "pfxId";
     private static final String DTMID = "dtmId";
     private static final String EMBID = "embId";
-    private static final String FORID = "forId";
+    private static final String FRCID = "forId";
     private static final String SKPID = "skpId";
     private static final String SHWID = "shwId";
     private static final String SRTID = "srtId";
     private static final String DBGID = "dbgId";
+    private static final String TRCID = "trcId";
 
     /**
      * Public default constructor required by JavaFX reflection runtime.
@@ -109,10 +111,8 @@ public class MediaMetadataApp extends Application
         this.actionBtn = new Button();
         this.clearLogBtn = new Button();
         this.copyLogBtn = new Button();
-
         this.exitBtn = new Button();
         this.progressBar = new ProgressBar(0.0);
-
         this.cancelBtn = new Button();
         this.viewBtn = new Button();
     }
@@ -150,10 +150,18 @@ public class MediaMetadataApp extends Application
         Scene scene = new Scene(formGrid, 620, 650);
         stage.setScene(scene);
         stage.show();
+        formGrid.requestFocus();
 
         configureDynamicNodes(formGrid);
     }
 
+    /**
+     * Constructs and populates the top pane containing source, target, prefix, and date input
+     * fields.
+     *
+     * @param pane
+     *        the parent {@link GridPane} container
+     */
     private void addTopPane(GridPane pane)
     {
         double labelWidth = 140;
@@ -164,6 +172,12 @@ public class MediaMetadataApp extends Application
         sourceLabel.setPrefWidth(labelWidth);
         TextField sourceText = new TextField();
         sourceText.setId(SRCID);
+        sourceText.setPromptText("Directory or files...");
+        sourceText.setPrefWidth(300);
+        sourceText.setMaxWidth(300);
+        sourceText.setEditable(false);
+        sourceText.setStyle("-fx-background-color: #EEEEEE; -fx-text-fill: #555555; -fx-border-color: #999999; "
+                + "-fx-border-radius: 3px; -fx-background-radius: 3px; -fx-cursor: hand;");
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
         selectFiles.setText("Select Specific Files...");
@@ -225,30 +239,40 @@ public class MediaMetadataApp extends Application
         pane.add(titledPane, 0, 0);
     }
 
+    /**
+     * Constructs and populates the middle pane containing processing options and execution
+     * statistics.
+     *
+     * @param pane
+     *        the parent {@link GridPane} container
+     */
     private void addMiddlePane(GridPane pane)
     {
         CheckBox embedDateTimeCheck = new CheckBox("Embed Date/Time");
         embedDateTimeCheck.setId(EMBID);
 
         CheckBox forceDateChangeCheck = new CheckBox("Force Date Change");
-        forceDateChangeCheck.setId(FORID);
+        forceDateChangeCheck.setId(FRCID);
+
+        CheckBox debugCheck = new CheckBox("Enable Debugging");
+        debugCheck.setId(DBGID);
+
+        CheckBox traceCheck = new CheckBox("Enable Trace Logging");
+        traceCheck.setId(TRCID);
+
+        CheckBox descendingCheck = new CheckBox("Sort Descending");
+        descendingCheck.setId(SRTID);
 
         CheckBox skipVideoCheck = new CheckBox("Skip Video Files");
         skipVideoCheck.setId(SKPID);
         skipVideoCheck.setSelected(true);
 
-        CheckBox descendingCheck = new CheckBox("Sort Descending");
-        descendingCheck.setId(SRTID);
-
         CheckBox showMetadataCheck = new CheckBox("Display Metadata");
         showMetadataCheck.setId(SHWID);
 
-        CheckBox debugCheck = new CheckBox("Enable Debugging");
-        debugCheck.setId(DBGID);
-
-        CheckBox[] processingChecks = {embedDateTimeCheck, forceDateChangeCheck, skipVideoCheck, descendingCheck, debugCheck};
-        VBox leftCol = new VBox(10, embedDateTimeCheck, forceDateChangeCheck, skipVideoCheck);
-        VBox rightCol = new VBox(10, showMetadataCheck, descendingCheck, debugCheck);
+        CheckBox[] processingChecks = {embedDateTimeCheck, forceDateChangeCheck, debugCheck, traceCheck, descendingCheck, skipVideoCheck};
+        VBox leftCol = new VBox(10, embedDateTimeCheck, forceDateChangeCheck, debugCheck, traceCheck);
+        VBox rightCol = new VBox(10, descendingCheck, skipVideoCheck, showMetadataCheck);
 
         for (CheckBox check : processingChecks)
         {
@@ -340,6 +364,13 @@ public class MediaMetadataApp extends Application
         pane.add(middleRow, 0, 1);
     }
 
+    /**
+     * Constructs and populates the log pane containing the live application execution console
+     * output.
+     *
+     * @param pane
+     *        the parent {@link GridPane} container
+     */
     private void addLogPane(GridPane pane)
     {
         TextArea logArea = new TextArea();
@@ -366,6 +397,13 @@ public class MediaMetadataApp extends Application
         LogFactory.addLogListener(new JavaFXLogListener(logArea));
     }
 
+    /**
+     * Constructs and populates the action control pane containing execution, progress, and cancel
+     * buttons.
+     *
+     * @param pane
+     *        the parent {@link GridPane} container
+     */
     private void addControlPane(GridPane pane)
     {
         ActionHandler actionHandler = new ActionHandler();
@@ -405,6 +443,13 @@ public class MediaMetadataApp extends Application
         pane.add(titledPane, 0, 3);
     }
 
+    /**
+     * Constructs and populates the bottom toolbar containing summary viewing, log clearing, and
+     * exit controls.
+     *
+     * @param pane
+     *        the parent {@link GridPane} container
+     */
     private void addBottomPane(GridPane pane)
     {
         ActionHandler actionHandler = new ActionHandler();
@@ -427,6 +472,12 @@ public class MediaMetadataApp extends Application
         pane.add(controlLayout, 0, 4);
     }
 
+    /**
+     * Binds dynamic behaviours, listeners, and clip-board paste handling to the active UI controls.
+     *
+     * @param pane
+     *        the primary parent container holding scene elements
+     */
     private void configureDynamicNodes(Parent pane)
     {
         TextField sourceText = getById(SRCID);
@@ -436,14 +487,6 @@ public class MediaMetadataApp extends Application
 
         if (sourceText != null)
         {
-            sourceText.setPromptText("Directory or files...");
-            sourceText.setPrefWidth(300);
-            sourceText.setMaxWidth(300);
-            // sourceText.setText("E:\\ImageBatchDir");
-            sourceText.setEditable(false);
-            sourceText.setStyle("-fx-background-color: #EEEEEE; -fx-text-fill: #555555; -fx-border-color: #999999; "
-                    + "-fx-border-radius: 3px; -fx-background-radius: 3px; -fx-cursor: hand;");
-
             sourceText.setOnMouseClicked(new EventHandler<MouseEvent>()
             {
                 @Override
@@ -542,11 +585,31 @@ public class MediaMetadataApp extends Application
         });
     }
 
+    /**
+     * Convenience method to retrieve a FX control by its ID starting from the root scene node.
+     *
+     * @param <T>
+     *        the expected node type
+     * @param id
+     *        the target JavaFX FXID string
+     * @return the matching node casting to type {@code T}, or {@code null} if not found
+     */
     private <T extends Node> T getById(String id)
     {
         return getById(stage.getScene().getRoot(), id);
     }
 
+    /**
+     * Recursively traverses a node hierarchy to locate a node with the given ID string.
+     *
+     * @param <T>
+     *        the expected node type
+     * @param root
+     *        the parent root node from which traversal begins
+     * @param id
+     *        the target JavaFX FXID string
+     * @return the matching node casting to type {@code T}, or {@code null} if not found
+     */
     @SuppressWarnings("unchecked")
     private <T extends Node> T getById(Node root, String id)
     {
@@ -576,6 +639,9 @@ public class MediaMetadataApp extends Application
         return null;
     }
 
+    /**
+     * Event handler implementation that processes user UI button clicks and control selections.
+     */
     private class ActionHandler implements EventHandler<ActionEvent>
     {
         @Override
@@ -625,10 +691,14 @@ public class MediaMetadataApp extends Application
 
                     PauseTransition flash = new PauseTransition(Duration.millis(550));
 
-                    flash.setOnFinished(e ->
+                    flash.setOnFinished(new EventHandler<ActionEvent>()
                     {
-                        logArea.deselect();
-                        logArea.setStyle(originalStyle);
+                        @Override
+                        public void handle(ActionEvent event)
+                        {
+                            logArea.deselect();
+                            logArea.setStyle(originalStyle);
+                        }
                     });
 
                     flash.play();
@@ -660,6 +730,9 @@ public class MediaMetadataApp extends Application
         }
     }
 
+    /**
+     * Instantiates and runs the asynchronous background batch processing task.
+     */
     private void executeBatchProcess()
     {
         BatchConfiguration config;
@@ -681,15 +754,49 @@ public class MediaMetadataApp extends Application
             catch (BatchErrorException exc)
             {
                 progressLabel.setText("Configuration error");
-                launchPopup("Invalid File Selection", "Pasted filenames must include their full folder path.\n\nPlease use the 'Select Specific Files' menu option to choose files directly from disk.", AlertType.ERROR);
+                launchPopup("Invalid File Selection", exc.getMessage(), AlertType.ERROR);
                 return;
             }
 
             activeTask = new BatchTask(config, logArea, progressBar, metaDisplay);
+
+            activeTask.setOnScanCompleted(new Consumer<Integer>()
+            {
+                @Override
+                public void accept(Integer count)
+                {
+                    Platform.runLater(new Runnable()
+                    {
+                        @Override
+                        public void run()
+                        {
+                            StatRecord.SOURCE_FILES.setValue(count);
+                        }
+                    });
+                }
+            });
+
+            activeTask.setOnFileProcessed(new Consumer<Integer>()
+            {
+                @Override
+                public void accept(Integer count)
+                {
+                    Platform.runLater(new Runnable()
+                    {
+                        @Override
+                        public void run()
+                        {
+                            StatRecord.TARGET_FILES.setValue(count);
+                        }
+                    });
+                }
+            });
+
             progressLabel.textProperty().bind(activeTask.messageProperty());
 
             actionBtn.setDisable(true);
             cancelBtn.setDisable(false);
+            copyLogBtn.setDisable(true);
 
             activeTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
             {
@@ -700,8 +807,6 @@ public class MediaMetadataApp extends Application
 
                     if (stats != null)
                     {
-                        StatRecord.SOURCE_FILES.setValue(stats.getSourceFilesCount());
-                        StatRecord.TARGET_FILES.setValue(stats.getTargetFilesCount());
                         StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
                     }
 
@@ -739,11 +844,19 @@ public class MediaMetadataApp extends Application
         }
     }
 
+    /**
+     * Resets action buttons, progress bars, and status labels after a task finishes, fails, or
+     * cancels.
+     *
+     * @param progressLabel
+     *        the UI label displaying task progress text
+     */
     private void resetControlStates(Label progressLabel)
     {
         actionBtn.getScene().getRoot().requestFocus();
         cancelBtn.setDisable(true);
         actionBtn.setDisable(false);
+        copyLogBtn.setDisable(false);
         activeTask = null;
 
         PauseTransition delay = new PauseTransition(Duration.seconds(3));
@@ -763,6 +876,16 @@ public class MediaMetadataApp extends Application
         delay.play();
     }
 
+    /**
+     * Helper method to display modal dialog alerts to the user.
+     *
+     * @param title
+     *        the title string for the alert window
+     * @param msg
+     *        the message content string
+     * @param type
+     *        the {@link AlertType} defining the severity level
+     */
     private void launchPopup(String title, String msg, AlertType type)
     {
         Alert alert = new Alert(type);
@@ -774,53 +897,67 @@ public class MediaMetadataApp extends Application
         alert.showAndWait();
     }
 
+    /**
+     * Constructs a {@link BatchConfiguration} instance from the active UI controls.
+     * 
+     * <p>
+     * Extracts values from input fields, pickers, and check boxes across the interface. Validates
+     * that a source directory or file set has been selected before delegating to the
+     * {@link BatchBuilder}. Supports single directories, explicit file sets, and comma-separated
+     * lists.
+     * </p>
+     *
+     * @return a fully populated {@link BatchConfiguration} ready for execution
+     * 
+     * @throws BatchErrorException
+     *         if the source input is empty or if comma-separated files are specified without an
+     *         associated parent directory context
+     */
     private BatchConfiguration buildConfiguration() throws BatchErrorException
     {
         BatchBuilder builder = new BatchBuilder();
         TextField sourceText = getById(SRCID);
-        String filename = sourceText.getText().trim();
         TextField targetText = getById(TGTID);
         TextField prefixText = getById(PFXID);
         DatePicker modifyDatePicker = getById(DTMID);
         LocalDate dateValue = (modifyDatePicker != null ? modifyDatePicker.getValue() : null);
         CheckBox embedDateTime = getById(EMBID);
-        CheckBox forceDateChange = getById(FORID);
+        CheckBox forceDateChange = getById(FRCID);
         CheckBox skipVideo = getById(SKPID);
         CheckBox showMetadata = getById(SHWID);
         CheckBox descending = getById(SRTID);
         CheckBox debug = getById(DBGID);
+        CheckBox trace = getById(TRCID);
+        String filename = (sourceText != null ? sourceText.getText().trim() : "");
 
         if (filename.isEmpty())
         {
             throw new BatchErrorException("No source directory or files specified.\n\nPlease select a source folder or specific files before running the batch process.");
         }
 
+        String parentDir = (String) sourceText.getUserData();
+
+        if (filename.contains(","))
+        {
+            if (parentDir == null || parentDir.trim().isEmpty())
+            {
+                throw new BatchErrorException("Individual files detected without a parent folder context.\n\nPlease use the 'Select Specific Files' menu option to select files.");
+            }
+
+            String[] parts = filename.split(",");
+            String[] files = new String[parts.length];
+
+            for (int i = 0; i < parts.length; i++)
+            {
+                files[i] = parts[i].trim();
+            }
+
+            builder.source(parentDir).fileSet(files);
+        }
+
         else
         {
-            String parentDir = (String) sourceText.getUserData();
-
-            if (filename.contains(","))
-            {
-                if (parentDir == null || parentDir.trim().isEmpty())
-                {
-                    throw new BatchErrorException("Individual files detected without a parent folder context.\n\nPlease use the 'Select Specific Files' menu option to select files.");
-                }
-
-                String[] parts = filename.split(",");
-                String[] files = new String[parts.length];
-
-                for (int i = 0; i < parts.length; i++)
-                {
-                    files[i] = parts[i].trim();
-                }
-
-                builder.source(parentDir).fileSet(files);
-            }
-
-            else
-            {
-                builder.source(filename);
-            }
+            builder.source(filename);
         }
 
         return builder
@@ -833,10 +970,14 @@ public class MediaMetadataApp extends Application
                 .descending(descending != null && descending.isSelected())
                 .debug(debug != null && debug.isSelected())
                 .showMetadata(showMetadata != null && showMetadata.isSelected())
-                .trace(false)
+                .trace(trace != null && trace.isSelected())
                 .build();
     }
 
+    /**
+     * Opens a system native {@link FileChooser} dialog allowing users to select multiple input
+     * files.
+     */
     private void handleFileSelection()
     {
         TextField sourceText = getById(stage.getScene().getRoot(), SRCID);
@@ -882,6 +1023,9 @@ public class MediaMetadataApp extends Application
         }
     }
 
+    /**
+     * Model representing a key-value metric pair inside the processing statistics table view.
+     */
     private static class StatRecord
     {
         private static final StatRecord SOURCE_FILES = new StatRecord("Source Files", "0");
@@ -891,6 +1035,14 @@ public class MediaMetadataApp extends Application
         private final SimpleStringProperty value;
         private final String defaultValue;
 
+        /**
+         * Constructs a new statistic metric record.
+         *
+         * @param metric
+         *        the metric label
+         * @param defaultValue
+         *        the default value string
+         */
         private StatRecord(String metric, String defaultValue)
         {
             this.metric = new SimpleStringProperty(metric);
@@ -898,32 +1050,53 @@ public class MediaMetadataApp extends Application
             this.defaultValue = defaultValue;
         }
 
+        /**
+         * @return the metric property
+         */
         public SimpleStringProperty metricProperty()
         {
             return metric;
         }
 
+        /**
+         * @return the value property
+         */
         public SimpleStringProperty valueProperty()
         {
             return value;
         }
 
+        /**
+         * @return the current metric value string
+         */
         @SuppressWarnings("unused")
         public String getValue()
         {
             return value.get();
         }
 
+        /**
+         * Updates the metric value.
+         *
+         * @param ref
+         *        the object whose string representation will be set
+         */
         public void setValue(Object ref)
         {
             value.set(String.valueOf(ref));
         }
 
+        /**
+         * Resets the value back to its default state.
+         */
         public void reset()
         {
             value.set(defaultValue);
         }
 
+        /**
+         * Resets all static metric records to default baseline values.
+         */
         public static void resetAll()
         {
             SOURCE_FILES.reset();
@@ -932,12 +1105,26 @@ public class MediaMetadataApp extends Application
         }
     }
 
+    /**
+     * Model representing an individual file processing result entry in the summary dialog table
+     * view.
+     */
     public static class FileRecord
     {
         private final SimpleStringProperty sourceName;
         private final SimpleStringProperty targetName;
         private final SimpleStringProperty status;
 
+        /**
+         * Constructs a file execution record.
+         *
+         * @param sourceName
+         *        the original source filename
+         * @param targetName
+         *        the output target filename
+         * @param status
+         *        the processing status outcome string
+         */
         public FileRecord(String sourceName, String targetName, String status)
         {
             this.sourceName = new SimpleStringProperty(sourceName);
@@ -945,22 +1132,37 @@ public class MediaMetadataApp extends Application
             this.status = new SimpleStringProperty(status);
         }
 
+        /**
+         * @return the source name property
+         */
         public SimpleStringProperty sourceNameProperty()
         {
             return sourceName;
         }
 
+        /**
+         * @return the target name property
+         */
         public SimpleStringProperty targetNameProperty()
         {
             return targetName;
         }
 
+        /**
+         * @return the status property
+         */
         public SimpleStringProperty statusProperty()
         {
             return status;
         }
     }
 
+    /**
+     * Opens a summary dialog containing details and processing statuses for all processed files.
+     *
+     * @param ownerWindow
+     *        the owning window stage for this modal dialog
+     */
     private void showSummaryDialog(Window ownerWindow)
     {
         Dialog<Void> dialog = new Dialog<>();
@@ -1020,6 +1222,11 @@ public class MediaMetadataApp extends Application
         dialog.showAndWait();
     }
 
+    /**
+     * Generates a dynamic horizontal expansion spacer region for UI layouts.
+     *
+     * @return a configured {@link Region} spacer
+     */
     private Region fillRow()
     {
         Region spacer = new Region();
@@ -1028,6 +1235,12 @@ public class MediaMetadataApp extends Application
         return spacer;
     }
 
+    /**
+     * Standard Java application entry point.
+     *
+     * @param args
+     *        command-line arguments passed to the application
+     */
     public static void main(String[] args)
     {
         launch(args);
