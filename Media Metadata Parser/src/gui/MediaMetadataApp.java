@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 import batch.BatchBuilder;
@@ -558,9 +557,9 @@ public class MediaMetadataApp extends Application
                                 String[] parts = pastedText.split("\\s*,\\s*");
 
                                 /* Firstly, find the first valid parent directory */
-                                for (int i = 0; i < parts.length; i++)
+                                for (String part : parts)
                                 {
-                                    Path file = Paths.get(parts[i]).normalize();
+                                    Path file = Paths.get(part).normalize();
 
                                     if (file.getParent() != null && Files.isRegularFile(file))
                                     {
@@ -577,9 +576,9 @@ public class MediaMetadataApp extends Application
                                  */
                                 if (valid)
                                 {
-                                    for (int i = 0; i < parts.length; i++)
+                                    for (String part : parts)
                                     {
-                                        Path file = Paths.get(parts[i]);
+                                        Path file = Paths.get(part);
 
                                         if (!file.isAbsolute())
                                         {
@@ -949,7 +948,7 @@ public class MediaMetadataApp extends Application
 
     /**
      * Constructs a {@link BatchConfiguration} instance from the active UI controls.
-     * 
+     *
      * <p>
      * Extracts values from input fields, pickers, and check boxes across the interface. Validates
      * that a source directory or file set has been selected before delegating to the
@@ -958,7 +957,7 @@ public class MediaMetadataApp extends Application
      * </p>
      *
      * @return a fully populated {@link BatchConfiguration} ready for execution
-     * 
+     *
      * @throws BatchErrorException
      *         if the source input is empty or if comma-separated files are specified without an
      *         associated parent directory context

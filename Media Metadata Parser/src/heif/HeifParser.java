@@ -119,11 +119,7 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
                     LOGGER.info("No credible metadata payload detected in file [" + getImageFile() + "]");
                 }
 
-                if (LogFactory.isDebugEnabled())
-                {
-                    logDebugBoxHierarchy(handler);
-                }
-
+                traceBoxHierarchy(handler);
                 dataLoaded = true;
 
                 // TODO: Review this and work out when to use it.
@@ -215,13 +211,16 @@ public class HeifParser extends AbstractImageParser<TifMetadata>
      * @param handler
      *        an active BoxHandler object
      */
-    public void logDebugBoxHierarchy(BoxHandler handler)
+    public void traceBoxHierarchy(BoxHandler handler)
     {
-        LOGGER.trace("Box hierarchy:");
-
-        for (Box box : handler)
+        if (LogFactory.isTraceEnabled())
         {
-            box.logBoxInfo();
+            LOGGER.trace("Box hierarchy:");
+
+            for (Box box : handler)
+            {
+                box.logBoxInfo();
+            }
         }
     }
 
