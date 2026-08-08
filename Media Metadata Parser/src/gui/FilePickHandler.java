@@ -56,11 +56,11 @@ class FilePickHandler implements EventHandler<ActionEvent>
     @Override
     public void handle(ActionEvent event)
     {
-        File openDir = resolveInitialDirectory();
+        File openDir = resolveOpeningDirectory();
         DirectoryChooser chooser = new DirectoryChooser();
 
         chooser.setTitle(dialogTitle);
-        
+
         if (openDir != null && openDir.isDirectory())
         {
             chooser.setInitialDirectory(openDir);
@@ -77,13 +77,17 @@ class FilePickHandler implements EventHandler<ActionEvent>
     }
 
     /**
-     * Resolves the best starting directory for the popup window. The hierarchical priority is based
-     * on the order: 1) stored directory in user data, 2) text field path (or its parent),
-     * and 3) default user home path.
+     * Resolves the directory to open the popup window using the following priority:
+     * 
+     * <ol>
+     * <li>Directory stored in the component's user data</li>
+     * <li>Path from the text field (or its parent if the path is a file)</li>
+     * <li>User's home directory</li>
+     * </ol>
      *
-     * @return a valid existing directory {@link File}, or {@code null}
+     * @return an existing directory {@link File}, or {@code null} if none is
      */
-    private File resolveInitialDirectory()
+    private File resolveOpeningDirectory()
     {
         File parentDir = null;
         Object userData = targetField.getUserData();
@@ -92,38 +96,37 @@ class FilePickHandler implements EventHandler<ActionEvent>
         {
             parentDir = new File((String) userData);
         }
-        
+
         else if (userData instanceof File)
         {
             parentDir = (File) userData;
         }
 
-        if (parentDir != null && parentDir.isDirectory())
+        if (parentDir == null || !parentDir.isDirectory())
         {
-            return parentDir;
-        }
+            String currentPath = targetField.getText().trim();
 
-        String currentPath = targetField.getText().trim();
-
-        if (!currentPath.isEmpty())
-        {
-            File currentFile = new File(currentPath);
-
-            if (currentFile.isDirectory())
+            if (!currentPath.isEmpty())
             {
-                return currentFile;
-            }
+                File currentFile = new File(currentPath);
 
-            File parent = currentFile.getParentFile();
+                if (currentFile.isDirectory())
+                {
+                    parentDir = currentFile;
+                }
 
-            if (parent != null && parent.isDirectory())
-            {
-                return parent;
+                else
+                {
+                    parentDir = currentFile.getParentFile();
+                }
             }
         }
 
-        File homeDir = new File(System.getProperty("user.home"));
+        if (parentDir == null || !parentDir.isDirectory())
+        {
+            parentDir = new File(System.getProperty("user.home"));
+        }
 
-        return homeDir.isDirectory() ? homeDir : null;
+        return parentDir.isDirectory() ? parentDir : null;
     }
 }

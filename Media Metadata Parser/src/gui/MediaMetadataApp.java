@@ -1,7 +1,11 @@
 package gui;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 import batch.BatchBuilder;
@@ -61,6 +65,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.stage.WindowEvent;
 import javafx.util.Callback;
 import javafx.util.Duration;
 import logger.LogFactory;
@@ -148,6 +153,19 @@ public class MediaMetadataApp extends Application
         addBottomPane(formGrid);
 
         Scene scene = new Scene(formGrid, 620, 650);
+
+        stage.setOnShown(new EventHandler<WindowEvent>()
+        {
+            @Override
+            public void handle(WindowEvent event)
+            {
+                for (Node node : formGrid.lookupAll(".titled-pane .title .text"))
+                {
+                    node.setStyle("-fx-font-weight: bold;");
+                }
+            }
+        });
+
         stage.setScene(scene);
         stage.show();
         formGrid.requestFocus();
@@ -323,7 +341,7 @@ public class MediaMetadataApp extends Application
                         super.updateItem(item, empty);
 
                         setText(empty ? null : item);
-                        setStyle(empty || item == null ? "" : "-fx-font-weight: bold; -fx-text-fill: #666666;");
+                        setStyle("-fx-font-weight: bold; -fx-text-fill: #666666;");
                     }
                 };
             }
@@ -536,21 +554,51 @@ public class MediaMetadataApp extends Application
 
                             else if (pastedText.contains(","))
                             {
-                                String[] parts = pastedText.split(",");
-                                File firstFile = new File(parts[0].trim());
+                                Path parentDir = null;
+                                String[] parts = pastedText.split("\\s*,\\s*");
 
-                                if (firstFile.exists())
+                                /* Firstly, find the first valid parent directory */
+                                for (int i = 0; i < parts.length; i++)
                                 {
-                                    sourceText.setText(pastedText);
-                                    sourceText.setUserData(firstFile.getParent());
-                                    sourceText.setTooltip(new Tooltip(pastedText));
+                                    Path file = Paths.get(parts[i]).normalize();
+
+                                    if (file.getParent() != null && Files.isRegularFile(file))
+                                    {
+                                        parentDir = file.getParent();
+                                        break;
+                                    }
                                 }
 
-                                else
+                                boolean valid = (parentDir != null);
+
+                                /*
+                                 * Secondly, check if all files are resolved
+                                 * in the first discovered directory.
+                                 */
+                                if (valid)
                                 {
-                                    sourceText.setText(pastedText);
-                                    sourceText.setTooltip(new Tooltip(pastedText));
+                                    for (int i = 0; i < parts.length; i++)
+                                    {
+                                        Path file = Paths.get(parts[i]);
+
+                                        if (!file.isAbsolute())
+                                        {
+                                            file = parentDir.resolve(file);
+                                        }
+
+                                        file = file.normalize();
+
+                                        if (!Files.isRegularFile(file) || !parentDir.equals(file.getParent()))
+                                        {
+                                            valid = false;
+                                            break;
+                                        }
+                                    }
                                 }
+
+                                sourceText.setText(pastedText);
+                                sourceText.setTooltip(new Tooltip(pastedText));
+                                sourceText.setUserData(valid ? parentDir.toFile().getAbsolutePath() : null);
                             }
 
                             else
@@ -577,11 +625,13 @@ public class MediaMetadataApp extends Application
 
         showMetadataCheck.selectedProperty().addListener(new InvalidationListener()
         {
+
             @Override
             public void invalidated(Observable observable)
             {
                 actionBtn.setText(showMetadataCheck.isSelected() ? "Display Metadata" : "Run Batch Process");
             }
+
         });
     }
 
@@ -944,12 +994,13 @@ public class MediaMetadataApp extends Application
                 throw new BatchErrorException("Individual files detected without a parent folder context.\n\nPlease use the 'Select Specific Files' menu option to select files.");
             }
 
-            String[] parts = filename.split(",");
+            String[] parts = filename.split("\\s*,\\s*");
             String[] files = new String[parts.length];
 
             for (int i = 0; i < parts.length; i++)
             {
-                files[i] = parts[i].trim();
+                // Only basic file names are accepted
+                files[i] = Paths.get(parts[i]).getFileName().toString();
             }
 
             builder.source(parentDir).fileSet(files);
