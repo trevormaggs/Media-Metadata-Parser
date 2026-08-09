@@ -69,8 +69,7 @@ public final class BatchConfiguration
      * @param trace
      *        flag to enable trace logging
      */
-    BatchConfiguration(Path source, Path target, String prefix, ZonedDateTime userDate, String[] fileSet, boolean forceDateChange, boolean embedDateTime, boolean skipVideo, boolean showMetadata, boolean descending, boolean debug,
-            boolean trace)
+    BatchConfiguration(Path source, Path target, String prefix, ZonedDateTime userDate, String[] fileSet, boolean forceDateChange, boolean embedDateTime, boolean skipVideo, boolean showMetadata, boolean descending, boolean debug, boolean trace)
     {
         this.source = source;
         this.target = (target == null || target.toString().isEmpty()) ? Paths.get(MediaBatchProcessor.DEFAULT_TARGET_DIRECTORY) : target;

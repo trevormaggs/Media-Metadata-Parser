@@ -50,8 +50,7 @@ public final class MediaBatchProcessor
     public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
     public static final String DEFAULT_IMAGE_PREFIX = "image";
     private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessor.class);
-    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("ddMMMyyyy");
-    private static final DateTimeFormatter DTF2 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
+    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
     private static final long TEN_SECOND_OFFSET = 10L;
     private volatile boolean cancelled = false;
     private final List<ProgressListener> listeners;
@@ -158,6 +157,7 @@ public final class MediaBatchProcessor
             prepareTargetDirectory();
             startLogging();
             scanner.start();
+
             totalSourceFiles = scanner.getRecordCount();
             LOGGER.info("Total number of source files scanned: [" + totalSourceFiles + "]");
 
@@ -172,7 +172,7 @@ public final class MediaBatchProcessor
 
                     if (isCancelled())
                     {
-                        LOGGER.warn("Batch process was cancelled by user after processing " + (processedCount - 1) + " files.");
+                        LOGGER.warn("Batch process was cancelled by user after processing " + (processedCount - 1) + " files");
                         return;
                     }
 
@@ -299,7 +299,7 @@ public final class MediaBatchProcessor
                     view.setTimes(effectiveTime, effectiveTime, effectiveTime);
                 }
 
-                String formattedDate = effectiveTime.toInstant().atZone(ZoneId.systemDefault()).format(DTF2);
+                String formattedDate = effectiveTime.toInstant().atZone(ZoneId.systemDefault()).format(DTF);
 
                 LOGGER.info(String.format("[File %d/%d] Processed: %s -> %s [Effective date/time: %s]", index, total, record.getPath().getFileName(), newName, formattedDate));
 
@@ -391,7 +391,7 @@ public final class MediaBatchProcessor
         if (config.isEmbedDateTime())
         {
             ZonedDateTime zdt = time.toInstant().atZone(ZoneId.systemDefault());
-            sb.append(zdt.format(DTF)).append("_");
+            sb.append(zdt.format(DateTimeFormatter.ofPattern("ddMMMyyyy"))).append("_");
         }
 
         sb.append(String.format("%03d", index));
@@ -510,7 +510,7 @@ public final class MediaBatchProcessor
 
             if (config.isForceDateChange() && config.getUserDate() != null)
             {
-                String dtf = config.getUserDate().format(DTF2);
+                String dtf = config.getUserDate().format(DTF);
                 LOGGER.info("User-defined date override received [" + dtf + "]");
             }
         }

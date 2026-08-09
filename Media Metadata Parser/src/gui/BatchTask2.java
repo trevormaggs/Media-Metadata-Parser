@@ -19,7 +19,7 @@ import progressbar.JavaFXProgressAdapter;
  * status to the supplied user interface components without blocking the JavaFX Application Thread.
  * </p>
  */
-class BatchTask extends Task<BatchStatistics>
+class BatchTask2 extends Task<BatchStatistics>
 {
     private final BatchConfiguration config;
     private final TextArea logArea;
@@ -41,7 +41,7 @@ class BatchTask extends Task<BatchStatistics>
      * @param displayMetadata
      *        {@code true} to display metadata instead of processing files
      */
-    BatchTask(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
+    BatchTask2(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
     {
         this.config = config;
         this.logArea = logArea;
@@ -125,7 +125,8 @@ class BatchTask extends Task<BatchStatistics>
 
             processor.addProgressListener(new JavaFXProgressAdapter(progressBar)
             {
-                private boolean scanMode = true;
+                private int lastScannedCount = 0;
+                private boolean isScanning = true;
 
                 @Override
                 public void onProgressUpdate(int current)
@@ -134,8 +135,9 @@ class BatchTask extends Task<BatchStatistics>
                     {
                         super.onProgressUpdate(current);
 
-                        if (scanMode)
+                        if (isScanning)
                         {
+                            lastScannedCount = current;
                             updateMessage(String.format("Scanning files (%d found)...", current));
                         }
 
@@ -158,8 +160,10 @@ class BatchTask extends Task<BatchStatistics>
                     {
                         super.onProgressUpdate(current, total);
 
-                        if (scanMode)
+                        if (isScanning)
                         {
+                            lastScannedCount = (total > 0 ? total : current);
+
                             if (total > 0)
                             {
                                 updateMessage(String.format("Scanning files: %d of %d", current, total));
@@ -192,25 +196,19 @@ class BatchTask extends Task<BatchStatistics>
                 }
 
                 @Override
-                public void onCompleted(int total)
-                {
-                    if (scanMode)
-                    {
-                        scanMode = false;
-
-                        if (scanCompleteListener != null)
-                        {
-                            scanCompleteListener.accept(total);
-                        }
-                    }
-                }
-
-                @Override
                 public void reset()
                 {
                     if (!isCancelled())
                     {
                         super.reset();
+
+                        if (isScanning && scanCompleteListener != null)
+                        {
+                            scanCompleteListener.accept(lastScannedCount);
+                        }
+
+                        isScanning = false;
+                        updateMessage("Preparing batch processing...");
                     }
                 }
             });
