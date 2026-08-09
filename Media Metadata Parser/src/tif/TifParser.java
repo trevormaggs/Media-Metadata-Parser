@@ -67,7 +67,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
     /**
      * Parses TIFF metadata from a byte array, assuming it is a valid TIFF or EXIF payload,
      * including the 8-byte header length.
-     * 
+     *
      * <p>
      * Optimised for cases where TIFF data, particularly an embedded EXIF segment, is already
      * present in memory. This avoids redundant disk I/O.

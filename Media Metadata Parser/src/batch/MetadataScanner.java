@@ -140,7 +140,7 @@ class MetadataScanner implements Iterable<MediaRecord>
                 fileCount = config.getFileSet().size();
 
                 if (fileCount > 0)
-                {                    
+                {
                     int count = 1;
 
                     for (String fileName : config.getFileSet())

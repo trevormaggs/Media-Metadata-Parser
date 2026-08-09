@@ -49,17 +49,6 @@ public final class TagRegistry
         register(TagExif_Interop.values());
         register(TagIFD_Pointer.values());
         register(TagIFD_DNG.values());
-
-        if (LogFactory.isDebugEnabled())
-        {
-            for (Map.Entry<DirectoryIdentifier, Map<Integer, Taggable>> entry : TAG_REGISTRY.entrySet())
-            {
-                for (Taggable tag : entry.getValue().values())
-                {
-                    LOGGER.trace(String.format("Registered: %-10s | 0x%04X | %s", entry.getKey(), tag.getNumberID(), tag));
-                }
-            }
-        }
     }
 
     /**
@@ -121,6 +110,25 @@ public final class TagRegistry
         }
 
         return new TagIFD_Unknown(id, directory);
+    }
+
+    /**
+     * Logs all currently registered TIFF tag definitions across all supported directory namespaces.
+     *
+     * <p>
+     * This utility method is primarily intended for debugging and tracing, providing visibility into
+     * tag registry initialisation and startup verification.
+     * </p>
+     */
+    public static void displayRegisteredTags()
+    {
+        for (Map.Entry<DirectoryIdentifier, Map<Integer, Taggable>> entry : TAG_REGISTRY.entrySet())
+        {
+            for (Taggable tag : entry.getValue().values())
+            {
+                LOGGER.trace(String.format("Registered: %-10s | 0x%04X | %s", entry.getKey(), tag.getNumberID(), tag));
+            }
+        }
     }
 
     /**

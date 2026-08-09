@@ -123,6 +123,7 @@ class BatchTask extends Task<BatchStatistics>
         {
             processor = new MediaBatchProcessor(config);
 
+            // Extends JavaFXProgressAdapter anonymously
             processor.addProgressListener(new JavaFXProgressAdapter(progressBar)
             {
                 private boolean scanMode = true;

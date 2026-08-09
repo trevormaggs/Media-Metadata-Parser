@@ -157,12 +157,10 @@ public final class MediaBatchProcessor
             prepareTargetDirectory();
             startLogging();
             scanner.start();
+            resetListeners(); // Reset progress bar for the next task: processing
 
             totalSourceFiles = scanner.getRecordCount();
             LOGGER.info("Total number of source files scanned: [" + totalSourceFiles + "]");
-
-            // Reset progress bar for the next task: processing
-            resetListeners();
 
             if (totalSourceFiles > 0)
             {
@@ -499,6 +497,7 @@ public final class MediaBatchProcessor
             String logName = "batchlog_" + SystemInfo.getHostname() + ".log";
             Path logPath = config.getTarget().resolve(logName);
 
+            //LogFactory.suppressPackages("javafx", "com.sun.javafx");
             LogFactory.configure(logPath.toString());
             LogFactory.setDebug(config.isDebug());
             LogFactory.setTrace(config.isTrace());
@@ -512,6 +511,16 @@ public final class MediaBatchProcessor
             {
                 String dtf = config.getUserDate().format(DTF);
                 LOGGER.info("User-defined date override received [" + dtf + "]");
+            }
+
+            if (config.isDebug())
+            {
+                LOGGER.info("Debugging is enabled");
+            }
+
+            if (config.isTrace())
+            {
+                LOGGER.info("Trace logging is enabled");
             }
         }
 

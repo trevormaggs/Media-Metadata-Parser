@@ -78,21 +78,6 @@ import logger.LogFactory;
  */
 public class MediaMetadataApp extends Application
 {
-    private final Button sourceBtn;
-    private final MenuItem selectFiles;
-    private final Button actionBtn;
-    private final Button clearLogBtn;
-    private final Button copyLogBtn;
-
-    private final Button exitBtn;
-    private final ProgressBar progressBar;
-
-    private final Button cancelBtn;
-    private final Button viewBtn;
-
-    private Stage stage;
-    private BatchTask activeTask;
-
     private static final String SRCID = "srcId";
     private static final String TGTID = "tgtId";
     private static final String PFXID = "pfxId";
@@ -104,6 +89,19 @@ public class MediaMetadataApp extends Application
     private static final String SRTID = "srtId";
     private static final String DBGID = "dbgId";
     private static final String TRCID = "trcId";
+
+    private final Button sourceBtn;
+    private final MenuItem selectFiles;
+    private final Button actionBtn;
+    private final Button clearLogBtn;
+    private final Button copyLogBtn;
+    private final Button exitBtn;
+    private final ProgressBar progressBar;
+    private final Button cancelBtn;
+    private final Button viewBtn;
+
+    private Stage stage;
+    private BatchTask activeTask;
 
     /**
      * Public default constructor required by JavaFX reflection runtime.
@@ -195,6 +193,9 @@ public class MediaMetadataApp extends Application
         sourceText.setEditable(false);
         sourceText.setStyle("-fx-background-color: #EEEEEE; -fx-text-fill: #555555; -fx-border-color: #999999; "
                 + "-fx-border-radius: 3px; -fx-background-radius: 3px; -fx-cursor: hand;");
+
+        sourceText.setText("E:\\ImageBatchDir\\babygemma.tif");
+
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
         selectFiles.setText("Select Specific Files...");
@@ -556,7 +557,7 @@ public class MediaMetadataApp extends Application
                                 Path parentDir = null;
                                 String[] parts = pastedText.split("\\s*,\\s*");
 
-                                /* Firstly, find the first valid parent directory */
+                                /* Find the first valid parent directory first */
                                 for (String part : parts)
                                 {
                                     Path file = Paths.get(part).normalize();
@@ -571,7 +572,7 @@ public class MediaMetadataApp extends Application
                                 boolean valid = (parentDir != null);
 
                                 /*
-                                 * Secondly, check if all files are resolved
+                                 * Then, check if all files are resolved
                                  * in the first discovered directory.
                                  */
                                 if (valid)
@@ -841,12 +842,6 @@ public class MediaMetadataApp extends Application
                 }
             });
 
-            progressLabel.textProperty().bind(activeTask.messageProperty());
-
-            actionBtn.setDisable(true);
-            cancelBtn.setDisable(false);
-            copyLogBtn.setDisable(true);
-
             activeTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
             {
                 @Override
@@ -885,6 +880,11 @@ public class MediaMetadataApp extends Application
                     resetControlStates(progressLabel);
                 }
             });
+
+            actionBtn.setDisable(true);
+            cancelBtn.setDisable(false);
+            copyLogBtn.setDisable(true);
+            progressLabel.textProperty().bind(activeTask.messageProperty());
 
             Thread worker = new Thread(activeTask);
 
@@ -984,11 +984,11 @@ public class MediaMetadataApp extends Application
             throw new BatchErrorException("No source directory or files specified.\n\nPlease select a source folder or specific files before running the batch process.");
         }
 
-        String parentDir = (String) sourceText.getUserData();
+        String userDataParent = (String) sourceText.getUserData();
 
         if (filename.contains(","))
         {
-            if (parentDir == null || parentDir.trim().isEmpty())
+            if (userDataParent == null || userDataParent.trim().isEmpty())
             {
                 throw new BatchErrorException("Individual files detected without a parent folder context.\n\nPlease use the 'Select Specific Files' menu option to select files.");
             }
@@ -998,20 +998,37 @@ public class MediaMetadataApp extends Application
 
             for (int i = 0; i < parts.length; i++)
             {
-                // Only basic file names are accepted
                 files[i] = Paths.get(parts[i]).getFileName().toString();
             }
 
-            builder.source(parentDir).fileSet(files);
+            builder.source(userDataParent).fileSet(files);
         }
 
         else
         {
-            builder.source(filename);
+            Path path = Paths.get(filename).normalize();
+
+            if (Files.isRegularFile(path))
+            {
+                Path parent = path.getParent();
+
+                if (parent == null)
+                {
+                    throw new BatchErrorException("Specified file does not have a valid parent directory");
+                }
+
+                String parentDir = parent.toAbsolutePath().toString();
+
+                builder.source(parentDir).fileSet(new String[]{path.getFileName().toString()});
+            }
+
+            else
+            {
+                builder.source(path.toAbsolutePath().toString());
+            }
         }
 
-        return builder
-                .target(targetText == null ? null : targetText.getText())
+        return builder.target(targetText == null ? null : targetText.getText())
                 .prefix(prefixText == null ? null : prefixText.getText())
                 .userDate(dateValue == null ? null : dateValue.toString())
                 .embedDateTime(embedDateTime != null && embedDateTime.isSelected())
@@ -1156,6 +1173,30 @@ public class MediaMetadataApp extends Application
     }
 
     /**
+     * Generates a dynamic horizontal expansion spacer region for UI layouts.
+     *
+     * @return a configured {@link Region} spacer
+     */
+    private Region fillRow()
+    {
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        return spacer;
+    }
+
+    /**
+     * Standard Java application entry point.
+     *
+     * @param args
+     *        command-line arguments passed to the application
+     */
+    public static void main(String[] args)
+    {
+        launch(args);
+    }
+
+    /**
      * Model representing an individual file processing result entry in the summary dialog table
      * view.
      */
@@ -1270,29 +1311,5 @@ public class MediaMetadataApp extends Application
         dialog.getDialogPane().setContent(table);
         dialog.getDialogPane().setPrefSize(550, 320);
         dialog.showAndWait();
-    }
-
-    /**
-     * Generates a dynamic horizontal expansion spacer region for UI layouts.
-     *
-     * @return a configured {@link Region} spacer
-     */
-    private Region fillRow()
-    {
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        return spacer;
-    }
-
-    /**
-     * Standard Java application entry point.
-     *
-     * @param args
-     *        command-line arguments passed to the application
-     */
-    public static void main(String[] args)
-    {
-        launch(args);
     }
 }
