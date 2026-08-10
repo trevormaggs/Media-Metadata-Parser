@@ -517,4 +517,50 @@ public class IFDHandler implements ImageHandler
 
         return offsets;
     }
+
+    // Testing
+    private long[] resolvePointerOffsets2(EntryIFD entry)
+    {
+        long[] offsets;
+        Taggable tag = entry.getTag();
+
+        if (entry.getCount() == 1)
+        {
+            offsets = new long[]{entry.getOffset()};
+        }
+
+        else if (tag == TagIFD_Pointer.IFD_SUBIFD_POINTER)
+        {
+            byte[] raw = entry.getByteArray();
+
+            if (raw == null || raw.length < 4)
+            {
+                LOGGER.error(String.format("SubIFDs pointer array (Count: %d) contains no readable offset data", entry.getCount()));
+                return new long[0];
+            }
+
+            // Cap count safely to prevent negative array size or allocation overflows
+            int safeCount = (int) Math.min(Math.max(0, entry.getCount()), raw.length / 4);
+
+            if (safeCount != entry.getCount())
+            {
+                LOGGER.warn(String.format("SubIFD count tag specified %d offsets, but payload size only accommodates %d offsets", entry.getCount(), safeCount));
+            }
+
+            offsets = new long[safeCount];
+
+            for (int i = 0; i < safeCount; i++)
+            {
+                offsets[i] = ByteValueConverter.toUnsignedInteger(raw, i * 4, getTifByteOrder());
+            }
+        }
+        
+        else
+        {
+            LOGGER.warn(String.format("Non-SubIFD Pointer tag [%s] has invalid count %d. Skipping further navigation to prevent corruption", tag, entry.getCount()));
+            return new long[0];
+        }
+
+        return offsets;
+    }
 }

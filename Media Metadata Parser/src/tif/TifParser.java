@@ -127,7 +127,7 @@ public class TifParser extends AbstractImageParser<TifMetadata>
 
                     if (LogFactory.isTraceEnabled())
                     {
-                        logLinkedIFDs(handler);
+                        traceDetailedIFD(handler);
                     }
                 }
 
@@ -220,26 +220,30 @@ public class TifParser extends AbstractImageParser<TifMetadata>
     }
 
     /**
-     * Logs the linked IFD directories and their entries at the trace level for detailed diagnostic
-     * purposes.
+     * Logs detailed structural information and individual tag entries for all parsed
+     * Image File Directories (IFDs) at the {@code TRACE} logging level.
      *
      * @param handler
-     *        an active IFDHandler object
+     *        the active {@link IFDHandler} instance containing the parsed metadata
      */
-    public void logLinkedIFDs(IFDHandler handler)
+    public void traceDetailedIFD(IFDHandler handler)
     {
         List<DirectoryIFD> tif = handler.getDirectories();
+        double fsize = handler.getFileSize() / (1024.0 * 1024.0);
 
-        LOGGER.trace(String.format("Linked Image File Directories for file: %s, BOM: %s, Size: %s MB", getImageFile(), handler.getTifByteOrder(), handler.getFileSize() / (1024 * 1024)));
+        LOGGER.trace(String.format("Linked Image File Directories for file: %s, BOM: %s, Size: %.2f MB",
+                getImageFile(),
+                handler.getTifByteOrder(),
+                fsize));
 
         for (DirectoryIFD ifd : tif)
         {
             for (EntryIFD entry : ifd)
             {
-                String tag = ifd.getDirectoryType().getDescription() + " Tag: " + entry.getTag() + ",";
-                LOGGER.trace(String.format("%-50s Field Type: %-20s Value: %s",
+                String tag = ifd.getDirectoryType().getDescription() + " Tag: " + entry.getTag();
+                LOGGER.trace(String.format("%-50s | Field Type: %-15s | Value: %s",
                         tag,
-                        entry.getFieldType() + ",",
+                        entry.getFieldType(),
                         TagValueTranslator.toStringValue(entry)));
             }
         }
