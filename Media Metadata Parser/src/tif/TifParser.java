@@ -9,6 +9,7 @@ import common.AbstractImageParser;
 import common.DigitalSignature;
 import common.Utils;
 import logger.LogFactory;
+import tif.DirectoryIFD.EntryIFD;
 import tif.tagspecs.TagIFD_Extension;
 import xmp.XmpDirectory;
 import xmp.XmpHandler;
@@ -123,6 +124,11 @@ public class TifParser extends AbstractImageParser<TifMetadata>
                     {
                         LOGGER.debug("No XMP payload found inside [" + getImageFile() + "]");
                     }
+
+                    if (LogFactory.isTraceEnabled())
+                    {
+                        logLinkedIFDs(handler);
+                    }
                 }
 
                 else
@@ -211,6 +217,32 @@ public class TifParser extends AbstractImageParser<TifMetadata>
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Logs the linked IFD directories and their entries at the trace level for detailed diagnostic
+     * purposes.
+     *
+     * @param handler
+     *        an active IFDHandler object
+     */
+    public void logLinkedIFDs(IFDHandler handler)
+    {
+        List<DirectoryIFD> tif = handler.getDirectories();
+
+        LOGGER.trace(String.format("Linked Image File Directories for file: %s, BOM: %s, Size: %s MB", getImageFile(), handler.getTifByteOrder(), handler.getFileSize() / (1024 * 1024)));
+
+        for (DirectoryIFD ifd : tif)
+        {
+            for (EntryIFD entry : ifd)
+            {
+                String tag = ifd.getDirectoryType().getDescription() + " Tag: " + entry.getTag() + ",";
+                LOGGER.trace(String.format("%-50s Field Type: %-20s Value: %s",
+                        tag,
+                        entry.getFieldType() + ",",
+                        TagValueTranslator.toStringValue(entry)));
+            }
+        }
     }
 
     /**

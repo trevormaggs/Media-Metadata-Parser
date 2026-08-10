@@ -104,46 +104,6 @@ public class IFDHandler implements ImageHandler
     }
 
     /**
-     * Returns the list of IFD directories that were successfully parsed.
-     *
-     * @return an unmodifiable {@link List} of all parsed {@link DirectoryIFD} structures
-     */
-    public List<DirectoryIFD> getDirectories()
-    {
-        return Collections.unmodifiableList(directoryList);
-    }
-
-    /**
-     * Returns the byte order, indicating how metadata values should be interpreted correctly.
-     *
-     * @return the {@link ByteOrder} detected in the TIFF header
-     */
-    public ByteOrder getTifByteOrder()
-    {
-        return reader.getByteOrder();
-    }
-
-    /**
-     * Indicates whether the parsed file is a BigTIFF variant (version 43).
-     *
-     * @return {@code true} if the file magic number identifies it as BigTIFF (version 43)
-     */
-    public boolean isBigTiffVersion()
-    {
-        return isTiffBig;
-    }
-
-    /**
-     * Indicates whether the parsed file structure is an Adobe Digital Negative (DNG).
-     *
-     * @return {@code true} if a DNGVersion tag was found inside the primary IFD0 block
-     */
-    public boolean isDngVersion()
-    {
-        return isDngFormat;
-    }
-
-    /**
      * Executes the parsing logic, performing a deep scan and populating the directory list.
      *
      * <p>
@@ -220,6 +180,65 @@ public class IFDHandler implements ImageHandler
         isDngFormat = false;
 
         return false;
+    }
+
+    /**
+     * Returns the size of the provided file. Note that this operation may involve I/O,
+     * so use it sparingly where possible.
+     *
+     * @return the file size, or 0L if the size cannot be determined
+     */
+    public long getFileSize()
+    {
+        try
+        {
+            return reader.length();
+        }
+
+        catch (IOException exc)
+        {
+            return 0L;
+        }
+    }
+
+    /**
+     * Returns the list of IFD directories that were successfully parsed.
+     *
+     * @return an unmodifiable {@link List} of all parsed {@link DirectoryIFD} structures
+     */
+    public List<DirectoryIFD> getDirectories()
+    {
+        return Collections.unmodifiableList(directoryList);
+    }
+
+    /**
+     * Returns the byte order, indicating how metadata values should be interpreted correctly.
+     *
+     * @return the {@link ByteOrder} detected in the TIFF header
+     */
+    public ByteOrder getTifByteOrder()
+    {
+        return reader.getByteOrder();
+    }
+
+    /**
+     * Indicates whether the parsed file is a BigTIFF variant (version 43).
+     *
+     * @return {@code true} if the file magic number identifies it as BigTIFF (version 43)
+     */
+    public boolean isBigTiffVersion()
+    {
+        return isTiffBig;
+    }
+
+    /**
+     * Indicates whether the parsed file structure is an Adobe Digital Negative (DNG).
+     *
+     * @return {@code true} if a DNGVersion tag was found inside the primary IFD0 block
+     */
+    public boolean isDngVersion()
+    {
+        return isDngFormat;
     }
 
     /**

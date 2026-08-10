@@ -27,24 +27,24 @@ import progressbar.ProgressListener;
  * Progress updates are broadcast to registered {@link ProgressListener} instances during scanning,
  * providing real-time feedback without coupling the scanner to a specific user interface framework.
  * </p>
- * 
+ *
  * <p>
  * <b>Access Restriction:</b> By careful design, this class is intentionally package-private and
  * intended strictly for internal use within the {@code batch} package.
  * </p>
- * 
+ *
  * @PackagePrivate
  * @author Trevor Maggs
- * @version 1.3
+ * @version 1.4
  * @since 1 May 2026
  */
 class MetadataScanner implements Iterable<MediaRecord>
 {
     private volatile boolean cancelled;
     private final BatchConfiguration config;
-    private final Set<MediaRecord> imageSet;
+    private final Set<MediaRecord> recordSet;
     private final List<ProgressListener> listeners;
-    private int fileCount;
+    private int totalCount;
 
     /**
      * Constructs a scanner using the specified batch configuration.
@@ -57,7 +57,7 @@ class MetadataScanner implements Iterable<MediaRecord>
         this.cancelled = false;
         this.config = settings;
         this.listeners = new ArrayList<>();
-        this.imageSet = new TreeSet<>(new Comparator<MediaRecord>()
+        this.recordSet = new TreeSet<>(new Comparator<MediaRecord>()
         {
             @Override
             public int compare(MediaRecord o1, MediaRecord o2)
@@ -86,7 +86,7 @@ class MetadataScanner implements Iterable<MediaRecord>
      */
     int getRecordCount()
     {
-        return imageSet.size();
+        return recordSet.size();
     }
 
     /**
@@ -137,12 +137,10 @@ class MetadataScanner implements Iterable<MediaRecord>
 
             try
             {
-                fileCount = config.getFileSet().size();
+                totalCount = config.getFileSet().size();
 
-                if (fileCount > 0)
+                if (totalCount > 0)
                 {
-                    int count = 1;
-
                     for (String fileName : config.getFileSet())
                     {
                         Path fpath = config.getSource().resolve(fileName);
@@ -156,18 +154,15 @@ class MetadataScanner implements Iterable<MediaRecord>
                                 break;
                             }
                         }
-
-                        notifyListeners(count++, fileCount);
                     }
                 }
 
                 else
                 {
-                    fileCount = (int) countRegularFiles();
+                    totalCount = (int) countRegularFiles();
                     Files.walkFileTree(config.getSource(), visitor);
                 }
             }
-
             catch (Exception exc)
             {
                 throw new BatchErrorException(exc.getMessage(), exc);
@@ -228,7 +223,7 @@ class MetadataScanner implements Iterable<MediaRecord>
 
         return new SimpleFileVisitor<Path>()
         {
-            private int count = 0;
+            private int index = 0;
 
             @Override
             public FileVisitResult visitFile(Path fpath, BasicFileAttributes attr) throws IOException
@@ -243,15 +238,14 @@ class MetadataScanner implements Iterable<MediaRecord>
                     return FileVisitResult.CONTINUE;
                 }
 
-                count++;
-
                 try
                 {
                     AbstractImageParser<?> parser = ImageParserFactory.getParser(fpath);
 
                     parser.readMetadata();
                     Metadata<?> meta = parser.getMetadata();
-                    imageSet.add(new MediaRecord(fpath, attr, meta));
+                    recordSet.add(new MediaRecord(fpath, attr, meta));
+                    // System.out.printf("%s\n", parser.formatDiagnosticString());
                 }
 
                 catch (UnsupportedOperationException exc)
@@ -259,14 +253,7 @@ class MetadataScanner implements Iterable<MediaRecord>
                     // Gracefully skip unsupported file formats
                 }
 
-                /*
-                 * Notify listeners here only during directory walks.
-                 * file-set mode notifies in start()
-                 */
-                if (config.getFileSet().isEmpty())
-                {
-                    notifyListeners(count, fileCount);
-                }
+                notifyListeners(++index, totalCount);
 
                 return FileVisitResult.CONTINUE;
             }
@@ -304,6 +291,6 @@ class MetadataScanner implements Iterable<MediaRecord>
     @Override
     public Iterator<MediaRecord> iterator()
     {
-        return imageSet.iterator();
+        return recordSet.iterator();
     }
 }
