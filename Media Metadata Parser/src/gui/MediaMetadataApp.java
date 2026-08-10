@@ -40,7 +40,6 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -150,6 +149,7 @@ public class MediaMetadataApp extends Application
         addBottomPane(formGrid);
 
         Scene scene = new Scene(formGrid, 620, 650);
+        scene.getStylesheets().add(getClass().getResource("/gui/styles.css").toExternalForm());
 
         stage.setOnShown(new EventHandler<WindowEvent>()
         {
@@ -282,8 +282,8 @@ public class MediaMetadataApp extends Application
         descendingCheck.setId(SRTID);
 
         CheckBox skipVideoCheck = new CheckBox("Skip Video Files");
-        skipVideoCheck.setId(SKPID);
         skipVideoCheck.setSelected(true);
+        skipVideoCheck.setId(SKPID);
 
         CheckBox showMetadataCheck = new CheckBox("Display Metadata");
         showMetadataCheck.setId(SHWID);
@@ -311,39 +311,18 @@ public class MediaMetadataApp extends Application
         TableView<StatRecord> statsTable = new TableView<>();
         statsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         statsTable.setFocusTraversable(false);
-
         statsTable.setFixedCellSize(24.0);
-        statsTable.setPrefHeight(100.0);
-        statsTable.setMinHeight(Region.USE_PREF_SIZE);
-        statsTable.setMaxHeight(Region.USE_PREF_SIZE);
+        statsTable.prefHeightProperty().bind(optionsTitledPane.heightProperty());
 
         TableColumn<StatRecord, String> metricCol = new TableColumn<>("Metric");
 
+        metricCol.getStyleClass().add("metric-column");
         metricCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<StatRecord, String>, ObservableValue<String>>()
         {
             @Override
             public ObservableValue<String> call(TableColumn.CellDataFeatures<StatRecord, String> cellData)
             {
                 return cellData.getValue().metricProperty();
-            }
-        });
-
-        metricCol.setCellFactory(new Callback<TableColumn<StatRecord, String>, TableCell<StatRecord, String>>()
-        {
-            @Override
-            public TableCell<StatRecord, String> call(TableColumn<StatRecord, String> param)
-            {
-                return new TableCell<StatRecord, String>()
-                {
-                    @Override
-                    protected void updateItem(String item, boolean empty)
-                    {
-                        super.updateItem(item, empty);
-
-                        setText(empty ? null : item);
-                        setStyle("-fx-font-weight: bold; -fx-text-fill: #666666;");
-                    }
-                };
             }
         });
 
@@ -362,22 +341,12 @@ public class MediaMetadataApp extends Application
         statsTable.getColumns().add(valueCol);
         statsTable.getItems().addAll(StatRecord.SOURCE_FILES, StatRecord.TARGET_FILES, StatRecord.TOTAL_SIZE);
 
-        VBox statPane = new VBox(statsTable);
-        statPane.setPadding(new Insets(5));
-
-        TitledPane statsTitledPane = new TitledPane();
-        statsTitledPane.setText("Statistics");
-        statsTitledPane.setContent(statPane);
-        statsTitledPane.setCollapsible(false);
-        statsTitledPane.setFocusTraversable(false);
-        statsTitledPane.setMaxWidth(Double.MAX_VALUE);
-        statsTitledPane.setMaxHeight(Double.MAX_VALUE);
-
-        HBox middleRow = new HBox(15, optionsTitledPane, statsTitledPane);
+        HBox middleRow = new HBox(15, optionsTitledPane, statsTable);
         GridPane.setHgrow(middleRow, Priority.ALWAYS);
 
+        // Force equal width between TitledPane and TableView
         optionsTitledPane.prefWidthProperty().bind(middleRow.widthProperty().subtract(15).divide(2));
-        statsTitledPane.prefWidthProperty().bind(optionsTitledPane.prefWidthProperty());
+        statsTable.prefWidthProperty().bind(optionsTitledPane.prefWidthProperty());
 
         pane.add(middleRow, 0, 1);
     }
@@ -855,7 +824,15 @@ public class MediaMetadataApp extends Application
                     }
 
                     resetControlStates(progressLabel);
-                    launchPopup("Process Complete", "Batch processing completed", AlertType.INFORMATION);
+
+                    Platform.runLater(new Runnable()
+                    {
+                        @Override
+                        public void run()
+                        {
+                            launchPopup("Process Complete", "Batch processing completed", AlertType.INFORMATION);
+                        }
+                    });
                 }
             });
 

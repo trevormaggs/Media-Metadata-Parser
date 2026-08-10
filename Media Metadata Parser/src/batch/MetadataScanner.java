@@ -163,6 +163,7 @@ class MetadataScanner implements Iterable<MediaRecord>
                     Files.walkFileTree(config.getSource(), visitor);
                 }
             }
+
             catch (Exception exc)
             {
                 throw new BatchErrorException(exc.getMessage(), exc);
@@ -253,7 +254,8 @@ class MetadataScanner implements Iterable<MediaRecord>
                     // Gracefully skip unsupported file formats
                 }
 
-                notifyListeners(++index, totalCount);
+                // notifyListeners(++index, totalCount);
+                notifyListeners(recordSet.size(), totalCount);
 
                 return FileVisitResult.CONTINUE;
             }

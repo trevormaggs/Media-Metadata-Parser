@@ -1,0 +1,5 @@
+.table-view .table-cell.metric-column
+{
+    -fx-font-weight: bold;
+    -fx-text-fill: #666666;
+}

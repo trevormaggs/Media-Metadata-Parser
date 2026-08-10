@@ -138,7 +138,7 @@ class BatchTask extends Task<BatchStatistics>
                         if (scanMode)
                         {
                             updateMessage(String.format("Scanning files (%d found)...", current));
-                            
+
                             if (scanCompleteListener != null)
                             {
                                 scanCompleteListener.accept(current);
@@ -168,14 +168,14 @@ class BatchTask extends Task<BatchStatistics>
                         {
                             if (total > 0)
                             {
-                                updateMessage(String.format("Scanning files: %d of %d", current, total));                     
+                                updateMessage(String.format("Scanning files: %d of %d", current, total));
                             }
 
                             else
                             {
                                 updateMessage(String.format("Scanning files (%d)...", current));
                             }
-                            
+
                             if (scanCompleteListener != null)
                             {
                                 scanCompleteListener.accept(current);
@@ -207,6 +207,11 @@ class BatchTask extends Task<BatchStatistics>
                 {
                     if (scanMode)
                     {
+                        if (scanCompleteListener != null)
+                        {
+                            scanCompleteListener.accept(total);
+                        }
+
                         scanMode = false;
                     }
                 }
