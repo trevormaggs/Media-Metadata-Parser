@@ -224,8 +224,6 @@ class MetadataScanner implements Iterable<MediaRecord>
 
         return new SimpleFileVisitor<Path>()
         {
-            private int index = 0;
-
             @Override
             public FileVisitResult visitFile(Path fpath, BasicFileAttributes attr) throws IOException
             {
@@ -254,7 +252,6 @@ class MetadataScanner implements Iterable<MediaRecord>
                     // Gracefully skip unsupported file formats
                 }
 
-                // notifyListeners(++index, totalCount);
                 notifyListeners(recordSet.size(), totalCount);
 
                 return FileVisitResult.CONTINUE;
