@@ -3,6 +3,8 @@ package gui;
 import java.util.function.Consumer;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
+import batch.BatchEventType;
+import batch.BatchProcessEvent;
 import batch.BatchStatistics;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
@@ -144,14 +146,14 @@ class BatchTask extends Task<BatchStatistics>
 
             if (fileRecordListener != null)
             {
-                processor.addPropertyListener(new common.PropertyListener()
+                processor.addPropertyListener(new PropertyListener()
                 {
                     @Override
                     public void accept(String key, Object value)
                     {
-                        if ("FILE_PROCESSED".equals(key) && value instanceof batch.BatchProcessEvent)
+                        if (BatchEventType.FILE_PROCESSED.getKey().equals(key) && value instanceof BatchProcessEvent)
                         {
-                            batch.BatchProcessEvent event = (batch.BatchProcessEvent) value;
+                            BatchProcessEvent event = (BatchProcessEvent) value;
 
                             String sourceName = event.getRecord().getPath().getFileName().toString();
                             String targetName = event.getTargetName();
@@ -161,7 +163,7 @@ class BatchTask extends Task<BatchStatistics>
                             fileRecordListener.accept(MediaMetadataApp.KEY_SOURCE, sourceName);
                             fileRecordListener.accept(MediaMetadataApp.KEY_TARGET, targetName);
                             fileRecordListener.accept(MediaMetadataApp.KEY_STATUS, status);
-                            fileRecordListener.accept("SIZE", event.getTargetSize());
+                            fileRecordListener.accept(MediaMetadataApp.KEY_SIZE, event.getTargetSize());
                         }
                     }
                 });

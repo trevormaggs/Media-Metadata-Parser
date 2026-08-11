@@ -205,7 +205,7 @@ public final class MediaBatchProcessor
 
                         if (fileUpdateListener != null)
                         {
-                            fileUpdateListener.accept("FILE_PROCESSED", new BatchProcessEvent(record, targetName, targetSize));
+                            fileUpdateListener.accept(BatchEventType.FILE_PROCESSED.getKey(), new BatchProcessEvent(record, targetName, targetSize));
                         }
                     }
 
