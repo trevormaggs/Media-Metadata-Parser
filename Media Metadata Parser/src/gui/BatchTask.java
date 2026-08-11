@@ -6,6 +6,7 @@ import batch.BatchErrorException;
 import batch.BatchStatistics;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
+import common.PropertyListener;
 import javafx.concurrent.Task;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
@@ -27,6 +28,7 @@ class BatchTask extends Task<BatchStatistics>
     private final boolean displayMetadata;
     private Consumer<Integer> scanCompleteListener;
     private Consumer<Integer> fileProcessedListener;
+    private PropertyListener fileRecordListener;
     private volatile MediaBatchProcessor processor;
 
     /**
@@ -51,7 +53,7 @@ class BatchTask extends Task<BatchStatistics>
 
     /**
      * Registers a listener to be notified when the initial file scan is completed.
-     * 
+     *
      * @param listener
      *        the listener to receive the number of files found during the scan
      */
@@ -62,13 +64,24 @@ class BatchTask extends Task<BatchStatistics>
 
     /**
      * Registers a listener to be notified after each file is processed.
-     * 
+     *
      * @param listener
      *        the listener to receive the number of files processed
      */
     void setOnFileProcessed(Consumer<Integer> listener)
     {
         this.fileProcessedListener = listener;
+    }
+
+    /**
+     * Registers a listener to receive individual file processing summary records.
+     *
+     * @param listener
+     *        the property listener receiving file record updates
+     */
+    void setFileRecordListener(PropertyListener listener)
+    {
+        this.fileRecordListener = listener;
     }
 
     /**
@@ -82,30 +95,36 @@ class BatchTask extends Task<BatchStatistics>
     }
 
     /**
-     * Cancels the active processing engine if currently running.
+     * Cancels the task and signals the underlying batch processor to abort execution.
+     *
+     * @param mayInterruptIfRunning
+     *        {@code true} if the thread executing this task should be interrupted. Otherwise,
+     *        in-flight calls are allowed to complete
+     * @return {@code true} if the task was cancelled
      */
-    void cancelProcessor()
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning)
     {
-        super.cancel();
-
         if (processor != null)
         {
             processor.cancel();
         }
+
+        return super.cancel(mayInterruptIfRunning);
     }
 
     /**
      * Executes the batch operation on the background thread.
-     * 
+     *
      * <p>
      * When metadata display is enabled, metadata is retrieved instead of processing the batch.
      * Otherwise, a {@link MediaBatchProcessor} is created and executed while progress is reported
      * to the associated JavaFX controls.
      * </p>
-     * 
+     *
      * @return the statistics produced by the batch processor, or {@code null} when metadata is
      *         displayed
-     * 
+     *
      * @throws Exception
      *         if the batch operation fails
      */
@@ -122,6 +141,31 @@ class BatchTask extends Task<BatchStatistics>
         else
         {
             processor = new MediaBatchProcessor(config);
+
+            if (fileRecordListener != null)
+            {
+                processor.addPropertyListener(new common.PropertyListener()
+                {
+                    @Override
+                    public void accept(String key, Object value)
+                    {
+                        if ("FILE_PROCESSED".equals(key) && value instanceof batch.BatchProcessEvent)
+                        {
+                            batch.BatchProcessEvent event = (batch.BatchProcessEvent) value;
+
+                            String sourceName = event.getRecord().getPath().getFileName().toString();
+                            String targetName = event.getTargetName();
+                            String status = event.isSuccess() ? "Completed" : "Failed";
+
+                            // Map domain event fields into GUI keys
+                            fileRecordListener.accept(MediaMetadataApp.KEY_SOURCE, sourceName);
+                            fileRecordListener.accept(MediaMetadataApp.KEY_TARGET, targetName);
+                            fileRecordListener.accept(MediaMetadataApp.KEY_STATUS, status);
+                            fileRecordListener.accept("SIZE", event.getTargetSize());
+                        }
+                    }
+                });
+            }
 
             // Extends JavaFXProgressAdapter anonymously
             processor.addProgressListener(new JavaFXProgressAdapter(progressBar)
@@ -236,7 +280,7 @@ class BatchTask extends Task<BatchStatistics>
 
     /**
      * Handles successful completion of the background task.
-     * 
+     *
      * <p>
      * Updates the task status message and records a success message in the log area.
      * </p>
@@ -244,6 +288,7 @@ class BatchTask extends Task<BatchStatistics>
     @Override
     protected void succeeded()
     {
+        super.succeeded();
         updateMessage("Batch completed");
 
         if (displayMetadata)
@@ -259,7 +304,7 @@ class BatchTask extends Task<BatchStatistics>
 
     /**
      * Handles failure of the background task.
-     * 
+     *
      * <p>
      * Records the exception message in the log area and distinguishes expected
      * {@link BatchErrorException} failures from unexpected errors.
@@ -268,6 +313,7 @@ class BatchTask extends Task<BatchStatistics>
     @Override
     protected void failed()
     {
+        super.failed();
         updateMessage("Process failed");
 
         Throwable exc = getException();
@@ -286,7 +332,7 @@ class BatchTask extends Task<BatchStatistics>
 
     /**
      * Handles cancellation of the background task.
-     * 
+     *
      * <p>
      * Updates the task status message and records a cancellation warning in the log area.
      * </p>
@@ -294,13 +340,14 @@ class BatchTask extends Task<BatchStatistics>
     @Override
     protected void cancelled()
     {
+        super.cancelled();
         updateMessage("Process cancelled");
         logArea.appendText("[WARNING] Batch process was cancelled.\n");
     }
 
     /**
      * Performs cleanup after the task reaches a terminal state.
-     * 
+     *
      * <p>
      * Releases the reference to the active {@link MediaBatchProcessor}.
      * </p>
@@ -308,6 +355,7 @@ class BatchTask extends Task<BatchStatistics>
     @Override
     protected void done()
     {
+        super.done();
         processor = null;
     }
 }

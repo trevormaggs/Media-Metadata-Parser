@@ -12,13 +12,14 @@ import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchStatistics;
 import batch.MediaBatchProcessor;
+import common.PropertyListener;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
-import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
@@ -77,6 +78,10 @@ import logger.LogFactory;
  */
 public class MediaMetadataApp extends Application
 {
+    public static final String KEY_SOURCE = "SOURCE";
+    public static final String KEY_TARGET = "TARGET";
+    public static final String KEY_STATUS = "STATUS";
+    public static final String KEY_SIZE = "SIZE";
     private static final String SRCID = "srcId";
     private static final String TGTID = "tgtId";
     private static final String PFXID = "pfxId";
@@ -99,6 +104,7 @@ public class MediaMetadataApp extends Application
     private final Button cancelBtn;
     private final Button viewBtn;
 
+    private final ObservableList<FileRecord> fileRecords;
     private Stage stage;
     private BatchTask activeTask;
 
@@ -116,6 +122,7 @@ public class MediaMetadataApp extends Application
         this.progressBar = new ProgressBar(0.0);
         this.cancelBtn = new Button();
         this.viewBtn = new Button();
+        this.fileRecords = FXCollections.observableArrayList();
     }
 
     /**
@@ -567,7 +574,7 @@ public class MediaMetadataApp extends Application
 
                                 sourceText.setText(pastedText);
                                 sourceText.setTooltip(new Tooltip(pastedText));
-                                sourceText.setUserData(valid ? parentDir.toFile().getAbsolutePath() : null);
+                                sourceText.setUserData(valid ? parentDir.toAbsolutePath() : null);
                             }
 
                             else
@@ -738,7 +745,7 @@ public class MediaMetadataApp extends Application
             {
                 if (activeTask != null)
                 {
-                    activeTask.cancelProcessor();
+                    activeTask.cancel(true);
                 }
             }
 
@@ -763,6 +770,7 @@ public class MediaMetadataApp extends Application
         if (logArea != null)
         {
             logArea.clear();
+            fileRecords.clear();
             StatRecord.resetAll();
 
             try
@@ -778,6 +786,49 @@ public class MediaMetadataApp extends Application
             }
 
             activeTask = new BatchTask(config, logArea, progressBar, metaDisplay);
+
+            activeTask.setFileRecordListener(new PropertyListener()
+            {
+                private String currentSource = "";
+                private String currentTarget = "";
+                private long currentSize = 0L;
+
+                @Override
+                public void accept(final String key, final Object value)
+                {
+                    if (MediaMetadataApp.KEY_SOURCE.equals(key))
+                    {
+                        currentSource = String.valueOf(value);
+                    }
+                    else if (MediaMetadataApp.KEY_TARGET.equals(key))
+                    {
+                        currentTarget = String.valueOf(value);
+                    }
+                    else if (MediaMetadataApp.KEY_SIZE.equals(key) || "SIZE".equals(key))
+                    {
+                        if (value instanceof Number)
+                        {
+                            currentSize = ((Number) value).longValue();
+                        }
+                    }
+                    else if (MediaMetadataApp.KEY_STATUS.equals(key))
+                    {
+                        final String source = currentSource;
+                        final String target = currentTarget;
+                        final String status = String.valueOf(value);
+                        final long size = currentSize;
+
+                        Platform.runLater(new Runnable()
+                        {
+                            @Override
+                            public void run()
+                            {
+                                fileRecords.add(new FileRecord(source, target, status, size));
+                            }
+                        });
+                    }
+                }
+            });
 
             activeTask.setOnScanCompleted(new Consumer<Integer>()
             {
@@ -1068,88 +1119,6 @@ public class MediaMetadataApp extends Application
     }
 
     /**
-     * Model representing a key-value metric pair inside the processing statistics table view.
-     */
-    private static class StatRecord
-    {
-        private static final StatRecord SOURCE_FILES = new StatRecord("Source Files", "0");
-        private static final StatRecord TARGET_FILES = new StatRecord("Target Files", "0");
-        private static final StatRecord TOTAL_SIZE = new StatRecord("Total Size", "0.00 MB");
-        private final SimpleStringProperty metric;
-        private final SimpleStringProperty value;
-        private final String defaultValue;
-
-        /**
-         * Constructs a new statistic metric record.
-         *
-         * @param metric
-         *        the metric label
-         * @param defaultValue
-         *        the default value string
-         */
-        private StatRecord(String metric, String defaultValue)
-        {
-            this.metric = new SimpleStringProperty(metric);
-            this.value = new SimpleStringProperty(defaultValue);
-            this.defaultValue = defaultValue;
-        }
-
-        /**
-         * @return the metric property
-         */
-        public SimpleStringProperty metricProperty()
-        {
-            return metric;
-        }
-
-        /**
-         * @return the value property
-         */
-        public SimpleStringProperty valueProperty()
-        {
-            return value;
-        }
-
-        /**
-         * @return the current metric value string
-         */
-        @SuppressWarnings("unused")
-        public String getValue()
-        {
-            return value.get();
-        }
-
-        /**
-         * Updates the metric value.
-         *
-         * @param ref
-         *        the object whose string representation will be set
-         */
-        public void setValue(Object ref)
-        {
-            value.set(String.valueOf(ref));
-        }
-
-        /**
-         * Resets the value back to its default state.
-         */
-        public void reset()
-        {
-            value.set(defaultValue);
-        }
-
-        /**
-         * Resets all static metric records to default baseline values.
-         */
-        public static void resetAll()
-        {
-            SOURCE_FILES.reset();
-            TARGET_FILES.reset();
-            TOTAL_SIZE.reset();
-        }
-    }
-
-    /**
      * Generates a dynamic horizontal expansion spacer region for UI layouts.
      *
      * @return a configured {@link Region} spacer
@@ -1174,58 +1143,6 @@ public class MediaMetadataApp extends Application
     }
 
     /**
-     * Model representing an individual file processing result entry in the summary dialog table
-     * view.
-     */
-    public static class FileRecord
-    {
-        private final SimpleStringProperty sourceName;
-        private final SimpleStringProperty targetName;
-        private final SimpleStringProperty status;
-
-        /**
-         * Constructs a file execution record.
-         *
-         * @param sourceName
-         *        the original source filename
-         * @param targetName
-         *        the output target filename
-         * @param status
-         *        the processing status outcome string
-         */
-        public FileRecord(String sourceName, String targetName, String status)
-        {
-            this.sourceName = new SimpleStringProperty(sourceName);
-            this.targetName = new SimpleStringProperty(targetName);
-            this.status = new SimpleStringProperty(status);
-        }
-
-        /**
-         * @return the source name property
-         */
-        public SimpleStringProperty sourceNameProperty()
-        {
-            return sourceName;
-        }
-
-        /**
-         * @return the target name property
-         */
-        public SimpleStringProperty targetNameProperty()
-        {
-            return targetName;
-        }
-
-        /**
-         * @return the status property
-         */
-        public SimpleStringProperty statusProperty()
-        {
-            return status;
-        }
-    }
-
-    /**
      * Opens a summary dialog containing details and processing statuses for all processed files.
      *
      * @param ownerWindow
@@ -1244,6 +1161,7 @@ public class MediaMetadataApp extends Application
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         TableColumn<FileRecord, String> sourceCol = new TableColumn<>("Source File");
+        
         sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -1252,9 +1170,11 @@ public class MediaMetadataApp extends Application
                 return cellData.getValue().sourceNameProperty();
             }
         });
+        
         sourceCol.setPrefWidth(200);
 
         TableColumn<FileRecord, String> targetCol = new TableColumn<>("Target File");
+        
         targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -1263,9 +1183,11 @@ public class MediaMetadataApp extends Application
                 return cellData.getValue().targetNameProperty();
             }
         });
+        
         targetCol.setPrefWidth(200);
 
         TableColumn<FileRecord, String> statusCol = new TableColumn<>("Status");
+        
         statusCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -1274,16 +1196,14 @@ public class MediaMetadataApp extends Application
                 return cellData.getValue().statusProperty();
             }
         });
+        
         statusCol.setPrefWidth(120);
 
         table.getColumns().add(sourceCol);
         table.getColumns().add(targetCol);
         table.getColumns().add(statusCol);
 
-        table.getItems().addAll(
-                new FileRecord("IMG_1020.JPG", "Holiday_Trip_001.JPG", "Success"),
-                new FileRecord("IMG_1021.JPG", "Holiday_Trip_002.JPG", "Success"),
-                new FileRecord("VID_0045.MP4", "-", "Skipped (Video)"));
+        table.setItems(fileRecords);
 
         dialog.getDialogPane().setContent(table);
         dialog.getDialogPane().setPrefSize(550, 320);

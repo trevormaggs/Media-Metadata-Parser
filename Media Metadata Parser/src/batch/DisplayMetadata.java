@@ -14,7 +14,7 @@ import java.util.List;
 import common.AbstractImageParser;
 import common.ImageParserFactory;
 import common.Metadata;
-import common.PropertyDisplay;
+import common.PropertyListener;
 import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
 import logger.LogFactory;
@@ -198,7 +198,7 @@ public final class DisplayMetadata
 
                 if (tag == TagIFD_Private.IFD_PHOTOSHOP_SETTINGS)
                 {
-                    PhotoshopManager.decodePhotoshopProperties(rawData, new PropertyDisplay()
+                    PhotoshopManager.decodePhotoshopProperties(rawData, new PropertyListener()
                     {
                         @Override
                         public void accept(String key, Object value)
@@ -273,7 +273,7 @@ public final class DisplayMetadata
     {
         String groupName = "[PNG]";
 
-        PropertyDisplay disp = new PropertyDisplay()
+        PropertyListener disp = new PropertyListener()
         {
             @Override
             public void accept(String key, Object value)

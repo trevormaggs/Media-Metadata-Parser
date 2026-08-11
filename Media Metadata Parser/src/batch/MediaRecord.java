@@ -30,7 +30,7 @@ import common.Metadata;
  * @version 1.1
  * @since 1 May 2026
  */
-final class MediaRecord
+public final class MediaRecord
 {
     private final Path mediaFile;
     private final Metadata<?> metadata;
@@ -50,7 +50,7 @@ final class MediaRecord
      *        the extracted metadata container, or {@code null} if the file contains no recognised
      *        metadata
      */
-    MediaRecord(Path fpath, BasicFileAttributes attr, Metadata<?> record)
+    public MediaRecord(Path fpath, BasicFileAttributes attr, Metadata<?> record)
     {
         this.mediaFile = fpath;
         this.metadata = record;
@@ -65,7 +65,7 @@ final class MediaRecord
      *
      * @return the media file path
      */
-    Path getPath()
+    public Path getPath()
     {
         return mediaFile;
     }
@@ -75,7 +75,7 @@ final class MediaRecord
      *
      * @return the metadata instance, or {@code null} if no metadata was found
      */
-    Metadata<?> getMetadata()
+    public Metadata<?> getMetadata()
     {
         return metadata;
     }
@@ -86,7 +86,7 @@ final class MediaRecord
      *
      * @return the detected media format
      */
-    DigitalSignature getMediaFormat()
+    public DigitalSignature getMediaFormat()
     {
         return mediaFormat;
     }
@@ -96,7 +96,7 @@ final class MediaRecord
      *
      * @return the file size in bytes
      */
-    long getFileSize()
+    public long getFileSize()
     {
         return fileSize;
     }
@@ -106,7 +106,7 @@ final class MediaRecord
      * 
      * @return the file system date
      */
-    FileTime getFileSystemDate()
+    public FileTime getFileSystemDate()
     {
         return fileSystemDate;
     }
@@ -116,7 +116,7 @@ final class MediaRecord
      *
      * @return {@code true} if no metadata container was found, otherwise {@code false}
      */
-    boolean isMetadataEmpty()
+    public boolean isMetadataEmpty()
     {
         return !hasMetadataContainer;
     }
@@ -126,7 +126,7 @@ final class MediaRecord
      *
      * @return true if JPG, otherwise false
      */
-    boolean isJPG()
+    public boolean isJPG()
     {
         return mediaFormat == DigitalSignature.JPG;
     }
@@ -136,7 +136,7 @@ final class MediaRecord
      * 
      * @return true if PNG, otherwise false
      */
-    boolean isPNG()
+    public boolean isPNG()
     {
         return mediaFormat == DigitalSignature.PNG;
     }
@@ -146,7 +146,7 @@ final class MediaRecord
      * 
      * @return true if TIFF, otherwise false
      */
-    boolean isTIF()
+    public boolean isTIF()
     {
         return mediaFormat == DigitalSignature.TIF;
     }
@@ -156,7 +156,7 @@ final class MediaRecord
      *
      * @return true if HEIC, otherwise false
      */
-    boolean isHEIC()
+    public boolean isHEIC()
     {
         return mediaFormat == DigitalSignature.HEIF;
     }
@@ -166,7 +166,7 @@ final class MediaRecord
      *
      * @return true if WebP, otherwise false
      */
-    boolean isWebP()
+    public boolean isWebP()
     {
         return mediaFormat == DigitalSignature.WEBP;
     }
@@ -177,7 +177,7 @@ final class MediaRecord
      *
      * @return true if the media is a video, otherwise false
      */
-    boolean isVideoFormat()
+    public boolean isVideoFormat()
     {
         return mediaFormat != null && mediaFormat.isVideo();
     }
@@ -188,7 +188,7 @@ final class MediaRecord
      * 
      * @return the most accurate timestamp available for this media
      */
-    FileTime getNaturalDate()
+    public FileTime getNaturalDate()
     {
         if (hasMetadataContainer)
         {

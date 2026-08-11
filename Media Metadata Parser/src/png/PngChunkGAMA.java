@@ -7,7 +7,7 @@ import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import common.ByteValueConverter;
 import common.Utils;
-import common.PropertyDisplay;
+import common.PropertyListener;
 import logger.LogFactory;
 
 /**
@@ -106,7 +106,7 @@ public class PngChunkGAMA extends PngChunk
      *        the target that receives the formatted metadata properties
      */
     @Override
-    public void printProperties(PropertyDisplay display)
+    public void printProperties(PropertyListener display)
     {
         display.accept("Gamma", translateGamma());
     }

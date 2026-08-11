@@ -3,7 +3,7 @@ package common;
 /**
  * A destination receiver used to display or format metadata properties.
  */
-public interface PropertyDisplay
+public interface PropertyListener
 {
     /**
      * Accepts a property name and its formatted value for display.

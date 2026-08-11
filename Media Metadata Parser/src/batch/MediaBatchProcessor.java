@@ -15,6 +15,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import common.PropertyListener;
 import heif.HeifDatePatcher;
 import jpg.JpgDatePatcher;
 import logger.LogFactory;
@@ -57,6 +58,7 @@ public final class MediaBatchProcessor
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
     private BatchStatistics stats;
+    private PropertyListener fileUpdateListener;
 
     /**
      * Constructs a batch processor using the specified configuration.
@@ -129,6 +131,17 @@ public final class MediaBatchProcessor
     }
 
     /**
+     * Registers a property display listener to receive individual file processing metrics.
+     *
+     * @param listener
+     *        the property listener to register
+     */
+    public void addPropertyListener(PropertyListener listener)
+    {
+        fileUpdateListener = listener;
+    }
+
+    /**
      * Begins the batch-processing workflow by preparing the target directory, initialising logging,
      * and processing the configured media files.
      *
@@ -181,11 +194,18 @@ public final class MediaBatchProcessor
 
                     else
                     {
-                        long targetSize = processRecord(record, processedCount++, totalSourceFiles);
+                        FileTime effectiveTime = calculateEffectiveTime(record, processedCount);
+                        String targetName = generateTargetName(record, processedCount, effectiveTime);
+                        long targetSize = processRecord(record, processedCount++, totalSourceFiles, effectiveTime, targetName);
 
                         if (targetSize != -1)
                         {
                             totalTargetSize += targetSize;
+                        }
+
+                        if (fileUpdateListener != null)
+                        {
+                            fileUpdateListener.accept("FILE_PROCESSED", new BatchProcessEvent(record, targetName, targetSize));
                         }
                     }
 
@@ -235,21 +255,22 @@ public final class MediaBatchProcessor
      *        the 1-based position of the file in the current processing sequence
      * @param total
      *        the total number of files in the batch
+     * @param effectiveTime
+     *        the calculated effective timestamp
+     * @param newName
+     *        the target filename to use for output
      * @return the file size of the newly generated file, or {@code -1} if processing was cancelled
      *         before completion
      * 
      * @throws BatchErrorException
      *         if file I/O or metadata patching fails
      */
-    private long processRecord(MediaRecord record, int index, int total) throws BatchErrorException
+    private long processRecord(MediaRecord record, int index, int total, FileTime effectiveTime, String newName) throws BatchErrorException
     {
         Path targetPath = null;
 
         try
         {
-            FileTime effectiveTime = calculateEffectiveTime(record, index);
-            String newName = generateTargetName(record, index, effectiveTime);
-
             targetPath = config.getTarget().resolve(newName);
             Files.copy(record.getPath(), targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
 
@@ -458,7 +479,7 @@ public final class MediaBatchProcessor
 
                         /*
                          * No need to delete the target directory since we will need it anyway.
-                         * Old sub-directotroes within this target directory are deleted.
+                         * Old sub-directories within this target directory are deleted.
                          */
                         else if (!dir.equals(config.getTarget()))
                         {
@@ -497,7 +518,6 @@ public final class MediaBatchProcessor
             String logName = "batchlog_" + SystemInfo.getHostname() + ".log";
             Path logPath = config.getTarget().resolve(logName);
 
-            //LogFactory.suppressPackages("javafx", "com.sun.javafx");
             LogFactory.configure(logPath.toString());
             LogFactory.setDebug(config.isDebug());
             LogFactory.setTrace(config.isTrace());

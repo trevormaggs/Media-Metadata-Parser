@@ -3,7 +3,7 @@ package png;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import common.PropertyDisplay;
+import common.PropertyListener;
 import common.Utils;
 
 /**
@@ -75,7 +75,7 @@ public class PngChunkTIME extends PngChunk
      *        the target that receives the formatted metadata properties
      */
     @Override
-    public void printProperties(PropertyDisplay display)
+    public void printProperties(PropertyListener display)
     {
         display.accept("Modification Date", getModificationTime());
     }
