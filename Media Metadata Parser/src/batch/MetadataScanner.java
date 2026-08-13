@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import common.AbstractImageParser;
+import common.DigitalSignature;
 import common.ImageParserFactory;
 import common.Metadata;
 import progressbar.ProgressListener;
@@ -80,13 +81,24 @@ class MetadataScanner implements Iterable<MediaRecord>
     }
 
     /**
-     * Returns the total number of media records discovered during scanning.
+     * Returns the number of media records registered during scanning.
      *
-     * @return the number of discovered media records
+     * @return the count of valid media records queued for processing
      */
     int getRecordCount()
     {
         return recordSet.size();
+    }
+
+    /**
+     * Returns the total number of files encountered on disk during scanning, including skipped
+     * items.
+     *
+     * @return the total count of scanned files
+     */
+    int getTotalScannedCount()
+    {
+        return totalCount;
     }
 
     /**
@@ -162,6 +174,9 @@ class MetadataScanner implements Iterable<MediaRecord>
                     totalCount = (int) countRegularFiles();
                     Files.walkFileTree(config.getSource(), visitor);
                 }
+
+                // Ensure progress reaches 100% at the end of the scan for completeness
+                notifyListeners(totalCount, totalCount);
             }
 
             catch (Exception exc)
@@ -184,7 +199,7 @@ class MetadataScanner implements Iterable<MediaRecord>
      * @throws IOException
      *         if an I/O error occurs while traversing the directory tree
      */
-    long countRegularFiles() throws IOException
+    private long countRegularFiles() throws IOException
     {
         long regularFilesCount = 0;
 
@@ -244,15 +259,20 @@ class MetadataScanner implements Iterable<MediaRecord>
                     parser.readMetadata();
                     Metadata<?> meta = parser.getMetadata();
                     recordSet.add(new MediaRecord(fpath, attr, meta));
+
+                    // Force the progress bar to full completeness
+                    notifyListeners(recordSet.size(), totalCount);
+                    
                     // System.out.printf("%s\n", parser.formatDiagnosticString());
                 }
 
                 catch (UnsupportedOperationException exc)
                 {
-                    // Gracefully skip unsupported file formats
+                    if (config.isSkipVideo() && DigitalSignature.detectFormat(fpath).isVideo())
+                    {
+                        // Just pass through for the time being
+                    }
                 }
-
-                notifyListeners(recordSet.size(), totalCount);
 
                 return FileVisitResult.CONTINUE;
             }

@@ -3,7 +3,7 @@ package shell;
 import batch.BatchBuilder;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
-import batch.BatchStatistics;
+import batch.BatchMetrics;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import cli.CommandFlagParser;
@@ -105,7 +105,7 @@ public final class MediaMetadataConsole
             {
                 processor = new MediaBatchProcessor(config);
                 processor.addProgressListener(new ConsoleProgressBar());
-                processor.execute();
+                BatchMetrics metrics = processor.execute();
 
                 if (processor.isCancelled())
                 {
@@ -114,14 +114,13 @@ public final class MediaMetadataConsole
 
                 else
                 {
-                    BatchStatistics stat = processor.getStatistics();
-
                     System.out.println("\n------------------------------------------------------");
                     System.out.println(" Batch Processing Complete");
                     System.out.println("------------------------------------------------------");
-                    System.out.printf("  Source Files Scanned : %d%n", stat.getSourceFilesCount());
-                    System.out.printf("  Target Files Copied  : %d%n", stat.getTargetFilesCount());
-                    System.out.printf("  Total Size Copied    : %.2f MB (%,d bytes)%n", stat.getTotalTargetSizeMB(), stat.getTotalTargetSizeBytes());
+                    System.out.printf("  Source Files Scanned : %d%n", metrics.getScanned());
+                    System.out.printf("  Target Files Copied  : %d%n", metrics.getProcessed());
+                    System.out.printf("  Files Skipped        : %d%n", metrics.getFilesSkippedCount());                    
+                    System.out.printf("  Total Size Copied    : %.2f MB (%,d bytes)%n", metrics.getTotalTargetSizeMB(), metrics.getTargetBytes());
                     System.out.println("------------------------------------------------------");
                 }
             }

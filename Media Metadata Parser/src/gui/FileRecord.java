@@ -45,10 +45,12 @@ class FileRecord implements PropertyListener
                 break;
 
             case MediaMetadataApp.KEY_SIZE:
+                
                 if (value instanceof Number)
                 {
                     fileSize.set(((Number) value).longValue());
                 }
+                
                 else
                 {
                     try

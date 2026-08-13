@@ -10,7 +10,7 @@ import java.util.function.Consumer;
 import batch.BatchBuilder;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
-import batch.BatchStatistics;
+import batch.BatchMetrics;
 import batch.MediaBatchProcessor;
 import common.PropertyListener;
 import javafx.animation.PauseTransition;
@@ -64,7 +64,6 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
-import javafx.stage.WindowEvent;
 import javafx.util.Callback;
 import javafx.util.Duration;
 import logger.LogFactory;
@@ -103,10 +102,10 @@ public class MediaMetadataApp extends Application
     private final ProgressBar progressBar;
     private final Button cancelBtn;
     private final Button viewBtn;
-
     private final ObservableList<FileRecord> fileRecords;
+
     private Stage stage;
-    private BatchTask activeTask;
+    private BatchTask workerTask;
 
     /**
      * Public default constructor required by JavaFX reflection runtime.
@@ -158,18 +157,6 @@ public class MediaMetadataApp extends Application
         Scene scene = new Scene(formGrid, 620, 650);
         scene.getStylesheets().add(getClass().getResource("/gui/styles.css").toExternalForm());
 
-        stage.setOnShown(new EventHandler<WindowEvent>()
-        {
-            @Override
-            public void handle(WindowEvent event)
-            {
-                for (Node node : formGrid.lookupAll(".titled-pane .title .text"))
-                {
-                    node.setStyle("-fx-font-weight: bold;");
-                }
-            }
-        });
-
         stage.setScene(scene);
         stage.show();
         formGrid.requestFocus();
@@ -198,9 +185,7 @@ public class MediaMetadataApp extends Application
         sourceText.setPrefWidth(300);
         sourceText.setMaxWidth(300);
         sourceText.setEditable(false);
-        sourceText.setStyle("-fx-background-color: #EEEEEE; -fx-text-fill: #555555; -fx-border-color: #999999; "
-                + "-fx-border-radius: 3px; -fx-background-radius: 3px; -fx-cursor: hand;");
-
+        sourceText.getStyleClass().add("read-only-path-field");
         sourceText.setText("E:\\ImageBatchDir\\babygemma.tif");
 
         MenuItem selectFolder = new MenuItem("Select Folder...");
@@ -346,7 +331,7 @@ public class MediaMetadataApp extends Application
 
         statsTable.getColumns().add(metricCol);
         statsTable.getColumns().add(valueCol);
-        statsTable.getItems().addAll(StatRecord.SOURCE_FILES, StatRecord.TARGET_FILES, StatRecord.TOTAL_SIZE);
+        statsTable.getItems().addAll(StatRecord.SOURCE_FILES, StatRecord.TARGET_FILES, StatRecord.FILES_SKIPPED, StatRecord.TOTAL_SIZE);
 
         HBox middleRow = new HBox(15, optionsTitledPane, statsTable);
         GridPane.setHgrow(middleRow, Priority.ALWAYS);
@@ -370,7 +355,7 @@ public class MediaMetadataApp extends Application
         TextArea logArea = new TextArea();
         logArea.setEditable(false);
         logArea.setFocusTraversable(false);
-        logArea.setStyle("-fx-font-family: 'Monospaced'; -fx-font-size: 11px;");
+        logArea.getStyleClass().add("log-area");
         logArea.setPromptText("Console output...");
         logArea.setMaxWidth(Double.MAX_VALUE);
         logArea.setMaxHeight(Double.MAX_VALUE);
@@ -409,7 +394,7 @@ public class MediaMetadataApp extends Application
         progressBar.setMaxWidth(180);
 
         Label progressLabel = new Label("");
-        progressLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #555555;");
+        progressLabel.getStyleClass().add("progress-label");
         progressLabel.setMaxWidth(180);
         progressBar.setUserData(progressLabel);
 
@@ -743,9 +728,9 @@ public class MediaMetadataApp extends Application
 
             else if (source == cancelBtn)
             {
-                if (activeTask != null)
+                if (workerTask != null)
                 {
-                    activeTask.cancel(true);
+                    workerTask.cancel(true);
                 }
             }
 
@@ -756,6 +741,9 @@ public class MediaMetadataApp extends Application
         }
     }
 
+    /**
+     * Instantiates and runs the asynchronous background batch processing task.
+     */
     /**
      * Instantiates and runs the asynchronous background batch processing task.
      */
@@ -785,13 +773,13 @@ public class MediaMetadataApp extends Application
                 return;
             }
 
-            activeTask = new BatchTask(config, logArea, progressBar, metaDisplay);
+            workerTask = new BatchTask(config, logArea, progressBar, metaDisplay);
 
-            activeTask.setFileRecordListener(new PropertyListener()
+            workerTask.setFileSummaryListener(new PropertyListener()
             {
+                private long currentSize = 0L;
                 private String currentSource = "";
                 private String currentTarget = "";
-                private long currentSize = 0L;
 
                 @Override
                 public void accept(final String key, final Object value)
@@ -800,17 +788,20 @@ public class MediaMetadataApp extends Application
                     {
                         currentSource = String.valueOf(value);
                     }
+
                     else if (MediaMetadataApp.KEY_TARGET.equals(key))
                     {
                         currentTarget = String.valueOf(value);
                     }
-                    else if (MediaMetadataApp.KEY_SIZE.equals(key) || "SIZE".equals(key))
+
+                    else if (MediaMetadataApp.KEY_SIZE.equals(key))
                     {
                         if (value instanceof Number)
                         {
                             currentSize = ((Number) value).longValue();
                         }
                     }
+
                     else if (MediaMetadataApp.KEY_STATUS.equals(key))
                     {
                         final String source = currentSource;
@@ -830,10 +821,10 @@ public class MediaMetadataApp extends Application
                 }
             });
 
-            activeTask.setOnScanCompleted(new Consumer<Integer>()
+            workerTask.setOnFileScanned(new Consumer<Integer>()
             {
                 @Override
-                public void accept(Integer count)
+                public void accept(final Integer count)
                 {
                     Platform.runLater(new Runnable()
                     {
@@ -846,10 +837,10 @@ public class MediaMetadataApp extends Application
                 }
             });
 
-            activeTask.setOnFileProcessed(new Consumer<Integer>()
+            workerTask.setOnFileProcessed(new Consumer<Integer>()
             {
                 @Override
-                public void accept(Integer count)
+                public void accept(final Integer count)
                 {
                     Platform.runLater(new Runnable()
                     {
@@ -862,15 +853,18 @@ public class MediaMetadataApp extends Application
                 }
             });
 
-            activeTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
+            workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
             {
                 @Override
                 public void handle(WorkerStateEvent event)
                 {
-                    BatchStatistics stats = activeTask.getValue();
+                    BatchMetrics stats = workerTask.getValue();
 
                     if (stats != null)
                     {
+                        StatRecord.SOURCE_FILES.setValue(stats.getScanned());
+                        StatRecord.TARGET_FILES.setValue(stats.getProcessed());
+                        StatRecord.FILES_SKIPPED.setValue(stats.getFilesSkippedCount());
                         StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
                     }
 
@@ -887,12 +881,12 @@ public class MediaMetadataApp extends Application
                 }
             });
 
-            activeTask.setOnFailed(new EventHandler<WorkerStateEvent>()
+            workerTask.setOnFailed(new EventHandler<WorkerStateEvent>()
             {
                 @Override
                 public void handle(WorkerStateEvent event)
                 {
-                    Throwable exc = activeTask.getException();
+                    Throwable exc = workerTask.getException();
                     String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
 
                     resetControlStates(progressLabel);
@@ -900,7 +894,7 @@ public class MediaMetadataApp extends Application
                 }
             });
 
-            activeTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
+            workerTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
             {
                 @Override
                 public void handle(WorkerStateEvent event)
@@ -912,9 +906,9 @@ public class MediaMetadataApp extends Application
             actionBtn.setDisable(true);
             cancelBtn.setDisable(false);
             copyLogBtn.setDisable(true);
-            progressLabel.textProperty().bind(activeTask.messageProperty());
+            progressLabel.textProperty().bind(workerTask.messageProperty());
 
-            Thread worker = new Thread(activeTask);
+            Thread worker = new Thread(workerTask);
 
             worker.setDaemon(true);
             worker.start();
@@ -934,7 +928,7 @@ public class MediaMetadataApp extends Application
         cancelBtn.setDisable(true);
         actionBtn.setDisable(false);
         copyLogBtn.setDisable(false);
-        activeTask = null;
+        workerTask = null;
 
         PauseTransition delay = new PauseTransition(Duration.seconds(3));
 
@@ -1161,7 +1155,7 @@ public class MediaMetadataApp extends Application
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         TableColumn<FileRecord, String> sourceCol = new TableColumn<>("Source File");
-        
+
         sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -1170,11 +1164,11 @@ public class MediaMetadataApp extends Application
                 return cellData.getValue().sourceNameProperty();
             }
         });
-        
+
         sourceCol.setPrefWidth(200);
 
         TableColumn<FileRecord, String> targetCol = new TableColumn<>("Target File");
-        
+
         targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -1183,11 +1177,11 @@ public class MediaMetadataApp extends Application
                 return cellData.getValue().targetNameProperty();
             }
         });
-        
+
         targetCol.setPrefWidth(200);
 
         TableColumn<FileRecord, String> statusCol = new TableColumn<>("Status");
-        
+
         statusCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -1196,7 +1190,7 @@ public class MediaMetadataApp extends Application
                 return cellData.getValue().statusProperty();
             }
         });
-        
+
         statusCol.setPrefWidth(120);
 
         table.getColumns().add(sourceCol);

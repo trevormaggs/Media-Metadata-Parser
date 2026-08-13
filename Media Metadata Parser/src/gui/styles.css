@@ -3,3 +3,46 @@
     -fx-font-weight: bold;
     -fx-text-fill: #666666;
 }
+
+.titled-pane > .title > .text
+{
+    -fx-font-weight: bold;
+}
+
+/* Read-only / clickable path text field style */
+.read-only-path-field
+{
+    -fx-background-color: #EEEEEE;
+    -fx-text-fill: #555555;
+    -fx-border-color: #999999;
+    -fx-border-radius: 3px;
+    -fx-background-radius: 3px;
+    -fx-cursor: hand;
+}
+
+/* Hover effect for better UI affordance */
+.read-only-path-field:hover
+{
+    -fx-background-color: #E2E2E2;
+}
+
+/* Custom class applied to the log TextArea */
+.log-area
+{
+    -fx-font-size: 11px;
+    -fx-text-inner-color: #1A73E8; /* Modern blue */
+}
+
+/* Internal padding adjustment to prevent top/bottom line clipping */
+.log-area .content
+{
+    -fx-padding: 4px 6px 4px 6px;
+}
+
+/* Status / progress label styling */
+.progress-label
+{
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #555555;
+}

@@ -4,8 +4,8 @@ import java.util.function.Consumer;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchEventType;
+import batch.BatchMetrics;
 import batch.BatchProcessEvent;
-import batch.BatchStatistics;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import common.PropertyListener;
@@ -21,16 +21,20 @@ import progressbar.JavaFXProgressAdapter;
  * This task coordinates long-running batch operations while reporting progress and completion
  * status to the supplied user interface components without blocking the JavaFX Application Thread.
  * </p>
+ *
+ * @author Trevor Maggs
+ * @version 1.2
+ * @since 5 May 2026
  */
-class BatchTask extends Task<BatchStatistics>
+class BatchTask extends Task<BatchMetrics>
 {
     private final BatchConfiguration config;
     private final TextArea logArea;
     private final ProgressBar progressBar;
     private final boolean displayMetadata;
-    private Consumer<Integer> scanCompleteListener;
+    private PropertyListener fileSummaryListener;
+    private Consumer<Integer> fileScannedListener;
     private Consumer<Integer> fileProcessedListener;
-    private PropertyListener fileRecordListener;
     private volatile MediaBatchProcessor processor;
 
     /**
@@ -54,86 +58,84 @@ class BatchTask extends Task<BatchStatistics>
     }
 
     /**
-     * Registers a listener to be notified when the initial file scan is completed.
+     * Sets the listener to be notified while a file scan is in progress.
      *
      * @param listener
-     *        the listener to receive the number of files found during the scan
+     *        the listener to receive the progressive count of scanned files
      */
-    void setOnScanCompleted(Consumer<Integer> listener)
+    void setOnFileScanned(Consumer<Integer> listener)
     {
-        this.scanCompleteListener = listener;
+        fileScannedListener = listener;
     }
 
     /**
-     * Registers a listener to be notified after each file is processed.
+     * Sets the listener to be notified after each file is processed.
      *
      * @param listener
-     *        the listener to receive the number of files processed
+     *        the listener to receive the progressive count of processed files
      */
     void setOnFileProcessed(Consumer<Integer> listener)
     {
-        this.fileProcessedListener = listener;
+        fileProcessedListener = listener;
     }
 
     /**
-     * Registers a listener to receive individual file processing summary records.
+     * Sets the listener to receive individual file records used for summary reporting.
      *
      * @param listener
-     *        the property listener receiving file record updates
+     *        the property listener to receive file record updates
      */
-    void setFileRecordListener(PropertyListener listener)
+    void setFileSummaryListener(PropertyListener listener)
     {
-        this.fileRecordListener = listener;
-    }
-
-    /**
-     * Returns the underlying batch processor instance.
-     *
-     * @return the {@link MediaBatchProcessor}, or {@code null} if it is not yet initialised
-     */
-    MediaBatchProcessor getProcessor()
-    {
-        return processor;
+        fileSummaryListener = listener;
     }
 
     /**
      * Cancels the task and signals the underlying batch processor to abort execution.
      *
-     * @param mayInterruptIfRunning
-     *        {@code true} if the thread executing this task should be interrupted. Otherwise,
+     * @param interrupt
+     *        {@code true} if the thread executing this task should be interrupted, otherwise,
      *        in-flight calls are allowed to complete
      * @return {@code true} if the task was cancelled
      */
     @Override
-    public boolean cancel(boolean mayInterruptIfRunning)
+    public boolean cancel(boolean interrupt)
     {
         if (processor != null)
         {
             processor.cancel();
         }
 
-        return super.cancel(mayInterruptIfRunning);
+        return super.cancel(interrupt);
     }
 
     /**
      * Executes the batch operation on the background thread.
      *
      * <p>
-     * When metadata display is enabled, metadata is retrieved instead of processing the batch.
+     * When metadata display is enabled, metadata is retrieved instead of executing a full batch.
      * Otherwise, a {@link MediaBatchProcessor} is created and executed while progress is reported
-     * to the associated JavaFX controls.
+     * to associated JavaFX controls.
      * </p>
      *
-     * @return the statistics produced by the batch processor, or {@code null} when metadata is
-     *         displayed
+     * @return the {@link BatchMetrics} produced by the batch processor, or zeroed metrics when
+     *         cancelled or displaying metadata
      *
      * @throws Exception
-     *         if the batch operation fails
+     *         if an unrecoverable error occurs during processing
      */
     @Override
-    protected BatchStatistics call() throws Exception
+    protected BatchMetrics call() throws Exception
     {
-        if (displayMetadata)
+        if (isCancelled())
+        {
+            if (processor != null)
+            {
+                processor.cancel();
+            }
+        }
+
+        else if (displayMetadata)
         {
             updateMessage("Retrieving metadata...");
             DisplayMetadata display = new DisplayMetadata(config);
@@ -144,9 +146,10 @@ class BatchTask extends Task<BatchStatistics>
         {
             processor = new MediaBatchProcessor(config);
 
-            if (fileRecordListener != null)
+            if (fileSummaryListener != null)
             {
-                processor.addPropertyListener(new PropertyListener()
+                // Handles file processing metrics
+                processor.setPropertyListener(new PropertyListener()
                 {
                     @Override
                     public void accept(String key, Object value)
@@ -154,22 +157,17 @@ class BatchTask extends Task<BatchStatistics>
                         if (BatchEventType.FILE_PROCESSED.getKey().equals(key) && value instanceof BatchProcessEvent)
                         {
                             BatchProcessEvent event = (BatchProcessEvent) value;
-
-                            String sourceName = event.getRecord().getPath().getFileName().toString();
-                            String targetName = event.getTargetName();
                             String status = event.isSuccess() ? "Completed" : "Failed";
 
-                            // Map domain event fields into GUI keys
-                            fileRecordListener.accept(MediaMetadataApp.KEY_SOURCE, sourceName);
-                            fileRecordListener.accept(MediaMetadataApp.KEY_TARGET, targetName);
-                            fileRecordListener.accept(MediaMetadataApp.KEY_STATUS, status);
-                            fileRecordListener.accept(MediaMetadataApp.KEY_SIZE, event.getTargetSize());
+                            fileSummaryListener.accept(MediaMetadataApp.KEY_SOURCE, event.getSourceName());
+                            fileSummaryListener.accept(MediaMetadataApp.KEY_TARGET, event.getTargetName());
+                            fileSummaryListener.accept(MediaMetadataApp.KEY_STATUS, status);
+                            fileSummaryListener.accept(MediaMetadataApp.KEY_SIZE, event.getTargetSize());
                         }
                     }
                 });
             }
 
-            // Extends JavaFXProgressAdapter anonymously
             processor.addProgressListener(new JavaFXProgressAdapter(progressBar)
             {
                 private boolean scanMode = true;
@@ -185,9 +183,9 @@ class BatchTask extends Task<BatchStatistics>
                         {
                             updateMessage(String.format("Scanning files (%d found)...", current));
 
-                            if (scanCompleteListener != null)
+                            if (fileScannedListener != null)
                             {
-                                scanCompleteListener.accept(current);
+                                fileScannedListener.accept(current);
                             }
                         }
 
@@ -222,9 +220,9 @@ class BatchTask extends Task<BatchStatistics>
                                 updateMessage(String.format("Scanning files (%d)...", current));
                             }
 
-                            if (scanCompleteListener != null)
+                            if (fileScannedListener != null)
                             {
-                                scanCompleteListener.accept(current);
+                                fileScannedListener.accept(current);
                             }
                         }
 
@@ -253,12 +251,12 @@ class BatchTask extends Task<BatchStatistics>
                 {
                     if (scanMode)
                     {
-                        if (scanCompleteListener != null)
-                        {
-                            scanCompleteListener.accept(total);
-                        }
-
                         scanMode = false;
+
+                        if (fileScannedListener != null)
+                        {
+                            fileScannedListener.accept(total);
+                        }
                     }
                 }
 
@@ -272,12 +270,10 @@ class BatchTask extends Task<BatchStatistics>
                 }
             });
 
-            processor.execute();
-
-            return (processor.getStatistics() != null ? processor.getStatistics() : new BatchStatistics(0, 0, 0L));
+            return processor.execute();
         }
 
-        return null;
+        return new BatchMetrics(0, 0, 0L);
     }
 
     /**
@@ -291,6 +287,7 @@ class BatchTask extends Task<BatchStatistics>
     protected void succeeded()
     {
         super.succeeded();
+        
         updateMessage("Batch completed");
 
         if (displayMetadata)
@@ -316,12 +313,13 @@ class BatchTask extends Task<BatchStatistics>
     protected void failed()
     {
         super.failed();
+        
         updateMessage("Process failed");
 
         Throwable exc = getException();
         String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
 
-        if (exc instanceof BatchErrorException || exc == null)
+        if (exc instanceof BatchErrorException)
         {
             logArea.appendText("[ERROR] " + msg + "\n");
         }
@@ -343,6 +341,7 @@ class BatchTask extends Task<BatchStatistics>
     protected void cancelled()
     {
         super.cancelled();
+        
         updateMessage("Process cancelled");
         logArea.appendText("[WARNING] Batch process was cancelled.\n");
     }
@@ -358,6 +357,7 @@ class BatchTask extends Task<BatchStatistics>
     protected void done()
     {
         super.done();
+        
         processor = null;
     }
 }

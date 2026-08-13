@@ -5,19 +5,13 @@ package batch;
  */
 public enum BatchEventType
 {
-    FILE_PROCESSED("FILE_PROCESSED"),
-    SCAN_COMPLETED("SCAN_COMPLETED"),
-    BATCH_FAILED("BATCH_FAILED");
+    FILE_PROCESSED, SCAN_COMPLETED, BATCH_FAILED;
 
-    private final String key;
-
-    BatchEventType(String key)
-    {
-        this.key = key;
-    }
-
+    /**
+     * Returns the name of the event type.
+     */
     public String getKey()
     {
-        return key;
+        return name();
     }
 }

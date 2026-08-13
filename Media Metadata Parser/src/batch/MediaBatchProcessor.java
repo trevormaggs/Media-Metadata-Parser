@@ -27,7 +27,8 @@ import webp.WebPDatePatcher;
 
 /**
  * Automates the batch processing of media files by copying, renaming, and chronologically sorting
- * them according to metadata timestamps.
+ * them according to metadata timestamps. This is the engine core of the batch processing
+ * functionality.
  *
  * <p>
  * This processor implements a "surgical" strategy. It never modifies source files. Instead, it
@@ -47,18 +48,18 @@ import webp.WebPDatePatcher;
  */
 public final class MediaBatchProcessor
 {
-    public static final String DEFAULT_SOURCE_DIRECTORY = ".";
-    public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
-    public static final String DEFAULT_IMAGE_PREFIX = "image";
     private static final LogFactory LOGGER = LogFactory.getLogger(MediaBatchProcessor.class);
+    private static final DateTimeFormatter EMBED_DTF = DateTimeFormatter.ofPattern("ddMMMyyyy");
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
     private static final long TEN_SECOND_OFFSET = 10L;
     private volatile boolean cancelled = false;
     private final List<ProgressListener> listeners;
-    private final BatchConfiguration config;
     private final MetadataScanner scanner;
-    private BatchStatistics stats;
+    private final BatchConfiguration config;
     private PropertyListener fileUpdateListener;
+    public static final String DEFAULT_IMAGE_PREFIX = "image";
+    public static final String DEFAULT_SOURCE_DIRECTORY = ".";
+    public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
 
     /**
      * Constructs a batch processor using the specified configuration.
@@ -75,7 +76,7 @@ public final class MediaBatchProcessor
 
     /**
      * Registers a progress listener to receive updates during both scanning and processing
-     * execution phases.
+     * execution phases. You may add multiple listeners.
      *
      * @param listener
      *        the progress listener to register
@@ -84,9 +85,21 @@ public final class MediaBatchProcessor
     {
         if (listener != null)
         {
-            this.listeners.add(listener);
-            this.scanner.addProgressListener(listener);
+            listeners.add(listener);
+            scanner.addProgressListener(listener);
         }
+    }
+
+    /**
+     * Sets the property listener to receive individual file processing metrics. There can only be
+     * one listener.
+     *
+     * @param listener
+     *        the property listener to set, or {@code null} to clear
+     */
+    public void setPropertyListener(PropertyListener listener)
+    {
+        fileUpdateListener = listener;
     }
 
     /**
@@ -114,66 +127,36 @@ public final class MediaBatchProcessor
     }
 
     /**
-     * Returns the execution statistics for the batch process, including total source files scanned,
-     * target files created, and cumulative file size.
-     *
-     * <p>
-     * If processing has not yet been executed or no valid media files were found, a default
-     * {@link BatchStatistics} object initialised with zeroed metrics is returned.
-     * </p>
-     *
-     * @return the {@link BatchStatistics} containing source count, target count, and total
-     *         processed byte size
-     */
-    public BatchStatistics getStatistics()
-    {
-        return (stats == null ? new BatchStatistics(0, 0, 0L) : stats);
-    }
-
-    /**
-     * Registers a property display listener to receive individual file processing metrics.
-     *
-     * @param listener
-     *        the property listener to register
-     */
-    public void addPropertyListener(PropertyListener listener)
-    {
-        fileUpdateListener = listener;
-    }
-
-    /**
      * Begins the batch-processing workflow by preparing the target directory, initialising logging,
      * and processing the configured media files.
      *
      * <p>
-     * By design, this method is final to ensure that subclasses cannot accidentally override the
-     * core processing workflow.
+     * <b>Note:</b> Call {@link #addProgressListener} prior to calling this method if you wish to
+     * monitor execution progress via a progress bar or a type of console update indicator.
      * </p>
      *
-     * <p>
-     * <b>Note:</b> Call {@link #addProgressListener} prior to calling this method if you wish to
-     * monitor execution progress via a progress bar or status label.
-     * </p>
+     * @return the {@link BatchMetrics} summarising files scanned, files processed, and total bytes
+     *         (cumulative)
      *
      * @throws BatchErrorException
      *         if an I/O error occurs during directory preparation or file processing
      */
-    public final void execute() throws BatchErrorException
+    public BatchMetrics execute() throws BatchErrorException
     {
         int count = 1;
-        int processedCount = 1;
-        long totalTargetSize = 0L;
+        int processedCount = 0;
         int totalSourceFiles = 0;
+        long totalTargetSize = 0L;
 
         try
         {
             prepareTargetDirectory();
             startLogging();
             scanner.start();
-            resetListeners(); // Reset progress bar for the next task: processing
+            resetListeners();// Reset progress bar for the next task: processing
 
             totalSourceFiles = scanner.getRecordCount();
-            LOGGER.info("Total number of source files scanned: [" + totalSourceFiles + "]");
+            LOGGER.info("Total number of source files scanned [" + totalSourceFiles + "]");
 
             if (totalSourceFiles > 0)
             {
@@ -183,24 +166,25 @@ public final class MediaBatchProcessor
 
                     if (isCancelled())
                     {
-                        LOGGER.warn("Batch process was cancelled by user after processing " + (processedCount - 1) + " files");
-                        return;
-                    }
-
-                    if (record.isVideoFormat() && config.isSkipVideo())
-                    {
-                        LOGGER.info("File [" + record.getPath().getFileName() + "] skipped");
+                        LOGGER.warn("Batch process was cancelled by user after processing " + processedCount + " files");
+                        break;
                     }
 
                     else
                     {
-                        FileTime effectiveTime = calculateEffectiveTime(record, processedCount);
-                        String targetName = generateTargetName(record, processedCount, effectiveTime);
-                        long targetSize = processRecord(record, processedCount++, totalSourceFiles, effectiveTime, targetName);
+                        int index = processedCount + 1;
+                        FileTime effectiveTime = calculateEffectiveTime(record, index);
+                        String targetName = generateTargetName(record, index, effectiveTime);
+                        long targetSize = processRecord(record, effectiveTime, targetName);
 
-                        if (targetSize != -1)
+                        if (targetSize != -1L)
                         {
+                            String formattedDate = effectiveTime.toInstant().atZone(ZoneId.systemDefault()).format(DTF);
+
+                            processedCount++;
                             totalTargetSize += targetSize;
+
+                            LOGGER.info(String.format("[File %d/%d] Processed: %s -> %s [Effective date/time: %s]", index, totalSourceFiles, record.getPath().getFileName(), targetName, formattedDate));
                         }
 
                         if (fileUpdateListener != null)
@@ -229,9 +213,10 @@ public final class MediaBatchProcessor
 
         finally
         {
-            stats = new BatchStatistics(totalSourceFiles, processedCount - 1, totalTargetSize);
             LogFactory.close();
         }
+
+        return new BatchMetrics(scanner.getTotalScannedCount(), processedCount, totalTargetSize);
     }
 
     /**
@@ -242,19 +227,14 @@ public final class MediaBatchProcessor
      * </p>
      *
      * <ol>
-     * <li>Calculate the effective timestamp (natural or user-defined).</li>
-     * <li>Generate a new filename based on the configuration.</li>
      * <li>Copy the source file to the target location.</li>
-     * <li>Apply binary metadata patches to the copied file, if required.</li>
+     * <li>Apply binary metadata patches to the copied file using the calculated timestamp, if
+     * required.</li>
      * <li>Update file-system timestamps.</li>
      * </ol>
      *
      * @param record
      *        the media file record to process
-     * @param index
-     *        the 1-based position of the file in the current processing sequence
-     * @param total
-     *        the total number of files in the batch
      * @param effectiveTime
      *        the calculated effective timestamp
      * @param newName
@@ -265,7 +245,7 @@ public final class MediaBatchProcessor
      * @throws BatchErrorException
      *         if file I/O or metadata patching fails
      */
-    private long processRecord(MediaRecord record, int index, int total, FileTime effectiveTime, String newName) throws BatchErrorException
+    private long processRecord(MediaRecord record, FileTime effectiveTime, String newName) throws BatchErrorException
     {
         Path targetPath = null;
 
@@ -284,7 +264,6 @@ public final class MediaBatchProcessor
                 else if (config.isForceDateChange())
                 {
                     // TODO: May need to add one for DNG
-
                     if (record.isTIF())
                     {
                         TiffDatePatcher.patchAllDates(targetPath, effectiveTime, true);
@@ -317,10 +296,6 @@ public final class MediaBatchProcessor
                 {
                     view.setTimes(effectiveTime, effectiveTime, effectiveTime);
                 }
-
-                String formattedDate = effectiveTime.toInstant().atZone(ZoneId.systemDefault()).format(DTF);
-
-                LOGGER.info(String.format("[File %d/%d] Processed: %s -> %s [Effective date/time: %s]", index, total, record.getPath().getFileName(), newName, formattedDate));
 
                 return view.readAttributes().size();
             }
@@ -410,10 +385,10 @@ public final class MediaBatchProcessor
         if (config.isEmbedDateTime())
         {
             ZonedDateTime zdt = time.toInstant().atZone(ZoneId.systemDefault());
-            sb.append(zdt.format(DateTimeFormatter.ofPattern("ddMMMyyyy"))).append("_");
+            sb.append(zdt.format(EMBED_DTF)).append("_");
         }
 
-        sb.append(String.format("%03d", index));
+        sb.append(String.format("%04d", index));
 
         String ext = record.getMediaFormat().getFileExtensionName();
 

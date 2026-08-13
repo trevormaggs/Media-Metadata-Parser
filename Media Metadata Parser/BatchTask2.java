@@ -19,7 +19,7 @@ import progressbar.JavaFXProgressAdapter;
  * status to the supplied user interface components without blocking the JavaFX Application Thread.
  * </p>
  */
-class BatchTask2 extends Task<BatchStatistics>
+class BatchTask2 extends Task<BatchMetrics>
 {
     private final BatchConfiguration config;
     private final TextArea logArea;
