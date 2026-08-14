@@ -37,7 +37,7 @@ class ConfigurationBuilder
         CheckBox trace = MainViewPane.getById(root, MainViewPane.TRCID);
         String filename = (sourceText != null ? sourceText.getText().trim() : "");
         LocalDate dateValue = (modifyDatePicker != null ? modifyDatePicker.getValue() : null);
-        
+
         if (filename.isEmpty())
         {
             throw new BatchErrorException("No source directory or files specified.\n\nPlease select a source folder or specific files before running the batch process.");
@@ -80,9 +80,14 @@ class ConfigurationBuilder
                 builder.source(parentDir).fileSet(new String[]{path.getFileName().toString()});
             }
 
-            else
+            else if (Files.isDirectory(path))
             {
                 builder.source(path.toAbsolutePath().toString());
+            }
+
+            else
+            {
+                throw new BatchErrorException("The specified path does not exist or is not a valid file/directory:\n\n" + filename);
             }
         }
 

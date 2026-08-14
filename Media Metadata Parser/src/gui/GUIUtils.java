@@ -11,7 +11,7 @@ import javafx.scene.layout.Region;
 import javafx.stage.Window;
 
 /**
- * Utility methods for JavaFX UI operations, node traversal, and popup dialogs.
+ * Provides utility methods for JavaFX user-interface operations, node traversal, and popup dialogs.
  */
 final class GUIUtils
 {
@@ -24,7 +24,7 @@ final class GUIUtils
      * Displays a modal alert dialog to the user.
      *
      * @param owner
-     *        the parent {@link Window} owning this dialog (can be null)
+     *        the owner {@link Window} for the dialog. It may be {@code null}
      * @param title
      *        the title string for the alert window
      * @param msg
@@ -49,7 +49,14 @@ final class GUIUtils
     }
 
     /**
-     * Overload for launching popups without specifying an explicit owner window.
+     * Displays a modal alert dialog without specifying an owner window.
+     *
+     * @param title
+     *        the title string for the alert window
+     * @param msg
+     *        the message content string
+     * @param type
+     *        the {@link AlertType} defining the severity level
      */
     static void launchPopup(String title, String msg, AlertType type)
     {
@@ -57,15 +64,15 @@ final class GUIUtils
     }
 
     /**
-     * Convenience method to retrieve an FX control by its ID starting from a parent container.
+     * Recursively searches a JavaFX node hierarchy for a node with the specified ID.
      *
      * @param <T>
      *        the expected node type
-     * @param parent
-     *        the root parent container to search
+     * @param root
+     *        the root node from which to begin the search
      * @param id
      *        the target JavaFX ID string
-     * @return the matching node cast to type {@code T}, or {@code null} if not found
+     * @return the matching node cast to type {@code T}, or {@code null} if no matching node is found
      */
     @SuppressWarnings("unchecked")
     static <T extends Node> T getById(Node root, String id)
@@ -95,7 +102,12 @@ final class GUIUtils
 
         return null;
     }
-    
+
+    /**
+     * Creates a horizontal spacer that expands to fill available space within an {@link HBox}.
+     *
+     * @return a {@link Region} configured to grow horizontally and fill available space
+     */
     static Region fillRow()
     {
         Region spacer = new Region();
