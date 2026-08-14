@@ -1,4 +1,4 @@
-package gui;
+package gui.oldgui;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -13,6 +13,7 @@ import batch.BatchErrorException;
 import batch.BatchMetrics;
 import batch.MediaBatchProcessor;
 import common.PropertyListener;
+import gui.JavaFXLogListener;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -105,7 +106,7 @@ public class MediaMetadataApp extends Application
     private final ObservableList<FileRecord> fileRecords;
 
     private Stage stage;
-    private BatchTask workerTask;
+    private BatchTask2 workerTask;
 
     /**
      * Public default constructor required by JavaFX reflection runtime.
@@ -773,7 +774,7 @@ public class MediaMetadataApp extends Application
                 return;
             }
 
-            workerTask = new BatchTask(config, logArea, progressBar, metaDisplay);
+            workerTask = new BatchTask2(config, logArea, progressBar, metaDisplay);
 
             workerTask.setFileSummaryListener(new PropertyListener()
             {

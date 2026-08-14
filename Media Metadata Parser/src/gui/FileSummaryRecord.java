@@ -7,14 +7,23 @@ import javafx.beans.property.SimpleStringProperty;
 /**
  * Table model for displaying batch processing status per file.
  */
-class FileRecord implements PropertyListener
+class FileSummaryRecord implements PropertyListener
 {
+    static final String KEY_SOURCE = "SOURCE";
+    static final String KEY_TARGET = "TARGET";
+    static final String KEY_STATUS = "STATUS";
+    static final String KEY_SIZE = "SIZE";
     private final SimpleStringProperty sourceName;
     private final SimpleStringProperty targetName;
     private final SimpleStringProperty status;
     private final SimpleLongProperty fileSize;
 
-    FileRecord(String sourceName, String targetName, String status, long fileSize)
+    FileSummaryRecord()
+    {
+        this("", "", "", 0L);
+    }
+
+    FileSummaryRecord(String sourceName, String targetName, String status, long fileSize)
     {
         this.sourceName = new SimpleStringProperty(sourceName);
         this.targetName = new SimpleStringProperty(targetName);
@@ -32,25 +41,24 @@ class FileRecord implements PropertyListener
 
         switch (key.toUpperCase())
         {
-            case MediaMetadataApp.KEY_SOURCE:
+            case KEY_SOURCE:
                 sourceName.set(String.valueOf(value));
-                break;
+            break;
 
-            case MediaMetadataApp.KEY_TARGET:
+            case KEY_TARGET:
                 targetName.set(String.valueOf(value));
-                break;
+            break;
 
-            case MediaMetadataApp.KEY_STATUS:
+            case KEY_STATUS:
                 status.set(String.valueOf(value));
-                break;
+            break;
 
-            case MediaMetadataApp.KEY_SIZE:
+            case KEY_SIZE:
                 
                 if (value instanceof Number)
                 {
                     fileSize.set(((Number) value).longValue());
                 }
-                
                 else
                 {
                     try
@@ -63,12 +71,9 @@ class FileRecord implements PropertyListener
                         // Ignore invalid format
                     }
                 }
-                
-                break;
+            break;
         }
     }
-
-    // --- Property Getters for JavaFX TableView ---
 
     SimpleStringProperty sourceNameProperty()
     {

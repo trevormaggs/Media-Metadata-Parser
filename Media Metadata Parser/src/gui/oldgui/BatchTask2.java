@@ -1,4 +1,4 @@
-package gui;
+package gui.oldgui;
 
 import java.util.function.Consumer;
 import batch.BatchConfiguration;
@@ -25,7 +25,7 @@ import progressbar.JavaFXProgressAdapter;
  * @version 1.2
  * @since 5 May 2026
  */
-class BatchTask extends Task<BatchMetrics>
+class BatchTask2 extends Task<BatchMetrics>
 {
     private final BatchConfiguration config;
     private final TextArea logArea;
@@ -48,7 +48,7 @@ class BatchTask extends Task<BatchMetrics>
      * @param displayMetadata
      *        {@code true} to display metadata instead of processing files
      */
-    BatchTask(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
+    BatchTask2(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
     {
         this.config = config;
         this.logArea = logArea;

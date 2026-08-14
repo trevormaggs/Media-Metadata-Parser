@@ -170,27 +170,24 @@ public final class MediaBatchProcessor
                         break;
                     }
 
-                    else
+                    int index = processedCount + 1;
+                    FileTime effectiveTime = calculateEffectiveTime(record, index);
+                    String targetName = generateTargetName(record, index, effectiveTime);
+                    long targetSize = processRecord(record, effectiveTime, targetName);
+
+                    if (targetSize != -1L)
                     {
-                        int index = processedCount + 1;
-                        FileTime effectiveTime = calculateEffectiveTime(record, index);
-                        String targetName = generateTargetName(record, index, effectiveTime);
-                        long targetSize = processRecord(record, effectiveTime, targetName);
+                        String formattedDate = effectiveTime.toInstant().atZone(ZoneId.systemDefault()).format(DTF);
 
-                        if (targetSize != -1L)
-                        {
-                            String formattedDate = effectiveTime.toInstant().atZone(ZoneId.systemDefault()).format(DTF);
+                        processedCount++;
+                        totalTargetSize += targetSize;
 
-                            processedCount++;
-                            totalTargetSize += targetSize;
+                        LOGGER.info(String.format("[File %d/%d] Processed: %s -> %s [Effective date/time: %s]", index, totalSourceFiles, record.getPath().getFileName(), targetName, formattedDate));
+                    }
 
-                            LOGGER.info(String.format("[File %d/%d] Processed: %s -> %s [Effective date/time: %s]", index, totalSourceFiles, record.getPath().getFileName(), targetName, formattedDate));
-                        }
-
-                        if (fileUpdateListener != null)
-                        {
-                            fileUpdateListener.accept(BatchEventType.FILE_PROCESSED.getKey(), new BatchProcessEvent(record, targetName, targetSize));
-                        }
+                    if (fileUpdateListener != null)
+                    {
+                        fileUpdateListener.accept(BatchEventType.FILE_PROCESSED.getKey(), new BatchProcessEvent(record, targetName, targetSize));
                     }
 
                     /* Notify progress listeners based on overall loop count */
