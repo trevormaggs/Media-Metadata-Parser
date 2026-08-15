@@ -98,7 +98,7 @@ public final class DisplayMetadata
 
             try
             {
-                DetectedFormatResult result = ImageParserFactory.getParserResult(fpath);
+                DetectedFormatResult result = ImageParserFactory.inspect(fpath);
 
                 if (result.hasParser())
                 {

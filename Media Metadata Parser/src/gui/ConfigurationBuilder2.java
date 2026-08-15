@@ -12,11 +12,11 @@ import batch.BatchBuilder;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
 
-class ConfigurationBuilder
+class ConfigurationBuilder2
 {
     private final Parent root;
 
-    ConfigurationBuilder(Parent root)
+    ConfigurationBuilder2(Parent root)
     {
         this.root = root;
     }
@@ -37,14 +37,14 @@ class ConfigurationBuilder
         CheckBox trace = MainViewPane.getById(root, MainViewPane.TRCID);
         String filename = (sourceText != null ? sourceText.getText().trim() : "");
         LocalDate dateValue = (modifyDatePicker != null ? modifyDatePicker.getValue() : null);
-        String userDataParent = (String) sourceText.getUserData();
 
         if (filename.isEmpty())
         {
             throw new BatchErrorException("No source directory or files specified.\n\nPlease select a source folder or specific files before running the batch process.");
         }
 
-        // Multi-file selection handling
+        String userDataParent = (String) sourceText.getUserData();
+
         if (filename.contains(","))
         {
             if (userDataParent == null || userDataParent.trim().isEmpty())
@@ -65,34 +65,26 @@ class ConfigurationBuilder
 
         else
         {
-            Path resolvedPath;
-            Path rawPath = Paths.get(filename);
+            Path path = Paths.get(filename).normalize();
 
-            if (userDataParent != null && !rawPath.isAbsolute())
-            {
-                resolvedPath = Paths.get(userDataParent).toAbsolutePath().resolve(rawPath).normalize();
-            }
+            System.out.printf("LOOK0: %s\t%s\n", path, path.getParent());
 
-            else
+            if (Files.isRegularFile(path))
             {
-                resolvedPath = rawPath.toAbsolutePath().normalize();
-            }
-
-            if (Files.isRegularFile(resolvedPath))
-            {
-                Path parent = resolvedPath.getParent();
+                Path parent = path.getParent();
 
                 if (parent == null)
                 {
                     throw new BatchErrorException("Specified file does not have a valid parent directory");
                 }
 
-                builder.source(parent.toString()).fileSet(new String[]{resolvedPath.getFileName().toString()});
+                String parentDir = parent.toAbsolutePath().toString();
+                builder.source(parentDir).fileSet(new String[]{path.getFileName().toString()});
             }
 
-            else if (Files.isDirectory(resolvedPath))
+            else if (Files.isDirectory(path))
             {
-                builder.source(resolvedPath.toString());
+                builder.source(path.toAbsolutePath().toString());
             }
 
             else

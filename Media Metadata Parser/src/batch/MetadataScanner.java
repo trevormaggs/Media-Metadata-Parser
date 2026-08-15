@@ -255,7 +255,7 @@ final class MetadataScanner implements Iterable<MediaRecord>
 
                 try
                 {
-                    DetectedFormatResult result = ImageParserFactory.getParserResult(fpath);
+                    DetectedFormatResult result = ImageParserFactory.inspect(fpath);
 
                     if (result.hasParser())
                     {

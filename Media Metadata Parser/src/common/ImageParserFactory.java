@@ -62,7 +62,7 @@ public final class ImageParserFactory
      * @throws UnsupportedOperationException
      *         if the file signature is unrecognised
      */
-    public static DetectedFormatResult getParserResult(Path fpath) throws IOException
+    public static DetectedFormatResult inspect(Path fpath) throws IOException
     {
         DigitalSignature signature = DigitalSignature.detectFormat(fpath);
 
