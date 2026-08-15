@@ -13,7 +13,7 @@ import webp.WebpParser;
  * detected image format from file signature bytes.
  *
  * <p>
- * Supported formats include:
+ * Supported image parsers include:
  * </p>
  *
  * <ul>
@@ -25,13 +25,14 @@ import webp.WebpParser;
  * </ul>
  *
  * <p>
- * This factory encapsulates format detection logic via {@link DigitalSignature} and delegates
- * instantiation of the correct parser implementation.
+ * This factory encapsulates single-pass format detection via {@link DigitalSignature} and delegates
+ * instantiation of the correct parser implementation and encapsulates the result in a
+ * {@link DetectedFormatResult}.
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.0
- * @since 13 August 2025
+ * @version 1.4
+ * @since 15 August 2026
  */
 public final class ImageParserFactory
 {
@@ -47,38 +48,59 @@ public final class ImageParserFactory
     }
 
     /**
-     * Creates a parser instance for the specified image file by detecting its format.
+     * Inspects the specified file to detect its signature and returns an immutable
+     * {@link DetectedFormatResult} containing the detected signature and the corresponding parser,
+     * if supported.
      *
      * @param fpath
-     *        the file path of the image to be parsed
-     * @return a concrete implementation of {@link AbstractImageParser}
-     * 
+     *        the file path of the media file to inspect
+     * @return a {@link DetectedFormatResult} containing the detected {@link DigitalSignature} and
+     *         corresponding {@link AbstractImageParser}, if available
+     *
      * @throws IOException
      *         if an I/O error occurs while reading the file signature
      * @throws UnsupportedOperationException
-     *         if the format is unsupported
+     *         if the file signature is unrecognised
      */
-    public static AbstractImageParser<?> getParser(Path fpath) throws IOException
+    public static DetectedFormatResult getParserResult(Path fpath) throws IOException
     {
-        switch (DigitalSignature.detectFormat(fpath))
+        DigitalSignature signature = DigitalSignature.detectFormat(fpath);
+
+        if (signature == DigitalSignature.UNKNOWN)
+        {
+            throw new UnsupportedOperationException("No parser available for unrecognised image format in file [" + fpath.getFileName() + "]");
+        }
+
+        AbstractImageParser<?> parser;
+
+        switch (signature)
         {
             case JPG:
-                return new JpgParser(fpath);
+                parser = new JpgParser(fpath);
+            break;
 
             case TIF:
-                return new TifParser(fpath);
+                parser = new TifParser(fpath);
+            break;
 
             case PNG:
-                return new PngParser(fpath);
+                parser = new PngParser(fpath);
+            break;
 
             case HEIF:
-                return new HeifParser(fpath);
+                parser = new HeifParser(fpath);
+            break;
 
             case WEBP:
-                return new WebpParser(fpath);
+                parser = new WebpParser(fpath);
+            break;
 
             default:
-                throw new UnsupportedOperationException("No parser available for image format [" + fpath.getFileName() + "]");
+                // Defensive handling for future DigitalSignature enum values without a parser.
+                parser = null;
+            break;
         }
+
+        return new DetectedFormatResult(signature, parser);
     }
 }

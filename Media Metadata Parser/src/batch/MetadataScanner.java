@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import common.AbstractImageParser;
-import common.DigitalSignature;
+import common.DetectedFormatResult;
 import common.ImageParserFactory;
 import common.Metadata;
 import progressbar.ProgressListener;
@@ -30,16 +30,17 @@ import progressbar.ProgressListener;
  * </p>
  *
  * <p>
- * <b>Access Restriction:</b> By careful design, this class is intentionally package-private and
- * intended strictly for internal use within the {@code batch} package.
+ * Access Restriction: This class is intentionally declared {@code final} and package-private. It is
+ * an internal implementation class of the {@code batch} package and is not intended to be accessed
+ * or subclassed outside that package. The {@code final} modifier also prevents subclasses from
+ * extending or altering the scanner’s behaviour.
  * </p>
  *
- * @PackagePrivate
  * @author Trevor Maggs
  * @version 1.4
  * @since 1 May 2026
  */
-class MetadataScanner implements Iterable<MediaRecord>
+final class MetadataScanner implements Iterable<MediaRecord>
 {
     private volatile boolean cancelled;
     private final BatchConfiguration config;
@@ -49,7 +50,7 @@ class MetadataScanner implements Iterable<MediaRecord>
 
     /**
      * Constructs a scanner using the specified batch configuration.
-     * 
+     *
      * @param settings
      *        the validated configuration containing source and sorting preferences
      */
@@ -137,11 +138,11 @@ class MetadataScanner implements Iterable<MediaRecord>
     /**
      * Initiates the file system traversal to discover media files and extract their metadata. If
      * cancellation is requested, scanning terminates as soon as practical.
-     * 
+     *
      * @throws BatchErrorException
      *         if a critical I/O error occurs or the source directory is inaccessible
      */
-    final void start() throws BatchErrorException
+    void start() throws BatchErrorException
     {
         if (!isCancelled())
         {
@@ -254,24 +255,32 @@ class MetadataScanner implements Iterable<MediaRecord>
 
                 try
                 {
-                    AbstractImageParser<?> parser = ImageParserFactory.getParser(fpath);
+                    DetectedFormatResult result = ImageParserFactory.getParserResult(fpath);
 
-                    parser.readMetadata();
-                    Metadata<?> meta = parser.getMetadata();
-                    recordSet.add(new MediaRecord(fpath, attr, meta));
+                    if (result.hasParser())
+                    {
+                        AbstractImageParser<?> parser = result.getParser();
+                        parser.readMetadata();
+                        Metadata<?> meta = parser.getMetadata();
+                        recordSet.add(new MediaRecord(fpath, attr, meta));
+                        notifyListeners(recordSet.size(), totalCount);
 
-                    // Force the progress bar to full completeness
-                    notifyListeners(recordSet.size(), totalCount);
-                    
-                    // System.out.printf("%s\n", parser.formatDiagnosticString());
+                        // System.out.printf("%s\n", parser.formatDiagnosticString());
+                    }
+
+                    else if (result.getSignature().isVideo())
+                    {
+                        if (!config.isSkipVideo())
+                        {
+                            recordSet.add(new MediaRecord(fpath, attr, null));
+                            notifyListeners(recordSet.size(), totalCount);
+                        }
+                    }
                 }
 
                 catch (UnsupportedOperationException exc)
                 {
-                    if (config.isSkipVideo() && DigitalSignature.detectFormat(fpath).isVideo())
-                    {
-                        // Just pass through for the time being
-                    }
+                    /* Just pass through. Unknown format signature detected. */
                 }
 
                 return FileVisitResult.CONTINUE;
@@ -304,7 +313,7 @@ class MetadataScanner implements Iterable<MediaRecord>
     /**
      * Returns an iterator over the discovered media records. Records are returned in the sort order
      * defined by the current {@link BatchConfiguration}.
-     * 
+     *
      * @return an iterator over the discovered media records
      */
     @Override

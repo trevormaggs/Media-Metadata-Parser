@@ -95,7 +95,7 @@ public final class MediaBatchProcessor
      * one listener.
      *
      * @param listener
-     *        the property listener to set, or {@code null} to clear
+     *        the property listener to set
      */
     public void setPropertyListener(PropertyListener listener)
     {
@@ -300,7 +300,7 @@ public final class MediaBatchProcessor
             else
             {
                 Files.deleteIfExists(targetPath);
-                LOGGER.warn("Processing interrupted for [" + record.getPath().getFileName() + "]. Cleaned up temporary target file.");
+                LOGGER.warn("Processing interrupted for [" + record.getPath().getFileName() + "]. Cleaned up temporary target file");
             }
         }
 

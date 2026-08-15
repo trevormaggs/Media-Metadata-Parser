@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import common.AbstractImageParser;
+import common.DetectedFormatResult;
 import common.ImageParserFactory;
 import common.Metadata;
 import common.PropertyListener;
@@ -97,37 +98,40 @@ public final class DisplayMetadata
 
             try
             {
-                AbstractImageParser<?> parser = ImageParserFactory.getParser(fpath);
+                DetectedFormatResult result = ImageParserFactory.getParserResult(fpath);
 
-                if (parser instanceof PngParser)
+                if (result.hasParser())
                 {
-                    PngParser png = (PngParser) parser;
-                    png.setChunkFilter(DISPLAY_CHUNK_FILTER);
-                }
+                    AbstractImageParser<?> parser = result.getParser();
 
-                parser.readMetadata();
-                Metadata<?> meta = parser.getMetadata();
-
-                // System.out.printf("%s%n", parser.formatDiagnosticString());
-
-                System.out.printf("======== %s ========%n", fpath);
-
-                displaySystemMetadata(fpath);
-
-                if (meta != null && meta.hasMetadata())
-                {
-                    if (meta instanceof TifMetadataProvider)
+                    if (parser instanceof PngParser)
                     {
-                        displayTifMetadata((TifMetadataProvider) meta);
+                        PngParser png = (PngParser) parser;
+                        png.setChunkFilter(DISPLAY_CHUNK_FILTER);
                     }
 
-                    else if (meta instanceof PngMetadataProvider)
-                    {
-                        displayPngMetadata((PngMetadataProvider) meta);
-                    }
-                }
+                    parser.readMetadata();
+                    Metadata<?> meta = parser.getMetadata();
 
-                System.out.println();
+                    System.out.printf("======== %s ========%n", fpath);
+
+                    displaySystemMetadata(fpath);
+
+                    if (meta != null && meta.hasMetadata())
+                    {
+                        if (meta instanceof TifMetadataProvider)
+                        {
+                            displayTifMetadata((TifMetadataProvider) meta);
+                        }
+
+                        else if (meta instanceof PngMetadataProvider)
+                        {
+                            displayPngMetadata((PngMetadataProvider) meta);
+                        }
+                    }
+
+                    System.out.println();
+                }
             }
 
             catch (IOException exc)
@@ -344,8 +348,8 @@ public final class DisplayMetadata
 
             LogFactory.configure(logPath.toString());
             LogFactory.setDebug(config.isDebug());
-            //LogFactory.disableAll();
-            
+            // LogFactory.disableAll();
+
             LOGGER.info(this.getClass().getSimpleName() + " loaded");
             LOGGER.info("Source: " + config.getSource().toAbsolutePath());
         }
