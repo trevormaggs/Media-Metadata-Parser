@@ -4,7 +4,6 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
 import java.util.function.Consumer;
@@ -127,16 +126,29 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         configureDynamicNodes(gridPane);
     }
 
+    @Override
+    public void stop()
+    {
+        TextField sourceText = getById(MainViewPane.SRCID);
+        TextField targetText = getById(MainViewPane.TGTID);
+
+        String sourceStr = (sourceText != null) ? sourceText.getText() : "";
+        String targetStr = (targetText != null) ? targetText.getText() : "";
+
+        // AppSettingsManager.saveSettings(sourceStr, targetStr);
+    }
+
     /**
-     * Configures dynamic behaviour for controls contained within the specified pane.
+     * Configures dynamic behaviour and event handlers for the UI controls contained within the
+     * specified parent pane.
      *
      * <p>
-     * Configures source-field interaction, clipboard handling, control bindings, and metadata
-     * display behaviour.
+     * Configures source-field interactions, file chooser operations, clipboard handling, control
+     * bindings, and dynamic metadata updates.
      * </p>
      *
      * @param pane
-     *        the parent node containing the scene elements to configure
+     *        the parent container holding the UI elements to configure
      */
     private void configureDynamicNodes(Parent pane)
     {
@@ -184,6 +196,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                         if (clipboard.hasString())
                         {
+                            /*
+                             * See {@link handleFileSelection()} for details
+                             * regarding file selection.
+                             */
                             String pastedText = clipboard.getString().trim();
                             File path = new File(pastedText);
 
@@ -213,12 +229,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                                 boolean valid = (parentDir != null);
 
-                                /*
-                                 * Then, check if all files are resolved in
-                                 * the first discovered directory.
-                                 */
                                 if (valid)
                                 {
+                                    /* Check that all files are in the same directory. */
                                     for (String part : parts)
                                     {
                                         Path file = Paths.get(part);
@@ -361,12 +374,20 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     }
 
     /**
-     * Opens a system native {@link FileChooser} dialog allowing users to select multiple input
-     * files.
-     * 
+     * Opens a system {@link FileChooser} dialog allowing users to select multiple input files.
+     *
      * <p>
-     * When at least one file is selected, its parent directory is stored via
-     * {@link TextField#setUserData(Object)} on the source text field for path resolution elsewhere.
+     * When at least one file is selected, the file names are formatted into a comma-separated
+     * string and populated into the source text field alongside an updated tooltip.
+     * </p>
+     *
+     * <p>
+     * <b>Important note for developers:</b> When files are selected via this dialog, the parent
+     * directory of the selection is stored on the text field via
+     * {@link TextField#setUserData(Object)}
+     * to provide authoritative base-path context for downstream parsing. If the parent directory
+     * cannot be determined, {@code null} is assigned to guarantee fail-fast behaviour when
+     * resolving relative paths later.
      * </p>
      */
     private void handleFileSelection()
@@ -376,8 +397,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         if (sourceText != null)
         {
             FileChooser chooser = new FileChooser();
-            String currentText = sourceText.getText().trim();
-            File sourceDir = new File(currentText.isEmpty() ? System.getProperty("user.home") : currentText);
+            String actualText = sourceText.getText().trim();
+            File sourceDir = new File(actualText.isEmpty() ? System.getProperty("user.home") : actualText);
 
             chooser.setTitle("Select Source Files");
 
@@ -403,11 +424,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 sourceText.setTooltip(new Tooltip(joinedNames));
 
                 File parentDir = files.get(0).getParentFile();
-
-                if (parentDir != null)
-                {
-                    sourceText.setUserData(parentDir.getAbsolutePath());
-                }
+                sourceText.setUserData(parentDir != null ? parentDir.getAbsolutePath() : null);
             }
         }
     }

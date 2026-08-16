@@ -14,13 +14,12 @@ public final class DetectedFormatResult
     private final AbstractImageParser<?> parser;
 
     /**
-     * Provides the detected format signature and an optional parser.
+     * Creates a result containing the detected format signature and optional parser.
      *
      * @param signature
-     *        the detected non-null {@link DigitalSignature}
+     *        the detected non-null {@link DigitalSignature}s
      * @param parser
-     *        the matching {@link AbstractImageParser}. May be {@code null} if the detected format
-     *        does not have a corresponding parser
+     *        the matching {@link AbstractImageParser}, or {@code null} if no parser is available
      */
     public DetectedFormatResult(DigitalSignature signature, AbstractImageParser<?> parser)
     {

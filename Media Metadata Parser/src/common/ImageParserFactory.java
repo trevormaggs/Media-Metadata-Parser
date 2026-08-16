@@ -96,7 +96,7 @@ public final class ImageParserFactory
             break;
 
             default:
-                // Defensive handling for future DigitalSignature enum values without a parser.
+                // Signature is recognised, but no active parser implementation is available
                 parser = null;
             break;
         }
