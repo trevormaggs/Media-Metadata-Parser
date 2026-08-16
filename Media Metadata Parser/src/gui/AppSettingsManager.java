@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 
@@ -97,7 +99,7 @@ public final class AppSettingsManager
                 sourceText.setText(savedSource);
                 sourceText.setTooltip(new Tooltip(savedSource));
 
-                File sourceFile = new java.io.File(savedSource);
+                File sourceFile = new File(savedSource);
 
                 if (sourceFile.exists())
                 {
@@ -112,9 +114,46 @@ public final class AppSettingsManager
                 targetText.setTooltip(new Tooltip(savedTarget));
             }
         }
+
         catch (IOException e)
         {
             System.err.println("Failed to load application settings: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Registers focus listeners on the source and target text fields to trigger an auto-save
+     * whenever a user finishes editing and leaves a field.
+     *
+     * @param sourceText
+     *        the source path text field
+     * @param targetText
+     *        the target path text field
+     */
+    public static void registerAutoSave(final TextField sourceText, final TextField targetText)
+    {
+        ChangeListener<Boolean> focusListener = new ChangeListener<Boolean>()
+        {
+            @Override
+            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue)
+            {
+                if (!newValue)
+                {
+                    String src = (sourceText != null) ? sourceText.getText() : "";
+                    String tgt = (targetText != null) ? targetText.getText() : "";
+                    saveSettings(src, tgt);
+                }
+            }
+        };
+
+        if (sourceText != null)
+        {
+            sourceText.focusedProperty().addListener(focusListener);
+        }
+
+        if (targetText != null)
+        {
+            targetText.focusedProperty().addListener(focusListener);
         }
     }
 }

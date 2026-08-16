@@ -132,10 +132,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         TextField sourceText = getById(MainViewPane.SRCID);
         TextField targetText = getById(MainViewPane.TGTID);
 
+        // Called once during startup inside start() or configureDynamicNodes()
+        // AppSettingsManager.loadSettings(sourceText, targetText);
+
         String sourceStr = (sourceText != null) ? sourceText.getText() : "";
         String targetStr = (targetText != null) ? targetText.getText() : "";
 
-        // AppSettingsManager.saveSettings(sourceStr, targetStr);
+        // Called inside Application.stop() or right before batch execution
+        // AppSettingsManager.saveSettings(sourceText.getText(), targetText.getText());
     }
 
     /**
@@ -418,10 +422,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     joiner.add(file.getName());
                 }
 
-                String joinedNames = joiner.toString();
+                String joined = joiner.toString();
 
-                sourceText.setText(joinedNames);
-                sourceText.setTooltip(new Tooltip(joinedNames));
+                sourceText.setText(joined);
+                sourceText.setTooltip(new Tooltip(joined));
 
                 File parentDir = files.get(0).getParentFile();
                 sourceText.setUserData(parentDir != null ? parentDir.getAbsolutePath() : null);
@@ -625,7 +629,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             flash.setOnFinished(new EventHandler<ActionEvent>()
             {
-
                 @Override
                 public void handle(ActionEvent event)
                 {
