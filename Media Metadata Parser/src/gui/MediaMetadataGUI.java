@@ -1,6 +1,7 @@
 package gui;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -132,14 +133,41 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         TextField sourceText = getById(MainViewPane.SRCID);
         TextField targetText = getById(MainViewPane.TGTID);
 
-        // Called once during startup inside start() or configureDynamicNodes()
-        // AppSettingsManager.loadSettings(sourceText, targetText);
+        try
+        {
+            AppSettingsManager.saveSettings(sourceText, targetText);
 
-        String sourceStr = (sourceText != null) ? sourceText.getText() : "";
-        String targetStr = (targetText != null) ? targetText.getText() : "";
+            if (sourceText != null)
+            {
+                String parentDir = null;
+                Object userData = sourceText.getUserData();
 
-        // Called inside Application.stop() or right before batch execution
-        // AppSettingsManager.saveSettings(sourceText.getText(), targetText.getText());
+                if (userData instanceof String && !((String) userData).trim().isEmpty())
+                {
+                    parentDir = ((String) userData).trim();
+                }
+
+                else if (sourceText.getText() != null)
+                {
+                    String sourceStr = sourceText.getText().trim();
+
+                    if (!sourceStr.isEmpty())
+                    {
+                        parentDir = sourceStr;
+                    }
+                }
+
+                if (parentDir != null)
+                {
+                    AppSettingsManager.addRecentSourcePath(parentDir);
+                }
+            }
+        }
+
+        catch (IOException exc)
+        {
+            // TODO: Display GUI error popup
+        }
     }
 
     /**
@@ -148,7 +176,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      *
      * <p>
      * Configures source-field interactions, file chooser operations, clipboard handling, control
-     * bindings, and dynamic metadata updates.
+     * bindings, dynamic metadata updates, and populates recent location context menus.
+     * </p>
+     *
+     * <b>Important note for developers:</b> When the source text field receives files through
+     * paste, their parent directory is stored on the text field via
+     * {@link TextField#setUserData(Object)} to provide authoritative base-path context for
+     * downstream parsing. If a common parent directory cannot be determined, {@code null} is
+     * assigned to indicate that no authoritative base path is available.
      * </p>
      *
      * @param pane
@@ -157,9 +192,20 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private void configureDynamicNodes(Parent pane)
     {
         TextField sourceText = MainViewPane.getById(pane, MainViewPane.SRCID);
+        TextField targetText = getById(MainViewPane.TGTID);
         TextField prefixText = MainViewPane.getById(pane, MainViewPane.PFXID);
         DatePicker modifyDatePicker = MainViewPane.getById(pane, MainViewPane.DTMID);
         CheckBox showMetadataCheck = MainViewPane.getById(pane, MainViewPane.SHWID);
+
+        try
+        {
+            AppSettingsManager.loadSettings(sourceText, targetText);
+        }
+
+        catch (IOException exc)
+        {
+            // TODO: Display GUI error popup or log startup warning
+        }
 
         if (sourceText != null)
         {
@@ -200,10 +246,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                         if (clipboard.hasString())
                         {
-                            /*
-                             * See {@link handleFileSelection()} for details
-                             * regarding file selection.
-                             */
                             String pastedText = clipboard.getString().trim();
                             File path = new File(pastedText);
 
@@ -384,15 +426,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      * When at least one file is selected, the file names are formatted into a comma-separated
      * string and populated into the source text field alongside an updated tooltip.
      * </p>
-     *
-     * <p>
-     * <b>Important note for developers:</b> When files are selected via this dialog, the parent
-     * directory of the selection is stored on the text field via
-     * {@link TextField#setUserData(Object)}
-     * to provide authoritative base-path context for downstream parsing. If the parent directory
-     * cannot be determined, {@code null} is assigned to guarantee fail-fast behaviour when
-     * resolving relative paths later.
-     * </p>
      */
     private void handleFileSelection()
     {
@@ -426,9 +459,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                 sourceText.setText(joined);
                 sourceText.setTooltip(new Tooltip(joined));
-
-                File parentDir = files.get(0).getParentFile();
-                sourceText.setUserData(parentDir != null ? parentDir.getAbsolutePath() : null);
+                sourceText.setUserData(files.get(0).getParentFile().getAbsolutePath());
             }
         }
     }

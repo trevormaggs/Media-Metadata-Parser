@@ -1,15 +1,15 @@
 package gui;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 
@@ -21,7 +21,10 @@ public final class AppSettingsManager
 {
     private static final String CONFIG_FILE_NAME = "app_settings.properties";
     private static final String KEY_SOURCE_PATH = "last.source.path";
+    private static final String KEY_SOURCE_PARENT_PATH = "last.source.parent.path";
     private static final String KEY_TARGET_PATH = "last.target.path";
+    private static final String KEY_RECENT_PREFIX = "recent.source.path.";
+    private static final int MAX_RECENT_ENTRIES = 5;
 
     private AppSettingsManager()
     {
@@ -34,55 +37,79 @@ public final class AppSettingsManager
     }
 
     /**
-     * Saves the specified source and target text paths to persistent storage.
+     * Pushes a new source path into the recent paths collection, placing it at the front and
+     * truncating old entries past the maximum limit. If the path points to a file, its parent
+     * directory is extracted and stored instead.
      *
-     * @param sourcePath
-     *        the current source text path string
-     * @param targetPath
-     *        the current target text path string
+     * @param newPath
+     *        the newly selected or executed source path
      */
-    public static void saveSettings(String sourcePath, String targetPath)
+    public static void addRecentSourcePath(String newPath)
     {
-        Properties props = new Properties();
-
-        if (sourcePath != null && !sourcePath.trim().isEmpty())
+        if (newPath == null || newPath.trim().isEmpty())
         {
-            props.setProperty(KEY_SOURCE_PATH, sourcePath.trim());
+            return;
         }
 
-        if (targetPath != null && !targetPath.trim().isEmpty())
+        String cleanPath = newPath.trim();
+
+        /* If the path points to a file, resolve its parent directory for history */
+        try
         {
-            props.setProperty(KEY_TARGET_PATH, targetPath.trim());
+            Path path = Paths.get(cleanPath);
+
+            if (Files.exists(path))
+            {
+                if (Files.isRegularFile(path))
+                {
+                    Path parent = path.getParent();
+                    if (parent != null)
+                    {
+                        cleanPath = parent.toAbsolutePath().toString();
+                    }
+                }
+                else if (Files.isDirectory(path))
+                {
+                    cleanPath = path.toAbsolutePath().toString();
+                }
+            }
+        }
+        catch (InvalidPathException exc)
+        {
+            // Leave cleanPath unchanged if string parsing fails
         }
 
-        Path settingsFile = getSettingsPath();
+        List<String> currentHistory = loadRecentSourcePaths();
+        List<String> updatedHistory = new ArrayList<>();
 
-        try (OutputStream os = Files.newOutputStream(settingsFile))
+        updatedHistory.add(cleanPath);
+
+        for (int i = 0; i < currentHistory.size(); i++)
         {
-            props.store(os, "Media Metadata App User Settings");
+            String existing = currentHistory.get(i);
+
+            if (!existing.equalsIgnoreCase(cleanPath) && updatedHistory.size() < MAX_RECENT_ENTRIES)
+            {
+                updatedHistory.add(existing);
+            }
         }
 
-        catch (IOException e)
-        {
-            System.err.println("Failed to save application settings: " + e.getMessage());
-        }
+        saveRecentHistory(updatedHistory);
     }
 
     /**
-     * Loads saved settings from persistent storage and updates the specified UI controls.
+     * Loads the list of recent source paths using indexed property keys.
      *
-     * @param sourceText
-     *        the source path text field
-     * @param targetText
-     *        the target path text field
+     * @return a list of recent source path strings
      */
-    public static void loadSettings(TextField sourceText, TextField targetText)
+    public static List<String> loadRecentSourcePaths()
     {
+        List<String> history = new ArrayList<>();
         Path settingsFile = getSettingsPath();
 
         if (!Files.exists(settingsFile))
         {
-            return;
+            return history;
         }
 
         Properties props = new Properties();
@@ -91,69 +118,223 @@ public final class AppSettingsManager
         {
             props.load(is);
 
-            String savedSource = props.getProperty(KEY_SOURCE_PATH);
-            String savedTarget = props.getProperty(KEY_TARGET_PATH);
-
-            if (sourceText != null && savedSource != null && !savedSource.isEmpty())
+            for (int i = 0; i < MAX_RECENT_ENTRIES; i++)
             {
-                sourceText.setText(savedSource);
-                sourceText.setTooltip(new Tooltip(savedSource));
+                String path = props.getProperty(KEY_RECENT_PREFIX + i);
 
-                File sourceFile = new File(savedSource);
-
-                if (sourceFile.exists())
+                if (path != null && !path.trim().isEmpty())
                 {
-                    String parentDir = sourceFile.isDirectory() ? sourceFile.getAbsolutePath() : sourceFile.getParent();
-                    sourceText.setUserData(parentDir);
+                    history.add(path.trim());
                 }
             }
+        }
+        catch (IOException e)
+        {
+            System.err.println("Failed to load recent history: " + e.getMessage());
+        }
 
-            if (targetText != null && savedTarget != null && !savedTarget.isEmpty())
+        return history;
+    }
+
+    private static void saveRecentHistory(List<String> history)
+    {
+        Path settingsFile = getSettingsPath();
+        Properties props = new Properties();
+
+        if (Files.exists(settingsFile))
+        {
+            try (InputStream is = Files.newInputStream(settingsFile))
             {
-                targetText.setText(savedTarget);
-                targetText.setTooltip(new Tooltip(savedTarget));
+                props.load(is);
+            }
+
+            catch (IOException e)
+            {
+                // Continue on load failure
             }
         }
 
+        /* Clear old indexed keys to prevent lingering stale entries */
+        for (int i = 0; i < MAX_RECENT_ENTRIES; i++)
+        {
+            props.remove(KEY_RECENT_PREFIX + i);
+        }
+
+        /* Write current history list with index markers */
+        for (int i = 0; i < history.size(); i++)
+        {
+            props.setProperty(KEY_RECENT_PREFIX + i, history.get(i));
+        }
+
+        try (OutputStream os = Files.newOutputStream(settingsFile))
+        {
+            props.store(os, "Media Metadata App User Settings");
+        }
         catch (IOException e)
         {
-            System.err.println("Failed to load application settings: " + e.getMessage());
+            System.err.println("Failed to save recent history: " + e.getMessage());
         }
     }
 
     /**
-     * Registers focus listeners on the source and target text fields to trigger an auto-save
-     * whenever a user finishes editing and leaves a field.
+     * Saves the source, target, and parent directory metadata paths to maintain persistent storage.
      *
      * @param sourceText
      *        the source path text field
      * @param targetText
      *        the target path text field
+     * 
+     * @throws IOException
+     *         if writing to storage fails
      */
-    public static void registerAutoSave(final TextField sourceText, final TextField targetText)
+    public static void saveSettings(TextField sourceText, TextField targetText) throws IOException
     {
-        ChangeListener<Boolean> focusListener = new ChangeListener<Boolean>()
+        String sourceParentPath = null;
+        Properties props = new Properties();
+        Path historyFile = getSettingsPath();
+        Object userData = sourceText.getUserData();
+        String sourcePath = sourceText.getText().trim();
+        String targetPath = targetText.getText().trim();
+
+        if (userData instanceof String && ((String) userData).trim().length() > 0)
         {
-            @Override
-            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue)
+            sourceParentPath = ((String) userData).trim();
+        }
+        
+        else if (!sourcePath.isEmpty())
+        {
+            try
             {
-                if (!newValue)
+                /* Derive parent folder on the fly for single file entries */
+                Path path = Paths.get(sourcePath);
+
+                if (Files.exists(path))
                 {
-                    String src = (sourceText != null) ? sourceText.getText() : "";
-                    String tgt = (targetText != null) ? targetText.getText() : "";
-                    saveSettings(src, tgt);
+                    Path parent = Files.isDirectory(path) ? path : path.getParent();
+
+                    if (parent != null)
+                    {
+                        sourceParentPath = parent.toAbsolutePath().toString();
+                    }
                 }
             }
-        };
-
-        if (sourceText != null)
-        {
-            sourceText.focusedProperty().addListener(focusListener);
+            
+            catch (InvalidPathException exc)
+            {
+                // Just pass through
+            }
         }
 
-        if (targetText != null)
+        if (Files.exists(historyFile))
         {
-            targetText.focusedProperty().addListener(focusListener);
+            try (InputStream is = Files.newInputStream(historyFile))
+            {
+                props.load(is);
+            }
+        }
+
+        if (sourceParentPath != null && !sourceParentPath.isEmpty())
+        {
+            props.setProperty(KEY_SOURCE_PARENT_PATH, sourceParentPath);
+        }
+        
+        else
+        {
+            props.remove(KEY_SOURCE_PARENT_PATH);
+        }
+
+        if (!sourcePath.isEmpty())
+        {
+            props.setProperty(KEY_SOURCE_PATH, sourcePath);
+        }
+        
+        else
+        {
+            props.remove(KEY_SOURCE_PATH);
+        }
+
+        if (!targetPath.isEmpty())
+        {
+            props.setProperty(KEY_TARGET_PATH, targetPath);
+        }
+        
+        else
+        {
+            props.remove(KEY_TARGET_PATH);
+        }
+
+        try (OutputStream os = Files.newOutputStream(historyFile))
+        {
+            props.store(os, "Media Metadata App User Settings");
+        }
+    }
+
+    /**
+     * Loads saved settings from persistent storage and updates the specified text fields.
+     *
+     * @param sourceText
+     *        the text field for the source path
+     * @param targetText
+     *        the text field for the target path
+     * 
+     * @throws IOException
+     *         if reading from storage fails
+     */
+    public static void loadSettings(TextField sourceText, TextField targetText) throws IOException
+    {
+        Properties props = new Properties();
+        Path historyFile = getSettingsPath();
+
+        if (Files.exists(historyFile))
+        {
+            try (InputStream is = Files.newInputStream(historyFile))
+            {
+                props.load(is);
+
+                String savedSourceParent = props.getProperty(KEY_SOURCE_PARENT_PATH);
+                String savedSource = props.getProperty(KEY_SOURCE_PATH);
+                String savedTarget = props.getProperty(KEY_TARGET_PATH);
+
+                if (savedSource != null && !savedSource.isEmpty())
+                {
+                    sourceText.setText(savedSource);
+                    sourceText.setTooltip(new Tooltip(savedSource));
+
+                    if (savedSourceParent != null && !savedSourceParent.isEmpty())
+                    {
+                        sourceText.setUserData(savedSourceParent);
+                    }
+
+                    else
+                    {
+                        try
+                        {
+                            Path sourceFile = Paths.get(savedSource).toAbsolutePath();
+
+                            if (Files.exists(sourceFile))
+                            {
+                                Path parentDir = Files.isDirectory(sourceFile) ? sourceFile : sourceFile.getParent();
+
+                                if (parentDir != null)
+                                {
+                                    sourceText.setUserData(parentDir.toString());
+                                }
+                            }
+                        }
+
+                        catch (InvalidPathException exc)
+                        {
+                            // Just pass through
+                        }
+                    }
+                }
+
+                if (savedTarget != null && !savedTarget.isEmpty())
+                {
+                    targetText.setText(savedTarget);
+                    targetText.setTooltip(new Tooltip(savedTarget));
+                }
+            }
         }
     }
 }
