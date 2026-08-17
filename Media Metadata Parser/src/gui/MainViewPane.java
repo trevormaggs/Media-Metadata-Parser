@@ -7,10 +7,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.ContextMenu;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -30,6 +28,14 @@ import logger.LogFactory;
  */
 final class MainViewPane
 {
+    private final ProgressBar progressBar;
+    private final Button sourceBtn;
+    private final Button actionBtn;
+    private final Button copyLogBtn;
+    private final Button cancelBtn;
+    private final Button viewBtn;
+    private final Button clearLogBtn;
+    private final Button exitBtn;
     public static final String SRCID = "srcId";
     public static final String TGTID = "tgtId";
     public static final String PFXID = "pfxId";
@@ -42,25 +48,14 @@ final class MainViewPane
     public static final String DBGID = "dbgId";
     public static final String TRCID = "trcId";
 
-    private final ProgressBar progressBar;
-    private final Button sourceBtn;
-    private final MenuItem selectFiles;
-    private final Button actionBtn;
-    private final Button copyLogBtn;
-    private final Button cancelBtn;
-    private final Button viewBtn;
-    private final Button clearLogBtn;
-    private final Button exitBtn;
-
     MainViewPane()
     {
+        this.progressBar = new ProgressBar(0.0);
         this.sourceBtn = new Button();
-        this.selectFiles = new MenuItem();
         this.actionBtn = new Button();
         this.clearLogBtn = new Button();
         this.copyLogBtn = new Button();
         this.exitBtn = new Button();
-        this.progressBar = new ProgressBar(0.0);
         this.cancelBtn = new Button();
         this.viewBtn = new Button();
     }
@@ -100,14 +95,7 @@ final class MainViewPane
         sourceText.getStyleClass().add("read-only-path-field");
         sourceText.setText("E:\\ImageBatchDir\\babygemma.tif");
 
-        MenuItem selectFolder = new MenuItem("Select Folder...");
-        selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
-        selectFiles.setText("Select Specific Files...");
-
-        ContextMenu sourceMenu = new ContextMenu();
-        sourceMenu.getItems().addAll(selectFolder, selectFiles);
         sourceBtn.setText("Browse...");
-        sourceBtn.setUserData(sourceMenu);
 
         HBox sourceHbox = new HBox(10);
         sourceHbox.getChildren().addAll(sourceLabel, sourceText, GUIUtils.fillRow(), sourceBtn);
@@ -350,14 +338,14 @@ final class MainViewPane
         return GUIUtils.getById(root, id);
     }
 
+    ProgressBar getProgressBar()
+    {
+        return progressBar;
+    }
+
     Button getSourceBtn()
     {
         return sourceBtn;
-    }
-
-    MenuItem getSelectFiles()
-    {
-        return selectFiles;
     }
 
     Button getActionBtn()
@@ -378,11 +366,6 @@ final class MainViewPane
     Button getExitBtn()
     {
         return exitBtn;
-    }
-
-    ProgressBar getProgressBar()
-    {
-        return progressBar;
     }
 
     Button getCancelBtn()

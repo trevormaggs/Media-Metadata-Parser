@@ -26,172 +26,79 @@ public final class AppSettingsManager
     private static final String KEY_RECENT_PREFIX = "recent.source.path.";
     private static final int MAX_RECENT_ENTRIES = 5;
 
+    /**
+     * Private constructor to prevent direct instantiation of this utility class.
+     */
     private AppSettingsManager()
     {
         throw new UnsupportedOperationException("Instantiation not allowed");
     }
 
+    /**
+     * Resolves the absolute path to the persistent settings configuration file within the user's
+     * home directory.
+     *
+     * @return the {@link Path} pointing to the configuration properties file
+     */
     private static Path getSettingsPath()
     {
         return Paths.get(System.getProperty("user.home"), CONFIG_FILE_NAME);
     }
 
     /**
-     * Pushes a new source path into the recent paths collection, placing it at the front and
-     * truncating old entries past the maximum limit. If the path points to a file, its parent
-     * directory is extracted and stored instead.
-     *
-     * @param newPath
-     *        the newly selected or executed source path
-     */
-    public static void addRecentSourcePath(String newPath)
-    {
-        if (newPath == null || newPath.trim().isEmpty())
-        {
-            return;
-        }
-
-        String cleanPath = newPath.trim();
-
-        /* If the path points to a file, resolve its parent directory for history */
-        try
-        {
-            Path path = Paths.get(cleanPath);
-
-            if (Files.exists(path))
-            {
-                if (Files.isRegularFile(path))
-                {
-                    Path parent = path.getParent();
-                    if (parent != null)
-                    {
-                        cleanPath = parent.toAbsolutePath().toString();
-                    }
-                }
-                else if (Files.isDirectory(path))
-                {
-                    cleanPath = path.toAbsolutePath().toString();
-                }
-            }
-        }
-        catch (InvalidPathException exc)
-        {
-            // Leave cleanPath unchanged if string parsing fails
-        }
-
-        List<String> currentHistory = loadRecentSourcePaths();
-        List<String> updatedHistory = new ArrayList<>();
-
-        updatedHistory.add(cleanPath);
-
-        for (int i = 0; i < currentHistory.size(); i++)
-        {
-            String existing = currentHistory.get(i);
-
-            if (!existing.equalsIgnoreCase(cleanPath) && updatedHistory.size() < MAX_RECENT_ENTRIES)
-            {
-                updatedHistory.add(existing);
-            }
-        }
-
-        saveRecentHistory(updatedHistory);
-    }
-
-    /**
      * Loads the list of recent source paths using indexed property keys.
      *
-     * @return a list of recent source path strings
+     * @return a {@link List} of recent source path strings ordered from most to least recent
      */
     public static List<String> loadRecentSourcePaths()
     {
+        Path historyConfig = getSettingsPath();
         List<String> history = new ArrayList<>();
-        Path settingsFile = getSettingsPath();
 
-        if (!Files.exists(settingsFile))
+        if (Files.exists(historyConfig))
         {
-            return history;
-        }
+            Properties props = new Properties();
 
-        Properties props = new Properties();
-
-        try (InputStream is = Files.newInputStream(settingsFile))
-        {
-            props.load(is);
-
-            for (int i = 0; i < MAX_RECENT_ENTRIES; i++)
+            try (InputStream is = Files.newInputStream(historyConfig))
             {
-                String path = props.getProperty(KEY_RECENT_PREFIX + i);
+                props.load(is);
 
-                if (path != null && !path.trim().isEmpty())
+                for (int i = 0; i < MAX_RECENT_ENTRIES; i++)
                 {
-                    history.add(path.trim());
+                    String path = props.getProperty(KEY_RECENT_PREFIX + i, "").trim();
+
+                    if (!path.isEmpty())
+                    {
+                        history.add(path);
+                    }
                 }
             }
-        }
-        catch (IOException e)
-        {
-            System.err.println("Failed to load recent history: " + e.getMessage());
+
+            catch (IOException e)
+            {
+                System.err.println("Failed to load recent history: " + e.getMessage());
+            }
         }
 
         return history;
     }
 
-    private static void saveRecentHistory(List<String> history)
-    {
-        Path settingsFile = getSettingsPath();
-        Properties props = new Properties();
-
-        if (Files.exists(settingsFile))
-        {
-            try (InputStream is = Files.newInputStream(settingsFile))
-            {
-                props.load(is);
-            }
-
-            catch (IOException e)
-            {
-                // Continue on load failure
-            }
-        }
-
-        /* Clear old indexed keys to prevent lingering stale entries */
-        for (int i = 0; i < MAX_RECENT_ENTRIES; i++)
-        {
-            props.remove(KEY_RECENT_PREFIX + i);
-        }
-
-        /* Write current history list with index markers */
-        for (int i = 0; i < history.size(); i++)
-        {
-            props.setProperty(KEY_RECENT_PREFIX + i, history.get(i));
-        }
-
-        try (OutputStream os = Files.newOutputStream(settingsFile))
-        {
-            props.store(os, "Media Metadata App User Settings");
-        }
-        catch (IOException e)
-        {
-            System.err.println("Failed to save recent history: " + e.getMessage());
-        }
-    }
-
     /**
-     * Saves the source, target, and parent directory metadata paths to maintain persistent storage.
+     * Saves the current source and target paths and updates the recent source path history.
      *
      * @param sourceText
-     *        the source path text field
+     *        the text field containing the current source path
      * @param targetText
-     *        the target path text field
-     * 
+     *        the text field containing the current target path
+     *
      * @throws IOException
-     *         if writing to storage fails
+     *         if an I/O error occurs while loading or saving the settings
      */
     public static void saveSettings(TextField sourceText, TextField targetText) throws IOException
     {
         String sourceParentPath = null;
         Properties props = new Properties();
-        Path historyFile = getSettingsPath();
+        Path historyConfig = getSettingsPath();
         Object userData = sourceText.getUserData();
         String sourcePath = sourceText.getText().trim();
         String targetPath = targetText.getText().trim();
@@ -200,7 +107,7 @@ public final class AppSettingsManager
         {
             sourceParentPath = ((String) userData).trim();
         }
-        
+
         else if (!sourcePath.isEmpty())
         {
             try
@@ -218,16 +125,16 @@ public final class AppSettingsManager
                     }
                 }
             }
-            
+
             catch (InvalidPathException exc)
             {
                 // Just pass through
             }
         }
 
-        if (Files.exists(historyFile))
+        if (Files.exists(historyConfig))
         {
-            try (InputStream is = Files.newInputStream(historyFile))
+            try (InputStream is = Files.newInputStream(historyConfig))
             {
                 props.load(is);
             }
@@ -237,7 +144,7 @@ public final class AppSettingsManager
         {
             props.setProperty(KEY_SOURCE_PARENT_PATH, sourceParentPath);
         }
-        
+
         else
         {
             props.remove(KEY_SOURCE_PARENT_PATH);
@@ -247,7 +154,7 @@ public final class AppSettingsManager
         {
             props.setProperty(KEY_SOURCE_PATH, sourcePath);
         }
-        
+
         else
         {
             props.remove(KEY_SOURCE_PATH);
@@ -257,13 +164,21 @@ public final class AppSettingsManager
         {
             props.setProperty(KEY_TARGET_PATH, targetPath);
         }
-        
+
         else
         {
             props.remove(KEY_TARGET_PATH);
         }
 
-        try (OutputStream os = Files.newOutputStream(historyFile))
+        String entry = (sourceParentPath != null && !sourceParentPath.isEmpty()) ? sourceParentPath : sourcePath;
+
+        if (!entry.isEmpty())
+        {
+            updateRecentHistoryInProps(props, entry);
+        }
+
+        /* Commit all changes to disk in a single write operation */
+        try (OutputStream os = Files.newOutputStream(historyConfig))
         {
             props.store(os, "Media Metadata App User Settings");
         }
@@ -283,11 +198,11 @@ public final class AppSettingsManager
     public static void loadSettings(TextField sourceText, TextField targetText) throws IOException
     {
         Properties props = new Properties();
-        Path historyFile = getSettingsPath();
+        Path historyConfig = getSettingsPath();
 
-        if (Files.exists(historyFile))
+        if (Files.exists(historyConfig))
         {
-            try (InputStream is = Files.newInputStream(historyFile))
+            try (InputStream is = Files.newInputStream(historyConfig))
             {
                 props.load(is);
 
@@ -335,6 +250,52 @@ public final class AppSettingsManager
                     targetText.setTooltip(new Tooltip(savedTarget));
                 }
             }
+        }
+    }
+
+    /**
+     * Prepends a source path to the recent history, removes duplicates, and limits the history to
+     * the maximum number of entries.
+     *
+     * @param props
+     *        the properties containing the application settings
+     * @param newPath
+     *        the source path to add
+     */
+    private static void updateRecentHistoryInProps(Properties props, String newPath)
+    {
+        List<String> currentHistory = new ArrayList<>();
+        List<String> updatedHistory = new ArrayList<>();
+
+        for (int i = 0; i < MAX_RECENT_ENTRIES; i++)
+        {
+            String entry = props.getProperty(KEY_RECENT_PREFIX + i, "").trim();
+
+            if (!entry.isEmpty())
+            {
+                currentHistory.add(entry);
+            }
+        }
+
+        updatedHistory.add(newPath);
+
+        for (String entry : currentHistory)
+        {
+            if (!entry.equalsIgnoreCase(newPath) && updatedHistory.size() < MAX_RECENT_ENTRIES)
+            {
+                updatedHistory.add(entry);
+            }
+        }
+
+        // Refresh properties
+        for (int i = 0; i < MAX_RECENT_ENTRIES; i++)
+        {
+            props.remove(KEY_RECENT_PREFIX + i);
+        }
+
+        for (int i = 0; i < updatedHistory.size(); i++)
+        {
+            props.setProperty(KEY_RECENT_PREFIX + i, updatedHistory.get(i));
         }
     }
 }
