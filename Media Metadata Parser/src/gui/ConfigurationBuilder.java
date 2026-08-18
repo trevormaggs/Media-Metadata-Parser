@@ -35,9 +35,11 @@ class ConfigurationBuilder
         CheckBox descending = MainViewPane.getById(root, MainViewPane.SRTID);
         CheckBox debug = MainViewPane.getById(root, MainViewPane.DBGID);
         CheckBox trace = MainViewPane.getById(root, MainViewPane.TRCID);
+
         String filename = (sourceText != null ? sourceText.getText().trim() : "");
         LocalDate dateValue = (modifyDatePicker != null ? modifyDatePicker.getValue() : null);
-        String userDataParent = (String) sourceText.getUserData();
+        Object userData = (sourceText != null ? sourceText.getUserData() : null);
+        String userDataParent = (userData instanceof Path ? ((Path) userData).toString() : "");
 
         if (filename.isEmpty())
         {
@@ -47,7 +49,7 @@ class ConfigurationBuilder
         // Multi-file selection handling
         if (filename.contains(","))
         {
-            if (userDataParent == null || userDataParent.trim().isEmpty())
+            if (userDataParent.isEmpty())
             {
                 throw new BatchErrorException("Individual files detected without a parent folder context.\n\nPlease use the 'Select Specific Files' menu option to select files.");
             }
@@ -68,7 +70,7 @@ class ConfigurationBuilder
             Path resolvedPath;
             Path rawPath = Paths.get(filename);
 
-            if (userDataParent != null && !rawPath.isAbsolute())
+            if (!userDataParent.isEmpty() && !rawPath.isAbsolute())
             {
                 resolvedPath = Paths.get(userDataParent).toAbsolutePath().resolve(rawPath).normalize();
             }

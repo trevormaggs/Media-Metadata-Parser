@@ -17,7 +17,7 @@ import javafx.scene.control.Tooltip;
  * Manages persistent user configuration settings across application sessions using a simple
  * key-value configuration file.
  */
-public final class AppSettingsManager
+public final class AppSettingsManager2
 {
     private static final String CONFIG_FILE_NAME = "app_settings.properties";
     private static final String KEY_SOURCE_PATH = "last.source.path";
@@ -29,7 +29,7 @@ public final class AppSettingsManager
     /**
      * Private constructor to prevent direct instantiation of this utility class.
      */
-    private AppSettingsManager()
+    private AppSettingsManager2()
     {
         throw new UnsupportedOperationException("Instantiation not allowed");
     }
@@ -96,16 +96,16 @@ public final class AppSettingsManager
      */
     public static void saveSettings(TextField sourceText, TextField targetText) throws IOException
     {
-        Path sourceParentPath = null;
+        String sourceParentPath = null;
         Properties props = new Properties();
         Path historyConfig = getSettingsPath();
         Object userData = sourceText.getUserData();
         String sourcePath = sourceText.getText().trim();
         String targetPath = targetText.getText().trim();
 
-        if (userData instanceof Path)
+        if (userData instanceof String && ((String) userData).trim().length() > 0)
         {
-            sourceParentPath = ((Path) userData);
+            sourceParentPath = ((String) userData).trim();
         }
 
         else if (!sourcePath.isEmpty())
@@ -121,7 +121,7 @@ public final class AppSettingsManager
 
                     if (parent != null)
                     {
-                        sourceParentPath = parent.toAbsolutePath();
+                        sourceParentPath = parent.toAbsolutePath().toString();
                     }
                 }
             }
@@ -132,8 +132,6 @@ public final class AppSettingsManager
             }
         }
 
-        String entry = (sourceParentPath != null && !sourceParentPath.toString().isEmpty() ? sourceParentPath.toString() : sourcePath);
-
         if (Files.exists(historyConfig))
         {
             try (InputStream is = Files.newInputStream(historyConfig))
@@ -142,35 +140,37 @@ public final class AppSettingsManager
             }
         }
 
-        if (sourceParentPath == null)
+        if (sourceParentPath != null && !sourceParentPath.isEmpty())
+        {
+            props.setProperty(KEY_SOURCE_PARENT_PATH, sourceParentPath);
+        }
+
+        else
         {
             props.remove(KEY_SOURCE_PARENT_PATH);
         }
 
-        else
-        {
-            props.setProperty(KEY_SOURCE_PARENT_PATH, sourceParentPath.toString());
-        }
-
-        if (sourcePath.isEmpty())
-        {
-            props.remove(KEY_SOURCE_PATH);
-        }
-
-        else
+        if (!sourcePath.isEmpty())
         {
             props.setProperty(KEY_SOURCE_PATH, sourcePath);
         }
 
-        if (targetPath.isEmpty())
+        else
         {
-            props.remove(KEY_TARGET_PATH);
+            props.remove(KEY_SOURCE_PATH);
+        }
+
+        if (!targetPath.isEmpty())
+        {
+            props.setProperty(KEY_TARGET_PATH, targetPath);
         }
 
         else
         {
-            props.setProperty(KEY_TARGET_PATH, targetPath);
+            props.remove(KEY_TARGET_PATH);
         }
+
+        String entry = (sourceParentPath != null && !sourceParentPath.isEmpty()) ? sourceParentPath : sourcePath;
 
         if (!entry.isEmpty())
         {
@@ -206,7 +206,7 @@ public final class AppSettingsManager
             {
                 props.load(is);
 
-                String savedSourceParent = props.getProperty(KEY_SOURCE_PARENT_PATH, "").trim();
+                String savedSourceParent = props.getProperty(KEY_SOURCE_PARENT_PATH);
                 String savedSource = props.getProperty(KEY_SOURCE_PATH);
                 String savedTarget = props.getProperty(KEY_TARGET_PATH);
 
@@ -215,20 +215,12 @@ public final class AppSettingsManager
                     sourceText.setText(savedSource);
                     sourceText.setTooltip(new Tooltip(savedSource));
 
-                    if (!savedSourceParent.isEmpty())
+                    if (savedSourceParent != null && !savedSourceParent.isEmpty())
                     {
-                        try
-                        {
-                            sourceText.setUserData(Paths.get(savedSourceParent).toAbsolutePath());
-                        }
-
-                        catch (InvalidPathException exc)
-                        {
-                            // Just pass through and fallback execution below handles path creation
-                        }
+                        sourceText.setUserData(savedSourceParent);
                     }
 
-                    if (sourceText.getUserData() == null)
+                    else
                     {
                         try
                         {
@@ -240,7 +232,7 @@ public final class AppSettingsManager
 
                                 if (parentDir != null)
                                 {
-                                    sourceText.setUserData(parentDir);
+                                    sourceText.setUserData(parentDir.toString());
                                 }
                             }
                         }
