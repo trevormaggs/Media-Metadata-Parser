@@ -77,7 +77,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 {
     private Stage stage;
     private BatchTask workerTask;
-    private MainViewPane viewPane;
+    private MainViewPaneTest viewPane;
     private ObservableList<FileSummaryRecord> fileRecords;
 
     /**
@@ -86,7 +86,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     @Override
     public void init()
     {
-        viewPane = new MainViewPane();
+        viewPane = new MainViewPaneTest();
         fileRecords = FXCollections.observableArrayList();
     }
 
@@ -179,7 +179,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             copyLogText();
         }
 
-        else if (source == viewPane.getCancelBtn())
+        else if (source == viewPane.getAbortBtn())
         {
             if (workerTask != null)
             {
@@ -443,7 +443,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.getExitBtn().setOnAction(this);
         viewPane.getCopyLogBtn().setOnAction(this);
         viewPane.getClearLogBtn().setOnAction(this);
-        viewPane.getCancelBtn().setOnAction(this);
+        viewPane.getAbortBtn().setOnAction(this);
         viewPane.getViewBtn().setOnAction(this);
     }
 
@@ -592,7 +592,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         BatchConfiguration config;
         Button actionBtn = viewPane.getActionBtn();
-        Button cancelBtn = viewPane.getCancelBtn();
+        Button cancelBtn = viewPane.getAbortBtn();
         Button copyLogBtn = viewPane.getCopyLogBtn();
         Button clearLogBtn = viewPane.getClearLogBtn();
         ProgressBar progressBar = viewPane.getProgressBar();
@@ -793,7 +793,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private void resetControlStates(Label progressLabel)
     {
         Button actionBtn = viewPane.getActionBtn();
-        Button cancelBtn = viewPane.getCancelBtn();
+        Button cancelBtn = viewPane.getAbortBtn();
         Button copyLogBtn = viewPane.getCopyLogBtn();
         ProgressBar progressBar = viewPane.getProgressBar();
 

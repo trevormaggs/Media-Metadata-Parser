@@ -84,60 +84,64 @@ public final class DisplayMetadata
         {
             startLogging();
             scanner.start();
+
+            for (MediaRecord record : scanner)
+            {
+                Path fpath = record.getPath();
+
+                try
+                {
+                    DetectedFormatResult result = ImageParserFactory.inspect(fpath);
+
+                    if (result.hasParser())
+                    {
+                        AbstractImageParser<?> parser = result.getParser();
+
+                        if (parser instanceof PngParser)
+                        {
+                            PngParser png = (PngParser) parser;
+                            png.setChunkFilter(DISPLAY_CHUNK_FILTER);
+                        }
+
+                        parser.readMetadata();
+                        Metadata<?> meta = parser.getMetadata();
+
+                        System.out.printf("======== %s ========%n", fpath);
+
+                        displaySystemMetadata(fpath);
+
+                        if (meta != null && meta.hasMetadata())
+                        {
+                            if (meta instanceof TifMetadataProvider)
+                            {
+                                displayTifMetadata((TifMetadataProvider) meta);
+                            }
+
+                            else if (meta instanceof PngMetadataProvider)
+                            {
+                                displayPngMetadata((PngMetadataProvider) meta);
+                            }
+                        }
+
+                        System.out.println();
+                    }
+                }
+
+                catch (IOException exc)
+                {
+                    System.err.printf("Warning: Skipping metadata display for [%s] due to error: %s%n", fpath.getFileName(), exc.getMessage());
+                }
+            }
         }
 
         catch (Exception exc)
         {
             System.err.println("Unable to initialise due to an error: " + exc.getMessage());
-            return;
         }
 
-        for (MediaRecord record : scanner)
+        finally
         {
-            Path fpath = record.getPath();
-
-            try
-            {
-                DetectedFormatResult result = ImageParserFactory.inspect(fpath);
-
-                if (result.hasParser())
-                {
-                    AbstractImageParser<?> parser = result.getParser();
-
-                    if (parser instanceof PngParser)
-                    {
-                        PngParser png = (PngParser) parser;
-                        png.setChunkFilter(DISPLAY_CHUNK_FILTER);
-                    }
-
-                    parser.readMetadata();
-                    Metadata<?> meta = parser.getMetadata();
-
-                    System.out.printf("======== %s ========%n", fpath);
-
-                    displaySystemMetadata(fpath);
-
-                    if (meta != null && meta.hasMetadata())
-                    {
-                        if (meta instanceof TifMetadataProvider)
-                        {
-                            displayTifMetadata((TifMetadataProvider) meta);
-                        }
-
-                        else if (meta instanceof PngMetadataProvider)
-                        {
-                            displayPngMetadata((PngMetadataProvider) meta);
-                        }
-                    }
-
-                    System.out.println();
-                }
-            }
-
-            catch (IOException exc)
-            {
-                System.err.printf("Warning: Skipping metadata display for [%s] due to error: %s%n", fpath.getFileName(), exc.getMessage());
-            }
+            LogFactory.close();
         }
     }
 

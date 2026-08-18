@@ -3,7 +3,8 @@ package gui;
 import batch.MediaBatchProcessor;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import javafx.beans.value.ChangeListener;
+import javafx.beans.InvalidationListener;
+import javafx.beans.Observable;
 import javafx.beans.value.ObservableValue;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -35,12 +36,11 @@ final class MainViewPaneTest
     private final Button sourceBtn;
     private final Button actionBtn;
     private final Button copyLogBtn;
-    private final Button cancelBtn;
+    private final Button abortBtn;
     private final Button viewBtn;
     private final Button clearLogBtn;
     private final Button exitBtn;
 
-    // Direct UI references to avoid lookup failures
     private TextField prefixText;
     private DatePicker modifyDatePicker;
     private CheckBox embedDateTimeCheck;
@@ -57,7 +57,6 @@ final class MainViewPaneTest
     public static final String SRTID = "srtId";
     public static final String DBGID = "dbgId";
     public static final String TRCID = "trcId";
-    public static final String PRVID = "prvId";
 
     MainViewPaneTest()
     {
@@ -67,14 +66,17 @@ final class MainViewPaneTest
         this.clearLogBtn = new Button();
         this.copyLogBtn = new Button();
         this.exitBtn = new Button();
-        this.cancelBtn = new Button();
+        this.abortBtn = new Button();
         this.viewBtn = new Button();
     }
 
     /**
-     * Populates the provided GridPane container with all sub-panes and attaches dynamic listeners.
+     * Populates the provided GridPane container with all sub-panes.
+     *
+     * @param pane
+     *        the target container managed by MediaMetadataGUI
      */
-    void buildLayout(final GridPane pane)
+    void buildLayout(GridPane pane)
     {
         addTopPane(pane);
         addMiddlePane(pane);
@@ -82,11 +84,10 @@ final class MainViewPaneTest
         addControlPane(pane);
         addBottomPane(pane);
 
-        // Bind real-time change listeners directly to fields
-        ChangeListener<Object> previewListener = new ChangeListener<Object>()
+        InvalidationListener previewListener = new InvalidationListener()
         {
             @Override
-            public void changed(ObservableValue<?> observable, Object oldValue, Object newValue)
+            public void invalidated(Observable observable)
             {
                 updatePreview();
             }
@@ -96,28 +97,29 @@ final class MainViewPaneTest
         {
             prefixText.textProperty().addListener(previewListener);
         }
+        
         if (embedDateTimeCheck != null)
         {
             embedDateTimeCheck.selectedProperty().addListener(previewListener);
         }
+        
         if (modifyDatePicker != null)
         {
             modifyDatePicker.valueProperty().addListener(previewListener);
         }
 
-        // Force initial update now that all controls exist
         updatePreview();
     }
 
     /**
-     * Constructs and populates the top pane containing source, target, prefix, date input
-     * fields, and dynamic target preview display.
+     * Constructs and populates the top pane containing source, target, prefix, and date input
+     * fields.
      */
     private void addTopPane(GridPane pane)
     {
         double labelWidth = 140;
 
-        // Row 1: Source
+        // Row 1
         Label sourceLabel = new Label("Source Directory");
         sourceLabel.setPrefWidth(labelWidth);
         TextField sourceText = new TextField();
@@ -134,7 +136,7 @@ final class MainViewPaneTest
         HBox sourceHbox = new HBox(10);
         sourceHbox.getChildren().addAll(sourceLabel, sourceText, GUIUtils.fillRow(), sourceBtn);
 
-        // Row 2: Target
+        // Row 2
         Label targetLabel = new Label("Target Directory");
         targetLabel.setPrefWidth(labelWidth);
         TextField targetText = new TextField();
@@ -149,7 +151,7 @@ final class MainViewPaneTest
         HBox targetHbox = new HBox(10);
         targetHbox.getChildren().addAll(targetLabel, targetText, GUIUtils.fillRow(), targetBtn);
 
-        // Row 3: Prefix
+        // Row 3
         Label prefixLabel = new Label("File Prefix Name");
         prefixLabel.setPrefWidth(labelWidth);
         prefixText = new TextField();
@@ -162,7 +164,7 @@ final class MainViewPaneTest
         HBox prefixHbox = new HBox(10);
         prefixHbox.getChildren().addAll(prefixLabel, prefixText, GUIUtils.fillRow());
 
-        // Row 4: Date
+        // Row 4
         Label dateLabel = new Label("Modify Date Taken");
         dateLabel.setPrefWidth(labelWidth);
         modifyDatePicker = new DatePicker();
@@ -174,12 +176,11 @@ final class MainViewPaneTest
         HBox modifyDateHbox = new HBox(10);
         modifyDateHbox.getChildren().addAll(dateLabel, modifyDatePicker, GUIUtils.fillRow());
 
-        // Row 5: Dynamic Preview Label
+        // Row 5: Dynamic Filename Preview
         Label previewTitleLabel = new Label("Target Preview");
         previewTitleLabel.setPrefWidth(labelWidth);
 
         previewValueLabel = new Label();
-        previewValueLabel.setId(PRVID);
         previewValueLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #005A9E;");
 
         HBox previewHbox = new HBox(10);
@@ -206,7 +207,7 @@ final class MainViewPaneTest
     {
         embedDateTimeCheck = new CheckBox("Embed Date/Time");
         embedDateTimeCheck.setId(EMBID);
-        embedDateTimeCheck.setSelected(true); // Default checked as seen in UI
+        //embedDateTimeCheck.setSelected(true);
 
         CheckBox forceDateChangeCheck = new CheckBox("Force Date Change");
         forceDateChangeCheck.setId(FRCID);
@@ -228,8 +229,7 @@ final class MainViewPaneTest
         showMetadataCheck.setId(SHWID);
 
         CheckBox[] processingChecks = new CheckBox[]{
-                embedDateTimeCheck, forceDateChangeCheck, debugCheck,
-                traceCheck, descendingCheck, skipVideoCheck
+                embedDateTimeCheck, forceDateChangeCheck, debugCheck, traceCheck, descendingCheck, skipVideoCheck
         };
 
         VBox leftCol = new VBox(10, embedDateTimeCheck, forceDateChangeCheck, debugCheck, traceCheck);
@@ -291,6 +291,9 @@ final class MainViewPaneTest
         pane.add(middleRow, 0, 1);
     }
 
+    /**
+     * Constructs and populates the log pane containing the execution console output.
+     */
     private void addLogPane(GridPane pane)
     {
         TextArea logArea = new TextArea();
@@ -317,6 +320,10 @@ final class MainViewPaneTest
         LogFactory.addLogListener(new JavaFXLogListener(logArea));
     }
 
+    /**
+     * Constructs and populates the action control pane containing execution, progress, and cancel
+     * buttons.
+     */
     private void addControlPane(GridPane pane)
     {
         actionBtn.setText("Run Batch Process");
@@ -333,10 +340,10 @@ final class MainViewPaneTest
         progressBox.setAlignment(Pos.TOP_LEFT);
 
         copyLogBtn.setText("Copy Log");
-        cancelBtn.setDisable(true);
-        cancelBtn.setText("Cancel");
+        abortBtn.setDisable(true);
+        abortBtn.setText("Abort");
 
-        HBox buttonBox = new HBox(12, actionBtn, progressBox, GUIUtils.fillRow(), copyLogBtn, cancelBtn);
+        HBox buttonBox = new HBox(12, actionBtn, progressBox, GUIUtils.fillRow(), copyLogBtn, abortBtn);
         buttonBox.setAlignment(Pos.TOP_LEFT);
         buttonBox.setPadding(new Insets(10));
 
@@ -350,6 +357,10 @@ final class MainViewPaneTest
         pane.add(titledPane, 0, 3);
     }
 
+    /**
+     * Constructs and populates the bottom toolbar containing summary viewing, log clearing, and
+     * exit controls.
+     */
     private void addBottomPane(GridPane pane)
     {
         viewBtn.setText("View Summary...");
@@ -404,6 +415,9 @@ final class MainViewPaneTest
         previewValueLabel.setText(sb.toString());
     }
 
+    /**
+     * Utility method to dynamically search for controls by FXID inside a node hierarchy.
+     */
     static <T extends Node> T getById(Node root, String id)
     {
         return GUIUtils.getById(root, id);
@@ -439,9 +453,9 @@ final class MainViewPaneTest
         return exitBtn;
     }
 
-    Button getCancelBtn()
+    Button getAbortBtn()
     {
-        return cancelBtn;
+        return abortBtn;
     }
 
     Button getViewBtn()
