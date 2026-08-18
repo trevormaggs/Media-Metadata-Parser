@@ -129,6 +129,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         configureDynamicNodes(gridPane);
     }
 
+    /**
+     * Called when the application is stopping. Saves persistent path settings.
+     */
     @Override
     public void stop()
     {
@@ -142,7 +145,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         catch (IOException exc)
         {
-            // TODO: Display GUI error popup
+            System.err.println("Unable to save path history information due to an error: " + exc.getMessage());
         }
     }
 
@@ -288,33 +291,19 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         {
                             String pastedText = clipboard.getString().trim();
 
-                            try
+                            if (pastedText.contains(","))
                             {
-                                Path rawPath = Paths.get(pastedText);
+                                Path parentDir = null;
+                                String[] parts = pastedText.split("\\s*,\\s*");
 
-                                if (Files.exists(rawPath))
+                                /*
+                                 * Locate the parent directory from the first valid path entry
+                                 */
+                                for (String part : parts)
                                 {
-                                    Path fullPath = rawPath.toAbsolutePath().normalize();
-                                    Path parent = (Files.isDirectory(fullPath) ? fullPath : fullPath.getParent());
-
-                                    sourceText.setText(pastedText);
-                                    sourceText.setUserData(parent != null ? parent.toAbsolutePath() : null);
-                                    sourceText.setTooltip(new Tooltip(pastedText));
-                                }
-                                
-                                else if (pastedText.contains(","))
-                                {
-                                    System.out.printf("LOOK: %s\n", pastedText);
-                                    
-                                    Path parentDir = null;
-                                    String[] parts = pastedText.split("\\s*,\\s*");
-
-                                    /*
-                                     * Locate the parent directory from the first valid path entry
-                                     */
-                                    for (String part : parts)
+                                    try
                                     {
-                                        Path file = Paths.get(part).toAbsolutePath().normalize();
+                                        Path file = Paths.get(part).toAbsolutePath();
 
                                         if (Files.isRegularFile(file))
                                         {
@@ -323,177 +312,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                                         }
                                     }
 
-                                    boolean valid = (parentDir != null);
-
-                                    if (valid)
+                                    catch (InvalidPathException exc)
                                     {
-                                        /*
-                                         * Verify all files are valid regular files in the exact
-                                         * same directory
-                                         */
-                                        for (String part : parts)
-                                        {
-                                            Path file = parentDir.resolve(part).normalize();
-
-                                            if (!Files.isRegularFile(file) || !parentDir.equals(file.getParent()))
-                                            {
-                                                valid = false;
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    if (valid)
-                                    {
-                                        sourceText.setText(pastedText);
-                                        sourceText.setTooltip(new Tooltip(pastedText));
-                                        sourceText.setUserData(parentDir);
-                                    }
-                                    
-                                    else
-                                    {
-                                        String msg = "One or more pasted files do not exist or are not in the same directory:\n\n" + pastedText;
-                                        GUIUtils.launchPopup("Invalid File Set", msg, AlertType.WARNING);
-                                    }
-                                }
-                                
-                                else
-                                {
-                                    String msg = "The pasted path does not exist on disk:\n\n" + pastedText;
-                                    GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
-                                }
-                            }
-                            
-                            catch (InvalidPathException exc)
-                            {
-                                String msg = "The pasted content is not a valid file path:\n\n" + pastedText;
-                                GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
-                            }
-                        }
-
-                        event.consume();
-                    }
-                }
-            });
-        }
-
-        if (prefixText != null && showMetadataCheck != null)
-        {
-            prefixText.disableProperty().bind(showMetadataCheck.selectedProperty());
-        }
-
-        if (modifyDatePicker != null && showMetadataCheck != null)
-        {
-            modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
-        }
-
-        if (showMetadataCheck != null)
-        {
-            showMetadataCheck.selectedProperty().addListener(new InvalidationListener()
-            {
-                @Override
-                public void invalidated(Observable observable)
-                {
-                    viewPane.getActionBtn().setText(showMetadataCheck.isSelected() ? "Display Metadata" : "Run Batch Process");
-                }
-            });
-        }
-
-        viewPane.getSourceBtn().setOnAction(this);
-        viewPane.getActionBtn().setOnAction(this);
-        viewPane.getExitBtn().setOnAction(this);
-        viewPane.getCopyLogBtn().setOnAction(this);
-        viewPane.getClearLogBtn().setOnAction(this);
-        viewPane.getCancelBtn().setOnAction(this);
-        viewPane.getViewBtn().setOnAction(this);
-    }
-
-    private void configureDynamicNodes2(Parent pane)
-    {
-        TextField sourceText = MainViewPane.getById(pane, MainViewPane.SRCID);
-        TextField targetText = getById(MainViewPane.TGTID);
-        TextField prefixText = MainViewPane.getById(pane, MainViewPane.PFXID);
-        DatePicker modifyDatePicker = MainViewPane.getById(pane, MainViewPane.DTMID);
-        CheckBox showMetadataCheck = MainViewPane.getById(pane, MainViewPane.SHWID);
-
-        try
-        {
-            AppSettingsManager.loadSettings(sourceText, targetText);
-        }
-
-        catch (IOException exc)
-        {
-            String errmsg = "Unable to load path history information from properties due to an error.";
-            GUIUtils.launchPopup("Configuration Error", errmsg, AlertType.ERROR);
-        }
-
-        populateRecentHistoryMenu();
-
-        if (sourceText != null)
-        {
-            sourceText.setOnMouseClicked(new EventHandler<MouseEvent>()
-            {
-                @Override
-                public void handle(MouseEvent event)
-                {
-                    if (event.getButton() == MouseButton.PRIMARY)
-                    {
-                        viewPane.getSourceBtn().fire();
-                    }
-                }
-            });
-
-            sourceText.focusedProperty().addListener(new InvalidationListener()
-            {
-                @Override
-                public void invalidated(Observable observable)
-                {
-                    if (!sourceText.isFocused())
-                    {
-                        sourceText.setText(sourceText.getText().trim());
-                    }
-                }
-            });
-
-            sourceText.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>()
-            {
-                @Override
-                public void handle(KeyEvent event)
-                {
-                    KeyCodeCombination shortcut = new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN);
-
-                    if (shortcut.match(event))
-                    {
-                        Clipboard clipboard = Clipboard.getSystemClipboard();
-
-                        if (clipboard.hasString())
-                        {
-                            String pastedText = clipboard.getString().trim();
-                            Path path = Paths.get(pastedText);
-
-                            if (Files.exists(path))
-                            {
-                                Path parent = path.getParent();
-
-                                sourceText.setText(pastedText);
-                                sourceText.setUserData(Files.isDirectory(path) || parent == null ? null : parent.toAbsolutePath());
-                                sourceText.setTooltip(new Tooltip(pastedText));
-                            }
-
-                            else if (pastedText.contains(","))
-                            {
-                                Path parentDir = null;
-                                String[] parts = pastedText.split("\\s*,\\s*");
-
-                                /* Find the first valid parent directory first */
-                                for (String part : parts)
-                                {
-                                    Path file = Paths.get(part).normalize();
-
-                                    if (file.getParent() != null && Files.isRegularFile(file))
-                                    {
-                                        parentDir = file.getParent();
-                                        break;
+                                        // Ignore invalid individual path tokens during discovery
                                     }
                                 }
 
@@ -501,19 +322,23 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                                 if (valid)
                                 {
-                                    /* Check that all files are in the same directory. */
+                                    /*
+                                     * Verify all files exist and share the exact same directory
+                                     */
                                     for (String part : parts)
                                     {
-                                        Path file = Paths.get(part);
-
-                                        if (!file.isAbsolute())
+                                        try
                                         {
-                                            file = parentDir.resolve(file);
+                                            Path file = parentDir.resolve(part);
+
+                                            if (!Files.isRegularFile(file) || !parentDir.equals(file.getParent()))
+                                            {
+                                                valid = false;
+                                                break;
+                                            }
                                         }
 
-                                        file = file.normalize();
-
-                                        if (!Files.isRegularFile(file) || !parentDir.equals(file.getParent()))
+                                        catch (InvalidPathException exc)
                                         {
                                             valid = false;
                                             break;
@@ -521,15 +346,48 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                                     }
                                 }
 
-                                sourceText.setText(pastedText);
-                                sourceText.setTooltip(new Tooltip(pastedText));
-                                sourceText.setUserData(valid ? parentDir.toAbsolutePath() : null);
+                                if (valid)
+                                {
+                                    sourceText.setText(pastedText);
+                                    sourceText.setTooltip(new Tooltip(pastedText));
+                                    sourceText.setUserData(parentDir == null ? null : parentDir.toAbsolutePath());
+                                }
+
+                                else
+                                {
+                                    String msg = "One or more pasted files is unknown or not in the same directory:\n\n" + pastedText;
+                                    GUIUtils.launchPopup("Invalid File Set", msg, AlertType.WARNING);
+                                }
                             }
 
                             else
                             {
-                                // TODO: convert to Alert popup
-                                System.out.println("Pasted path does not exist [" + pastedText + "]");
+                                try
+                                {
+                                    Path rawPath = Paths.get(pastedText);
+
+                                    if (Files.exists(rawPath))
+                                    {
+                                        Path fullPath = rawPath.toAbsolutePath();
+                                        Path parent = Files.isDirectory(fullPath) ? fullPath : fullPath.getParent();
+
+                                        sourceText.setText(pastedText);
+                                        sourceText.setTooltip(new Tooltip(pastedText));
+                                        sourceText.setUserData(parent == null ? null : parent.toAbsolutePath());
+                                    }
+
+                                    else
+                                    {
+                                        String msg = "The pasted path does not exist on disk:\n\n" + pastedText;
+                                        GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
+                                    }
+                                }
+
+                                catch (InvalidPathException exc)
+                                {
+                                    String msg = "The pasted content is not a valid file path:\n\n" + pastedText;
+                                    GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
+                                }
                             }
                         }
 
@@ -955,7 +813,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.setTitle("Batch Processing Summary");
         dialog.setHeaderText("Detailed Processing Results");
         dialog.initOwner(ownerWindow);
-
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
         TableView<FileSummaryRecord> table = new TableView<>();
