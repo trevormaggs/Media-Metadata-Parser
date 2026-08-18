@@ -19,6 +19,7 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
+import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -276,6 +277,24 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
             });
 
+            sourceText.textProperty().addListener(new ChangeListener<String>()
+            {
+                @Override
+                public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue)
+                {
+                    // If text was manually edited, ensure userData doesn't point to an outdated Path
+                    if (sourceText.getUserData() != null)
+                    {
+                        Path currentPath = (Path) sourceText.getUserData();
+                        
+                        if (!currentPath.toString().equals(newValue))
+                        {
+                            sourceText.setUserData(null);
+                        }
+                    }
+                }
+            });
+
             sourceText.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>()
             {
                 @Override
@@ -488,7 +507,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                             if (Files.exists(path))
                             {
                                 Path parent = Files.isDirectory(path) ? path : path.getParent();
-                                sourceText.setUserData(parent != null ? parent.toAbsolutePath().toString() : null);
+                                sourceText.setUserData(parent != null ? parent.toAbsolutePath() : null);
                             }
 
                             else
