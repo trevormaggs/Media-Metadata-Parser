@@ -64,33 +64,31 @@ final class GUIUtils
     }
 
     /**
-     * Recursively searches a JavaFX node hierarchy for a node with the specified ID.
+     * Recursively searches the specified JavaFX node hierarchy for a node with the given ID.
      *
-     * @param <T>
-     *        the expected node type
      * @param root
      *        the root node from which to begin the search
      * @param id
-     *        the target JavaFX ID string
-     * @return the matching node cast to type {@code T}, or {@code null} if no matching node is found
+     *        the JavaFX ID to search for
+     * @return the first node whose ID matches {@code id}, or {@code null} if no matching node is
+     *         found
      */
-    @SuppressWarnings("unchecked")
-    static <T extends Node> T getById(Node root, String id)
+    static Node getById(Node root, String id)
     {
         if (root != null && id != null)
         {
             if (id.equals(root.getId()))
             {
-                return (T) root;
+                return root;
             }
 
-            else if (root instanceof Parent)
+            if (root instanceof Parent)
             {
-                ObservableList<Node> nodes = ((Parent) root).getChildrenUnmodifiable();
+                ObservableList<Node> children = ((Parent) root).getChildrenUnmodifiable();
 
-                for (int i = 0; i < nodes.size(); i++)
+                for (int i = 0; i < children.size(); i++)
                 {
-                    T result = getById(nodes.get(i), id);
+                    Node result = getById(children.get(i), id);
 
                     if (result != null)
                     {

@@ -1,10 +1,6 @@
 package gui;
 
 import batch.MediaBatchProcessor;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import javafx.beans.InvalidationListener;
-import javafx.beans.Observable;
 import javafx.beans.value.ObservableValue;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -30,22 +26,16 @@ import logger.LogFactory;
  * View construction pane for the Media Metadata Structure Viewer interface. Builds layout panels
  * and assigns dynamic FXIDs to UI controls for configuration building.
  */
-final class MainViewPaneTest
+final class MainViewPane
 {
     private final ProgressBar progressBar;
     private final Button sourceBtn;
     private final Button actionBtn;
     private final Button copyLogBtn;
-    private final Button abortBtn;
+    private final Button cancelBtn;
     private final Button viewBtn;
     private final Button clearLogBtn;
     private final Button exitBtn;
-
-    private TextField prefixText;
-    private DatePicker modifyDatePicker;
-    private CheckBox embedDateTimeCheck;
-    private Label previewValueLabel;
-
     public static final String SRCID = "srcId";
     public static final String TGTID = "tgtId";
     public static final String PFXID = "pfxId";
@@ -58,7 +48,7 @@ final class MainViewPaneTest
     public static final String DBGID = "dbgId";
     public static final String TRCID = "trcId";
 
-    MainViewPaneTest()
+    MainViewPane()
     {
         this.progressBar = new ProgressBar(0.0);
         this.sourceBtn = new Button();
@@ -66,7 +56,7 @@ final class MainViewPaneTest
         this.clearLogBtn = new Button();
         this.copyLogBtn = new Button();
         this.exitBtn = new Button();
-        this.abortBtn = new Button();
+        this.cancelBtn = new Button();
         this.viewBtn = new Button();
     }
 
@@ -83,32 +73,6 @@ final class MainViewPaneTest
         addLogPane(pane);
         addControlPane(pane);
         addBottomPane(pane);
-
-        InvalidationListener previewListener = new InvalidationListener()
-        {
-            @Override
-            public void invalidated(Observable observable)
-            {
-                updatePreview();
-            }
-        };
-
-        if (prefixText != null)
-        {
-            prefixText.textProperty().addListener(previewListener);
-        }
-        
-        if (embedDateTimeCheck != null)
-        {
-            embedDateTimeCheck.selectedProperty().addListener(previewListener);
-        }
-        
-        if (modifyDatePicker != null)
-        {
-            modifyDatePicker.valueProperty().addListener(previewListener);
-        }
-
-        updatePreview();
     }
 
     /**
@@ -154,7 +118,7 @@ final class MainViewPaneTest
         // Row 3
         Label prefixLabel = new Label("File Prefix Name");
         prefixLabel.setPrefWidth(labelWidth);
-        prefixText = new TextField();
+        TextField prefixText = new TextField();
         prefixText.setId(PFXID);
         prefixText.setText(MediaBatchProcessor.DEFAULT_IMAGE_PREFIX);
         prefixText.setPromptText("Example: Holiday_Trip_");
@@ -167,7 +131,7 @@ final class MainViewPaneTest
         // Row 4
         Label dateLabel = new Label("Modify Date Taken");
         dateLabel.setPrefWidth(labelWidth);
-        modifyDatePicker = new DatePicker();
+        DatePicker modifyDatePicker = new DatePicker();
         modifyDatePicker.setId(DTMID);
         modifyDatePicker.setPromptText("Select date...");
         modifyDatePicker.setPrefWidth(300);
@@ -176,19 +140,9 @@ final class MainViewPaneTest
         HBox modifyDateHbox = new HBox(10);
         modifyDateHbox.getChildren().addAll(dateLabel, modifyDatePicker, GUIUtils.fillRow());
 
-        // Row 5: Dynamic Filename Preview
-        Label previewTitleLabel = new Label("Target Preview");
-        previewTitleLabel.setPrefWidth(labelWidth);
-
-        previewValueLabel = new Label();
-        previewValueLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #005A9E;");
-
-        HBox previewHbox = new HBox(10);
-        previewHbox.getChildren().addAll(previewTitleLabel, previewValueLabel, GUIUtils.fillRow());
-
         VBox contentPane = new VBox(12);
         contentPane.setPadding(new Insets(10));
-        contentPane.getChildren().addAll(sourceHbox, targetHbox, prefixHbox, modifyDateHbox, previewHbox);
+        contentPane.getChildren().addAll(sourceHbox, targetHbox, prefixHbox, modifyDateHbox);
 
         TitledPane titledPane = new TitledPane("Input Options", contentPane);
         titledPane.setCollapsible(false);
@@ -205,9 +159,8 @@ final class MainViewPaneTest
      */
     private void addMiddlePane(GridPane pane)
     {
-        embedDateTimeCheck = new CheckBox("Embed Date/Time");
+        CheckBox embedDateTimeCheck = new CheckBox("Embed Date/Time");
         embedDateTimeCheck.setId(EMBID);
-        //embedDateTimeCheck.setSelected(true);
 
         CheckBox forceDateChangeCheck = new CheckBox("Force Date Change");
         forceDateChangeCheck.setId(FRCID);
@@ -340,10 +293,10 @@ final class MainViewPaneTest
         progressBox.setAlignment(Pos.TOP_LEFT);
 
         copyLogBtn.setText("Copy Log");
-        abortBtn.setDisable(true);
-        abortBtn.setText("Abort");
+        cancelBtn.setDisable(true);
+        cancelBtn.setText("Cancel");
 
-        HBox buttonBox = new HBox(12, actionBtn, progressBox, GUIUtils.fillRow(), copyLogBtn, abortBtn);
+        HBox buttonBox = new HBox(12, actionBtn, progressBox, GUIUtils.fillRow(), copyLogBtn, cancelBtn);
         buttonBox.setAlignment(Pos.TOP_LEFT);
         buttonBox.setPadding(new Insets(10));
 
@@ -375,44 +328,6 @@ final class MainViewPaneTest
         GridPane.setHgrow(controlLayout, Priority.ALWAYS);
 
         pane.add(controlLayout, 0, 4);
-    }
-
-    /**
-     * Recalculates the preview text based on current input field values.
-     */
-    private void updatePreview()
-    {
-        if (previewValueLabel == null)
-        {
-            return;
-        }
-
-        StringBuilder sb = new StringBuilder();
-
-        String prefix = (prefixText != null) ? prefixText.getText() : "";
-        if (prefix != null && !prefix.trim().isEmpty())
-        {
-            sb.append(prefix.trim()).append("_");
-        }
-
-        boolean embedDate = (embedDateTimeCheck != null) && embedDateTimeCheck.isSelected();
-        if (embedDate)
-        {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("ddMMMyyyy");
-
-            if (modifyDatePicker != null && modifyDatePicker.getValue() != null)
-            {
-                sb.append(modifyDatePicker.getValue().format(formatter)).append("_");
-            }
-            else
-            {
-                sb.append(LocalDate.now().format(formatter)).append("_");
-            }
-        }
-
-        sb.append(String.format("%04d", 1)).append(".jpg");
-
-        previewValueLabel.setText(sb.toString());
     }
 
     /**
@@ -453,9 +368,9 @@ final class MainViewPaneTest
         return exitBtn;
     }
 
-    Button getAbortBtn()
+    Button getCancelBtn()
     {
-        return abortBtn;
+        return cancelBtn;
     }
 
     Button getViewBtn()

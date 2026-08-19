@@ -17,7 +17,7 @@ import javafx.scene.control.Tooltip;
  * Manages persistent user configuration settings across application sessions using a simple
  * key-value configuration file.
  */
-public final class AppSettingsManager
+public final class PathHistoryStore
 {
     private static final String CONFIG_FILE_NAME = "app_settings.properties";
     private static final String KEY_SOURCE_PATH = "last.source.path";
@@ -29,7 +29,7 @@ public final class AppSettingsManager
     /**
      * Private constructor to prevent direct instantiation of this utility class.
      */
-    private AppSettingsManager()
+    private PathHistoryStore()
     {
         throw new UnsupportedOperationException("Instantiation not allowed");
     }
@@ -52,14 +52,14 @@ public final class AppSettingsManager
      */
     public static List<String> loadRecentSourcePaths()
     {
-        Path historyConfig = getSettingsPath();
-        List<String> history = new ArrayList<>();
+        Path history = getSettingsPath();
+        List<String> historyConfig = new ArrayList<>();
 
-        if (Files.exists(historyConfig))
+        if (Files.exists(history))
         {
             Properties props = new Properties();
 
-            try (InputStream is = Files.newInputStream(historyConfig))
+            try (InputStream is = Files.newInputStream(history))
             {
                 props.load(is);
 
@@ -69,7 +69,7 @@ public final class AppSettingsManager
 
                     if (!path.isEmpty())
                     {
-                        history.add(path);
+                        historyConfig.add(path);
                     }
                 }
             }
@@ -80,7 +80,7 @@ public final class AppSettingsManager
             }
         }
 
-        return history;
+        return historyConfig;
     }
 
     /**
@@ -98,7 +98,7 @@ public final class AppSettingsManager
     {
         Path sourceParentPath = null;
         Properties props = new Properties();
-        Path historyConfig = getSettingsPath();
+        Path history = getSettingsPath();
         Object userData = sourceText.getUserData();
         String sourcePath = sourceText.getText().trim();
         String targetPath = targetText.getText().trim();
@@ -134,9 +134,9 @@ public final class AppSettingsManager
 
         String entry = (sourceParentPath != null && !sourceParentPath.toString().isEmpty() ? sourceParentPath.toString() : sourcePath);
 
-        if (Files.exists(historyConfig))
+        if (Files.exists(history))
         {
-            try (InputStream is = Files.newInputStream(historyConfig))
+            try (InputStream is = Files.newInputStream(history))
             {
                 props.load(is);
             }
@@ -178,7 +178,7 @@ public final class AppSettingsManager
         }
 
         /* Commit all changes to disk in a single write operation */
-        try (OutputStream os = Files.newOutputStream(historyConfig))
+        try (OutputStream os = Files.newOutputStream(history))
         {
             props.store(os, "Media Metadata App User Settings");
         }
@@ -197,12 +197,12 @@ public final class AppSettingsManager
      */
     public static void loadSettings(TextField sourceText, TextField targetText) throws IOException
     {
+        Path history = getSettingsPath();
         Properties props = new Properties();
-        Path historyConfig = getSettingsPath();
 
-        if (Files.exists(historyConfig))
+        if (Files.exists(history))
         {
-            try (InputStream is = Files.newInputStream(historyConfig))
+            try (InputStream is = Files.newInputStream(history))
             {
                 props.load(is);
 
@@ -272,8 +272,8 @@ public final class AppSettingsManager
      */
     private static void updateRecentHistoryInProps(Properties props, String newPath)
     {
-        List<String> currentHistory = new ArrayList<>();
-        List<String> updatedHistory = new ArrayList<>();
+        List<String> oldHistory = new ArrayList<>();
+        List<String> newHistory = new ArrayList<>();
 
         for (int i = 0; i < MAX_RECENT_ENTRIES; i++)
         {
@@ -281,17 +281,17 @@ public final class AppSettingsManager
 
             if (!entry.isEmpty())
             {
-                currentHistory.add(entry);
+                oldHistory.add(entry);
             }
         }
 
-        updatedHistory.add(newPath);
+        newHistory.add(newPath);
 
-        for (String entry : currentHistory)
+        for (String entry : oldHistory)
         {
-            if (!entry.equalsIgnoreCase(newPath) && updatedHistory.size() < MAX_RECENT_ENTRIES)
+            if (!entry.equalsIgnoreCase(newPath) && newHistory.size() < MAX_RECENT_ENTRIES)
             {
-                updatedHistory.add(entry);
+                newHistory.add(entry);
             }
         }
 
@@ -301,9 +301,9 @@ public final class AppSettingsManager
             props.remove(KEY_RECENT_PREFIX + i);
         }
 
-        for (int i = 0; i < updatedHistory.size(); i++)
+        for (int i = 0; i < newHistory.size(); i++)
         {
-            props.setProperty(KEY_RECENT_PREFIX + i, updatedHistory.get(i));
+            props.setProperty(KEY_RECENT_PREFIX + i, newHistory.get(i));
         }
     }
 }

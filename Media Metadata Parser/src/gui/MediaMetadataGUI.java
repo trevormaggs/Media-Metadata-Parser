@@ -28,7 +28,6 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Side;
-import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert.AlertType;
@@ -77,7 +76,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 {
     private Stage stage;
     private BatchTask workerTask;
-    private MainViewPaneTest viewPane;
+    private MainViewPane viewPane;
     private ObservableList<FileSummaryRecord> fileRecords;
 
     /**
@@ -86,7 +85,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     @Override
     public void init()
     {
-        viewPane = new MainViewPaneTest();
+        viewPane = new MainViewPane();
         fileRecords = FXCollections.observableArrayList();
     }
 
@@ -136,12 +135,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     @Override
     public void stop()
     {
-        TextField sourceText = getById(MainViewPane.SRCID);
-        TextField targetText = getById(MainViewPane.TGTID);
+        TextField sourceText = MainViewPane.getById(stage.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
+        TextField targetText = MainViewPane.getById(stage.getScene().getRoot(), MainViewPane.TGTID, TextField.class);
 
         try
         {
-            AppSettingsManager.saveSettings(sourceText, targetText);
+            PathHistoryStore.saveSettings(sourceText, targetText);
         }
 
         catch (IOException exc)
@@ -159,27 +158,27 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         Object source = event.getSource();
 
-        if (source == viewPane.getSourceBtn())
+        if (source == viewPane.sourceBtn)
         {
-            ContextMenu menu = (ContextMenu) viewPane.getSourceBtn().getUserData();
+            ContextMenu menu = (ContextMenu) viewPane.sourceBtn.getUserData();
 
             if (menu != null)
             {
-                menu.show(viewPane.getSourceBtn(), Side.BOTTOM, 0, 0);
+                menu.show(viewPane.sourceBtn, Side.BOTTOM, 0, 0);
             }
         }
 
-        else if (source == viewPane.getActionBtn())
+        else if (source == viewPane.actionBtn)
         {
             executeBatchProcess();
         }
 
-        else if (source == viewPane.getCopyLogBtn())
+        else if (source == viewPane.copyLogBtn)
         {
             copyLogText();
         }
 
-        else if (source == viewPane.getAbortBtn())
+        else if (source == viewPane.abortBtn)
         {
             if (workerTask != null)
             {
@@ -187,14 +186,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         }
 
-        else if (source == viewPane.getViewBtn())
+        else if (source == viewPane.viewBtn)
         {
             showSummaryDialog(stage);
         }
 
-        else if (source == viewPane.getClearLogBtn())
+        else if (source == viewPane.clearLogBtn)
         {
-            TextArea logArea = (TextArea) viewPane.getClearLogBtn().getUserData();
+            TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
             if (logArea != null)
             {
@@ -202,7 +201,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         }
 
-        else if (source == viewPane.getExitBtn())
+        else if (source == viewPane.exitBtn)
         {
             Platform.exit();
         }
@@ -217,11 +216,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      * bindings, dynamic metadata updates, and populates recent location context menus.
      * </p>
      *
-     * <b>Important note for developers:</b> When the source text field receives files through
-     * paste, their parent directory is stored on the text field via
-     * {@link TextField#setUserData(Object)} to provide authoritative base-path context for
-     * downstream parsing. If a common parent directory cannot be determined, {@code null} is
-     * assigned to indicate that no authoritative base path is available.
+     * <b>Important note for developers:</b>
+     * When files are pasted into the source text field, their common parent directory is stored in
+     * the field's {@link TextField#getUserData() user data}. This directory is used as the base
+     * directory for downstream processing. If a common parent directory cannot be determined,
+     * {@code null} is stored instead.
      * </p>
      *
      * @param pane
@@ -229,222 +228,223 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void configureDynamicNodes(Parent pane)
     {
-        TextField sourceText = MainViewPane.getById(pane, MainViewPane.SRCID);
-        TextField targetText = MainViewPane.getById(pane, MainViewPane.TGTID);
-        TextField prefixText = MainViewPane.getById(pane, MainViewPane.PFXID);
-        DatePicker modifyDatePicker = MainViewPane.getById(pane, MainViewPane.DTMID);
-        CheckBox showMetadataCheck = MainViewPane.getById(pane, MainViewPane.SHWID);
+        TextField sourceText = MainViewPane.getById(pane, MainViewPane.SRCID, TextField.class);
+        TextField targetText = MainViewPane.getById(pane, MainViewPane.TGTID, TextField.class);
+        TextField prefixText = MainViewPane.getById(pane, MainViewPane.PFXID, TextField.class);
+        CheckBox embedDateTimeCheck = MainViewPane.getById(pane, MainViewPane.EMBID, CheckBox.class);
+        DatePicker modifyDatePicker = MainViewPane.getById(pane, MainViewPane.DTMID, DatePicker.class);
+        CheckBox showMetadataCheck = MainViewPane.getById(pane, MainViewPane.SHWID, CheckBox.class);
 
-        if (sourceText != null && targetText != null)
+        try
         {
-            try
-            {
-                AppSettingsManager.loadSettings(sourceText, targetText);
-            }
+            PathHistoryStore.loadSettings(sourceText, targetText);
+        }
 
-            catch (IOException exc)
-            {
-                String errmsg = "Unable to load path history information from properties due to an error: " + exc.getMessage();
-                GUIUtils.launchPopup("Configuration Error", errmsg, AlertType.ERROR);
-            }
+        catch (IOException exc)
+        {
+            String errmsg = "Unable to load path history information from properties due to an error.\n\n" + exc.getMessage();
+            GUIUtils.launchPopup("Configuration Error", errmsg, AlertType.ERROR);
         }
 
         populateRecentHistoryMenu();
 
-        if (sourceText != null)
+        sourceText.setOnMouseClicked(new EventHandler<MouseEvent>()
         {
-            sourceText.setOnMouseClicked(new EventHandler<MouseEvent>()
+            @Override
+            public void handle(MouseEvent event)
             {
-                @Override
-                public void handle(MouseEvent event)
+                if (event.getButton() == MouseButton.PRIMARY)
                 {
-                    if (event.getButton() == MouseButton.PRIMARY)
+                    viewPane.sourceBtn.fire();
+                }
+            }
+        });
+
+        sourceText.focusedProperty().addListener(new InvalidationListener()
+        {
+            @Override
+            public void invalidated(Observable observable)
+            {
+                if (!sourceText.isFocused())
+                {
+                    sourceText.setText(sourceText.getText().trim());
+                }
+            }
+        });
+
+        sourceText.textProperty().addListener(new ChangeListener<String>()
+        {
+            @Override
+            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue)
+            {
+                // If text was manually edited, ensure userData doesn't point to an outdated Path
+                if (sourceText.getUserData() != null)
+                {
+                    Path currentPath = (Path) sourceText.getUserData();
+
+                    if (!currentPath.toString().equals(newValue))
                     {
-                        viewPane.getSourceBtn().fire();
+                        sourceText.setUserData(null);
                     }
                 }
-            });
+            }
+        });
 
-            sourceText.focusedProperty().addListener(new InvalidationListener()
+        sourceText.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>()
+        {
+            @Override
+            public void handle(KeyEvent event)
             {
-                @Override
-                public void invalidated(Observable observable)
-                {
-                    if (!sourceText.isFocused())
-                    {
-                        sourceText.setText(sourceText.getText().trim());
-                    }
-                }
-            });
+                KeyCodeCombination shortcut = new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN);
 
-            sourceText.textProperty().addListener(new ChangeListener<String>()
-            {
-                @Override
-                public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue)
+                if (shortcut.match(event))
                 {
-                    // If text was manually edited, ensure userData doesn't point to an outdated Path
-                    if (sourceText.getUserData() != null)
+                    Clipboard clipboard = Clipboard.getSystemClipboard();
+
+                    if (clipboard.hasString())
                     {
-                        Path currentPath = (Path) sourceText.getUserData();
-                        
-                        if (!currentPath.toString().equals(newValue))
+                        String pastedText = clipboard.getString().trim();
+
+                        if (pastedText.contains(","))
                         {
-                            sourceText.setUserData(null);
-                        }
-                    }
-                }
-            });
+                            Path parentDir = null;
+                            String[] parts = pastedText.split("\\s*,\\s*");
 
-            sourceText.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>()
-            {
-                @Override
-                public void handle(KeyEvent event)
-                {
-                    KeyCodeCombination shortcut = new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN);
-
-                    if (shortcut.match(event))
-                    {
-                        Clipboard clipboard = Clipboard.getSystemClipboard();
-
-                        if (clipboard.hasString())
-                        {
-                            String pastedText = clipboard.getString().trim();
-
-                            if (pastedText.contains(","))
+                            /*
+                             * Locate the parent directory from the first valid path entry
+                             */
+                            for (String part : parts)
                             {
-                                Path parentDir = null;
-                                String[] parts = pastedText.split("\\s*,\\s*");
+                                try
+                                {
+                                    Path file = Paths.get(part).toAbsolutePath();
 
+                                    if (Files.isRegularFile(file))
+                                    {
+                                        parentDir = file.getParent();
+                                        break;
+                                    }
+                                }
+
+                                catch (InvalidPathException exc)
+                                {
+                                    // Ignore invalid individual path tokens during discovery
+                                }
+                            }
+
+                            boolean valid = (parentDir != null);
+
+                            if (valid)
+                            {
                                 /*
-                                 * Locate the parent directory from the first valid path entry
+                                 * Verify all files exist and share the exact same directory
                                  */
                                 for (String part : parts)
                                 {
                                     try
                                     {
-                                        Path file = Paths.get(part).toAbsolutePath();
+                                        Path file = parentDir.resolve(part);
 
-                                        if (Files.isRegularFile(file))
+                                        if (!Files.isRegularFile(file) || !parentDir.equals(file.getParent()))
                                         {
-                                            parentDir = file.getParent();
+                                            valid = false;
                                             break;
                                         }
                                     }
 
                                     catch (InvalidPathException exc)
                                     {
-                                        // Ignore invalid individual path tokens during discovery
+                                        valid = false;
+                                        break;
                                     }
                                 }
+                            }
 
-                                boolean valid = (parentDir != null);
-
-                                if (valid)
-                                {
-                                    /*
-                                     * Verify all files exist and share the exact same directory
-                                     */
-                                    for (String part : parts)
-                                    {
-                                        try
-                                        {
-                                            Path file = parentDir.resolve(part);
-
-                                            if (!Files.isRegularFile(file) || !parentDir.equals(file.getParent()))
-                                            {
-                                                valid = false;
-                                                break;
-                                            }
-                                        }
-
-                                        catch (InvalidPathException exc)
-                                        {
-                                            valid = false;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (valid)
-                                {
-                                    sourceText.setText(pastedText);
-                                    sourceText.setTooltip(new Tooltip(pastedText));
-                                    sourceText.setUserData(parentDir == null ? null : parentDir.toAbsolutePath());
-                                }
-
-                                else
-                                {
-                                    String msg = "One or more pasted files is unknown or not in the same directory:\n\n" + pastedText;
-                                    GUIUtils.launchPopup("Invalid File Set", msg, AlertType.WARNING);
-                                }
+                            if (valid)
+                            {
+                                sourceText.setText(pastedText);
+                                sourceText.setTooltip(new Tooltip(pastedText));
+                                sourceText.setUserData(parentDir == null ? null : parentDir.toAbsolutePath());
                             }
 
                             else
                             {
-                                try
-                                {
-                                    Path rawPath = Paths.get(pastedText);
-
-                                    if (Files.exists(rawPath))
-                                    {
-                                        Path fullPath = rawPath.toAbsolutePath();
-                                        Path parent = Files.isDirectory(fullPath) ? fullPath : fullPath.getParent();
-
-                                        sourceText.setText(pastedText);
-                                        sourceText.setTooltip(new Tooltip(pastedText));
-                                        sourceText.setUserData(parent == null ? null : parent.toAbsolutePath());
-                                    }
-
-                                    else
-                                    {
-                                        String msg = "The pasted path does not exist on disk:\n\n" + pastedText;
-                                        GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
-                                    }
-                                }
-
-                                catch (InvalidPathException exc)
-                                {
-                                    String msg = "The pasted content is not a valid file path:\n\n" + pastedText;
-                                    GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
-                                }
+                                String msg = "One or more pasted files is unknown or not in the same directory:\n\n" + pastedText;
+                                GUIUtils.launchPopup("Invalid File Set", msg, AlertType.WARNING);
                             }
                         }
 
-                        event.consume();
+                        else
+                        {
+                            try
+                            {
+                                Path rawPath = Paths.get(pastedText);
+
+                                if (Files.exists(rawPath))
+                                {
+                                    Path fullPath = rawPath.toAbsolutePath();
+                                    Path parent = Files.isDirectory(fullPath) ? fullPath : fullPath.getParent();
+
+                                    sourceText.setText(pastedText);
+                                    sourceText.setTooltip(new Tooltip(pastedText));
+                                    sourceText.setUserData(parent == null ? null : parent.toAbsolutePath());
+                                }
+
+                                else
+                                {
+                                    String msg = "The pasted path does not exist on disk:\n\n" + pastedText;
+                                    GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
+                                }
+                            }
+
+                            catch (InvalidPathException exc)
+                            {
+                                String msg = "The pasted content is not a valid file path:\n\n" + pastedText;
+                                GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
+                            }
+                        }
                     }
+
+                    event.consume();
                 }
-            });
-        }
+            }
+        });
 
-        if (prefixText != null && showMetadataCheck != null)
+        // Preview listener for live preview generation
+        InvalidationListener previewListener = new InvalidationListener()
         {
-            prefixText.disableProperty().bind(showMetadataCheck.selectedProperty());
-        }
-
-        if (modifyDatePicker != null && showMetadataCheck != null)
-        {
-            modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
-        }
-
-        if (showMetadataCheck != null)
-        {
-            showMetadataCheck.selectedProperty().addListener(new InvalidationListener()
+            @Override
+            public void invalidated(Observable observable)
             {
-                @Override
-                public void invalidated(Observable observable)
-                {
-                    viewPane.getActionBtn().setText(showMetadataCheck.isSelected() ? "Display Metadata" : "Run Batch Process");
-                }
-            });
-        }
+                viewPane.updatePreview((GridPane) pane);
+            }
+        };
 
-        viewPane.getSourceBtn().setOnAction(this);
-        viewPane.getActionBtn().setOnAction(this);
-        viewPane.getExitBtn().setOnAction(this);
-        viewPane.getCopyLogBtn().setOnAction(this);
-        viewPane.getClearLogBtn().setOnAction(this);
-        viewPane.getAbortBtn().setOnAction(this);
-        viewPane.getViewBtn().setOnAction(this);
+        prefixText.disableProperty().bind(showMetadataCheck.selectedProperty());
+        modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
+
+        prefixText.textProperty().addListener(previewListener);
+        embedDateTimeCheck.selectedProperty().addListener(previewListener);
+        modifyDatePicker.valueProperty().addListener(previewListener);
+        showMetadataCheck.selectedProperty().addListener(new InvalidationListener()
+        {
+            @Override
+            public void invalidated(Observable observable)
+            {
+                viewPane.actionBtn.setText(showMetadataCheck.isSelected() ? "Display Metadata" : "Run Batch Process");
+            }
+        });
+
+        // Action Handlers
+        viewPane.sourceBtn.setOnAction(this);
+        viewPane.actionBtn.setOnAction(this);
+        viewPane.exitBtn.setOnAction(this);
+        viewPane.copyLogBtn.setOnAction(this);
+        viewPane.clearLogBtn.setOnAction(this);
+        viewPane.abortBtn.setOnAction(this);
+        viewPane.viewBtn.setOnAction(this);
+
+        viewPane.updatePreview((GridPane) pane);
     }
 
     /**
@@ -454,14 +454,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private void populateRecentHistoryMenu()
     {
         ContextMenu menu = new ContextMenu();
-        Button sourceBtn = viewPane.getSourceBtn();
-        TextField sourceText = getById(MainViewPane.SRCID);
-        List<String> recentPaths = AppSettingsManager.loadRecentSourcePaths();
-
-        if (sourceBtn == null || sourceText == null)
-        {
-            return;
-        }
+        Button sourceBtn = viewPane.sourceBtn;
+        TextField sourceText = MainViewPane.getById(stage.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
+        List<String> recentPaths = PathHistoryStore.loadRecentSourcePaths();
 
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
@@ -540,38 +535,34 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void handleFileSelection()
     {
-        TextField sourceText = getById(MainViewPane.SRCID);
+        TextField sourceText = MainViewPane.getById(stage.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
+        FileChooser chooser = new FileChooser();
+        String actualText = sourceText.getText().trim();
+        File sourceDir = new File(actualText.isEmpty() ? System.getProperty("user.home") : actualText);
 
-        if (sourceText != null)
+        chooser.setTitle("Select Source Files");
+
+        if (sourceDir.isDirectory())
         {
-            FileChooser chooser = new FileChooser();
-            String actualText = sourceText.getText().trim();
-            File sourceDir = new File(actualText.isEmpty() ? System.getProperty("user.home") : actualText);
+            chooser.setInitialDirectory(sourceDir);
+        }
 
-            chooser.setTitle("Select Source Files");
+        List<File> files = chooser.showOpenMultipleDialog(stage);
 
-            if (sourceDir.isDirectory())
+        if (files != null && !files.isEmpty())
+        {
+            StringJoiner joiner = new StringJoiner(", ");
+
+            for (File file : files)
             {
-                chooser.setInitialDirectory(sourceDir);
+                joiner.add(file.getName());
             }
 
-            List<File> files = chooser.showOpenMultipleDialog(stage);
+            String joined = joiner.toString();
 
-            if (files != null && !files.isEmpty())
-            {
-                StringJoiner joiner = new StringJoiner(", ");
-
-                for (File file : files)
-                {
-                    joiner.add(file.getName());
-                }
-
-                String joined = joiner.toString();
-
-                sourceText.setText(joined);
-                sourceText.setTooltip(new Tooltip(joined));
-                sourceText.setUserData(files.get(0).toPath().getParent().toAbsolutePath());
-            }
+            sourceText.setText(joined);
+            sourceText.setTooltip(new Tooltip(joined));
+            sourceText.setUserData(files.get(0).toPath().getParent().toAbsolutePath());
         }
     }
 
@@ -591,15 +582,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private void executeBatchProcess()
     {
         BatchConfiguration config;
-        Button actionBtn = viewPane.getActionBtn();
-        Button cancelBtn = viewPane.getAbortBtn();
-        Button copyLogBtn = viewPane.getCopyLogBtn();
-        Button clearLogBtn = viewPane.getClearLogBtn();
-        ProgressBar progressBar = viewPane.getProgressBar();
+        Button actionBtn = viewPane.actionBtn;
+        Button cancelBtn = viewPane.abortBtn;
+        Button copyLogBtn = viewPane.copyLogBtn;
+        Button clearLogBtn = viewPane.clearLogBtn;
+        ProgressBar progressBar = viewPane.progressBar;
         TextArea logArea = (TextArea) clearLogBtn.getUserData();
         Label progressLabel = (Label) progressBar.getUserData();
-        CheckBox showMetadata = getById(MainViewPane.SHWID);
-        boolean metaDisplay = (showMetadata != null && showMetadata.isSelected());
+        CheckBox showMetadata = MainViewPane.getById(stage.getScene().getRoot(), MainViewPane.SHWID, CheckBox.class);
 
         if (logArea != null)
         {
@@ -620,7 +610,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 return;
             }
 
-            workerTask = new BatchTask(config, logArea, progressBar, metaDisplay);
+            workerTask = new BatchTask(config, logArea, progressBar, showMetadata.isSelected());
 
             workerTask.setFileSummaryListener(new PropertyListener()
             {
@@ -754,7 +744,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void copyLogText()
     {
-        TextArea logArea = (TextArea) viewPane.getClearLogBtn().getUserData();
+        TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
         if (logArea != null && !logArea.getText().isEmpty())
         {
@@ -792,10 +782,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void resetControlStates(Label progressLabel)
     {
-        Button actionBtn = viewPane.getActionBtn();
-        Button cancelBtn = viewPane.getAbortBtn();
-        Button copyLogBtn = viewPane.getCopyLogBtn();
-        ProgressBar progressBar = viewPane.getProgressBar();
+        Button actionBtn = viewPane.actionBtn;
+        Button cancelBtn = viewPane.abortBtn;
+        Button copyLogBtn = viewPane.copyLogBtn;
+        ProgressBar progressBar = viewPane.progressBar;
 
         actionBtn.setDisable(false);
         actionBtn.getScene().getRoot().requestFocus();
@@ -884,25 +874,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.getDialogPane().setContent(table);
         dialog.getDialogPane().setPrefSize(550, 320);
         dialog.showAndWait();
-    }
-
-    /**
-     * Convenience method to retrieve a JavaFX node by its ID from the root scene node.
-     *
-     * @param <T>
-     *        the expected node type
-     * @param id
-     *        the JavaFX ID of the target node
-     * @return the matching node cast to type {@code T}, or {@code null} if not found
-     */
-    private <T extends Node> T getById(String id)
-    {
-        if (stage != null && stage.getScene() != null)
-        {
-            return GUIUtils.getById(stage.getScene().getRoot(), id);
-        }
-
-        return null;
     }
 
     /**

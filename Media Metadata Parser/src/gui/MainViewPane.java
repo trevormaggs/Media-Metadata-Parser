@@ -1,6 +1,9 @@
 package gui;
 
 import batch.MediaBatchProcessor;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.NoSuchElementException;
 import javafx.beans.value.ObservableValue;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -28,25 +31,27 @@ import logger.LogFactory;
  */
 final class MainViewPane
 {
-    private final ProgressBar progressBar;
-    private final Button sourceBtn;
-    private final Button actionBtn;
-    private final Button copyLogBtn;
-    private final Button cancelBtn;
-    private final Button viewBtn;
-    private final Button clearLogBtn;
-    private final Button exitBtn;
-    public static final String SRCID = "srcId";
-    public static final String TGTID = "tgtId";
-    public static final String PFXID = "pfxId";
-    public static final String DTMID = "dtmId";
-    public static final String EMBID = "embId";
-    public static final String FRCID = "forId";
-    public static final String SKPID = "skpId";
-    public static final String SHWID = "shwId";
-    public static final String SRTID = "srtId";
-    public static final String DBGID = "dbgId";
-    public static final String TRCID = "trcId";
+    static final String SRCID = "srcId";
+    static final String TGTID = "tgtId";
+    static final String PFXID = "pfxId";
+    static final String DTMID = "dtmId";
+    static final String EMBID = "embId";
+    static final String FRCID = "forId";
+    static final String SKPID = "skpId";
+    static final String SHWID = "shwId";
+    static final String SRTID = "srtId";
+    static final String DBGID = "dbgId";
+    static final String TRCID = "trcId";
+
+    final ProgressBar progressBar;
+    final Button sourceBtn;
+    final Button actionBtn;
+    final Button copyLogBtn;
+    final Button abortBtn;
+    final Button viewBtn;
+    final Button clearLogBtn;
+    final Button exitBtn;
+    private Label previewValueLabel;
 
     MainViewPane()
     {
@@ -56,7 +61,7 @@ final class MainViewPane
         this.clearLogBtn = new Button();
         this.copyLogBtn = new Button();
         this.exitBtn = new Button();
-        this.cancelBtn = new Button();
+        this.abortBtn = new Button();
         this.viewBtn = new Button();
     }
 
@@ -73,6 +78,80 @@ final class MainViewPane
         addLogPane(pane);
         addControlPane(pane);
         addBottomPane(pane);
+    }
+
+    /**
+     * Retrieves a node by ID and safely casts it to the expected type.
+     *
+     * @param <T>
+     *        the expected node type
+     * @param root
+     *        the root node to begin searching from
+     * @param id
+     *        the target JavaFX ID
+     * @param type
+     *        the expected Class token, for example: TextField.class
+     * @return the matching node cast to {@code T}
+     *
+     * @throws NoSuchElementException
+     *         if no node with the ID exists
+     * @throws IllegalArgumentException
+     *         if the node exists but is not an instance of {@code type}
+     */
+    static <T extends Node> T getById(Node root, String id, Class<T> type)
+    {
+        Node node = GUIUtils.getById(root, id);
+
+        if (node == null)
+        {
+            throw new NoSuchElementException("Node ID [" + id + "] not found in the layout hierarchy");
+        }
+
+        if (!type.isInstance(node))
+        {
+            throw new IllegalArgumentException("Node ID [" + id + "] is of type " + node.getClass().getName() + ", but expected " + type.getName());
+        }
+
+        return type.cast(node);
+    }
+
+    /**
+     * Recalculates the preview text based on current input field values retrieved by FXID.
+     */
+    void updatePreview(GridPane pane)
+    {
+        if (previewValueLabel != null)
+        {
+            TextField prefixText = getById(pane, PFXID, TextField.class);
+            CheckBox embedDateTimeCheck = getById(pane, EMBID, CheckBox.class);
+            DatePicker modifyDatePicker = getById(pane, DTMID, DatePicker.class);
+            StringBuilder sb = new StringBuilder();
+            String prefix = prefixText.getText().trim();
+
+            if (!prefix.isEmpty())
+            {
+                sb.append(prefix).append("_");
+            }
+
+            if (embedDateTimeCheck.isSelected())
+            {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("ddMMMyyyy");
+
+                if (modifyDatePicker.getValue() != null)
+                {
+                    sb.append(modifyDatePicker.getValue().format(formatter)).append("_");
+                }
+
+                else
+                {
+                    sb.append(LocalDate.now().format(formatter)).append("_");
+                }
+            }
+
+            sb.append(String.format("%04d", 1)).append(".jpg");
+
+            previewValueLabel.setText(sb.toString());
+        }
     }
 
     /**
@@ -140,9 +219,19 @@ final class MainViewPane
         HBox modifyDateHbox = new HBox(10);
         modifyDateHbox.getChildren().addAll(dateLabel, modifyDatePicker, GUIUtils.fillRow());
 
+        // Row 5: Dynamic Filename Preview
+        Label previewTitleLabel = new Label("Target Preview");
+        previewTitleLabel.setPrefWidth(labelWidth);
+
+        previewValueLabel = new Label();
+        previewValueLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #005A9E;");
+
+        HBox previewHbox = new HBox(10);
+        previewHbox.getChildren().addAll(previewTitleLabel, previewValueLabel, GUIUtils.fillRow());
+
         VBox contentPane = new VBox(12);
         contentPane.setPadding(new Insets(10));
-        contentPane.getChildren().addAll(sourceHbox, targetHbox, prefixHbox, modifyDateHbox);
+        contentPane.getChildren().addAll(sourceHbox, targetHbox, prefixHbox, modifyDateHbox, previewHbox);
 
         TitledPane titledPane = new TitledPane("Input Options", contentPane);
         titledPane.setCollapsible(false);
@@ -182,7 +271,12 @@ final class MainViewPane
         showMetadataCheck.setId(SHWID);
 
         CheckBox[] processingChecks = new CheckBox[]{
-                embedDateTimeCheck, forceDateChangeCheck, debugCheck, traceCheck, descendingCheck, skipVideoCheck
+                embedDateTimeCheck,
+                forceDateChangeCheck,
+                debugCheck,
+                traceCheck,
+                descendingCheck,
+                skipVideoCheck
         };
 
         VBox leftCol = new VBox(10, embedDateTimeCheck, forceDateChangeCheck, debugCheck, traceCheck);
@@ -293,10 +387,10 @@ final class MainViewPane
         progressBox.setAlignment(Pos.TOP_LEFT);
 
         copyLogBtn.setText("Copy Log");
-        cancelBtn.setDisable(true);
-        cancelBtn.setText("Cancel");
+        abortBtn.setDisable(true);
+        abortBtn.setText("Abort");
 
-        HBox buttonBox = new HBox(12, actionBtn, progressBox, GUIUtils.fillRow(), copyLogBtn, cancelBtn);
+        HBox buttonBox = new HBox(12, actionBtn, progressBox, GUIUtils.fillRow(), copyLogBtn, abortBtn);
         buttonBox.setAlignment(Pos.TOP_LEFT);
         buttonBox.setPadding(new Insets(10));
 
@@ -328,53 +422,5 @@ final class MainViewPane
         GridPane.setHgrow(controlLayout, Priority.ALWAYS);
 
         pane.add(controlLayout, 0, 4);
-    }
-
-    /**
-     * Utility method to dynamically search for controls by FXID inside a node hierarchy.
-     */
-    static <T extends Node> T getById(Node root, String id)
-    {
-        return GUIUtils.getById(root, id);
-    }
-
-    ProgressBar getProgressBar()
-    {
-        return progressBar;
-    }
-
-    Button getSourceBtn()
-    {
-        return sourceBtn;
-    }
-
-    Button getActionBtn()
-    {
-        return actionBtn;
-    }
-
-    Button getClearLogBtn()
-    {
-        return clearLogBtn;
-    }
-
-    Button getCopyLogBtn()
-    {
-        return copyLogBtn;
-    }
-
-    Button getExitBtn()
-    {
-        return exitBtn;
-    }
-
-    Button getCancelBtn()
-    {
-        return cancelBtn;
-    }
-
-    Button getViewBtn()
-    {
-        return viewBtn;
     }
 }

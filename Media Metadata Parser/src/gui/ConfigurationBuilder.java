@@ -24,17 +24,17 @@ class ConfigurationBuilder
     BatchConfiguration build() throws BatchErrorException
     {
         BatchBuilder builder = new BatchBuilder();
-        TextField sourceText = MainViewPane.getById(root, MainViewPane.SRCID);
-        TextField targetText = MainViewPane.getById(root, MainViewPane.TGTID);
-        TextField prefixText = MainViewPane.getById(root, MainViewPane.PFXID);
-        DatePicker modifyDatePicker = MainViewPane.getById(root, MainViewPane.DTMID);
-        CheckBox embedDateTime = MainViewPane.getById(root, MainViewPane.EMBID);
-        CheckBox forceDateChange = MainViewPane.getById(root, MainViewPane.FRCID);
-        CheckBox skipVideo = MainViewPane.getById(root, MainViewPane.SKPID);
-        CheckBox showMetadata = MainViewPane.getById(root, MainViewPane.SHWID);
-        CheckBox descending = MainViewPane.getById(root, MainViewPane.SRTID);
-        CheckBox debug = MainViewPane.getById(root, MainViewPane.DBGID);
-        CheckBox trace = MainViewPane.getById(root, MainViewPane.TRCID);
+        TextField sourceText = MainViewPane.getById(root, MainViewPane.SRCID, TextField.class);
+        TextField targetText = MainViewPane.getById(root, MainViewPane.TGTID, TextField.class);
+        TextField prefixText = MainViewPane.getById(root, MainViewPane.PFXID, TextField.class);
+        DatePicker modifyDatePicker = MainViewPane.getById(root, MainViewPane.DTMID, DatePicker.class);
+        CheckBox embedDateTime = MainViewPane.getById(root, MainViewPane.EMBID, CheckBox.class);
+        CheckBox forceDateChange = MainViewPane.getById(root, MainViewPane.FRCID, CheckBox.class);
+        CheckBox skipVideo = MainViewPane.getById(root, MainViewPane.SKPID, CheckBox.class);
+        CheckBox showMetadata = MainViewPane.getById(root, MainViewPane.SHWID, CheckBox.class);
+        CheckBox descending = MainViewPane.getById(root, MainViewPane.SRTID, CheckBox.class);
+        CheckBox debug = MainViewPane.getById(root, MainViewPane.DBGID, CheckBox.class);
+        CheckBox trace = MainViewPane.getById(root, MainViewPane.TRCID, CheckBox.class);
 
         String filename = (sourceText != null ? sourceText.getText().trim() : "");
         LocalDate dateValue = (modifyDatePicker != null ? modifyDatePicker.getValue() : null);
