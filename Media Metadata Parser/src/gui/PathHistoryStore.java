@@ -17,7 +17,7 @@ import javafx.scene.control.Tooltip;
  * Manages persistent user configuration settings across application sessions using a simple
  * key-value configuration file.
  */
-public final class PathHistoryStore
+final class PathHistoryStore
 {
     private static final String CONFIG_FILE_NAME = "app_settings.properties";
     private static final String KEY_SOURCE_PATH = "last.source.path";
@@ -35,22 +35,11 @@ public final class PathHistoryStore
     }
 
     /**
-     * Resolves the absolute path to the persistent settings configuration file within the user's
-     * home directory.
-     *
-     * @return the {@link Path} pointing to the configuration properties file
-     */
-    private static Path getSettingsPath()
-    {
-        return Paths.get(System.getProperty("user.home"), CONFIG_FILE_NAME);
-    }
-
-    /**
      * Loads the list of recent source paths using indexed property keys.
      *
      * @return a {@link List} of recent source path strings ordered from most to least recent
      */
-    public static List<String> loadRecentSourcePaths()
+    static List<String> loadRecentSourcePaths()
     {
         Path history = getSettingsPath();
         List<String> historyConfig = new ArrayList<>();
@@ -94,7 +83,7 @@ public final class PathHistoryStore
      * @throws IOException
      *         if an I/O error occurs while loading or saving the settings
      */
-    public static void saveSettings(TextField sourceText, TextField targetText) throws IOException
+    static void saveSettings(TextField sourceText, TextField targetText) throws IOException
     {
         Path sourceParentPath = null;
         Properties props = new Properties();
@@ -195,7 +184,7 @@ public final class PathHistoryStore
      * @throws IOException
      *         if reading from storage fails
      */
-    public static void loadSettings(TextField sourceText, TextField targetText) throws IOException
+    static void loadSettings(TextField sourceText, TextField targetText) throws IOException
     {
         Path history = getSettingsPath();
         Properties props = new Properties();
@@ -259,6 +248,17 @@ public final class PathHistoryStore
                 }
             }
         }
+    }
+
+    /**
+     * Resolves the absolute path to the persistent settings configuration file within the user's
+     * home directory.
+     *
+     * @return the {@link Path} pointing to the configuration properties file
+     */
+    private static Path getSettingsPath()
+    {
+        return Paths.get(System.getProperty("user.home"), CONFIG_FILE_NAME);
     }
 
     /**

@@ -22,6 +22,7 @@ import javafx.beans.Observable;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
@@ -42,6 +43,7 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -58,6 +60,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.RowConstraints;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Callback;
@@ -74,7 +77,7 @@ import javafx.util.Duration;
  */
 public class MediaMetadataGUI extends Application implements EventHandler<ActionEvent>
 {
-    private Stage stage;
+    private GridPane rootPane;
     private BatchTask workerTask;
     private MainViewPane viewPane;
     private ObservableList<FileSummaryRecord> fileRecords;
@@ -109,24 +112,23 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         RowConstraints fillRow = new RowConstraints();
         fillRow.setVgrow(Priority.ALWAYS);
 
-        GridPane gridPane = new GridPane();
-        gridPane.setHgap(10);
-        gridPane.setVgap(10);
-        gridPane.requestFocus();
-        gridPane.setPadding(new Insets(15));
-        gridPane.getRowConstraints().addAll(fixedRow, fixedRow, fillRow, fixedRow, fixedRow);
+        rootPane = new GridPane();
+        rootPane.setHgap(10);
+        rootPane.setVgap(10);
+        rootPane.requestFocus();
+        rootPane.setPadding(new Insets(15));
+        rootPane.getRowConstraints().addAll(fixedRow, fixedRow, fillRow, fixedRow, fixedRow);
 
-        viewPane.buildLayout(gridPane);
+        viewPane.buildLayout(rootPane);
 
-        Scene scene = new Scene(gridPane, 620, 650);
+        Scene scene = new Scene(rootPane, 620, 650);
         scene.getStylesheets().add(getClass().getResource("/gui/styles.css").toExternalForm());
 
-        stage = primaryStage;
-        stage.setTitle("Image Metadata Structure Viewer");
-        stage.setScene(scene);
-        stage.show();
+        primaryStage.setTitle("Image Metadata Structure Viewer");
+        primaryStage.setScene(scene);
+        primaryStage.show();
 
-        configureDynamicNodes(gridPane);
+        configureDynamicNodes(rootPane);
     }
 
     /**
@@ -135,8 +137,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     @Override
     public void stop()
     {
-        TextField sourceText = MainViewPane.getById(stage.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
-        TextField targetText = MainViewPane.getById(stage.getScene().getRoot(), MainViewPane.TGTID, TextField.class);
+        TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
+        TextField targetText = GUIUtils.getById(rootPane, MainViewPane.TGTID, TextField.class);
 
         try
         {
@@ -188,7 +190,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.viewBtn)
         {
-            showSummaryDialog(stage);
+            showSummaryDialog();
         }
 
         else if (source == viewPane.clearLogBtn)
@@ -228,12 +230,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void configureDynamicNodes(Parent pane)
     {
-        TextField sourceText = MainViewPane.getById(pane, MainViewPane.SRCID, TextField.class);
-        TextField targetText = MainViewPane.getById(pane, MainViewPane.TGTID, TextField.class);
-        TextField prefixText = MainViewPane.getById(pane, MainViewPane.PFXID, TextField.class);
-        CheckBox embedDateTimeCheck = MainViewPane.getById(pane, MainViewPane.EMBID, CheckBox.class);
-        DatePicker modifyDatePicker = MainViewPane.getById(pane, MainViewPane.DTMID, DatePicker.class);
-        CheckBox showMetadataCheck = MainViewPane.getById(pane, MainViewPane.SHWID, CheckBox.class);
+        TextField sourceText = GUIUtils.getById(pane, MainViewPane.SRCID, TextField.class);
+        TextField targetText = GUIUtils.getById(pane, MainViewPane.TGTID, TextField.class);
+        TextField prefixText = GUIUtils.getById(pane, MainViewPane.PFXID, TextField.class);
+        CheckBox embedDateTimeCheck = GUIUtils.getById(pane, MainViewPane.EMBID, CheckBox.class);
+        DatePicker modifyDatePicker = GUIUtils.getById(pane, MainViewPane.DTMID, DatePicker.class);
+        CheckBox showMetadataCheck = GUIUtils.getById(pane, MainViewPane.SHWID, CheckBox.class);
 
         try
         {
@@ -455,7 +457,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         ContextMenu menu = new ContextMenu();
         Button sourceBtn = viewPane.sourceBtn;
-        TextField sourceText = MainViewPane.getById(stage.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
+        TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
         List<String> recentPaths = PathHistoryStore.loadRecentSourcePaths();
 
         MenuItem selectFolder = new MenuItem("Select Folder...");
@@ -535,7 +537,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void handleFileSelection()
     {
-        TextField sourceText = MainViewPane.getById(stage.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
+        TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
         FileChooser chooser = new FileChooser();
         String actualText = sourceText.getText().trim();
         File sourceDir = new File(actualText.isEmpty() ? System.getProperty("user.home") : actualText);
@@ -547,7 +549,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             chooser.setInitialDirectory(sourceDir);
         }
 
-        List<File> files = chooser.showOpenMultipleDialog(stage);
+        List<File> files = chooser.showOpenMultipleDialog(rootPane.getScene().getWindow());
 
         if (files != null && !files.isEmpty())
         {
@@ -589,7 +591,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         ProgressBar progressBar = viewPane.progressBar;
         TextArea logArea = (TextArea) clearLogBtn.getUserData();
         Label progressLabel = (Label) progressBar.getUserData();
-        CheckBox showMetadata = MainViewPane.getById(stage.getScene().getRoot(), MainViewPane.SHWID, CheckBox.class);
+        CheckBox showMetadata = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
 
         if (logArea != null)
         {
@@ -599,8 +601,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             try
             {
-                Parent root = stage.getScene().getRoot();
-                config = new ConfigurationBuilder(root).build();
+                config = new ConfigurationBuilder(rootPane).build();
             }
 
             catch (BatchErrorException exc)
@@ -812,13 +813,117 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
     /**
      * Opens a summary dialog containing details and processing statuses for all processed files.
-     *
-     * @param ownerWindow
-     *        the owning window stage for this modal dialog
      */
-    private void showSummaryDialog(Window ownerWindow)
+    private void showSummaryDialog()
     {
         Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Batch Processing Summary");
+        dialog.setHeaderText("Detailed Processing Results");
+        dialog.initModality(Modality.NONE);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+
+        TableView<FileSummaryRecord> table = new TableView<>();
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        TableColumn<FileSummaryRecord, String> sourceCol = new TableColumn<>("Source File");
+        sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileSummaryRecord, String>, ObservableValue<String>>()
+        {
+            @Override
+            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileSummaryRecord, String> cellData)
+            {
+                return cellData.getValue().sourceNameProperty();
+            }
+        });
+
+        sourceCol.setPrefWidth(200);
+
+        TableColumn<FileSummaryRecord, String> targetCol = new TableColumn<>("Target File");
+        targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileSummaryRecord, String>, ObservableValue<String>>()
+        {
+            @Override
+            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileSummaryRecord, String> cellData)
+            {
+                return cellData.getValue().targetNameProperty();
+            }
+        });
+
+        targetCol.setPrefWidth(200);
+
+        TableColumn<FileSummaryRecord, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileSummaryRecord, String>, ObservableValue<String>>()
+        {
+            @Override
+            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileSummaryRecord, String> cellData)
+            {
+                return cellData.getValue().statusProperty();
+            }
+        });
+
+        statusCol.setPrefWidth(120);
+
+        table.getColumns().add(sourceCol);
+        table.getColumns().add(targetCol);
+        table.getColumns().add(statusCol);
+        table.setItems(fileRecords);
+
+        // Row factory to highlight the latest processed record in green
+        table.setRowFactory(new Callback<TableView<FileSummaryRecord>, TableRow<FileSummaryRecord>>()
+        {
+            @Override
+            public TableRow<FileSummaryRecord> call(TableView<FileSummaryRecord> param)
+            {
+                return new TableRow<FileSummaryRecord>()
+                {
+                    @Override
+                    protected void updateItem(FileSummaryRecord item, boolean empty)
+                    {
+                        super.updateItem(item, empty);
+
+                        if (empty || item == null)
+                        {
+                            setStyle("");
+                        }
+
+                        else if (getIndex() == fileRecords.size() - 1)
+                        {
+                            setStyle("-fx-background-color: #c8e6c9; -fx-text-fill: #1b5e20;");
+                        }
+
+                        else
+                        {
+                            setStyle("");
+                        }
+                    }
+                };
+            }
+        });
+
+        // Auto-scroll listener to follow live updates
+        fileRecords.addListener(new ListChangeListener<FileSummaryRecord>()
+        {
+            @Override
+            public void onChanged(Change<? extends FileSummaryRecord> change)
+            {
+                while (change.next())
+                {
+                    if (change.wasAdded() && !fileRecords.isEmpty())
+                    {
+                        table.scrollTo(fileRecords.size() - 1);
+                        table.refresh();
+                    }
+                }
+            }
+        });
+
+        dialog.getDialogPane().setContent(table);
+        dialog.getDialogPane().setPrefSize(550, 320);
+        dialog.show();
+    }
+
+    private void showSummaryDialog2()
+    {
+        Dialog<Void> dialog = new Dialog<>();
+        Window ownerWindow = rootPane.getScene().getWindow();
         dialog.setTitle("Batch Processing Summary");
         dialog.setHeaderText("Detailed Processing Results");
         dialog.initOwner(ownerWindow);
@@ -870,6 +975,59 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         table.getColumns().add(targetCol);
         table.getColumns().add(statusCol);
         table.setItems(fileRecords);
+
+        table.setRowFactory(new Callback<TableView<FileSummaryRecord>, TableRow<FileSummaryRecord>>()
+        {
+            @Override
+            public TableRow<FileSummaryRecord> call(TableView<FileSummaryRecord> param)
+            {
+                return new TableRow<FileSummaryRecord>()
+                {
+                    @Override
+                    protected void updateItem(FileSummaryRecord item, boolean empty)
+                    {
+                        super.updateItem(item, empty);
+
+                        if (empty || item == null)
+                        {
+                            setStyle("");
+                        }
+
+                        else if (getIndex() == fileRecords.size() - 1)
+                        {
+                            // Green highlight with clear dark text
+                            setStyle("-fx-background-color: #c8e6c9; -fx-text-fill: #1b5e20;");
+                        }
+
+                        else
+                        {
+                            setStyle("");
+                        }
+                    }
+                };
+            }
+        });
+
+        // Auto-scroll listener and row refresh trigger
+        fileRecords.addListener(new ListChangeListener<FileSummaryRecord>()
+        {
+            @Override
+            public void onChanged(Change<? extends FileSummaryRecord> change)
+            {
+                while (change.next())
+                {
+                    if (change.wasAdded() && !fileRecords.isEmpty())
+                    {
+                        int lastIndex = fileRecords.size() - 1;
+
+                        table.scrollTo(lastIndex);
+
+                        // Forces rows to re-evaluate their green highlight index
+                        // table.refresh();
+                    }
+                }
+            }
+        });
 
         dialog.getDialogPane().setContent(table);
         dialog.getDialogPane().setPrefSize(550, 320);

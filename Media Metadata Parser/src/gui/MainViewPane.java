@@ -1,13 +1,11 @@
 package gui;
 
-import batch.MediaBatchProcessor;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.NoSuchElementException;
+import batch.MediaBatchProcessor;
 import javafx.beans.value.ObservableValue;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.DatePicker;
@@ -26,8 +24,11 @@ import javafx.util.Callback;
 import logger.LogFactory;
 
 /**
- * View construction pane for the Media Metadata Structure Viewer interface. Builds layout panels
- * and assigns dynamic FXIDs to UI controls for configuration building.
+ * Builds and manages the JavaFX view layout for the Media Metadata Structure Viewer interface.
+ *
+ * <p>
+ * The class and its package-private members are not intended to form part of the application's public API.
+ * </p>
  */
 final class MainViewPane
 {
@@ -53,6 +54,9 @@ final class MainViewPane
     final Button exitBtn;
     private Label previewValueLabel;
 
+    /**
+     * Creates the view controls used by the main interface.
+     */
     MainViewPane()
     {
         this.progressBar = new ProgressBar(0.0);
@@ -66,10 +70,10 @@ final class MainViewPane
     }
 
     /**
-     * Populates the provided GridPane container with all sub-panes.
+     * Builds and populates the complete view layout within the specified container.
      *
      * @param pane
-     *        the target container managed by MediaMetadataGUI
+     *        the target container in which the view sections are constructed
      */
     void buildLayout(GridPane pane)
     {
@@ -81,50 +85,21 @@ final class MainViewPane
     }
 
     /**
-     * Retrieves a node by ID and safely casts it to the expected type.
+     * Updates the target filename preview using the current values of the relevant input controls.
      *
-     * @param <T>
-     *        the expected node type
-     * @param root
-     *        the root node to begin searching from
-     * @param id
-     *        the target JavaFX ID
-     * @param type
-     *        the expected Class token, for example: TextField.class
-     * @return the matching node cast to {@code T}
+     * <p>
+     * The preview reflects the configured filename prefix, optional date/time value, and the initial sequence number used by the batch process.
+     * </p>
      *
-     * @throws NoSuchElementException
-     *         if no node with the ID exists
-     * @throws IllegalArgumentException
-     *         if the node exists but is not an instance of {@code type}
-     */
-    static <T extends Node> T getById(Node root, String id, Class<T> type)
-    {
-        Node node = GUIUtils.getById(root, id);
-
-        if (node == null)
-        {
-            throw new NoSuchElementException("Node ID [" + id + "] not found in the layout hierarchy");
-        }
-
-        if (!type.isInstance(node))
-        {
-            throw new IllegalArgumentException("Node ID [" + id + "] is of type " + node.getClass().getName() + ", but expected " + type.getName());
-        }
-
-        return type.cast(node);
-    }
-
-    /**
-     * Recalculates the preview text based on current input field values retrieved by FXID.
+     * @param pane the container holding the input controls used to generate the preview
      */
     void updatePreview(GridPane pane)
     {
         if (previewValueLabel != null)
         {
-            TextField prefixText = getById(pane, PFXID, TextField.class);
-            CheckBox embedDateTimeCheck = getById(pane, EMBID, CheckBox.class);
-            DatePicker modifyDatePicker = getById(pane, DTMID, DatePicker.class);
+            TextField prefixText = GUIUtils.getById(pane, PFXID, TextField.class);
+            CheckBox embedDateTimeCheck = GUIUtils.getById(pane, EMBID, CheckBox.class);
+            DatePicker modifyDatePicker = GUIUtils.getById(pane, DTMID, DatePicker.class);
             StringBuilder sb = new StringBuilder();
             String prefix = prefixText.getText().trim();
 
@@ -155,8 +130,9 @@ final class MainViewPane
     }
 
     /**
-     * Constructs and populates the top pane containing source, target, prefix, and date input
-     * fields.
+     * Builds the input options section containing source, target, prefix, date, and filename preview controls.
+     *
+     * @param pane the container to which the input options section is added
      */
     private void addTopPane(GridPane pane)
     {
@@ -243,8 +219,9 @@ final class MainViewPane
     }
 
     /**
-     * Constructs and populates the middle pane containing processing options and execution
-     * statistics.
+     * Builds the processing options section and execution statistics table.
+     *
+     * @param pane the container to which the processing options and statistics are added
      */
     private void addMiddlePane(GridPane pane)
     {
@@ -339,7 +316,9 @@ final class MainViewPane
     }
 
     /**
-     * Constructs and populates the log pane containing the execution console output.
+     * Builds the execution log section and registers its log listener.
+     *
+     * @param pane the container to which the execution log section is added
      */
     private void addLogPane(GridPane pane)
     {
@@ -368,8 +347,9 @@ final class MainViewPane
     }
 
     /**
-     * Constructs and populates the action control pane containing execution, progress, and cancel
-     * buttons.
+     * Builds the action section containing the batch execution, progress, log-copy, and abort controls.
+     *
+     * @param pane the container to which the action section is added
      */
     private void addControlPane(GridPane pane)
     {
@@ -405,8 +385,9 @@ final class MainViewPane
     }
 
     /**
-     * Constructs and populates the bottom toolbar containing summary viewing, log clearing, and
-     * exit controls.
+     * Builds the bottom toolbar containing summary, log-clearing, and exit controls.
+     *
+     * @param pane the container to which the toolbar is added
      */
     private void addBottomPane(GridPane pane)
     {

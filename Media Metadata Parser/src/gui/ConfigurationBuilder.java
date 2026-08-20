@@ -24,17 +24,17 @@ class ConfigurationBuilder
     BatchConfiguration build() throws BatchErrorException
     {
         BatchBuilder builder = new BatchBuilder();
-        TextField sourceText = MainViewPane.getById(root, MainViewPane.SRCID, TextField.class);
-        TextField targetText = MainViewPane.getById(root, MainViewPane.TGTID, TextField.class);
-        TextField prefixText = MainViewPane.getById(root, MainViewPane.PFXID, TextField.class);
-        DatePicker modifyDatePicker = MainViewPane.getById(root, MainViewPane.DTMID, DatePicker.class);
-        CheckBox embedDateTime = MainViewPane.getById(root, MainViewPane.EMBID, CheckBox.class);
-        CheckBox forceDateChange = MainViewPane.getById(root, MainViewPane.FRCID, CheckBox.class);
-        CheckBox skipVideo = MainViewPane.getById(root, MainViewPane.SKPID, CheckBox.class);
-        CheckBox showMetadata = MainViewPane.getById(root, MainViewPane.SHWID, CheckBox.class);
-        CheckBox descending = MainViewPane.getById(root, MainViewPane.SRTID, CheckBox.class);
-        CheckBox debug = MainViewPane.getById(root, MainViewPane.DBGID, CheckBox.class);
-        CheckBox trace = MainViewPane.getById(root, MainViewPane.TRCID, CheckBox.class);
+        TextField sourceText = GUIUtils.getById(root, MainViewPane.SRCID, TextField.class);
+        TextField targetText = GUIUtils.getById(root, MainViewPane.TGTID, TextField.class);
+        TextField prefixText = GUIUtils.getById(root, MainViewPane.PFXID, TextField.class);
+        DatePicker modifyDatePicker = GUIUtils.getById(root, MainViewPane.DTMID, DatePicker.class);
+        CheckBox embedDateTime = GUIUtils.getById(root, MainViewPane.EMBID, CheckBox.class);
+        CheckBox forceDateChange = GUIUtils.getById(root, MainViewPane.FRCID, CheckBox.class);
+        CheckBox skipVideo = GUIUtils.getById(root, MainViewPane.SKPID, CheckBox.class);
+        CheckBox showMetadata = GUIUtils.getById(root, MainViewPane.SHWID, CheckBox.class);
+        CheckBox descending = GUIUtils.getById(root, MainViewPane.SRTID, CheckBox.class);
+        CheckBox debug = GUIUtils.getById(root, MainViewPane.DBGID, CheckBox.class);
+        CheckBox trace = GUIUtils.getById(root, MainViewPane.TRCID, CheckBox.class);
 
         String filename = (sourceText != null ? sourceText.getText().trim() : "");
         LocalDate dateValue = (modifyDatePicker != null ? modifyDatePicker.getValue() : null);

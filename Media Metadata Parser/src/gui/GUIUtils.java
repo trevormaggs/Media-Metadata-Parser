@@ -1,5 +1,6 @@
 package gui;
 
+import java.util.NoSuchElementException;
 import javafx.collections.ObservableList;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -61,6 +62,41 @@ final class GUIUtils
     static void launchPopup(String title, String msg, AlertType type)
     {
         launchPopup(null, title, msg, type);
+    }
+
+    /**
+     * Retrieves a node by ID, verifies its type, and casts it to the expected type.
+     *
+     * @param <T>
+     *        the expected node type
+     * @param root
+     *        the root node from which to begin the search
+     * @param id
+     *        the target JavaFX node ID
+     * @param type
+     *        the expected node type token, for example {@code TextField.class}
+     * @return the matching node cast to {@code T}
+     *
+     * @throws NoSuchElementException
+     *         if no node with the specified ID exists
+     * @throws IllegalArgumentException
+     *         if a node with the specified ID exists but is not an instance of {@code type}
+     */
+    static <T extends Node> T getById(Node root, String id, Class<T> type)
+    {
+        Node node = GUIUtils.getById(root, id);
+
+        if (node == null)
+        {
+            throw new NoSuchElementException("Node ID [" + id + "] not found in the layout hierarchy");
+        }
+
+        if (!type.isInstance(node))
+        {
+            throw new IllegalArgumentException("Node ID [" + id + "] is of type " + node.getClass().getName() + ", but expected " + type.getName());
+        }
+
+        return type.cast(node);
     }
 
     /**
