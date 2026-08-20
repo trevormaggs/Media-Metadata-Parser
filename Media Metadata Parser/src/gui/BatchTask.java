@@ -44,7 +44,8 @@ class BatchTask extends Task<BatchMetrics>
      * @param logArea
      *        the destination for status messages
      * @param progressBar
-     *        the progress bar to update during processing, or {@code null}
+     *        the progress bar to update during processing, or {@code null} if no progress bar is
+     *        available
      * @param displayMetadata
      *        {@code true} to display metadata instead of processing files
      */
@@ -79,10 +80,10 @@ class BatchTask extends Task<BatchMetrics>
     }
 
     /**
-     * Sets the listener to receive individual file records used for summary reporting.
+     * Sets the listener to receive batch process events for summary reporting.
      *
      * @param listener
-     *        the property listener to receive file record updates
+     *        the property listener to receive batch process event updates
      */
     void setFileSummaryListener(PropertyListener listener)
     {
@@ -93,8 +94,7 @@ class BatchTask extends Task<BatchMetrics>
      * Cancels the task and signals the underlying batch processor to abort execution.
      *
      * @param interrupt
-     *        {@code true} if the thread executing this task should be interrupted, otherwise,
-     *        in-flight calls are allowed to complete
+     *        {@code true} to interrupt the thread executing the task, otherwise {@code false}
      * @return {@code true} if the task was cancelled
      */
     @Override
@@ -117,8 +117,7 @@ class BatchTask extends Task<BatchMetrics>
      * to associated JavaFX controls.
      * </p>
      *
-     * @return the {@link BatchMetrics} produced by the batch processor, or zeroed metrics when
-     *         cancelled or displaying metadata
+     * @return the {@link BatchMetrics} produced by the batch operation
      *
      * @throws Exception
      *         if an unrecoverable error occurs during processing
@@ -126,263 +125,148 @@ class BatchTask extends Task<BatchMetrics>
     @Override
     protected BatchMetrics call() throws Exception
     {
-        if (isCancelled())
-        {
-            if (processor != null)
-            {
-                processor.cancel();
-            }
-        }
-
-        else if (displayMetadata)
+        if (displayMetadata)
         {
             updateMessage("Retrieving metadata...");
             DisplayMetadata display = new DisplayMetadata(config);
+            display.addProgressListener(attachProgressAdapter("Retrieving metadata"));
 
-            display.addProgressListener(new JavaFXProgressAdapter(progressBar)
+            return display.execute();
+        }
+
+        processor = new MediaBatchProcessor(config);
+
+        if (fileSummaryListener != null)
+        {
+            processor.setPropertyListener(new PropertyListener()
             {
-                private boolean scanMode = true;
-
                 @Override
-                public void onProgressUpdate(int current)
+                public void accept(String key, Object value)
                 {
-                    if (!isCancelled())
+                    if (value instanceof BatchProcessEvent)
                     {
-                        super.onProgressUpdate(current);
-
-                        if (scanMode)
-                        {
-                            updateMessage(String.format("Scanning files (%d found)...", current));
-
-                            if (fileScannedListener != null)
-                            {
-                                fileScannedListener.accept(current);
-                            }
-                        }
-
-                        else
-                        {
-                            updateMessage(String.format("Retrieving metadata (%d files)...", current));
-
-                            if (fileProcessedListener != null)
-                            {
-                                fileProcessedListener.accept(current);
-                            }
-                        }
+                        fileSummaryListener.accept(key, value);
                     }
                 }
+            });
+        }
 
-                @Override
-                public void onProgressUpdate(int current, int total)
+        processor.addProgressListener(attachProgressAdapter("Processing batch"));
+
+        return processor.execute();
+    }
+
+    /**
+     * Attaches a progress listener adapter for reporting scan and execution progress.
+     *
+     * @param actionLabel
+     *        the descriptive label for the active execution phase, such as "Processing batch"
+     *        or "Retrieving metadata"
+     * @return the configured progress listener adapter
+     */
+    private JavaFXProgressAdapter attachProgressAdapter(String actionLabel)
+    {
+        return new JavaFXProgressAdapter(progressBar)
+        {
+            private boolean scanMode = true;
+
+            @Override
+            public void onProgressUpdate(int current)
+            {
+                if (!isCancelled())
                 {
-                    if (!isCancelled())
-                    {
-                        super.onProgressUpdate(current, total);
+                    super.onProgressUpdate(current);
 
-                        if (scanMode)
-                        {
-                            if (total > 0)
-                            {
-                                updateMessage(String.format("Scanning files: %d of %d", current, total));
-                            }
-
-                            else
-                            {
-                                updateMessage(String.format("Scanning files (%d)...", current));
-                            }
-
-                            if (fileScannedListener != null)
-                            {
-                                fileScannedListener.accept(current);
-                            }
-                        }
-
-                        else
-                        {
-                            if (total > 0)
-                            {
-                                updateMessage(String.format("Retrieving metadata: %d of %d", current, total));
-                            }
-
-                            else
-                            {
-                                updateMessage(String.format("Retrieving metadata (%d)...", current));
-                            }
-
-                            if (fileProcessedListener != null)
-                            {
-                                fileProcessedListener.accept(current);
-                            }
-                        }
-                    }
-                }
-
-                @Override
-                public void onCompleted(int total)
-                {
                     if (scanMode)
                     {
-                        scanMode = false;
+                        updateMessage(String.format("Scanning files (%d found)...", current));
 
                         if (fileScannedListener != null)
                         {
-                            fileScannedListener.accept(total);
+                            fileScannedListener.accept(current);
                         }
                     }
 
                     else
                     {
-                        if (progressBar != null)
+                        updateMessage(String.format("%s (%d files)...", actionLabel, current));
+
+                        if (fileProcessedListener != null)
                         {
-                            progressBar.setProgress(1.0);
+                            fileProcessedListener.accept(current);
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onProgressUpdate(int current, int total)
+            {
+                if (!isCancelled())
+                {
+                    super.onProgressUpdate(current, total);
+
+                    if (scanMode)
+                    {
+                        if (total > 0)
+                        {
+                            updateMessage(String.format("Scanning files: %d of %d", current, total));
+                        }
+
+                        else
+                        {
+                            updateMessage(String.format("Scanning files (%d)...", current));
+                        }
+
+                        if (fileScannedListener != null)
+                        {
+                            fileScannedListener.accept(current);
+                        }
+                    }
+
+                    else
+                    {
+                        if (total > 0)
+                        {
+                            updateMessage(String.format("%s: %d of %d", actionLabel, current, total));
+                        }
+
+                        else
+                        {
+                            updateMessage(String.format("%s (%d)...", actionLabel, current));
                         }
 
                         if (fileProcessedListener != null)
                         {
-                            fileProcessedListener.accept(total);
+                            fileProcessedListener.accept(current);
                         }
                     }
                 }
-
-                @Override
-                public void reset()
-                {
-                    if (!isCancelled() && scanMode)
-                    {
-                        super.reset();
-                    }
-                }
-            });
-
-            return display.execute(); // <--- RETURN THE METRICS HERE
-        }
-
-        else
-        {
-            processor = new MediaBatchProcessor(config);
-
-            if (fileSummaryListener != null)
-            {
-                // Handles file processing metrics
-                processor.setPropertyListener(new PropertyListener()
-                {
-                    @Override
-                    public void accept(String key, Object value)
-                    {
-                        if (value instanceof BatchProcessEvent)
-                        {
-                            fileSummaryListener.accept(key, value);
-                        }
-                    }
-                });
             }
 
-            processor.addProgressListener(new JavaFXProgressAdapter(progressBar)
+            @Override
+            public void onCompleted(int total)
             {
-                private boolean scanMode = true;
-
-                @Override
-                public void onProgressUpdate(int current)
+                if (scanMode)
                 {
-                    if (!isCancelled())
+                    scanMode = false;
+
+                    if (fileScannedListener != null)
                     {
-                        super.onProgressUpdate(current);
-
-                        if (scanMode)
-                        {
-                            updateMessage(String.format("Scanning files (%d found)...", current));
-
-                            if (fileScannedListener != null)
-                            {
-                                fileScannedListener.accept(current);
-                            }
-                        }
-
-                        else
-                        {
-                            updateMessage(String.format("Processing batch (%d files)...", current));
-
-                            if (fileProcessedListener != null)
-                            {
-                                fileProcessedListener.accept(current);
-                            }
-                        }
+                        fileScannedListener.accept(total);
                     }
                 }
+            }
 
-                @Override
-                public void onProgressUpdate(int current, int total)
+            @Override
+            public void reset()
+            {
+                if (!isCancelled())
                 {
-                    if (!isCancelled())
-                    {
-                        super.onProgressUpdate(current, total);
-
-                        if (scanMode)
-                        {
-                            if (total > 0)
-                            {
-                                updateMessage(String.format("Scanning files: %d of %d", current, total));
-                            }
-
-                            else
-                            {
-                                updateMessage(String.format("Scanning files (%d)...", current));
-                            }
-
-                            if (fileScannedListener != null)
-                            {
-                                fileScannedListener.accept(current);
-                            }
-                        }
-
-                        else
-                        {
-                            if (total > 0)
-                            {
-                                updateMessage(String.format("Processing batch: %d of %d", current, total));
-                            }
-
-                            else
-                            {
-                                updateMessage(String.format("Processing batch (%d)...", current));
-                            }
-
-                            if (fileProcessedListener != null)
-                            {
-                                fileProcessedListener.accept(current);
-                            }
-                        }
-                    }
+                    super.reset();
                 }
-
-                @Override
-                public void onCompleted(int total)
-                {
-                    if (scanMode)
-                    {
-                        scanMode = false;
-
-                        if (fileScannedListener != null)
-                        {
-                            fileScannedListener.accept(total);
-                        }
-                    }
-                }
-
-                @Override
-                public void reset()
-                {
-                    if (!isCancelled())
-                    {
-                        super.reset();
-                    }
-                }
-            });
-
-            return processor.execute();
-        }
-
-        return new BatchMetrics(0, 0, 0L);
+            }
+        };
     }
 
     /**

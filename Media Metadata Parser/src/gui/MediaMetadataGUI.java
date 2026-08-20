@@ -433,7 +433,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void invalidated(Observable observable)
             {
-                viewPane.actionBtn.setText(showMetadataCheck.isSelected() ? "Display Metadata" : "Run Batch Process");
+                boolean isMetadata = showMetadataCheck.isSelected();
+
+                viewPane.actionBtn.setText(isMetadata ? "Display Metadata" : "Run Batch Process");
+                viewPane.viewBtn.setText(isMetadata ? "List Metadata" : "View Summary");
             }
         });
 
@@ -918,120 +921,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.getDialogPane().setContent(table);
         dialog.getDialogPane().setPrefSize(550, 320);
         dialog.show();
-    }
-
-    private void showSummaryDialog2()
-    {
-        Dialog<Void> dialog = new Dialog<>();
-        Window ownerWindow = rootPane.getScene().getWindow();
-        dialog.setTitle("Batch Processing Summary");
-        dialog.setHeaderText("Detailed Processing Results");
-        dialog.initOwner(ownerWindow);
-        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
-
-        TableView<FileSummaryRecord> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-
-        TableColumn<FileSummaryRecord, String> sourceCol = new TableColumn<>("Source File");
-
-        sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileSummaryRecord, String>, ObservableValue<String>>()
-        {
-            @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileSummaryRecord, String> cellData)
-            {
-                return cellData.getValue().sourceNameProperty();
-            }
-        });
-
-        sourceCol.setPrefWidth(200);
-
-        TableColumn<FileSummaryRecord, String> targetCol = new TableColumn<>("Target File");
-
-        targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileSummaryRecord, String>, ObservableValue<String>>()
-        {
-            @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileSummaryRecord, String> cellData)
-            {
-                return cellData.getValue().targetNameProperty();
-            }
-        });
-
-        targetCol.setPrefWidth(200);
-
-        TableColumn<FileSummaryRecord, String> statusCol = new TableColumn<>("Status");
-
-        statusCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileSummaryRecord, String>, ObservableValue<String>>()
-        {
-            @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileSummaryRecord, String> cellData)
-            {
-                return cellData.getValue().statusProperty();
-            }
-        });
-
-        statusCol.setPrefWidth(120);
-
-        table.getColumns().add(sourceCol);
-        table.getColumns().add(targetCol);
-        table.getColumns().add(statusCol);
-        table.setItems(fileRecords);
-
-        table.setRowFactory(new Callback<TableView<FileSummaryRecord>, TableRow<FileSummaryRecord>>()
-        {
-            @Override
-            public TableRow<FileSummaryRecord> call(TableView<FileSummaryRecord> param)
-            {
-                return new TableRow<FileSummaryRecord>()
-                {
-                    @Override
-                    protected void updateItem(FileSummaryRecord item, boolean empty)
-                    {
-                        super.updateItem(item, empty);
-
-                        if (empty || item == null)
-                        {
-                            setStyle("");
-                        }
-
-                        else if (getIndex() == fileRecords.size() - 1)
-                        {
-                            // Green highlight with clear dark text
-                            setStyle("-fx-background-color: #c8e6c9; -fx-text-fill: #1b5e20;");
-                        }
-
-                        else
-                        {
-                            setStyle("");
-                        }
-                    }
-                };
-            }
-        });
-
-        // Auto-scroll listener and row refresh trigger
-        fileRecords.addListener(new ListChangeListener<FileSummaryRecord>()
-        {
-            @Override
-            public void onChanged(Change<? extends FileSummaryRecord> change)
-            {
-                while (change.next())
-                {
-                    if (change.wasAdded() && !fileRecords.isEmpty())
-                    {
-                        int lastIndex = fileRecords.size() - 1;
-
-                        table.scrollTo(lastIndex);
-
-                        // Forces rows to re-evaluate their green highlight index
-                        // table.refresh();
-                    }
-                }
-            }
-        });
-
-        dialog.getDialogPane().setContent(table);
-        dialog.getDialogPane().setPrefSize(550, 320);
-        dialog.showAndWait();
     }
 
     /**
