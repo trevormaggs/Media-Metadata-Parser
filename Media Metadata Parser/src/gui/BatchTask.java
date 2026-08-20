@@ -138,7 +138,123 @@ class BatchTask extends Task<BatchMetrics>
         {
             updateMessage("Retrieving metadata...");
             DisplayMetadata display = new DisplayMetadata(config);
-            display.execute();
+
+            display.addProgressListener(new JavaFXProgressAdapter(progressBar)
+            {
+                private boolean scanMode = true;
+
+                @Override
+                public void onProgressUpdate(int current)
+                {
+                    if (!isCancelled())
+                    {
+                        super.onProgressUpdate(current);
+
+                        if (scanMode)
+                        {
+                            updateMessage(String.format("Scanning files (%d found)...", current));
+
+                            if (fileScannedListener != null)
+                            {
+                                fileScannedListener.accept(current);
+                            }
+                        }
+
+                        else
+                        {
+                            updateMessage(String.format("Retrieving metadata (%d files)...", current));
+
+                            if (fileProcessedListener != null)
+                            {
+                                fileProcessedListener.accept(current);
+                            }
+                        }
+                    }
+                }
+
+                @Override
+                public void onProgressUpdate(int current, int total)
+                {
+                    if (!isCancelled())
+                    {
+                        super.onProgressUpdate(current, total);
+
+                        if (scanMode)
+                        {
+                            if (total > 0)
+                            {
+                                updateMessage(String.format("Scanning files: %d of %d", current, total));
+                            }
+
+                            else
+                            {
+                                updateMessage(String.format("Scanning files (%d)...", current));
+                            }
+
+                            if (fileScannedListener != null)
+                            {
+                                fileScannedListener.accept(current);
+                            }
+                        }
+
+                        else
+                        {
+                            if (total > 0)
+                            {
+                                updateMessage(String.format("Retrieving metadata: %d of %d", current, total));
+                            }
+
+                            else
+                            {
+                                updateMessage(String.format("Retrieving metadata (%d)...", current));
+                            }
+
+                            if (fileProcessedListener != null)
+                            {
+                                fileProcessedListener.accept(current);
+                            }
+                        }
+                    }
+                }
+
+                @Override
+                public void onCompleted(int total)
+                {
+                    if (scanMode)
+                    {
+                        scanMode = false;
+
+                        if (fileScannedListener != null)
+                        {
+                            fileScannedListener.accept(total);
+                        }
+                    }
+
+                    else
+                    {
+                        if (progressBar != null)
+                        {
+                            progressBar.setProgress(1.0);
+                        }
+
+                        if (fileProcessedListener != null)
+                        {
+                            fileProcessedListener.accept(total);
+                        }
+                    }
+                }
+
+                @Override
+                public void reset()
+                {
+                    if (!isCancelled() && scanMode)
+                    {
+                        super.reset();
+                    }
+                }
+            });
+
+            return display.execute(); // <--- RETURN THE METRICS HERE
         }
 
         else

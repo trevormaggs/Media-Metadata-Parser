@@ -24,7 +24,6 @@ import png.PngChunk;
 import png.PngDirectory;
 import png.PngMetadataProvider;
 import png.PngParser;
-import progressbar.ProgressListener;
 import tif.DirectoryIFD;
 import tif.TifMetadataProvider;
 import tif.tagspecs.PhotoshopManager;
@@ -47,12 +46,10 @@ import xmp.XmpProperty;
  * @version 1.2
  * @since 29 June 2026
  */
-public final class DisplayMetadata
+public final class DisplayMetadata2
 {
     private final BatchConfiguration config;
-    private final List<ProgressListener> listeners;
-    private final MetadataScanner scanner;
-    private static final LogFactory LOGGER = LogFactory.getLogger(DisplayMetadata.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(DisplayMetadata2.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private static final EnumSet<ChunkType> DISPLAY_CHUNK_FILTER = EnumSet.of(
             ChunkType.IHDR, ChunkType.gAMA, ChunkType.sRGB, ChunkType.pHYs,
@@ -71,137 +68,80 @@ public final class DisplayMetadata
      *        the configuration containing the validated source parameters and
      *        filters supplied on the command line
      */
-    public DisplayMetadata(BatchConfiguration config)
+    public DisplayMetadata2(BatchConfiguration config)
     {
         this.config = config;
-        this.listeners = new ArrayList<>();
-        this.scanner = new MetadataScanner(config);
-    }
-
-    /**
-     * Registers a progress listener to receive updates during both scanning and processing
-     * execution phases. You may add multiple listeners.
-     *
-     * @param listener
-     *        the progress listener to register
-     */
-    public void addProgressListener(ProgressListener listener)
-    {
-        if (listener != null)
-        {
-            listeners.add(listener);
-            scanner.addProgressListener(listener);
-        }
     }
 
     /**
      * Executes the metadata extraction pipeline for all media records discovered by the scanner.
-     * 
-     * @return metrics containing total source files scanned and size
      */
-    public BatchMetrics execute()
+    public void execute()
     {
-        int count = 1;
-        int totalSourceFiles = 0;
-        long totalBytes = 0L;
+        MetadataScanner scanner = new MetadataScanner(config);
 
         try
         {
             startLogging();
             scanner.start();
-            resetListeners(); // Reset progress bar state after scanning completes
 
-            totalSourceFiles = scanner.getRecordCount();
-
-            if (totalSourceFiles > 0)
+            for (MediaRecord record : scanner)
             {
-                for (MediaRecord record : scanner)
+                Path fpath = record.getPath();
+
+                try
                 {
-                    Path fpath = record.getPath();
-                    totalBytes += record.getFileSize();
+                    DetectedFormatResult result = ImageParserFactory.inspect(fpath);
 
-                    try
+                    if (result.hasParser())
                     {
-                        DetectedFormatResult result = ImageParserFactory.inspect(fpath);
+                        AbstractImageParser<?> parser = result.getParser();
 
-                        if (result.hasParser())
+                        if (parser instanceof PngParser)
                         {
-                            AbstractImageParser<?> parser = result.getParser();
-
-                            if (parser instanceof PngParser)
-                            {
-                                PngParser png = (PngParser) parser;
-                                png.setChunkFilter(DISPLAY_CHUNK_FILTER);
-                            }
-
-                            parser.readMetadata();
-                            Metadata<?> meta = parser.getMetadata();
-
-                            System.out.printf("======== %s ========%n", fpath);
-
-                            displaySystemMetadata(fpath);
-
-                            if (meta != null && meta.hasMetadata())
-                            {
-                                if (meta instanceof TifMetadataProvider)
-                                {
-                                    displayTifMetadata((TifMetadataProvider) meta);
-                                }
-
-                                else if (meta instanceof PngMetadataProvider)
-                                {
-                                    displayPngMetadata((PngMetadataProvider) meta);
-                                }
-                            }
-
-                            System.out.println();
+                            PngParser png = (PngParser) parser;
+                            png.setChunkFilter(DISPLAY_CHUNK_FILTER);
                         }
-                    }
 
-                    catch (IOException exc)
-                    {
-                        System.err.printf("Warning: Skipping metadata display for [%s] due to error: %s%n", fpath.getFileName(), exc.getMessage());
-                    }
+                        parser.readMetadata();
+                        Metadata<?> meta = parser.getMetadata();
 
-                    /* Notify progress listeners based on overall loop count */
-                    for (ProgressListener listener : listeners)
-                    {
-                        listener.onProgressUpdate(count, totalSourceFiles);
-                    }
+                        System.out.printf("======== %s ========%n", fpath);
 
-                    count++;
+                        displaySystemMetadata(fpath);
+
+                        if (meta != null && meta.hasMetadata())
+                        {
+                            if (meta instanceof TifMetadataProvider)
+                            {
+                                displayTifMetadata((TifMetadataProvider) meta);
+                            }
+
+                            else if (meta instanceof PngMetadataProvider)
+                            {
+                                displayPngMetadata((PngMetadataProvider) meta);
+                            }
+                        }
+
+                        System.out.println();
+                    }
                 }
 
-                /* Signal completion to listeners so onCompleted triggers */
-                for (ProgressListener listener : listeners)
+                catch (IOException exc)
                 {
-                    listener.onCompleted(totalSourceFiles);
+                    System.err.printf("Warning: Skipping metadata display for [%s] due to error: %s%n", fpath.getFileName(), exc.getMessage());
                 }
             }
-
-            return new BatchMetrics(totalSourceFiles, 0, totalBytes);
         }
 
         catch (Exception exc)
         {
             System.err.println("Unable to initialise due to an error: " + exc.getMessage());
-            return new BatchMetrics(0, 0, 0L);
         }
 
         finally
         {
             LogFactory.close();
-        }
-    }
-
-    /**
-     * Resets internal progress state across all registered listeners.
-     */
-    private void resetListeners()
-    {
-        for (ProgressListener listener : listeners)
-        {
-            listener.reset();
         }
     }
 
@@ -412,6 +352,7 @@ public final class DisplayMetadata
 
             LogFactory.configure(logPath.toString());
             LogFactory.setDebug(config.isDebug());
+            // LogFactory.disableAll();
 
             LOGGER.info(this.getClass().getSimpleName() + " loaded");
             LOGGER.info("Source: " + config.getSource().toAbsolutePath());

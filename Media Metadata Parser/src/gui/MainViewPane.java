@@ -52,7 +52,7 @@ final class MainViewPane
     final Button viewBtn;
     final Button clearLogBtn;
     final Button exitBtn;
-    private Label previewValueLabel;
+    private Label previewLabel;
 
     /**
      * Creates the view controls used by the main interface.
@@ -95,7 +95,7 @@ final class MainViewPane
      */
     void updatePreview(GridPane pane)
     {
-        if (previewValueLabel != null)
+        if (previewLabel != null)
         {
             TextField prefixText = GUIUtils.getById(pane, PFXID, TextField.class);
             CheckBox embedDateTimeCheck = GUIUtils.getById(pane, EMBID, CheckBox.class);
@@ -125,7 +125,7 @@ final class MainViewPane
 
             sb.append(String.format("%04d", 1)).append(".jpg");
 
-            previewValueLabel.setText(sb.toString());
+            previewLabel.setText(sb.toString());
         }
     }
 
@@ -199,11 +199,11 @@ final class MainViewPane
         Label previewTitleLabel = new Label("Target Preview");
         previewTitleLabel.setPrefWidth(labelWidth);
 
-        previewValueLabel = new Label();
-        previewValueLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #005A9E;");
+        previewLabel = new Label();
+        previewLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #005A9E;");
 
         HBox previewHbox = new HBox(10);
-        previewHbox.getChildren().addAll(previewTitleLabel, previewValueLabel, GUIUtils.fillRow());
+        previewHbox.getChildren().addAll(previewTitleLabel, previewLabel, GUIUtils.fillRow());
 
         VBox contentPane = new VBox(12);
         contentPane.setPadding(new Insets(10));
