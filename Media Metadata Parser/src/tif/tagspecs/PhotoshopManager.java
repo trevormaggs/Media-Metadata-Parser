@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Locale;
 import common.ByteValueConverter;
-import common.PropertyListener;
+import common.PropertyConsumer;
 import common.binary.ByteArrayReader;
 
 /**
@@ -36,7 +36,7 @@ public final class PhotoshopManager
      * @param display
      *        the callback receiving each decoded property
      */
-    public static void decodePhotoshopProperties(Object val, PropertyListener display)
+    public static void decodePhotoshopProperties(Object val, PropertyConsumer display)
     {
         byte[] bytes;
         byte[] signature = "8BIM".getBytes(StandardCharsets.US_ASCII);
@@ -241,7 +241,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateColorHalftoningInfo(ByteArrayReader reader, PropertyListener display)
+    private static void translateColorHalftoningInfo(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(72))
         {
@@ -276,7 +276,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateResolutionInfo(ByteArrayReader reader, PropertyListener display)
+    private static void translateResolutionInfo(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(16))
         {
@@ -304,7 +304,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateAlphaChannelNames(ByteArrayReader reader, int dataSize, PropertyListener display)
+    private static void translateAlphaChannelNames(ByteArrayReader reader, int dataSize, PropertyConsumer display)
     {
         if (reader.hasRemaining(dataSize))
         {
@@ -337,7 +337,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translatePrintFlags(ByteArrayReader reader, PropertyListener display)
+    private static void translatePrintFlags(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(9))
         {
@@ -370,7 +370,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateColorTransferFunctions(ByteArrayReader reader, PropertyListener display)
+    private static void translateColorTransferFunctions(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(112))
         {
@@ -412,7 +412,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateQuickMaskInfo(ByteArrayReader reader, PropertyListener display)
+    private static void translateQuickMaskInfo(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(3))
         {
@@ -432,7 +432,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateThumbnailInfo(ByteArrayReader reader, PropertyListener display)
+    private static void translateThumbnailInfo(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(28))
         {
@@ -455,7 +455,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateGlobalAngle(ByteArrayReader reader, PropertyListener display)
+    private static void translateGlobalAngle(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(Integer.BYTES))
         {
@@ -471,7 +471,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateGlobalAltitude(ByteArrayReader reader, PropertyListener display)
+    private static void translateGlobalAltitude(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(Integer.BYTES))
         {
@@ -487,7 +487,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateSlicesInfo(ByteArrayReader reader, PropertyListener display)
+    private static void translateSlicesInfo(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(24))
         {
@@ -517,7 +517,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translatePrintStyleFallback(ByteArrayReader reader, PropertyListener display)
+    private static void translatePrintStyleFallback(ByteArrayReader reader, PropertyConsumer display)
     {
         if (!reader.hasRemaining(Short.BYTES))
         {
@@ -535,7 +535,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translatePrintPositionFallback(ByteArrayReader reader, PropertyListener display)
+    private static void translatePrintPositionFallback(ByteArrayReader reader, PropertyConsumer display)
     {
         if (!reader.hasRemaining(8))
         {
@@ -553,7 +553,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translatePrintScaleFallback(ByteArrayReader reader, PropertyListener display)
+    private static void translatePrintScaleFallback(ByteArrayReader reader, PropertyConsumer display)
     {
         if (!reader.hasRemaining(14))
         {
@@ -572,7 +572,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateVersionInfo(ByteArrayReader reader, PropertyListener display)
+    private static void translateVersionInfo(ByteArrayReader reader, PropertyConsumer display)
     {
         final String[] Photoshop_Versions = {
                 "Photoshop 7.0 or earlier", "Photoshop CS (8.0)", "Photoshop CS2 (9.0)",
@@ -613,7 +613,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translatePrintScaleInfo(ByteArrayReader reader, PropertyListener display)
+    private static void translatePrintScaleInfo(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(14))
         {
@@ -637,7 +637,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translatePixelAspectRatio(ByteArrayReader reader, PropertyListener display)
+    private static void translatePixelAspectRatio(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(12))
         {
@@ -657,7 +657,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translatePrintFlagsInfo(ByteArrayReader reader, PropertyListener display)
+    private static void translatePrintFlagsInfo(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(10))
         {
@@ -733,7 +733,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateGridGuidesInfo(ByteArrayReader reader, PropertyListener display)
+    private static void translateGridGuidesInfo(ByteArrayReader reader, PropertyConsumer display)
     {
         if (reader.hasRemaining(16))
         {
@@ -783,7 +783,7 @@ public final class PhotoshopManager
      * @param display
      *        the target streaming handler receiving property pairs
      */
-    private static void translateURL(ByteArrayReader reader, short resID, PropertyListener display)
+    private static void translateURL(ByteArrayReader reader, short resID, PropertyConsumer display)
     {
         int index = 1;
         int totalStrings = 1;

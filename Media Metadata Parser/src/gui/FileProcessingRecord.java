@@ -1,13 +1,13 @@
 package gui;
 
-import common.PropertyListener;
+import common.PropertyConsumer;
 import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleStringProperty;
 
 /**
  * Table model for displaying batch processing status per file.
  */
-class FileSummaryRecord implements PropertyListener
+class FileProcessingRecord implements PropertyConsumer
 {
     static final String KEY_SOURCE = "SOURCE";
     static final String KEY_TARGET = "TARGET";
@@ -18,12 +18,12 @@ class FileSummaryRecord implements PropertyListener
     private final SimpleStringProperty status;
     private final SimpleLongProperty fileSize;
 
-    FileSummaryRecord()
+    FileProcessingRecord()
     {
         this("", "", "", 0L);
     }
 
-    FileSummaryRecord(String sourceName, String targetName, String status, long fileSize)
+    FileProcessingRecord(String sourceName, String targetName, String status, long fileSize)
     {
         this.sourceName = new SimpleStringProperty(sourceName);
         this.targetName = new SimpleStringProperty(targetName);

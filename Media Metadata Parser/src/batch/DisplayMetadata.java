@@ -11,11 +11,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.function.Consumer;
 import common.AbstractImageParser;
 import common.DetectedFormatResult;
 import common.ImageParserFactory;
 import common.Metadata;
-import common.PropertyListener;
+import common.PropertyConsumer;
 import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
 import logger.LogFactory;
@@ -49,9 +50,6 @@ import xmp.XmpProperty;
  */
 public final class DisplayMetadata
 {
-    private final BatchConfiguration config;
-    private final List<ProgressListener> listeners;
-    private final MetadataScanner scanner;
     private static final LogFactory LOGGER = LogFactory.getLogger(DisplayMetadata.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private static final EnumSet<ChunkType> DISPLAY_CHUNK_FILTER = EnumSet.of(
@@ -63,19 +61,42 @@ public final class DisplayMetadata
     // 3 more chunks to display more information on metadata.
     // ChunkType.iCCP, ChunkType.cHRM, ChunkType.sBIT);
 
+    private final BatchConfiguration config;
+    private final MetadataScanner scanner;
+    private final List<ProgressListener> listeners;
+    private Consumer<String> onMetadataReceived;
+
     /**
      * Creates an instance for displaying metadata name/value attributes, similar to the output
      * format produced by {@code exiftool -G1 -a -s -u}.
      *
      * @param config
-     *        the configuration containing the validated source parameters and
-     *        filters supplied on the command line
+     *        the configuration containing the validated source parameters and filters supplied on
+     *        the command line
      */
     public DisplayMetadata(BatchConfiguration config)
     {
         this.config = config;
         this.listeners = new ArrayList<>();
         this.scanner = new MetadataScanner(config);
+    }
+
+    private void print(String text)
+    {
+        if (onMetadataReceived != null)
+        {
+            onMetadataReceived.accept(text);
+        }
+
+        else
+        {
+            System.out.print(text);
+        }
+    }
+
+    private void printf(String format, Object...args)
+    {
+        print(String.format(format, args));
     }
 
     /**
@@ -94,9 +115,14 @@ public final class DisplayMetadata
         }
     }
 
+    public void setOnMetadataReceived(Consumer<String> consumer)
+    {
+        onMetadataReceived = consumer;
+    }
+
     /**
      * Executes the metadata extraction pipeline for all media records discovered by the scanner.
-     * 
+     *
      * @return metrics containing total source files scanned and size
      */
     public BatchMetrics execute()
@@ -107,7 +133,7 @@ public final class DisplayMetadata
 
         try
         {
-            startLogging();
+            //startLogging();
             scanner.start();
             resetListeners(); // Reset progress bar state after scanning completes
 
@@ -118,49 +144,42 @@ public final class DisplayMetadata
                 for (MediaRecord record : scanner)
                 {
                     Path fpath = record.getPath();
+                    DetectedFormatResult result = ImageParserFactory.inspect(fpath);
+
                     totalBytes += record.getFileSize();
 
-                    try
+                    if (result.hasParser())
                     {
-                        DetectedFormatResult result = ImageParserFactory.inspect(fpath);
+                        AbstractImageParser<?> parser = result.getParser();
 
-                        if (result.hasParser())
+                        if (parser instanceof PngParser)
                         {
-                            AbstractImageParser<?> parser = result.getParser();
-
-                            if (parser instanceof PngParser)
-                            {
-                                PngParser png = (PngParser) parser;
-                                png.setChunkFilter(DISPLAY_CHUNK_FILTER);
-                            }
-
-                            parser.readMetadata();
-                            Metadata<?> meta = parser.getMetadata();
-
-                            System.out.printf("======== %s ========%n", fpath);
-
-                            displaySystemMetadata(fpath);
-
-                            if (meta != null && meta.hasMetadata())
-                            {
-                                if (meta instanceof TifMetadataProvider)
-                                {
-                                    displayTifMetadata((TifMetadataProvider) meta);
-                                }
-
-                                else if (meta instanceof PngMetadataProvider)
-                                {
-                                    displayPngMetadata((PngMetadataProvider) meta);
-                                }
-                            }
-
-                            System.out.println();
+                            PngParser png = (PngParser) parser;
+                            png.setChunkFilter(DISPLAY_CHUNK_FILTER);
                         }
-                    }
 
-                    catch (IOException exc)
-                    {
-                        System.err.printf("Warning: Skipping metadata display for [%s] due to error: %s%n", fpath.getFileName(), exc.getMessage());
+                        parser.readMetadata();
+
+                        Metadata<?> meta = parser.getMetadata();
+
+                        printf("======== %s ========%n", fpath);
+
+                        displaySystemMetadata(fpath);
+
+                        if (meta != null && meta.hasMetadata())
+                        {
+                            if (meta instanceof TifMetadataProvider)
+                            {
+                                displayTifMetadata((TifMetadataProvider) meta);
+                            }
+
+                            else if (meta instanceof PngMetadataProvider)
+                            {
+                                displayPngMetadata((PngMetadataProvider) meta);
+                            }
+                        }
+
+                        print(System.lineSeparator());
                     }
 
                     /* Notify progress listeners based on overall loop count */
@@ -184,6 +203,7 @@ public final class DisplayMetadata
 
         catch (Exception exc)
         {
+            // TODO: change to Logger as error or re-throw an exception?
             System.err.println("Unable to initialise due to an error: " + exc.getMessage());
             return new BatchMetrics(0, 0, 0L);
         }
@@ -228,7 +248,7 @@ public final class DisplayMetadata
         sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileCreateDate", formatTimestamp(node.creationTime())));
         sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FilePermissions", node.getPermissionsString()));
 
-        System.out.print(sb);
+        print(sb.toString());
     }
 
     /**
@@ -252,7 +272,7 @@ public final class DisplayMetadata
      */
     private void displayTifMetadata(TifMetadataProvider tif)
     {
-        List<String> photoshopMeta = new ArrayList<>();
+        final List<String> photoshopMeta = new ArrayList<>();
 
         for (DirectoryIFD ifd : tif)
         {
@@ -266,7 +286,7 @@ public final class DisplayMetadata
 
                 if (tag == TagIFD_Private.IFD_PHOTOSHOP_SETTINGS)
                 {
-                    PhotoshopManager.decodePhotoshopProperties(rawData, new PropertyListener()
+                    PhotoshopManager.decodePhotoshopProperties(rawData, new PropertyConsumer()
                     {
                         @Override
                         public void accept(String key, Object value)
@@ -283,7 +303,7 @@ public final class DisplayMetadata
 
                 if (!value.isEmpty())
                 {
-                    System.out.printf(Taggable.COLUMN_FORMAT, groupName, name, value);
+                    printf(Taggable.COLUMN_FORMAT, groupName, name, value);
                 }
             }
         }
@@ -291,7 +311,7 @@ public final class DisplayMetadata
         // Defer Photoshop listing until after last main IFD listing
         for (String element : photoshopMeta)
         {
-            System.out.print(element);
+            print(element);
         }
 
         if (tif.hasXmpData())
@@ -326,7 +346,7 @@ public final class DisplayMetadata
 
                 String groupName = (!prefix.isEmpty() ? "[XMP-" + prefix + "]" : "[XMP]");
 
-                System.out.printf(Taggable.COLUMN_FORMAT, groupName, displayName, translatedValue);
+                printf(Taggable.COLUMN_FORMAT, groupName, displayName, translatedValue);
             }
         }
     }
@@ -339,14 +359,14 @@ public final class DisplayMetadata
      */
     private void displayPngMetadata(PngMetadataProvider png)
     {
-        String groupName = "[PNG]";
+        final String groupName = "[PNG]";
 
-        PropertyListener disp = new PropertyListener()
+        PropertyConsumer disp = new PropertyConsumer()
         {
             @Override
             public void accept(String key, Object value)
             {
-                System.out.printf(Taggable.COLUMN_FORMAT, groupName, key, value);
+                printf(Taggable.COLUMN_FORMAT, groupName, key, value);
             }
         };
 
@@ -412,6 +432,7 @@ public final class DisplayMetadata
 
             LogFactory.configure(logPath.toString());
             LogFactory.setDebug(config.isDebug());
+            LogFactory.disable();
 
             LOGGER.info(this.getClass().getSimpleName() + " loaded");
             LOGGER.info("Source: " + config.getSource().toAbsolutePath());

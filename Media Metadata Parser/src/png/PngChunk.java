@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.zip.CRC32;
 import common.ByteValueConverter;
 import common.Utils;
-import common.PropertyListener;
+import common.PropertyConsumer;
 
 /**
  * Represents an individual chunk in a PNG file.
@@ -203,7 +203,7 @@ public class PngChunk
      * @param consumer
      *        the target consumer destination for the printed metadata fields
      */
-    public void printProperties(PropertyListener consumer)
+    public void printProperties(PropertyConsumer consumer)
     {
         ChunkType type = getType();
 

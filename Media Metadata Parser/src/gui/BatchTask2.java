@@ -1,7 +1,6 @@
 package gui;
 
 import java.util.function.Consumer;
-
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchMetrics;
@@ -9,11 +8,9 @@ import batch.BatchProcessEvent;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import common.PropertyConsumer;
-import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
-import logger.LogFactory;
 import progressbar.JavaFXProgressAdapter;
 
 /**
@@ -28,7 +25,7 @@ import progressbar.JavaFXProgressAdapter;
  * @version 1.2
  * @since 5 May 2026
  */
-class BatchTask extends Task<BatchMetrics>
+class BatchTask2 extends Task<BatchMetrics>
 {
     private final BatchConfiguration config;
     private final TextArea logArea;
@@ -52,7 +49,7 @@ class BatchTask extends Task<BatchMetrics>
      * @param displayMetadata
      *        {@code true} to display metadata instead of processing files
      */
-    BatchTask(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
+    BatchTask2(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
     {
         this.config = config;
         this.logArea = logArea;
@@ -134,33 +131,7 @@ class BatchTask extends Task<BatchMetrics>
             DisplayMetadata display = new DisplayMetadata(config);
             display.addProgressListener(attachProgressAdapter("Retrieving metadata"));
 
-            display.setOnMetadataReceived(new Consumer<String>()
-            {
-                @Override
-                public void accept(final String text)
-                {
-                    Platform.runLater(new Runnable()
-                    {
-                        @Override
-                        public void run()
-                        {
-                            logArea.appendText(text);
-                        }
-                    });
-                }
-            });
-
-            LogFactory.disable();
-
-            try
-            {
-                return display.execute();
-            }
-
-            finally
-            {
-                LogFactory.enable();
-            }
+            return display.execute();
         }
 
         processor = new MediaBatchProcessor(config);

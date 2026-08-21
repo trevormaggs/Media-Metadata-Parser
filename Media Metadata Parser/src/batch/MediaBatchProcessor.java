@@ -15,7 +15,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import common.PropertyListener;
+import common.PropertyConsumer;
 import heif.HeifDatePatcher;
 import jpg.JpgDatePatcher;
 import logger.LogFactory;
@@ -56,7 +56,7 @@ public final class MediaBatchProcessor
     private final List<ProgressListener> listeners;
     private final MetadataScanner scanner;
     private final BatchConfiguration config;
-    private PropertyListener fileUpdateListener;
+    private PropertyConsumer fileUpdateListener;
     public static final String DEFAULT_IMAGE_PREFIX = "image";
     public static final String DEFAULT_SOURCE_DIRECTORY = ".";
     public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
@@ -75,8 +75,8 @@ public final class MediaBatchProcessor
     }
 
     /**
-     * Registers a progress listener to receive updates during both scanning and processing
-     * execution phases. You may add multiple listeners.
+     * Registers a progress listener to receive updates during scanning and processing phases. You
+     * may add multiple listeners.
      *
      * @param listener
      *        the progress listener to register
@@ -91,19 +91,19 @@ public final class MediaBatchProcessor
     }
 
     /**
-     * Sets the property listener to receive individual file processing metrics. There can only be
-     * one listener.
+     * Sets the listener to receive detailed processing metrics and event payloads for each
+     * processed file. Only one listener can be registered at a time.
      *
      * @param listener
-     *        the property listener to set
+     *        the listener to set for file processing metric events
      */
-    public void setPropertyListener(PropertyListener listener)
+    public void setFileMetricsListener(PropertyConsumer listener)
     {
         fileUpdateListener = listener;
     }
 
     /**
-     * Signals the scanner to abort execution at the earliest opportunity.
+     * Signals the batch processor and scanner to abort execution at the earliest opportunity.
      */
     public void cancel()
     {
@@ -481,7 +481,7 @@ public final class MediaBatchProcessor
      * Initialises the logging system and records the active configuration.
      *
      * @throws BatchErrorException
-     *         if the logging service cannot be established
+     *         if the logging configuration cannot be initialised
      */
     private void startLogging() throws BatchErrorException
     {

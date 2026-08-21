@@ -2,6 +2,7 @@ package gui;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -13,56 +14,22 @@ import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchMetrics;
 import batch.BatchProcessEvent;
-import common.PropertyListener;
+import common.PropertyConsumer;
+
 import javafx.animation.PauseTransition;
-import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.beans.InvalidationListener;
-import javafx.beans.Observable;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
+import javafx.application.*;
+import javafx.beans.*;
+import javafx.beans.value.*;
+import javafx.collections.*;
 import javafx.concurrent.WorkerStateEvent;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.geometry.Insets;
-import javafx.geometry.Side;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
+import javafx.event.*;
+import javafx.geometry.*;
+import javafx.scene.*;
+import javafx.scene.control.*;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.ContextMenu;
-import javafx.scene.control.DatePicker;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.Label;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.ProgressBar;
-import javafx.scene.control.SeparatorMenuItem;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableRow;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyCodeCombination;
-import javafx.scene.input.KeyCombination;
-import javafx.scene.input.KeyEvent;
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.RowConstraints;
-import javafx.stage.FileChooser;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.Window;
+import javafx.scene.input.*;
+import javafx.scene.layout.*;
+import javafx.stage.*;
 import javafx.util.Callback;
 import javafx.util.Duration;
 
@@ -80,7 +47,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private GridPane rootPane;
     private BatchTask workerTask;
     private MainViewPane viewPane;
-    private ObservableList<FileSummaryRecord> fileRecords;
+    private ObservableList<FileProcessingRecord> fileRecords;
 
     /**
      * Initialises the application state before the JavaFX application window is launched.
@@ -128,7 +95,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        configureDynamicNodes(rootPane);
+        configureDynamicNodes();
     }
 
     /**
@@ -147,7 +114,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         catch (IOException exc)
         {
-            System.err.println("Unable to save path history information due to an error: " + exc.getMessage());
+            System.err.println("Unable to save path history information: " + exc.getMessage());
         }
     }
 
@@ -190,9 +157,18 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.viewBtn)
         {
-            showSummaryDialog();
-        }
+            CheckBox showMetadata = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
 
+            if (showMetadata.isSelected())
+            {
+                showMetadataInspector();
+            }
+
+            else
+            {
+                showSummaryDialog();
+            }
+        }
         else if (source == viewPane.clearLogBtn)
         {
             TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
@@ -211,7 +187,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
     /**
      * Configures dynamic behaviour and event handlers for the UI controls contained within the
-     * specified parent pane.
+     * main root pane.
      *
      * <p>
      * Configures source-field interactions, file chooser operations, clipboard handling, control
@@ -224,18 +200,15 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      * directory for downstream processing. If a common parent directory cannot be determined,
      * {@code null} is stored instead.
      * </p>
-     *
-     * @param pane
-     *        the parent container holding the UI elements to configure
      */
-    private void configureDynamicNodes(Parent pane)
+    private void configureDynamicNodes()
     {
-        TextField sourceText = GUIUtils.getById(pane, MainViewPane.SRCID, TextField.class);
-        TextField targetText = GUIUtils.getById(pane, MainViewPane.TGTID, TextField.class);
-        TextField prefixText = GUIUtils.getById(pane, MainViewPane.PFXID, TextField.class);
-        CheckBox embedDateTimeCheck = GUIUtils.getById(pane, MainViewPane.EMBID, CheckBox.class);
-        DatePicker modifyDatePicker = GUIUtils.getById(pane, MainViewPane.DTMID, DatePicker.class);
-        CheckBox showMetadataCheck = GUIUtils.getById(pane, MainViewPane.SHWID, CheckBox.class);
+        TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
+        TextField targetText = GUIUtils.getById(rootPane, MainViewPane.TGTID, TextField.class);
+        TextField prefixText = GUIUtils.getById(rootPane, MainViewPane.PFXID, TextField.class);
+        CheckBox embedDateTimeCheck = GUIUtils.getById(rootPane, MainViewPane.EMBID, CheckBox.class);
+        DatePicker modifyDatePicker = GUIUtils.getById(rootPane, MainViewPane.DTMID, DatePicker.class);
+        CheckBox showMetadataCheck = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
 
         try
         {
@@ -262,12 +235,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        sourceText.focusedProperty().addListener(new InvalidationListener()
+        sourceText.focusedProperty().addListener(new ChangeListener<Boolean>()
         {
             @Override
-            public void invalidated(Observable observable)
+            public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
             {
-                if (!sourceText.isFocused())
+                if (!newVal)
                 {
                     sourceText.setText(sourceText.getText().trim());
                 }
@@ -277,14 +250,13 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         sourceText.textProperty().addListener(new ChangeListener<String>()
         {
             @Override
-            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue)
+            public void changed(ObservableValue<? extends String> obs, String oldVal, String newVal)
             {
-                // If text was manually edited, ensure userData doesn't point to an outdated Path
                 if (sourceText.getUserData() != null)
                 {
                     Path currentPath = (Path) sourceText.getUserData();
 
-                    if (!currentPath.toString().equals(newValue))
+                    if (!currentPath.toString().equals(newVal))
                     {
                         sourceText.setUserData(null);
                     }
@@ -312,25 +284,22 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                             Path parentDir = null;
                             String[] parts = pastedText.split("\\s*,\\s*");
 
-                            /*
-                             * Locate the parent directory from the first valid path entry
-                             */
                             for (String part : parts)
                             {
                                 try
                                 {
-                                    Path file = Paths.get(part).toAbsolutePath();
+                                    Path fpath = Paths.get(part).toAbsolutePath();
 
-                                    if (Files.isRegularFile(file))
+                                    if (Files.isRegularFile(fpath))
                                     {
-                                        parentDir = file.getParent();
+                                        parentDir = fpath.getParent();
                                         break;
                                     }
                                 }
 
                                 catch (InvalidPathException exc)
                                 {
-                                    // Ignore invalid individual path tokens during discovery
+                                    // Ignore invalid paths
                                 }
                             }
 
@@ -338,16 +307,13 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                             if (valid)
                             {
-                                /*
-                                 * Verify all files exist and share the exact same directory
-                                 */
                                 for (String part : parts)
                                 {
                                     try
                                     {
-                                        Path file = parentDir.resolve(part);
+                                        Path fpath = parentDir.resolve(part);
 
-                                        if (!Files.isRegularFile(file) || !parentDir.equals(file.getParent()))
+                                        if (!Files.isRegularFile(fpath) || !parentDir.equals(fpath.getParent()))
                                         {
                                             valid = false;
                                             break;
@@ -380,11 +346,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         {
                             try
                             {
-                                Path rawPath = Paths.get(pastedText);
+                                Path fpath = Paths.get(pastedText);
 
-                                if (Files.exists(rawPath))
+                                if (Files.exists(fpath))
                                 {
-                                    Path fullPath = rawPath.toAbsolutePath();
+                                    Path fullPath = fpath.toAbsolutePath();
                                     Path parent = Files.isDirectory(fullPath) ? fullPath : fullPath.getParent();
 
                                     sourceText.setText(pastedText);
@@ -394,7 +360,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                                 else
                                 {
-                                    String msg = "The pasted path does not exist on disk:\n\n" + pastedText;
+                                    String msg = "The pasted path does not exist:\n\n" + pastedText;
                                     GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
                                 }
                             }
@@ -412,13 +378,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Preview listener for live preview generation
         InvalidationListener previewListener = new InvalidationListener()
         {
             @Override
             public void invalidated(Observable observable)
             {
-                viewPane.updatePreview((GridPane) pane);
+                viewPane.updatePreview(rootPane);
             }
         };
 
@@ -428,19 +393,19 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         prefixText.textProperty().addListener(previewListener);
         embedDateTimeCheck.selectedProperty().addListener(previewListener);
         modifyDatePicker.valueProperty().addListener(previewListener);
-        showMetadataCheck.selectedProperty().addListener(new InvalidationListener()
+
+        showMetadataCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
         {
             @Override
-            public void invalidated(Observable observable)
+            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldVal, Boolean newVal)
             {
-                boolean isMetadata = showMetadataCheck.isSelected();
+                boolean isMetadata = newVal;
 
-                viewPane.actionBtn.setText(isMetadata ? "Display Metadata" : "Run Batch Process");
                 viewPane.viewBtn.setText(isMetadata ? "List Metadata" : "View Summary");
+                viewPane.actionBtn.setText(isMetadata ? "Display Metadata" : "Run Batch Process");
             }
         });
 
-        // Action Handlers
         viewPane.sourceBtn.setOnAction(this);
         viewPane.actionBtn.setOnAction(this);
         viewPane.exitBtn.setOnAction(this);
@@ -448,8 +413,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.clearLogBtn.setOnAction(this);
         viewPane.abortBtn.setOnAction(this);
         viewPane.viewBtn.setOnAction(this);
-
-        viewPane.updatePreview((GridPane) pane);
+        viewPane.updatePreview(rootPane);
     }
 
     /**
@@ -460,8 +424,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         ContextMenu menu = new ContextMenu();
         Button sourceBtn = viewPane.sourceBtn;
-        TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
         List<String> recentPaths = PathHistoryStore.loadRecentSourcePaths();
+        TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
 
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
@@ -481,7 +445,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         if (recentPaths.isEmpty())
         {
             MenuItem emptyItem = new MenuItem("No recent folders");
-
             emptyItem.setDisable(true);
             menu.getItems().add(emptyItem);
         }
@@ -502,11 +465,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                         try
                         {
-                            Path path = Paths.get(entry);
+                            Path fpath = Paths.get(entry);
 
-                            if (Files.exists(path))
+                            if (Files.exists(fpath))
                             {
-                                Path parent = Files.isDirectory(path) ? path : path.getParent();
+                                Path parent = Files.isDirectory(fpath) ? fpath : fpath.getParent();
                                 sourceText.setUserData(parent != null ? parent.toAbsolutePath() : null);
                             }
 
@@ -543,6 +506,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
         FileChooser chooser = new FileChooser();
         String actualText = sourceText.getText().trim();
+
+        // Use Path?
         File sourceDir = new File(actualText.isEmpty() ? System.getProperty("user.home") : actualText);
 
         chooser.setTitle("Select Source Files");
@@ -564,7 +529,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
 
             String joined = joiner.toString();
-
+            
             sourceText.setText(joined);
             sourceText.setTooltip(new Tooltip(joined));
             sourceText.setUserData(files.get(0).toPath().getParent().toAbsolutePath());
@@ -616,7 +581,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             workerTask = new BatchTask(config, logArea, progressBar, showMetadata.isSelected());
 
-            workerTask.setFileSummaryListener(new PropertyListener()
+            workerTask.setFileSummaryListener(new PropertyConsumer()
             {
                 @Override
                 public void accept(String key, Object value)
@@ -636,7 +601,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                             @Override
                             public void run()
                             {
-                                fileRecords.add(new FileSummaryRecord(source, target, status, size));
+                                fileRecords.add(new FileProcessingRecord(source, target, status, size));
                             }
                         });
                     }
@@ -691,15 +656,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     }
 
                     resetControlStates(progressLabel);
-
-                    Platform.runLater(new Runnable()
-                    {
-                        @Override
-                        public void run()
-                        {
-                            GUIUtils.launchPopup("Process Complete", "Batch processing completed", AlertType.INFORMATION);
-                        }
-                    });
+                    GUIUtils.launchPopup("Process Complete", "Batch processing completed", AlertType.INFORMATION);
                 }
             });
 
@@ -758,7 +715,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             String originalStyle = logArea.getStyle();
             logArea.setStyle(originalStyle + " -fx-highlight-fill: #a8e6cf; -fx-highlight-text-fill: #000000;");
-
             logArea.selectAll();
 
             PauseTransition flash = new PauseTransition(Duration.millis(550));
@@ -825,14 +781,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.initModality(Modality.NONE);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
-        TableView<FileSummaryRecord> table = new TableView<>();
+        TableView<FileProcessingRecord> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        TableColumn<FileSummaryRecord, String> sourceCol = new TableColumn<>("Source File");
-        sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileSummaryRecord, String>, ObservableValue<String>>()
+        TableColumn<FileProcessingRecord, String> sourceCol = new TableColumn<>("Source File");
+        sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, String>, ObservableValue<String>>()
         {
             @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileSummaryRecord, String> cellData)
+            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileProcessingRecord, String> cellData)
             {
                 return cellData.getValue().sourceNameProperty();
             }
@@ -840,11 +796,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         sourceCol.setPrefWidth(200);
 
-        TableColumn<FileSummaryRecord, String> targetCol = new TableColumn<>("Target File");
-        targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileSummaryRecord, String>, ObservableValue<String>>()
+        TableColumn<FileProcessingRecord, String> targetCol = new TableColumn<>("Target File");
+        targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, String>, ObservableValue<String>>()
         {
             @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileSummaryRecord, String> cellData)
+            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileProcessingRecord, String> cellData)
             {
                 return cellData.getValue().targetNameProperty();
             }
@@ -852,11 +808,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         targetCol.setPrefWidth(200);
 
-        TableColumn<FileSummaryRecord, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileSummaryRecord, String>, ObservableValue<String>>()
+        TableColumn<FileProcessingRecord, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, String>, ObservableValue<String>>()
         {
             @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileSummaryRecord, String> cellData)
+            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileProcessingRecord, String> cellData)
             {
                 return cellData.getValue().statusProperty();
             }
@@ -869,16 +825,16 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         table.getColumns().add(statusCol);
         table.setItems(fileRecords);
 
-        // Row factory to highlight the latest processed record in green
-        table.setRowFactory(new Callback<TableView<FileSummaryRecord>, TableRow<FileSummaryRecord>>()
+        // Highlight latest processed row in green
+        table.setRowFactory(new Callback<TableView<FileProcessingRecord>, TableRow<FileProcessingRecord>>()
         {
             @Override
-            public TableRow<FileSummaryRecord> call(TableView<FileSummaryRecord> param)
+            public TableRow<FileProcessingRecord> call(TableView<FileProcessingRecord> param)
             {
-                return new TableRow<FileSummaryRecord>()
+                return new TableRow<FileProcessingRecord>()
                 {
                     @Override
-                    protected void updateItem(FileSummaryRecord item, boolean empty)
+                    protected void updateItem(FileProcessingRecord item, boolean empty)
                     {
                         super.updateItem(item, empty);
 
@@ -886,12 +842,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         {
                             setStyle("");
                         }
-
                         else if (getIndex() == fileRecords.size() - 1)
                         {
                             setStyle("-fx-background-color: #c8e6c9; -fx-text-fill: #1b5e20;");
                         }
-
                         else
                         {
                             setStyle("");
@@ -902,17 +856,16 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         });
 
         // Auto-scroll listener to follow live updates
-        fileRecords.addListener(new ListChangeListener<FileSummaryRecord>()
+        fileRecords.addListener(new ListChangeListener<FileProcessingRecord>()
         {
             @Override
-            public void onChanged(Change<? extends FileSummaryRecord> change)
+            public void onChanged(ListChangeListener.Change<? extends FileProcessingRecord> change)
             {
                 while (change.next())
                 {
                     if (change.wasAdded() && !fileRecords.isEmpty())
                     {
                         table.scrollTo(fileRecords.size() - 1);
-                        table.refresh();
                     }
                 }
             }
@@ -923,14 +876,78 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.show();
     }
 
-    /**
-     * Launches the JavaFX application.
-     *
-     * @param args
-     *        command-line arguments supplied to the application
-     */
-    public static void main(String[] args)
+    private void showMetadataInspector()
     {
-        launch(args);
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.initModality(Modality.NONE);
+        dialog.setTitle("Extracted Media Metadata");
+        dialog.setHeaderText("Discovered Structure Attributes");
+
+        ButtonType exportBtnType = new ButtonType("Export to File");
+        dialog.getDialogPane().getButtonTypes().addAll(exportBtnType, ButtonType.CLOSE);
+
+        TextArea textDisplay = new TextArea();
+        textDisplay.setEditable(false);
+        textDisplay.setWrapText(false);
+        textDisplay.setStyle("-fx-font-family: 'Courier New', monospace; -fx-font-size: 12px;");
+
+        TextArea mainLog = (TextArea) viewPane.clearLogBtn.getUserData();
+
+        if (mainLog != null)
+        {
+            textDisplay.setText(mainLog.getText());
+        }
+
+        GridPane content = new GridPane();
+        content.setHgap(10);
+        content.setVgap(10);
+        content.setPadding(new Insets(10));
+        content.add(textDisplay, 0, 0);
+
+        GridPane.setHgrow(textDisplay, Priority.ALWAYS);
+        GridPane.setVgrow(textDisplay, Priority.ALWAYS);
+
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setPrefSize(700, 500);
+
+        Button exportBtn = (Button) dialog.getDialogPane().lookupButton(exportBtnType);
+
+        exportBtn.addEventFilter(ActionEvent.ACTION, new EventHandler<ActionEvent>()
+        {
+            @Override
+            public void handle(ActionEvent event)
+            {
+                exportMetadataToFile(textDisplay.getText());
+                event.consume();
+            }
+        });
+
+        dialog.show();
+    }
+
+    private void exportMetadataToFile(String content)
+    {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Save Metadata to File");
+        chooser.setInitialFileName("metadata_output.txt");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files (*.txt)", "*.txt"));
+
+        File file = chooser.showSaveDialog(rootPane.getScene().getWindow());
+
+        if (file != null)
+        {
+            try
+            {
+                byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+
+                Files.write(file.toPath(), bytes);
+                GUIUtils.launchPopup("Success", "Metadata exported successfully to:\n" + file.getAbsolutePath(), AlertType.INFORMATION);
+            }
+
+            catch (IOException exc)
+            {
+                GUIUtils.launchPopup("Error", "Failed to save metadata file: " + exc.getMessage(), AlertType.ERROR);
+            }
+        }
     }
 }

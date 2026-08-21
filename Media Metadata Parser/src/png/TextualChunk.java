@@ -1,6 +1,6 @@
 package png;
 
-import common.PropertyListener;
+import common.PropertyConsumer;
 
 /**
  * Common interface for PNG textual metadata chunks (tEXt, zTXt, iTXt).
@@ -59,7 +59,7 @@ public interface TextualChunk
      * @param display
      *        the target display destination for the printed metadata fields
      */
-    default void printProperties(PropertyListener display)
+    default void printProperties(PropertyConsumer display)
     {
         display.accept(getFormattedKeyword(), getText());
     }
