@@ -9,11 +9,9 @@ import batch.BatchProcessEvent;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import common.PropertyConsumer;
-import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
-import logger.LogFactory;
 import progressbar.JavaFXProgressAdapter;
 
 /**
@@ -37,6 +35,7 @@ class BatchTask extends Task<BatchMetrics>
     private PropertyConsumer fileSummaryListener;
     private Consumer<Integer> fileScannedListener;
     private Consumer<Integer> fileProcessedListener;
+    private Consumer<String> metadataReceivedListener;
     private volatile MediaBatchProcessor processor;
 
     /**
@@ -58,6 +57,17 @@ class BatchTask extends Task<BatchMetrics>
         this.logArea = logArea;
         this.progressBar = progressBar;
         this.displayMetadata = displayMetadata;
+    }
+
+    /**
+     * Sets the listener to receive batch process events for summary reporting.
+     *
+     * @param listener
+     *        the property listener to receive batch process event updates
+     */
+    void setFileSummaryListener(PropertyConsumer listener)
+    {
+        fileSummaryListener = listener;
     }
 
     /**
@@ -83,14 +93,14 @@ class BatchTask extends Task<BatchMetrics>
     }
 
     /**
-     * Sets the listener to receive batch process events for summary reporting.
+     * Sets the listener to receive metadata attributes and values for live display.
      *
      * @param listener
-     *        the property listener to receive batch process event updates
+     *        the listener to receive metadata attribute and value updates
      */
-    void setFileSummaryListener(PropertyConsumer listener)
+    public void setOnMetadataReceived(Consumer<String> listener)
     {
-        fileSummaryListener = listener;
+        metadataReceivedListener = listener;
     }
 
     /**
@@ -131,6 +141,7 @@ class BatchTask extends Task<BatchMetrics>
         if (displayMetadata)
         {
             updateMessage("Retrieving metadata...");
+
             DisplayMetadata display = new DisplayMetadata(config);
             display.addProgressListener(attachProgressAdapter("Retrieving metadata"));
 
@@ -139,28 +150,14 @@ class BatchTask extends Task<BatchMetrics>
                 @Override
                 public void accept(final String text)
                 {
-                    Platform.runLater(new Runnable()
+                    if (metadataReceivedListener != null)
                     {
-                        @Override
-                        public void run()
-                        {
-                            logArea.appendText(text);
-                        }
-                    });
+                        metadataReceivedListener.accept(text);
+                    }
                 }
             });
 
-            LogFactory.disable();
-
-            try
-            {
-                return display.execute();
-            }
-
-            finally
-            {
-                LogFactory.enable();
-            }
+            return display.execute();
         }
 
         processor = new MediaBatchProcessor(config);

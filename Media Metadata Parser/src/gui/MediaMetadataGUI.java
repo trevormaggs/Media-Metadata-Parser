@@ -15,21 +15,53 @@ import batch.BatchErrorException;
 import batch.BatchMetrics;
 import batch.BatchProcessEvent;
 import common.PropertyConsumer;
-
 import javafx.animation.PauseTransition;
-import javafx.application.*;
-import javafx.beans.*;
-import javafx.beans.value.*;
-import javafx.collections.*;
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.beans.InvalidationListener;
+import javafx.beans.Observable;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import javafx.concurrent.WorkerStateEvent;
-import javafx.event.*;
-import javafx.geometry.*;
-import javafx.scene.*;
-import javafx.scene.control.*;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Side;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.input.*;
-import javafx.scene.layout.*;
-import javafx.stage.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.RowConstraints;
+import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import javafx.util.Callback;
 import javafx.util.Duration;
 
@@ -48,6 +80,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private BatchTask workerTask;
     private MainViewPane viewPane;
     private ObservableList<FileProcessingRecord> fileRecords;
+
+    // TODO: find a way to get rid of it. Its code smell.
+    private String lastExtractedMetadata = "";
 
     /**
      * Initialises the application state before the JavaFX application window is launched.
@@ -139,7 +174,17 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.actionBtn)
         {
-            executeBatchProcess();
+            CheckBox showMetadata = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
+
+            if (showMetadata.isSelected())
+            {
+                executeMetadataInspection();
+            }
+
+            else
+            {
+                executeBatchProcess();
+            }
         }
 
         else if (source == viewPane.copyLogBtn)
@@ -161,7 +206,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             if (showMetadata.isSelected())
             {
-                showMetadataInspector();
+                showMetadataInspector(lastExtractedMetadata);
             }
 
             else
@@ -169,6 +214,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 showSummaryDialog();
             }
         }
+
         else if (source == viewPane.clearLogBtn)
         {
             TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
@@ -529,7 +575,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
 
             String joined = joiner.toString();
-            
+
             sourceText.setText(joined);
             sourceText.setTooltip(new Tooltip(joined));
             sourceText.setUserData(files.get(0).toPath().getParent().toAbsolutePath());
@@ -842,10 +888,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         {
                             setStyle("");
                         }
+
                         else if (getIndex() == fileRecords.size() - 1)
                         {
                             setStyle("-fx-background-color: #c8e6c9; -fx-text-fill: #1b5e20;");
                         }
+
                         else
                         {
                             setStyle("");
@@ -876,12 +924,121 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.show();
     }
 
-    private void showMetadataInspector()
+    /* List Metadata to emulate exiftool.exe -G1 -s -u */
+
+    private void executeMetadataInspection()
+    {
+        BatchConfiguration config;
+        StringBuilder sb = new StringBuilder();
+        Button actionBtn = viewPane.actionBtn;
+        Button cancelBtn = viewPane.abortBtn;
+        Button copyLogBtn = viewPane.copyLogBtn;
+        Button clearLogBtn = viewPane.clearLogBtn;
+        ProgressBar progressBar = viewPane.progressBar;
+        TextArea logArea = (TextArea) clearLogBtn.getUserData();
+        Label progressLabel = (Label) progressBar.getUserData();
+
+        if (logArea != null)
+        {
+            logArea.clear();
+            lastExtractedMetadata = "";
+
+            try
+            {
+                config = new ConfigurationBuilder(rootPane).build();
+            }
+
+            catch (BatchErrorException exc)
+            {
+                progressLabel.setText("Configuration error");
+                GUIUtils.launchPopup("Configuration Error", exc.getMessage(), AlertType.ERROR);
+                return;
+            }
+
+            workerTask = new BatchTask(config, logArea, progressBar, true);
+
+            workerTask.setOnMetadataReceived(new Consumer<String>()
+            {
+                @Override
+                public void accept(final String text)
+                {
+                    sb.append(text);
+                }
+            });
+
+            workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
+            {
+                @Override
+                public void handle(WorkerStateEvent event)
+                {
+                    lastExtractedMetadata = sb.toString();
+
+                    showMetadataInspector(lastExtractedMetadata);
+                    resetControlStates(progressLabel);
+                }
+            });
+
+            workerTask.setOnFailed(new EventHandler<WorkerStateEvent>()
+            {
+                @Override
+                public void handle(WorkerStateEvent event)
+                {
+                    String msg;
+                    Throwable exc = workerTask.getException();
+
+                    if (exc != null && exc.getMessage() == null && exc.getCause() != null)
+                    {
+                        exc = exc.getCause();
+                    }
+
+                    if (exc != null && exc.getMessage() != null && !exc.getMessage().trim().isEmpty())
+                    {
+                        msg = exc.getMessage();
+                    }
+
+                    else
+                    {
+                        msg = "An unexpected error occurred during metadata extraction.";
+                    } 
+
+                    resetControlStates(progressLabel);
+                    GUIUtils.launchPopup("Metadata Extraction Error", msg, AlertType.ERROR);
+                }
+            });
+
+            workerTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
+            {
+                @Override
+                public void handle(WorkerStateEvent event)
+                {
+                    resetControlStates(progressLabel);
+                }
+            });
+
+            actionBtn.setDisable(true);
+            cancelBtn.setDisable(false);
+            copyLogBtn.setDisable(true);
+            progressLabel.textProperty().bind(workerTask.messageProperty());
+
+            Thread worker = new Thread(workerTask);
+            worker.setDaemon(true);
+            worker.start();
+        }
+    }
+
+    /**
+     * Constructs and displays the Metadata Inspector dialog window.
+     *
+     * @param initialText
+     *        the initial string content to populate in the text area
+     * @return the {@link TextArea} control displaying the metadata content
+     */
+    private void showMetadataInspector(String content)
     {
         Dialog<Void> dialog = new Dialog<>();
         dialog.initModality(Modality.NONE);
-        dialog.setTitle("Extracted Media Metadata");
-        dialog.setHeaderText("Discovered Structure Attributes");
+        dialog.setTitle("Metadata Inspector");
+        dialog.setHeaderText("Media Metadata Output");
 
         ButtonType exportBtnType = new ButtonType("Export to File");
         dialog.getDialogPane().getButtonTypes().addAll(exportBtnType, ButtonType.CLOSE);
@@ -890,24 +1047,18 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         textDisplay.setEditable(false);
         textDisplay.setWrapText(false);
         textDisplay.setStyle("-fx-font-family: 'Courier New', monospace; -fx-font-size: 12px;");
+        textDisplay.setText(content != null ? content : "");
 
-        TextArea mainLog = (TextArea) viewPane.clearLogBtn.getUserData();
-
-        if (mainLog != null)
-        {
-            textDisplay.setText(mainLog.getText());
-        }
-
-        GridPane content = new GridPane();
-        content.setHgap(10);
-        content.setVgap(10);
-        content.setPadding(new Insets(10));
-        content.add(textDisplay, 0, 0);
+        GridPane pane = new GridPane();
+        pane.setHgap(10);
+        pane.setVgap(10);
+        pane.setPadding(new Insets(10));
+        pane.add(textDisplay, 0, 0);
 
         GridPane.setHgrow(textDisplay, Priority.ALWAYS);
         GridPane.setVgrow(textDisplay, Priority.ALWAYS);
 
-        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setContent(pane);
         dialog.getDialogPane().setPrefSize(700, 500);
 
         Button exportBtn = (Button) dialog.getDialogPane().lookupButton(exportBtnType);

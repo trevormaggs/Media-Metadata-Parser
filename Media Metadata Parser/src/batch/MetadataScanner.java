@@ -176,8 +176,10 @@ final class MetadataScanner implements Iterable<MediaRecord>
                     Files.walkFileTree(config.getSource(), visitor);
                 }
 
-                // Ensure progress reaches 100% at the end of the scan for completeness
-                notifyListeners(totalCount, totalCount);
+                for (ProgressListener listener : listeners)
+                {
+                    listener.onCompleted(totalCount);
+                }
             }
 
             catch (Exception exc)

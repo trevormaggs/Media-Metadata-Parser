@@ -133,7 +133,7 @@ public final class DisplayMetadata
 
         try
         {
-            //startLogging();
+            startLogging();
             scanner.start();
             resetListeners(); // Reset progress bar state after scanning completes
 
@@ -432,7 +432,6 @@ public final class DisplayMetadata
 
             LogFactory.configure(logPath.toString());
             LogFactory.setDebug(config.isDebug());
-            LogFactory.disable();
 
             LOGGER.info(this.getClass().getSimpleName() + " loaded");
             LOGGER.info("Source: " + config.getSource().toAbsolutePath());
