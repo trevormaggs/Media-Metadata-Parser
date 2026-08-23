@@ -1,7 +1,9 @@
 package batch;
 
+import common.DigitalSignature;
+
 /**
- * Immutable domain event representing the execution outcome of processing a single media record.
+ * Immutable domain event representing the outcome of processing a single media record.
  *
  * @author Trevor Maggs
  * @version 1.0
@@ -14,15 +16,15 @@ public final class BatchProcessEvent
     private final long targetSize;
 
     /**
-     * Constructs a batch process event containing processing details for a record.
+     * Creates a batch process event containing the processing result for a media record.
      *
      * @param record
      *        the source media record being processed
      * @param targetName
-     *        the generated target file name
+     *        the name assigned to the generated target file
      * @param targetSize
-     *        the size of the generated target file in bytes, or {@code -1} if processing failed or
-     *        was skipped
+     *        the size of the generated target file in bytes, or {@code -1} if processing failed
+     *        or the record was skipped
      */
     public BatchProcessEvent(MediaRecord record, String targetName, long targetSize)
     {
@@ -32,7 +34,7 @@ public final class BatchProcessEvent
     }
 
     /**
-     * Returns the simple file name of the source media file.
+     * Returns the simple file name of the source media record.
      *
      * @return the source file name
      */
@@ -52,9 +54,10 @@ public final class BatchProcessEvent
     }
 
     /**
-     * Returns the size of the target file in bytes.
+     * Returns the size of the generated target file.
      *
-     * @return the target file size in bytes, or {@code -1} if processing was unsuccessful
+     * @return the target file size in bytes, or {@code -1} if processing failed or the record was
+     *         skipped
      */
     public long getTargetSize()
     {
@@ -62,9 +65,19 @@ public final class BatchProcessEvent
     }
 
     /**
-     * Returns whether the processing operation completed successfully.
+     * Returns the signature identifying the media file format, such as TIF, JPG, or PNG.
      *
-     * @return {@code true} if the target file was created successfully, otherwise {@code false}
+     * @return the detected media format signature
+     */
+    public DigitalSignature getDigitalSignature()
+    {
+        return record.getMediaFormat();
+    }
+
+    /**
+     * Indicates whether processing produced a valid target file size.
+     *
+     * @return {@code true} if {@link #getTargetSize()} is not {@code -1}, otherwise {@code false}
      */
     public boolean isSuccess()
     {

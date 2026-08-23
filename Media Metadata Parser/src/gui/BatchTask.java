@@ -140,8 +140,6 @@ class BatchTask extends Task<BatchMetrics>
     {
         if (displayMetadata)
         {
-            updateMessage("Retrieving metadata...");
-
             DisplayMetadata display = new DisplayMetadata(config);
             display.addProgressListener(attachProgressAdapter("Retrieving metadata"));
 

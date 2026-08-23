@@ -14,12 +14,18 @@ import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchMetrics;
 import batch.BatchProcessEvent;
+import common.DigitalSignature;
 import common.PropertyConsumer;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -38,10 +44,12 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogEvent;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
@@ -79,10 +87,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private GridPane rootPane;
     private BatchTask workerTask;
     private MainViewPane viewPane;
+    private StringProperty extractedMetadata;
     private ObservableList<FileProcessingRecord> fileRecords;
-
-    // TODO: find a way to get rid of it. Its code smell.
-    private String lastExtractedMetadata = "";
 
     /**
      * Initialises the application state before the JavaFX application window is launched.
@@ -91,6 +97,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     public void init()
     {
         viewPane = new MainViewPane();
+        extractedMetadata = new SimpleStringProperty("");
         fileRecords = FXCollections.observableArrayList();
     }
 
@@ -206,7 +213,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             if (showMetadata.isSelected())
             {
-                showMetadataInspector(lastExtractedMetadata);
+                showMetadataInspector();
             }
 
             else
@@ -228,6 +235,125 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         else if (source == viewPane.exitBtn)
         {
             Platform.exit();
+        }
+    }
+
+    /**
+     * Processes clipboard content pasted into the source field and updates the associated source
+     * path information.
+     *
+     * @param event
+     *        the key event triggered by the paste combination
+     * @param sourceText
+     *        the target text field control receiving input
+     */
+    public void handleSourcePaste(KeyEvent event, TextField sourceText)
+    {
+        KeyCodeCombination shortcut = new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN);
+
+        if (shortcut.match(event))
+        {
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+
+            if (clipboard.hasString())
+            {
+                String pastedText = clipboard.getString().trim();
+
+                if (pastedText.contains(","))
+                {
+                    Path parentDir = null;
+                    String[] parts = pastedText.split("\\s*,\\s*");
+
+                    for (String part : parts)
+                    {
+                        try
+                        {
+                            Path fpath = Paths.get(part).toAbsolutePath();
+
+                            if (Files.isRegularFile(fpath))
+                            {
+                                parentDir = fpath.getParent();
+                                break;
+                            }
+                        }
+
+                        catch (InvalidPathException exc)
+                        {
+                            // Ignore invalid paths
+                        }
+                    }
+
+                    boolean valid = (parentDir != null);
+
+                    if (valid)
+                    {
+                        for (String part : parts)
+                        {
+                            try
+                            {
+                                Path fpath = parentDir.resolve(part);
+
+                                if (!Files.isRegularFile(fpath) || !parentDir.equals(fpath.getParent()))
+                                {
+                                    valid = false;
+                                    break;
+                                }
+                            }
+
+                            catch (InvalidPathException exc)
+                            {
+                                valid = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (valid)
+                    {
+                        sourceText.setText(pastedText);
+                        sourceText.setTooltip(new Tooltip(pastedText));
+                        sourceText.setUserData(parentDir == null ? null : parentDir.toAbsolutePath());
+                    }
+
+                    else
+                    {
+                        String msg = "One or more pasted files is unknown or not in the same directory:\n\n" + pastedText;
+                        GUIUtils.launchPopup("Invalid File Set", msg, AlertType.WARNING);
+                    }
+                }
+
+                else
+                {
+                    try
+                    {
+                        Path fpath = Paths.get(pastedText);
+
+                        if (Files.exists(fpath))
+                        {
+                            Path fullPath = fpath.toAbsolutePath();
+                            Path parent = Files.isDirectory(fullPath) ? fullPath : fullPath.getParent();
+
+                            sourceText.setText(pastedText);
+                            sourceText.setTooltip(new Tooltip(pastedText));
+                            sourceText.setUserData(parent == null ? null : parent.toAbsolutePath());
+                        }
+
+                        else
+                        {
+                            String msg = "The pasted path does not exist:\n\n" + pastedText;
+                            GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
+                        }
+                    }
+
+                    catch (InvalidPathException exc)
+                    {
+                        String msg = "The pasted content is not a valid file path:\n\n" + pastedText;
+                        GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
+                    }
+                }
+            }
+
+            event.consume();
         }
     }
 
@@ -269,6 +395,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         populateRecentHistoryMenu();
 
+        // Handle context menu attached to source button
         sourceText.setOnMouseClicked(new EventHandler<MouseEvent>()
         {
             @Override
@@ -281,6 +408,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
+        // Handle refreshing source text field when it is out of focus
         sourceText.focusedProperty().addListener(new ChangeListener<Boolean>()
         {
             @Override
@@ -293,6 +421,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
+        // Handle source parent directory via sourceText.setUserData()
         sourceText.textProperty().addListener(new ChangeListener<String>()
         {
             @Override
@@ -310,120 +439,17 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
+        // Handle text paste in source text field, ie file1.jpg, file2.png...
         sourceText.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>()
         {
             @Override
             public void handle(KeyEvent event)
             {
-                KeyCodeCombination shortcut = new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN);
-
-                if (shortcut.match(event))
-                {
-                    Clipboard clipboard = Clipboard.getSystemClipboard();
-
-                    if (clipboard.hasString())
-                    {
-                        String pastedText = clipboard.getString().trim();
-
-                        if (pastedText.contains(","))
-                        {
-                            Path parentDir = null;
-                            String[] parts = pastedText.split("\\s*,\\s*");
-
-                            for (String part : parts)
-                            {
-                                try
-                                {
-                                    Path fpath = Paths.get(part).toAbsolutePath();
-
-                                    if (Files.isRegularFile(fpath))
-                                    {
-                                        parentDir = fpath.getParent();
-                                        break;
-                                    }
-                                }
-
-                                catch (InvalidPathException exc)
-                                {
-                                    // Ignore invalid paths
-                                }
-                            }
-
-                            boolean valid = (parentDir != null);
-
-                            if (valid)
-                            {
-                                for (String part : parts)
-                                {
-                                    try
-                                    {
-                                        Path fpath = parentDir.resolve(part);
-
-                                        if (!Files.isRegularFile(fpath) || !parentDir.equals(fpath.getParent()))
-                                        {
-                                            valid = false;
-                                            break;
-                                        }
-                                    }
-
-                                    catch (InvalidPathException exc)
-                                    {
-                                        valid = false;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (valid)
-                            {
-                                sourceText.setText(pastedText);
-                                sourceText.setTooltip(new Tooltip(pastedText));
-                                sourceText.setUserData(parentDir == null ? null : parentDir.toAbsolutePath());
-                            }
-
-                            else
-                            {
-                                String msg = "One or more pasted files is unknown or not in the same directory:\n\n" + pastedText;
-                                GUIUtils.launchPopup("Invalid File Set", msg, AlertType.WARNING);
-                            }
-                        }
-
-                        else
-                        {
-                            try
-                            {
-                                Path fpath = Paths.get(pastedText);
-
-                                if (Files.exists(fpath))
-                                {
-                                    Path fullPath = fpath.toAbsolutePath();
-                                    Path parent = Files.isDirectory(fullPath) ? fullPath : fullPath.getParent();
-
-                                    sourceText.setText(pastedText);
-                                    sourceText.setTooltip(new Tooltip(pastedText));
-                                    sourceText.setUserData(parent == null ? null : parent.toAbsolutePath());
-                                }
-
-                                else
-                                {
-                                    String msg = "The pasted path does not exist:\n\n" + pastedText;
-                                    GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
-                                }
-                            }
-
-                            catch (InvalidPathException exc)
-                            {
-                                String msg = "The pasted content is not a valid file path:\n\n" + pastedText;
-                                GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
-                            }
-                        }
-                    }
-
-                    event.consume();
-                }
+                handleSourcePaste(event, sourceText);
             }
         });
 
+        // Handle target preview label
         InvalidationListener previewListener = new InvalidationListener()
         {
             @Override
@@ -440,6 +466,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         embedDateTimeCheck.selectedProperty().addListener(previewListener);
         modifyDatePicker.valueProperty().addListener(previewListener);
 
+        // Toggle buttons between batch processing and metadata inspection modes
         showMetadataCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
         {
             @Override
@@ -452,6 +479,13 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
+        BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(fileRecords);
+        BooleanBinding isMetadataEmpty = extractedMetadata.isEmpty();
+        BooleanBinding isViewDisabled = Bindings.when(showMetadataCheck.selectedProperty()).then(isMetadataEmpty).otherwise(isBatchRecordsEmpty);
+
+        viewPane.viewBtn.disableProperty().bind(isViewDisabled);
+        viewPane.updatePreview(rootPane);
+
         viewPane.sourceBtn.setOnAction(this);
         viewPane.actionBtn.setOnAction(this);
         viewPane.exitBtn.setOnAction(this);
@@ -459,7 +493,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.clearLogBtn.setOnAction(this);
         viewPane.abortBtn.setOnAction(this);
         viewPane.viewBtn.setOnAction(this);
-        viewPane.updatePreview(rootPane);
     }
 
     /**
@@ -640,6 +673,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         long size = event.getTargetSize();
                         String source = event.getSourceName();
                         String target = event.getTargetName();
+                        DigitalSignature magic = event.getDigitalSignature();
                         String status = event.isSuccess() ? "Completed" : "Failed";
 
                         Platform.runLater(new Runnable()
@@ -647,7 +681,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                             @Override
                             public void run()
                             {
-                                fileRecords.add(new FileProcessingRecord(source, target, status, size));
+                                fileRecords.add(new FileProcessingRecord(source, target, magic, status, size));
                             }
                         });
                     }
@@ -830,7 +864,43 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         TableView<FileProcessingRecord> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
+        TableColumn<FileProcessingRecord, Void> indexCol = new TableColumn<>("#");
+
+        indexCol.setCellFactory(new Callback<TableColumn<FileProcessingRecord, Void>, TableCell<FileProcessingRecord, Void>>()
+        {
+            @Override
+            public TableCell<FileProcessingRecord, Void> call(TableColumn<FileProcessingRecord, Void> param)
+            {
+                return new TableCell<FileProcessingRecord, Void>()
+                {
+                    @Override
+                    protected void updateItem(Void item, boolean empty)
+                    {
+                        super.updateItem(item, empty);
+
+                        if (empty || getTableRow() == null || getTableRow().getItem() == null)
+                        {
+                            setText(null);
+                        }
+
+                        else
+                        {
+                            setText(String.valueOf(getIndex() + 1));
+                        }
+                    }
+                };
+            }
+        });
+
+        indexCol.setMinWidth(30);
+        indexCol.setMaxWidth(30);
+        indexCol.setPrefWidth(30);
+        indexCol.setResizable(false);
+        indexCol.setStyle("-fx-alignment: CENTER;");
+
         TableColumn<FileProcessingRecord, String> sourceCol = new TableColumn<>("Source File");
+
+        sourceCol.setPrefWidth(190);
         sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -840,9 +910,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        sourceCol.setPrefWidth(200);
-
         TableColumn<FileProcessingRecord, String> targetCol = new TableColumn<>("Target File");
+
+        targetCol.setPrefWidth(190);
         targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -852,54 +922,101 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        targetCol.setPrefWidth(200);
+        TableColumn<FileProcessingRecord, Long> sizeCol = new TableColumn<>("File Size");
 
-        TableColumn<FileProcessingRecord, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, String>, ObservableValue<String>>()
+        sizeCol.setPrefWidth(100);
+        sizeCol.setStyle("-fx-alignment: CENTER-RIGHT;");
+        sizeCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, Long>, ObservableValue<Long>>()
         {
             @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileProcessingRecord, String> cellData)
+            public ObservableValue<Long> call(TableColumn.CellDataFeatures<FileProcessingRecord, Long> cellData)
             {
-                return cellData.getValue().statusProperty();
+                return new ReadOnlyObjectWrapper<>(cellData.getValue().getFileSize());
             }
         });
 
-        statusCol.setPrefWidth(120);
-
-        table.getColumns().add(sourceCol);
-        table.getColumns().add(targetCol);
-        table.getColumns().add(statusCol);
-        table.setItems(fileRecords);
-
-        // Highlight latest processed row in green
-        table.setRowFactory(new Callback<TableView<FileProcessingRecord>, TableRow<FileProcessingRecord>>()
+        sizeCol.setCellFactory(new Callback<TableColumn<FileProcessingRecord, Long>, TableCell<FileProcessingRecord, Long>>()
         {
             @Override
-            public TableRow<FileProcessingRecord> call(TableView<FileProcessingRecord> param)
+            public TableCell<FileProcessingRecord, Long> call(TableColumn<FileProcessingRecord, Long> param)
             {
-                return new TableRow<FileProcessingRecord>()
+                return new TableCell<FileProcessingRecord, Long>()
                 {
                     @Override
-                    protected void updateItem(FileProcessingRecord item, boolean empty)
+                    protected void updateItem(Long item, boolean empty)
                     {
                         super.updateItem(item, empty);
 
                         if (empty || item == null)
                         {
-                            setStyle("");
+                            setText(null);
                         }
-
-                        else if (getIndex() == fileRecords.size() - 1)
-                        {
-                            setStyle("-fx-background-color: #c8e6c9; -fx-text-fill: #1b5e20;");
-                        }
-
+                        
                         else
                         {
-                            setStyle("");
+                            setText(formatFileSize(item));
                         }
                     }
                 };
+            }
+        });
+
+        table.getColumns().add(indexCol);
+        table.getColumns().add(sourceCol);
+        table.getColumns().add(targetCol);
+        table.getColumns().add(sizeCol);
+        table.setItems(fileRecords);
+
+        // Retrieve current target path from UI
+        TextField targetText = GUIUtils.getById(rootPane, MainViewPane.TGTID, TextField.class);
+        Path targetDir = null;
+
+        if (targetText != null && !targetText.getText().trim().isEmpty())
+        {
+            try
+            {
+                targetDir = Paths.get(targetText.getText().trim()).toAbsolutePath();
+            }
+
+            catch (InvalidPathException exc)
+            {
+                // Fall back to null if invalid
+            }
+        }
+
+        ImagePreviewPopup previewPopup = new ImagePreviewPopup(dialog.getDialogPane().getScene().getWindow(), targetDir);
+
+        table.setRowFactory(new Callback<TableView<FileProcessingRecord>, TableRow<FileProcessingRecord>>()
+        {
+            @Override
+            public TableRow<FileProcessingRecord> call(TableView<FileProcessingRecord> param)
+            {
+                final TableRow<FileProcessingRecord> row = new TableRow<>();
+
+                // Trigger popup when mouse moves over row
+                row.setOnMouseEntered(new EventHandler<MouseEvent>()
+                {
+                    @Override
+                    public void handle(MouseEvent event)
+                    {
+                        if (!row.isEmpty())
+                        {
+                            previewPopup.showPreview(row.getItem(), event.getScreenX(), event.getScreenY());
+                        }
+                    }
+                });
+
+                // Hide popup when mouse exits row
+                row.setOnMouseExited(new EventHandler<MouseEvent>()
+                {
+                    @Override
+                    public void handle(MouseEvent event)
+                    {
+                        previewPopup.hide();
+                    }
+                });
+
+                return row;
             }
         });
 
@@ -919,29 +1036,58 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
+        // Ensure popup closes when summary dialog closes
+        dialog.setOnCloseRequest(new EventHandler<DialogEvent>()
+        {
+            @Override
+            public void handle(DialogEvent event)
+            {
+                previewPopup.hide();
+            }
+        });
+
         dialog.getDialogPane().setContent(table);
         dialog.getDialogPane().setPrefSize(550, 320);
         dialog.show();
     }
 
+    /**
+     * Helper method to convert byte counts into readable string formats.
+     */
+    private String formatFileSize(long bytes)
+    {
+        if (bytes <= 0)
+        {
+            return "0 B";
+        }
+
+        final String[] units = new String[]{"B", "KB", "MB", "GB", "TB"};
+        int digitGroups = (int) (Math.log10(bytes) / Math.log10(1024));
+
+        return new java.text.DecimalFormat("#,##0.#").format(bytes / Math.pow(1024, digitGroups)) + " " + units[digitGroups];
+    }
+
     /* List Metadata to emulate exiftool.exe -G1 -s -u */
 
+    /**
+     * Configures and launches an asynchronous background task to extract media metadata.
+     *
+     * <p>
+     * Aggregates emitted metadata snippets in a background buffer and updates
+     * {@link #extractedMetadata} upon completion before opening the inspector window.
+     * </p>
+     */
     private void executeMetadataInspection()
     {
         BatchConfiguration config;
         StringBuilder sb = new StringBuilder();
-        Button actionBtn = viewPane.actionBtn;
-        Button cancelBtn = viewPane.abortBtn;
-        Button copyLogBtn = viewPane.copyLogBtn;
-        Button clearLogBtn = viewPane.clearLogBtn;
         ProgressBar progressBar = viewPane.progressBar;
-        TextArea logArea = (TextArea) clearLogBtn.getUserData();
         Label progressLabel = (Label) progressBar.getUserData();
+        TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
         if (logArea != null)
         {
             logArea.clear();
-            lastExtractedMetadata = "";
 
             try
             {
@@ -971,9 +1117,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 @Override
                 public void handle(WorkerStateEvent event)
                 {
-                    lastExtractedMetadata = sb.toString();
-
-                    showMetadataInspector(lastExtractedMetadata);
+                    extractedMetadata.set(sb.toString());
+                    showMetadataInspector();
                     resetControlStates(progressLabel);
                 }
             });
@@ -999,7 +1144,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     else
                     {
                         msg = "An unexpected error occurred during metadata extraction.";
-                    } 
+                    }
 
                     resetControlStates(progressLabel);
                     GUIUtils.launchPopup("Metadata Extraction Error", msg, AlertType.ERROR);
@@ -1015,9 +1160,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
             });
 
-            actionBtn.setDisable(true);
-            cancelBtn.setDisable(false);
-            copyLogBtn.setDisable(true);
+            viewPane.actionBtn.setDisable(true);
+            viewPane.abortBtn.setDisable(false);
+            viewPane.copyLogBtn.setDisable(true);
             progressLabel.textProperty().bind(workerTask.messageProperty());
 
             Thread worker = new Thread(workerTask);
@@ -1029,16 +1174,17 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     /**
      * Constructs and displays the Metadata Inspector dialog window.
      *
-     * @param initialText
-     *        the initial string content to populate in the text area
-     * @return the {@link TextArea} control displaying the metadata content
+     * <p>
+     * The inspector's text display is bound directly to {@link #extractedMetadata},
+     * ensuring it dynamically updates whenever background extraction tasks complete.
+     * </p>
      */
-    private void showMetadataInspector(String content)
+    private void showMetadataInspector()
     {
         Dialog<Void> dialog = new Dialog<>();
         dialog.initModality(Modality.NONE);
-        dialog.setTitle("Metadata Inspector");
-        dialog.setHeaderText("Media Metadata Output");
+        dialog.setTitle("Extracted Media Metadata");
+        dialog.setHeaderText("Discovered Structure Attributes");
 
         ButtonType exportBtnType = new ButtonType("Export to File");
         dialog.getDialogPane().getButtonTypes().addAll(exportBtnType, ButtonType.CLOSE);
@@ -1047,18 +1193,20 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         textDisplay.setEditable(false);
         textDisplay.setWrapText(false);
         textDisplay.setStyle("-fx-font-family: 'Courier New', monospace; -fx-font-size: 12px;");
-        textDisplay.setText(content != null ? content : "");
 
-        GridPane pane = new GridPane();
-        pane.setHgap(10);
-        pane.setVgap(10);
-        pane.setPadding(new Insets(10));
-        pane.add(textDisplay, 0, 0);
+        // Bind text directly to the observable property
+        textDisplay.textProperty().bind(extractedMetadata);
+
+        GridPane content = new GridPane();
+        content.setHgap(10);
+        content.setVgap(10);
+        content.setPadding(new Insets(10));
+        content.add(textDisplay, 0, 0);
 
         GridPane.setHgrow(textDisplay, Priority.ALWAYS);
         GridPane.setVgrow(textDisplay, Priority.ALWAYS);
 
-        dialog.getDialogPane().setContent(pane);
+        dialog.getDialogPane().setContent(content);
         dialog.getDialogPane().setPrefSize(700, 500);
 
         Button exportBtn = (Button) dialog.getDialogPane().lookupButton(exportBtnType);
@@ -1076,6 +1224,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.show();
     }
 
+    /**
+     * Opens a system {@link FileChooser} dialog to save extracted metadata to disk.
+     *
+     * @param content
+     *        the formatted text payload to write to the file
+     */
     private void exportMetadataToFile(String content)
     {
         FileChooser chooser = new FileChooser();

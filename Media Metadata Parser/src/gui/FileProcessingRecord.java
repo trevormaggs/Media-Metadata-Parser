@@ -1,6 +1,12 @@
 package gui;
 
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import common.DigitalSignature;
 import common.PropertyConsumer;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleStringProperty;
 
@@ -11,22 +17,26 @@ class FileProcessingRecord implements PropertyConsumer
 {
     static final String KEY_SOURCE = "SOURCE";
     static final String KEY_TARGET = "TARGET";
+    static final String KEY_MAGIC = "MAGIC";
     static final String KEY_STATUS = "STATUS";
     static final String KEY_SIZE = "SIZE";
+
     private final SimpleStringProperty sourceName;
     private final SimpleStringProperty targetName;
+    private final ObjectProperty<DigitalSignature> digitalSignature;
     private final SimpleStringProperty status;
     private final SimpleLongProperty fileSize;
 
     FileProcessingRecord()
     {
-        this("", "", "", 0L);
+        this("", "", DigitalSignature.UNKNOWN, "", 0L);
     }
 
-    FileProcessingRecord(String sourceName, String targetName, String status, long fileSize)
+    FileProcessingRecord(String sourceName, String targetName, DigitalSignature magic, String status, long fileSize)
     {
         this.sourceName = new SimpleStringProperty(sourceName);
         this.targetName = new SimpleStringProperty(targetName);
+        this.digitalSignature = new SimpleObjectProperty<>(magic != null ? magic : DigitalSignature.UNKNOWN);
         this.status = new SimpleStringProperty(status);
         this.fileSize = new SimpleLongProperty(fileSize);
     }
@@ -49,12 +59,19 @@ class FileProcessingRecord implements PropertyConsumer
                 targetName.set(String.valueOf(value));
             break;
 
+            case KEY_MAGIC:
+                if (value instanceof DigitalSignature)
+                {
+                    digitalSignature.set((DigitalSignature) value);
+                }
+            break;
+
             case KEY_STATUS:
                 status.set(String.valueOf(value));
             break;
 
             case KEY_SIZE:
-                
+
                 if (value instanceof Number)
                 {
                     fileSize.set(((Number) value).longValue());
@@ -65,7 +82,7 @@ class FileProcessingRecord implements PropertyConsumer
                     {
                         fileSize.set(Long.parseLong(String.valueOf(value)));
                     }
-                    
+
                     catch (NumberFormatException exc)
                     {
                         // Ignore invalid format
@@ -85,6 +102,11 @@ class FileProcessingRecord implements PropertyConsumer
         return targetName;
     }
 
+    ObjectProperty<DigitalSignature> digitalSignatureProperty()
+    {
+        return digitalSignature;
+    }
+
     SimpleStringProperty statusProperty()
     {
         return status;
@@ -95,21 +117,11 @@ class FileProcessingRecord implements PropertyConsumer
         return fileSize;
     }
 
-    // --- Standard Value Getters & Setters ---
-
-    String getSourceName()
-    {
-        return sourceName.get();
-    }
+    // POJO Setters
 
     void setSourceName(String src)
     {
         sourceName.set(src);
-    }
-
-    String getTargetName()
-    {
-        return targetName.get();
     }
 
     void setTargetName(String tgt)
@@ -117,9 +129,9 @@ class FileProcessingRecord implements PropertyConsumer
         targetName.set(tgt);
     }
 
-    String getStatus()
+    void setDigitalSignature(DigitalSignature signature)
     {
-        return status.get();
+        digitalSignature.set(signature != null ? signature : DigitalSignature.UNKNOWN);
     }
 
     void setStatus(String sts)
@@ -127,13 +139,76 @@ class FileProcessingRecord implements PropertyConsumer
         status.set(sts);
     }
 
+    void setFileSize(long fsize)
+    {
+        fileSize.set(fsize);
+    }
+
+    // POJO Getters
+
+    String getSourceName()
+    {
+        return sourceName.get();
+    }
+
+    String getTargetName()
+    {
+        return targetName.get();
+    }
+
+    DigitalSignature getDigitalSignature()
+    {
+        return digitalSignature.get();
+    }
+
+    String getStatus()
+    {
+        return status.get();
+    }
+
     long getFileSize()
     {
         return fileSize.get();
     }
 
-    void setFileSize(long fsize)
+    /**
+     * Resolves and returns the source string as a {@link Path} resource.
+     *
+     * @return the resolved source {@link Path}, or {@code null} if empty or invalid
+     */
+    Path getSourcePath()
     {
-        fileSize.set(fsize);
+        return toPath(getSourceName());
+    }
+
+    /**
+     * Resolves and returns the target string as a {@link Path} resource.
+     *
+     * @return the resolved target {@link Path}, or {@code null} if empty or invalid
+     */
+    Path getTargetPath()
+    {
+        return toPath(getTargetName());
+    }
+
+    /**
+     * Helper method to safely convert path strings into {@link Path} objects.
+     */
+    private Path toPath(String rawPath)
+    {
+        if (rawPath == null || rawPath.trim().isEmpty())
+        {
+            return null;
+        }
+
+        try
+        {
+            return Paths.get(rawPath);
+        }
+
+        catch (InvalidPathException exc)
+        {
+            return null;
+        }
     }
 }
