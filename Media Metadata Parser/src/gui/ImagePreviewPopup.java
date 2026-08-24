@@ -64,7 +64,7 @@ public class ImagePreviewPopup
         }
 
         // If path is relative, resolve it against the target output directory
-        Path resolvedPath = fpath.isAbsolute() ? fpath : (targetDir != null ? targetDir.resolve(fpath) : fpath.toAbsolutePath());
+        Path resolvedPath = (fpath.isAbsolute() ? fpath : (targetDir != null ? targetDir.resolve(fpath) : fpath.toAbsolutePath()));
         File file = resolvedPath.toFile();
 
         if (file.exists())
@@ -79,6 +79,7 @@ public class ImagePreviewPopup
                 Image thumb = new Image(file.toURI().toString(), 250, 250, true, true, true);
                 imageView.setImage(thumb);
             }
+            
             else
             {
                 imageView.setImage(null);
@@ -94,6 +95,7 @@ public class ImagePreviewPopup
                 popupStage.show();
             }
         }
+        
         else
         {
             hide();
