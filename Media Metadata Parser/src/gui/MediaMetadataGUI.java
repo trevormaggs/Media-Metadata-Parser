@@ -1003,11 +1003,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         textHistory = entry;
                     }
 
-                    MenuItem item = new MenuItem(textHistory);
-
                     final String targetText = textHistory;
                     final String targetParent = parentHistory;
-
+                    MenuItem item = new MenuItem(textHistory);
+                    
                     item.setOnAction(new EventHandler<ActionEvent>()
                     {
                         @Override
@@ -1037,7 +1036,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         catch (BatchErrorException exc)
         {
             MenuItem blankItem = new MenuItem("Recent paths unknown");
-
             blankItem.setDisable(true);
             menu.getItems().add(blankItem);
         }

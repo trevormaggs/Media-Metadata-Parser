@@ -54,7 +54,6 @@ final class PathHistoryStore
     static List<String> loadRecentSourcePaths() throws BatchErrorException
     {
         Path history = getSettingsPath();
-
         List<String> historyConfig = new ArrayList<>();
 
         if (Files.exists(history))
