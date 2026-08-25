@@ -153,7 +153,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.copyLogBtn)
         {
-            copyLogText();
+            copyTextAreaWithFlash((TextArea) viewPane.clearLogBtn.getUserData());
         }
 
         else if (source == viewPane.abortBtn)
@@ -299,12 +299,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private void executeBatchProcess()
     {
         BatchConfiguration config;
-        Button actionBtn = viewPane.actionBtn;
-        Button abortBtn = viewPane.abortBtn;
-        Button copyLogBtn = viewPane.copyLogBtn;
-        Button clearLogBtn = viewPane.clearLogBtn;
         ProgressBar progressBar = viewPane.progressBar;
-        TextArea logArea = (TextArea) clearLogBtn.getUserData();
+        TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
         Label progressLabel = (Label) progressBar.getUserData();
         CheckBox showMetadata = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
 
@@ -438,25 +434,15 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
             });
 
-            // Shift GUI into working state
-            actionBtn.setDisable(true);
-            abortBtn.setDisable(false);
-            copyLogBtn.setDisable(true);
+            viewPane.actionBtn.setDisable(true);
+            viewPane.abortBtn.setDisable(false);
+            viewPane.copyLogBtn.setDisable(true);
             progressLabel.textProperty().bind(workerTask.messageProperty());
 
             Thread worker = new Thread(workerTask);
             worker.setDaemon(true);
             worker.start();
         }
-    }
-
-    /**
-     * Copies main execution log output text onto system clipboard.
-     */
-    private void copyLogText()
-    {
-        TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
-        copyTextAreaWithFlash(logArea);
     }
 
     /**
@@ -803,7 +789,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         };
 
-        // Disable options irrelevant when performing raw metadata structure examination
         prefixText.disableProperty().bind(showMetadataCheck.selectedProperty());
         modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
 
@@ -811,7 +796,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         embedDateTimeCheck.selectedProperty().addListener(previewListener);
         modifyDatePicker.valueProperty().addListener(previewListener);
 
-        // Adjust display labellings according to execution mode toggle
+        // Adjust display button names according to execution mode toggle
         showMetadataCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
         {
             @Override
@@ -824,7 +809,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Disable summary output triggering until meaningful data structures are generated
+        // Disable summary output triggering until meaningful data structures are available
         BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(fileRecords);
         BooleanBinding isMetadataEmpty = extractedMetadata.isEmpty();
         BooleanBinding isViewDisabled = Bindings.when(showMetadataCheck.selectedProperty()).then(isMetadataEmpty).otherwise(isBatchRecordsEmpty);
@@ -966,7 +951,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         ContextMenu menu = new ContextMenu();
         Button sourceBtn = viewPane.sourceBtn;
-        List<String> recentPaths = PathHistoryStore.loadRecentSourcePaths();
         TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
 
         MenuItem selectFolder = new MenuItem("Select Folder...");
@@ -984,105 +968,79 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         menu.getItems().addAll(selectFolder, selectFiles, new SeparatorMenuItem());
 
-        if (recentPaths.isEmpty())
+        try
         {
-            MenuItem emptyItem = new MenuItem("No recent folders");
-            emptyItem.setDisable(true);
-            menu.getItems().add(emptyItem);
-        }
+            List<String> history = PathHistoryStore.loadRecentSourcePaths();
 
-        else
-        {
-            for (String fullPath : recentPaths)
+            if (history.isEmpty())
             {
-                String displayLabel = fullPath;
+                MenuItem blankItem = new MenuItem("No recent paths");
+                blankItem.setDisable(true);
+                menu.getItems().add(blankItem);
+            }
 
-                if (displayLabel.length() > 60)
+            else
+            {
+                for (String entry : history)
                 {
-                    int prefixLen = 27;
-                    int suffixLen = 28;
-                    displayLabel = displayLabel.substring(0, prefixLen) + "..." + displayLabel.substring(displayLabel.length() - suffixLen);
-                }
-
-                MenuItem item = new MenuItem(displayLabel);
-
-                item.setOnAction(new EventHandler<ActionEvent>()
-                {
-                    @Override
-                    public void handle(ActionEvent event)
+                    if (entry == null || entry.isEmpty())
                     {
-                        sourceText.setText(fullPath);
-                        sourceText.setTooltip(new Tooltip(fullPath));
+                        continue;
+                    }
 
-                        Path parentDir = null;
-                        String[] tokens = fullPath.split(",");
+                    int pos = entry.indexOf('|');
+                    String parentHistory = null;
+                    String textHistory;
 
-                        // Pass 1: Find absolute path (e.g. E:\ImageBatchDir\aow_group.png)
-                        for (String token : tokens)
+                    if (pos >= 0)
+                    {
+                        parentHistory = entry.substring(0, pos);
+                        textHistory = entry.substring(pos + 1);
+                    }
+
+                    else
+                    {
+                        textHistory = entry;
+                    }
+
+                    MenuItem item = new MenuItem(textHistory);
+
+                    final String targetText = textHistory;
+                    final String targetParent = parentHistory;
+
+                    item.setOnAction(new EventHandler<ActionEvent>()
+                    {
+                        @Override
+                        public void handle(ActionEvent event)
                         {
-                            String trimmed = token.trim();
-                            if (trimmed.isEmpty()) continue;
+                            sourceText.setText(targetText);
 
-                            try
+                            if (targetParent != null && !targetParent.isEmpty())
                             {
-                                Path p = Paths.get(trimmed);
-                                if (p.isAbsolute())
-                                {
-                                    if (Files.exists(p))
-                                    {
-                                        parentDir = Files.isDirectory(p) ? p : p.getParent();
-                                    }
-                                    else if (p.getParent() != null)
-                                    {
-                                        parentDir = p.getParent();
-                                    }
-
-                                    if (parentDir != null) break;
-                                }
+                                sourceText.setTooltip(new Tooltip(targetParent));
                             }
-                            catch (InvalidPathException exc)
+
+                            else
                             {
+                                sourceText.setTooltip(null);
                             }
                         }
+                    });
 
-                        // Pass 2: Fallback for relative paths
-                        if (parentDir == null)
-                        {
-                            for (String token : tokens)
-                            {
-                                String trimmed = token.trim();
-                                if (trimmed.isEmpty()) continue;
-
-                                try
-                                {
-                                    Path p = Paths.get(trimmed).toAbsolutePath();
-                                    
-                                    if (Files.exists(p))
-                                    {
-                                        parentDir = Files.isDirectory(p) ? p : p.getParent();
-                                    }
-                                    
-                                    else if (p.getParent() != null)
-                                    {
-                                        parentDir = p.getParent();
-                                    }
-
-                                    if (parentDir != null) break;
-                                }
-                                
-                                catch (InvalidPathException exc)
-                                {
-                                }
-                            }
-                        }                
-                    }
-                });
-
-                menu.getItems().add(item);
+                    menu.getItems().add(item);
+                }
             }
+
+            sourceBtn.setUserData(menu);
         }
 
-        sourceBtn.setUserData(menu);
+        catch (BatchErrorException exc)
+        {
+            MenuItem blankItem = new MenuItem("Recent paths unknown");
+
+            blankItem.setDisable(true);
+            menu.getItems().add(blankItem);
+        }
     }
 
     /**
@@ -1114,11 +1072,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
 
             String joined = joiner.toString();
-            Path parentPath = files.get(0).toPath().getParent();
-            Path baseDir = (parentPath == null ? files.get(0).toPath().getRoot() : parentPath);
+            Path parent = files.get(0).toPath().getParent();
+            Path commonDir = (parent == null ? files.get(0).toPath().getRoot() : parent);
 
             sourceText.setText(joined);
-            sourceText.setTooltip(new Tooltip(baseDir.toAbsolutePath().toString()));
+            sourceText.setTooltip(new Tooltip(commonDir.toAbsolutePath().toString()));
         }
     }
 

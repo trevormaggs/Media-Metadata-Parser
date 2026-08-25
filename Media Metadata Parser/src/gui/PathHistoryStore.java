@@ -10,12 +10,17 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+
+import batch.BatchErrorException;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 
 /**
  * Manages persistent user configuration settings across application sessions using a simple
  * key-value configuration file.
+ * 
+ * The settings file is stored in the user's home directory and maintains the most recently used
+ * source and target paths, together with a limited history of recent source entries.
  */
 final class PathHistoryStore
 {
@@ -26,14 +31,30 @@ final class PathHistoryStore
     private static final String KEY_RECENT_PREFIX = "recent.source.path.";
     private static final int MAX_RECENT_ENTRIES = 5;
 
+    /**
+     * Prevents instantiation of this utility class.
+     *
+     * @throws UnsupportedOperationException
+     *         always thrown when an instance is created
+     */
     private PathHistoryStore()
     {
         throw new UnsupportedOperationException("Instantiation not allowed");
     }
 
-    static List<String> loadRecentSourcePaths()
+    /**
+     * Loads the recent source path history from the persistent settings file.
+     *
+     * @return a list of recent source path entries, ordered from most recent to oldest, an empty
+     *         list is returned when the settings file does not exist or contains no recent entries
+     *
+     * @throws BatchErrorException
+     *         if the settings file cannot be read
+     */
+    static List<String> loadRecentSourcePaths() throws BatchErrorException
     {
         Path history = getSettingsPath();
+
         List<String> historyConfig = new ArrayList<>();
 
         if (Files.exists(history))
@@ -46,60 +67,96 @@ final class PathHistoryStore
 
                 for (int i = 0; i < MAX_RECENT_ENTRIES; i++)
                 {
-                    String path = props.getProperty(KEY_RECENT_PREFIX + i, "").trim();
+                    String entry = props.getProperty(KEY_RECENT_PREFIX + i, "").trim();
 
-                    if (!path.isEmpty())
+                    if (!entry.isEmpty())
                     {
-                        historyConfig.add(path);
+                        historyConfig.add(entry);
                     }
                 }
             }
-            
-            catch (IOException exc )
+
+            catch (IOException exc)
             {
-                System.err.println("Failed to load recent history: " + exc .getMessage());
+                throw new BatchErrorException("Failed to read settings file:\n" + exc.getLocalizedMessage(), exc);
             }
         }
 
         return historyConfig;
     }
 
+    /**
+     * Saves the current source and target paths to the persistent settings file and updates the
+     * recent source path history.
+     * 
+     * 
+     * When possible, the source's absolute parent directory is determined from the source field's
+     * tooltip or from one of its absolute paths. For multiple source files, the parent directory is
+     * stored together with the source list using a pipe delimiter.
+     *
+     * @param sourceText
+     *        the text field containing the source path or paths
+     * @param targetText
+     *        the text field containing the target path
+     *
+     * @throws IOException
+     *         if the settings file cannot be read or written
+     */
     static void saveSettings(TextField sourceText, TextField targetText) throws IOException
     {
-        Path sourceParentPath = null;
-        Properties props = new Properties();
         Path history = getSettingsPath();
-        Object userData = sourceText.getUserData();
+        Properties props = new Properties();
+        Path sourceParentPath = null;
         String sourcePath = sourceText.getText().trim();
         String targetPath = targetText.getText().trim();
 
-        // 1. Primary: Read resolved parent from ConfigurationBuilder's UserData
-        if (userData instanceof Path)
+        if (sourceText.getTooltip() != null)
         {
-            sourceParentPath = ((Path) userData).toAbsolutePath();
-        }
-        
-        // 2. Secondary: Fallback to Tooltip base directory
-        else if (sourceText.getTooltip() != null)
-        {
-            try
+            String tooltipText = sourceText.getTooltip().getText();
+
+            if (!tooltipText.isEmpty())
             {
-                Path fpath = Paths.get(sourceText.getTooltip().getText());
-                
-                if (fpath.isAbsolute())
+                try
                 {
-                    sourceParentPath = (Files.isDirectory(fpath) ? fpath : resolveParent(fpath));
+                    Path parsed = Paths.get(tooltipText);
+
+                    if (parsed.isAbsolute())
+                    {
+                        sourceParentPath = (Files.isDirectory(parsed) ? parsed : (parsed.getParent() == null ? parsed.getRoot() : parsed.getParent()));
+                    }
+                }
+
+                catch (InvalidPathException exc)
+                {
+                    // Fall back to next attempt to find parent path
                 }
             }
-            
-            catch (InvalidPathException ignored)
-            {
-            }
         }
-        // 3. Tertiary: Fallback token discovery if UserData and Tooltip are empty
-        else if (!sourcePath.isEmpty())
+
+        if (sourceParentPath == null && !sourcePath.isEmpty())
         {
-            sourceParentPath = deriveParentFromTokens(sourcePath);
+            String[] parts = sourcePath.split("\\s*,\\s*");
+
+            for (String token : parts)
+            {
+                try
+                {
+                    Path fpath = Paths.get(token.trim());
+
+                    if (fpath.isAbsolute())
+                    {
+                        Path parent = fpath.getParent();
+
+                        sourceParentPath = (Files.isDirectory(fpath) ? fpath : (parent == null ? fpath.getRoot() : parent));
+                        break;
+                    }
+                }
+
+                catch (InvalidPathException exc)
+                {
+                    // Continue checking subsequent tokens
+                }
+            }
         }
 
         if (Files.exists(history))
@@ -114,32 +171,43 @@ final class PathHistoryStore
         {
             props.remove(KEY_SOURCE_PARENT_PATH);
         }
-        else
-        {
-            props.setProperty(KEY_SOURCE_PARENT_PATH, sourceParentPath.toString());
-        }
 
-        if (sourcePath.isEmpty())
-        {
-            props.remove(KEY_SOURCE_PATH);
-        }
         else
         {
-            props.setProperty(KEY_SOURCE_PATH, sourcePath);
+            props.setProperty(KEY_SOURCE_PARENT_PATH, sourceParentPath.toAbsolutePath().toString());
         }
 
         if (targetPath.isEmpty())
         {
             props.remove(KEY_TARGET_PATH);
         }
+
         else
         {
             props.setProperty(KEY_TARGET_PATH, targetPath);
         }
 
-        if (!sourcePath.isEmpty())
+        if (sourcePath.isEmpty())
         {
-            updateRecentHistory(props, sourcePath);
+            props.remove(KEY_SOURCE_PATH);
+        }
+
+        else
+        {
+            String entry;
+
+            if (sourceParentPath != null && sourcePath.contains(","))
+            {
+                entry = String.format("%s|%s", sourceParentPath.toAbsolutePath().toString(), sourcePath);
+            }
+
+            else
+            {
+                entry = sourcePath;
+            }
+
+            props.setProperty(KEY_SOURCE_PATH, entry);
+            updateRecentHistory(props, entry);
         }
 
         try (OutputStream os = Files.newOutputStream(history))
@@ -148,106 +216,88 @@ final class PathHistoryStore
         }
     }
 
+    /**
+     * Loads the previously saved source and target paths into the supplied text fields.
+     * 
+     * A source entry stored in pipe-delimited form is unpacked so that the source text and its
+     * parent directory can be restored separately. The restored parent directory is stored in the
+     * source field's tooltip.
+     *
+     * @param sourceText
+     *        the text field into which the saved source path or paths are loaded
+     * @param targetText
+     *        the text field into which the saved target path is loaded
+     *
+     * @throws IOException
+     *         if the settings file cannot be read
+     */
     static void loadSettings(TextField sourceText, TextField targetText) throws IOException
     {
-        Path history = getSettingsPath();
-        Properties props = new Properties();
+        Path settingsPath = getSettingsPath();
 
-        if (Files.exists(history))
+        if (Files.exists(settingsPath))
         {
-            try (InputStream is = Files.newInputStream(history))
+            Properties props = new Properties();
+
+            try (InputStream is = Files.newInputStream(settingsPath))
             {
                 props.load(is);
 
-                String savedSourceParent = props.getProperty(KEY_SOURCE_PARENT_PATH, "").trim();
-                String savedSource = props.getProperty(KEY_SOURCE_PATH);
-                String savedTarget = props.getProperty(KEY_TARGET_PATH);
+                String savedSource = props.getProperty(KEY_SOURCE_PATH, "");
+                String savedTarget = props.getProperty(KEY_TARGET_PATH, "");
+                String savedParent = props.getProperty(KEY_SOURCE_PARENT_PATH, "").trim();
 
-                if (savedTarget != null && !savedTarget.isEmpty())
+                if (!savedTarget.isEmpty())
                 {
                     targetText.setText(savedTarget);
-                    targetText.setTooltip(new Tooltip(savedTarget));
                 }
 
-                if (savedSource != null && !savedSource.isEmpty())
+                if (!savedSource.isEmpty())
                 {
+                    // Unpack pipe-delimited format ("C:\photos|file1.jpg, file2.jpg")
+                    int pos = savedSource.indexOf('|');
+
+                    if (pos >= 0)
+                    {
+                        if (savedParent.isEmpty())
+                        {
+                            savedParent = savedSource.substring(0, pos);
+                        }
+
+                        savedSource = savedSource.substring(pos + 1);
+                    }
+
                     sourceText.setText(savedSource);
 
-                    // Re-hydrate parent path into UserData and Tooltip
-                    Path resolvedParent = null;
-
-                    if (!savedSourceParent.isEmpty())
+                    if (!savedParent.isEmpty())
                     {
-                        try
-                        {
-                            resolvedParent = Paths.get(savedSourceParent).toAbsolutePath();
-                        }
-                        
-                        catch (InvalidPathException ignored)
-                        {
-                        }
-                    }
-
-                    if (resolvedParent == null)
-                    {
-                        resolvedParent = deriveParentFromTokens(savedSource);
-                    }
-
-                    if (resolvedParent != null)
-                    {
-                        sourceText.setUserData(resolvedParent);
-                        sourceText.setTooltip(new Tooltip(resolvedParent.toString()));
-                    }
-                    
-                    else
-                    {
-                        sourceText.setTooltip(new Tooltip(savedSource));
+                        sourceText.setTooltip(new Tooltip(savedParent));
                     }
                 }
             }
         }
     }
 
+    /**
+     * Returns the path of the persistent application settings file.
+     *
+     * @return the settings file path in the current user's home directory
+     */
     private static Path getSettingsPath()
     {
         return Paths.get(System.getProperty("user.home"), CONFIG_FILE_NAME);
     }
 
-    private static Path resolveParent(Path path)
-    {
-        Path parent = path.getParent();
-        
-        return (parent != null) ? parent : path.getRoot();
-    }
-
-    private static Path deriveParentFromTokens(String rawPath)
-    {
-        String[] tokens = rawPath.split("\\s*,\\s*");
-
-        // Pass 1: Check absolute paths
-        for (String token : tokens)
-        {
-            if (token.trim().isEmpty()) continue;
-            
-            try
-            {
-                Path p = Paths.get(token.trim());
-                
-                if (p.isAbsolute())
-                {
-                    return Files.isDirectory(p) ? p : resolveParent(p);
-                }
-            }
-            
-            catch (InvalidPathException ignored)
-            {
-            }
-        }
-
-        return null;
-    }
-
-    private static void updateRecentHistory(Properties props, String newPath)
+    /**
+     * Updates the recent source path history by placing the supplied entry at the front and
+     * retaining unique existing entries up to the configured maximum.
+     *
+     * @param props
+     *        the properties containing the existing history
+     * @param newEntry
+     *        the source path entry to place at the front of the history
+     */
+    private static void updateRecentHistory(Properties props, String newEntry)
     {
         List<String> oldHistory = new ArrayList<>();
         List<String> newHistory = new ArrayList<>();
@@ -262,11 +312,11 @@ final class PathHistoryStore
             }
         }
 
-        newHistory.add(newPath);
+        newHistory.add(newEntry);
 
         for (String entry : oldHistory)
         {
-            if (!entry.equalsIgnoreCase(newPath) && newHistory.size() < MAX_RECENT_ENTRIES)
+            if (!extractDisplayText(entry).equalsIgnoreCase(extractDisplayText(newEntry)) && newHistory.size() < MAX_RECENT_ENTRIES)
             {
                 newHistory.add(entry);
             }
@@ -281,5 +331,21 @@ final class PathHistoryStore
         {
             props.setProperty(KEY_RECENT_PREFIX + i, newHistory.get(i));
         }
+    }
+
+    /**
+     * Extracts the source display text from a stored history entry.
+     * 
+     * Pipe-delimited entries contain the parent directory before the pipe and the displayable
+     * source text after it. Entries without a pipe are returned unchanged.
+     *
+     * @param rawEntry
+     *        the stored source history entry
+     * @return the source text portion of the entry
+     */
+    private static String extractDisplayText(String rawEntry)
+    {
+        int pipeIdx = rawEntry.indexOf('|');
+        return (pipeIdx != -1 ? rawEntry.substring(pipeIdx + 1) : rawEntry);
     }
 }
