@@ -255,11 +255,7 @@ final class PathHistoryStore
 
                     if (pos >= 0)
                     {
-                        if (savedParent.isEmpty())
-                        {
-                            savedParent = savedSource.substring(0, pos);
-                        }
-
+                        savedParent = savedSource.substring(0, pos);
                         savedSource = savedSource.substring(pos + 1);
                     }
 
