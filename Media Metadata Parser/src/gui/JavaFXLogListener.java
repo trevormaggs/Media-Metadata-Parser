@@ -51,7 +51,7 @@ public class JavaFXLogListener implements LogListener
             @Override
             public void run()
             {
-                textArea.appendText(message + System.lineSeparator());
+                textArea.appendText(message);
             }
         });
     }

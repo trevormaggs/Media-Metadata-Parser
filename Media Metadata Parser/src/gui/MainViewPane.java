@@ -146,7 +146,7 @@ final class MainViewPane
         sourceText.setPromptText("Directory or files...");
         sourceText.setPrefWidth(300);
         sourceText.setMaxWidth(300);
-        //sourceText.setEditable(false);
+        sourceText.setEditable(false);
         sourceText.getStyleClass().add("read-only-path-field");
 
         sourceBtn.setText("Browse...");

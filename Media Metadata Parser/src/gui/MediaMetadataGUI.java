@@ -170,7 +170,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             if (showMetadata.isSelected())
             {
-                showMetadataInspector();
+                // showMetadataInspector();
+                showMetadataInspectorTree();
             }
 
             else
@@ -240,7 +241,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 public void handle(WorkerStateEvent event)
                 {
                     extractedMetadata.set(sb.toString());
-                    showMetadataInspector();
+                    // showMetadataInspector();
+                    showMetadataInspectorTree();
                     resetControlStates(progressLabel);
                 }
             });
@@ -1006,7 +1008,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     final String targetText = textHistory;
                     final String targetParent = parentHistory;
                     MenuItem item = new MenuItem(textHistory);
-                    
+
                     item.setOnAction(new EventHandler<ActionEvent>()
                     {
                         @Override
@@ -1180,5 +1182,18 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 GUIUtils.launchPopup("Error", "Failed to save metadata file: " + exc.getMessage(), AlertType.ERROR);
             }
         }
+    }
+
+    /**
+     * Opens modal dialog window displaying structural metadata contents
+     * using the interactive dual TreeTableView / Raw Flat Text inspector.
+     */
+    private void showMetadataInspectorTree()
+    {
+        Stage ownerStage = (Stage) rootPane.getScene().getWindow();
+        ExtractedMetadataDialog dialog = new ExtractedMetadataDialog(ownerStage);
+
+        dialog.setMetadataText(extractedMetadata.get());
+        dialog.show();
     }
 }

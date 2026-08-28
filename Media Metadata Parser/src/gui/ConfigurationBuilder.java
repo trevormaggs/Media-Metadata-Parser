@@ -169,16 +169,16 @@ final class ConfigurationBuilder
 
         return builder.source(parentDir.toAbsolutePath().toString())
                 .fileSet(files)
-                .target(targetText == null ? null : targetText.getText())
-                .prefix(prefixText == null ? null : prefixText.getText())
+                .target(targetText.getText())
+                .prefix(prefixText.getText())
                 .userDate(dateValue == null ? null : dateValue.toString())
-                .embedDateTime(embedDateTime != null && embedDateTime.isSelected())
-                .forceDateChange(forceDateChange != null && forceDateChange.isSelected())
-                .skipVideo(skipVideo != null && skipVideo.isSelected())
-                .descending(descending != null && descending.isSelected())
-                .debug(debug != null && debug.isSelected())
-                .showMetadata(showMetadata != null && showMetadata.isSelected())
-                .trace(trace != null && trace.isSelected())
+                .embedDateTime(embedDateTime.isSelected())
+                .forceDateChange(forceDateChange.isSelected())
+                .skipVideo(skipVideo.isSelected())
+                .descending(descending.isSelected())
+                .debug(debug.isSelected())
+                .showMetadata(showMetadata.isSelected())
+                .trace(trace.isSelected())
                 .build();
     }
 }
