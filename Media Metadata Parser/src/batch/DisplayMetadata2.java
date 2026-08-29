@@ -19,7 +19,6 @@ import common.Metadata;
 import common.PropertyConsumer;
 import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
-import gui.FileMetadataRecord;
 import logger.LogFactory;
 import png.ChunkType;
 import png.PngChunk;
@@ -49,9 +48,9 @@ import xmp.XmpProperty;
  * @version 1.2
  * @since 29 June 2026
  */
-public final class DisplayMetadata
+public final class DisplayMetadata2
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(DisplayMetadata.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(DisplayMetadata2.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private static final EnumSet<ChunkType> DISPLAY_CHUNK_FILTER = EnumSet.of(
             ChunkType.IHDR, ChunkType.gAMA, ChunkType.sRGB, ChunkType.pHYs,
@@ -66,7 +65,6 @@ public final class DisplayMetadata
     private final MetadataScanner scanner;
     private final List<ProgressListener> listeners;
     private Consumer<String> onMetadataReceived;
-    private Consumer<FileMetadataRecord> onRecordExtracted;
 
     /**
      * Creates an instance for displaying metadata name/value attributes, similar to the output
@@ -76,11 +74,29 @@ public final class DisplayMetadata
      *        the configuration containing the validated source parameters and filters supplied on
      *        the command line
      */
-    public DisplayMetadata(BatchConfiguration config)
+    public DisplayMetadata2(BatchConfiguration config)
     {
         this.config = config;
         this.listeners = new ArrayList<>();
         this.scanner = new MetadataScanner(config);
+    }
+
+    private void print(String text)
+    {
+        if (onMetadataReceived != null)
+        {
+            onMetadataReceived.accept(text);
+        }
+
+        else
+        {
+            System.out.print(text);
+        }
+    }
+
+    private void printf(String format, Object...args)
+    {
+        print(String.format(format, args));
     }
 
     /**
@@ -104,11 +120,6 @@ public final class DisplayMetadata
         onMetadataReceived = consumer;
     }
 
-    public void setOnRecordExtracted(Consumer<FileMetadataRecord> consumer)
-    {
-        this.onRecordExtracted = consumer;
-    }
-
     /**
      * Executes the metadata extraction pipeline for all media records discovered by the scanner.
      *
@@ -124,7 +135,7 @@ public final class DisplayMetadata
         {
             startLogging();
             scanner.start();
-            resetListeners();
+            resetListeners(); // Reset progress bar state after scanning completes
 
             totalSourceFiles = scanner.getRecordCount();
 
@@ -148,38 +159,30 @@ public final class DisplayMetadata
                         }
 
                         parser.readMetadata();
+
                         Metadata<?> meta = parser.getMetadata();
 
-                        // 1. Create domain POJO record
-                        FileMetadataRecord fileRecord = new FileMetadataRecord(fpath);
+                        printf("======== %s ========%n", fpath);
 
-                        // 2. Populate record
-                        collectSystemMetadata(fpath, fileRecord);
+                        displaySystemMetadata(fpath);
 
                         if (meta != null && meta.hasMetadata())
                         {
                             if (meta instanceof TifMetadataProvider)
                             {
-                                collectTifMetadata((TifMetadataProvider) meta, fileRecord);
+                                displayTifMetadata((TifMetadataProvider) meta);
                             }
-                            
+
                             else if (meta instanceof PngMetadataProvider)
                             {
-                                collectPngMetadata((PngMetadataProvider) meta, fileRecord);
+                                displayPngMetadata((PngMetadataProvider) meta);
                             }
                         }
 
-                        // 3. CONSOLE / RAW STREAM PATH: Format to raw string
-                        String formattedOutput = fileRecord.toRawText();
-                        print(formattedOutput);
-
-                        // 4. GUI POJO PATH: Notify GUI with structured object
-                        if (onRecordExtracted != null)
-                        {
-                            onRecordExtracted.accept(fileRecord);
-                        }
+                        print(System.lineSeparator());
                     }
 
+                    /* Notify progress listeners based on overall loop count */
                     for (ProgressListener listener : listeners)
                     {
                         listener.onProgressUpdate(count, totalSourceFiles);
@@ -188,6 +191,7 @@ public final class DisplayMetadata
                     count++;
                 }
 
+                /* Signal completion to listeners so onCompleted triggers */
                 for (ProgressListener listener : listeners)
                 {
                     listener.onCompleted(totalSourceFiles);
@@ -199,6 +203,7 @@ public final class DisplayMetadata
 
         catch (Exception exc)
         {
+            // TODO: change to Logger as error or re-throw an exception?
             System.err.println("Unable to initialise due to an error: " + exc.getMessage());
             return new BatchMetrics(0, 0, 0L);
         }
@@ -206,121 +211,6 @@ public final class DisplayMetadata
         finally
         {
             LogFactory.close();
-        }
-    }
-
-    private void collectSystemMetadata(Path path, FileMetadataRecord record) throws IOException
-    {
-        String group = "System";
-        AbstractFileNode node = FileInspector.inspect(path, true);
-
-        record.addItem(group, "FileName", node.getName());
-        record.addItem(group, "Directory", path.getParent() != null ? path.getParent().toString() : ".");
-        record.addItem(group, "FileSize", (node.size() / 1024) + " KB");
-        record.addItem(group, "FileModifyDate", formatTimestamp(node.lastModifiedTime()));
-        record.addItem(group, "FileAccessDate", formatTimestamp(node.lastAccessTime()));
-        record.addItem(group, "FileCreateDate", formatTimestamp(node.creationTime()));
-        record.addItem(group, "FilePermissions", node.getPermissionsString());
-    }
-
-    private void collectTifMetadata(TifMetadataProvider tif, final FileMetadataRecord record)
-    {
-        for (DirectoryIFD ifd : tif)
-        {
-            tif.DirectoryIdentifier dirType = ifd.getDirectoryType();
-            String groupName = dirType.getDescription();
-
-            for (DirectoryIFD.EntryIFD entry : ifd)
-            {
-                Taggable tag = entry.getTag();
-                Object rawData = entry.getData();
-
-                if (tag == TagIFD_Private.IFD_PHOTOSHOP_SETTINGS)
-                {
-                    PhotoshopManager.decodePhotoshopProperties(rawData, new PropertyConsumer()
-                    {
-                        @Override
-                        public void accept(String key, Object value)
-                        {
-                            record.addItem("Photoshop", key, String.valueOf(value));
-                        }
-                    });
-                    continue;
-                }
-
-                String name = getDisplayName(dirType, tag);
-                String value = tag.translate(rawData);
-
-                if (!value.isEmpty())
-                {
-                    record.addItem(groupName, name, value);
-                }
-            }
-        }
-
-        if (tif.hasXmpData())
-        {
-            XmpDirectory xmp = tif.getXmpDirectory();
-            for (XmpRecord xRecord : xmp)
-            {
-                String displayName;
-                String translatedValue;
-                String prefix = xRecord.getPrefix();
-                String rawName = xRecord.getName();
-                XmpProperty xmpProp = XmpProperty.fromQualifiedPath(xRecord.getQualifiedPath());
-
-                if (rawName == null || rawName.contains("/xml:lang") || rawName.contains("exif:Fired") || rawName.contains("exif:Mode"))
-                {
-                    continue;
-                }
-
-                if (xmpProp == XmpProperty.UNKNOWN)
-                {
-                    displayName = XmpProperty.format(rawName);
-                    translatedValue = XmpProperty.UNKNOWN.translate(xRecord.getValue());
-                }
-                else
-                {
-                    displayName = xmpProp.getDescription();
-                    translatedValue = xmpProp.translate(xRecord.getValue());
-                }
-
-                String groupName = (!prefix.isEmpty() ? "XMP-" + prefix : "XMP");
-                record.addItem(groupName, displayName, translatedValue);
-            }
-        }
-    }
-
-    private void collectPngMetadata(PngMetadataProvider png, final FileMetadataRecord record)
-    {
-        PropertyConsumer disp = new PropertyConsumer()
-        {
-            @Override
-            public void accept(String key, Object value)
-            {
-                record.addItem("PNG", key, String.valueOf(value));
-            }
-        };
-
-        for (PngDirectory dir : png)
-        {
-            for (PngChunk chunk : dir)
-            {
-                chunk.printProperties(disp);
-            }
-        }
-    }
-
-    private void print(String text)
-    {
-        if (onMetadataReceived != null)
-        {
-            onMetadataReceived.accept(text);
-        }
-
-        else
-        {
-            System.out.print(text);
         }
     }
 
@@ -336,6 +226,32 @@ public final class DisplayMetadata
     }
 
     /**
+     * Displays file system attributes for the specified file. The attributes are grouped under the
+     * {@code [System]} heading in the output.
+     *
+     * @param path
+     *        the file whose attributes are to be displayed
+     * @throws IOException
+     *         if the file system attributes cannot be read
+     */
+    private void displaySystemMetadata(Path path) throws IOException
+    {
+        String group = "[System]";
+        StringBuilder sb = new StringBuilder();
+        AbstractFileNode node = FileInspector.inspect(path, true);
+
+        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileName", node.getName()));
+        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "Directory", path.getParent() != null ? path.getParent().toString() : "."));
+        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileSize", (node.size() / 1024) + " KB"));
+        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileModifyDate", formatTimestamp(node.lastModifiedTime())));
+        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileAccessDate", formatTimestamp(node.lastAccessTime())));
+        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileCreateDate", formatTimestamp(node.creationTime())));
+        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FilePermissions", node.getPermissionsString()));
+
+        print(sb.toString());
+    }
+
+    /**
      * Formats an epoch timestamp as an ExifTool-style date/time string.
      *
      * @param millis
@@ -346,6 +262,121 @@ public final class DisplayMetadata
     private String formatTimestamp(long millis)
     {
         return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault()).format(DTF);
+    }
+
+    /**
+     * Displays metadata contained within a TIFF-based metadata structure.
+     *
+     * @param tif
+     *        the metadata provider supplying TIFF directories and associated data
+     */
+    private void displayTifMetadata(TifMetadataProvider tif)
+    {
+        final List<String> photoshopMeta = new ArrayList<>();
+
+        for (DirectoryIFD ifd : tif)
+        {
+            tif.DirectoryIdentifier dirType = ifd.getDirectoryType();
+            String groupName = "[" + dirType.getDescription() + "]";
+
+            for (DirectoryIFD.EntryIFD entry : ifd)
+            {
+                Taggable tag = entry.getTag();
+                Object rawData = entry.getData();
+
+                if (tag == TagIFD_Private.IFD_PHOTOSHOP_SETTINGS)
+                {
+                    PhotoshopManager.decodePhotoshopProperties(rawData, new PropertyConsumer()
+                    {
+                        @Override
+                        public void accept(String key, Object value)
+                        {
+                            photoshopMeta.add(String.format(Taggable.COLUMN_FORMAT, "[Photoshop]", key, value));
+                        }
+                    });
+
+                    continue;
+                }
+
+                String name = getDisplayName(dirType, tag);
+                String value = tag.translate(rawData);
+
+                if (!value.isEmpty())
+                {
+                    printf(Taggable.COLUMN_FORMAT, groupName, name, value);
+                }
+            }
+        }
+
+        // Defer Photoshop listing until after last main IFD listing
+        for (String element : photoshopMeta)
+        {
+            print(element);
+        }
+
+        if (tif.hasXmpData())
+        {
+            XmpDirectory xmp = tif.getXmpDirectory();
+
+            for (XmpRecord record : xmp)
+            {
+                String displayName;
+                String translatedValue;
+                String prefix = record.getPrefix();
+                String rawName = record.getName();
+                XmpProperty xmpProp = XmpProperty.fromQualifiedPath(record.getQualifiedPath());
+
+                // Skip structural language metadata fields that Exiftool suppresses implicitly
+                if (rawName == null || rawName.contains("/xml:lang") || rawName.contains("exif:Fired") || rawName.contains("exif:Mode"))
+                {
+                    continue;
+                }
+
+                if (xmpProp == XmpProperty.UNKNOWN)
+                {
+                    displayName = XmpProperty.format(rawName);
+                    translatedValue = XmpProperty.UNKNOWN.translate(record.getValue());
+                }
+
+                else
+                {
+                    displayName = xmpProp.getDescription();
+                    translatedValue = xmpProp.translate(record.getValue());
+                }
+
+                String groupName = (!prefix.isEmpty() ? "[XMP-" + prefix + "]" : "[XMP]");
+
+                printf(Taggable.COLUMN_FORMAT, groupName, displayName, translatedValue);
+            }
+        }
+    }
+
+    /**
+     * Displays metadata contained within a PNG metadata structure.
+     *
+     * @param png
+     *        the metadata provider supplying PNG directories and chunks
+     */
+    private void displayPngMetadata(PngMetadataProvider png)
+    {
+        final String groupName = "[PNG]";
+
+        PropertyConsumer disp = new PropertyConsumer()
+        {
+            @Override
+            public void accept(String key, Object value)
+            {
+                printf(Taggable.COLUMN_FORMAT, groupName, key, value);
+            }
+        };
+
+        for (PngDirectory dir : png)
+        {
+            for (PngChunk chunk : dir)
+            {
+                chunk.printProperties(disp);
+            }
+        }
     }
 
     /**

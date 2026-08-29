@@ -2,6 +2,7 @@ package gui;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -17,74 +18,36 @@ import batch.BatchProcessEvent;
 import common.DigitalSignature;
 import common.PropertyConsumer;
 import javafx.animation.PauseTransition;
-import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.beans.InvalidationListener;
-import javafx.beans.Observable;
-import javafx.beans.binding.Bindings;
-import javafx.beans.binding.BooleanBinding;
-import javafx.beans.property.ReadOnlyObjectWrapper;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.property.StringProperty;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
+import javafx.application.*;
+import javafx.beans.*;
+import javafx.beans.binding.*;
+import javafx.beans.property.*;
+import javafx.beans.value.*;
+import javafx.collections.*;
 import javafx.concurrent.WorkerStateEvent;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.geometry.Insets;
-import javafx.geometry.Side;
+import javafx.event.*;
+import javafx.geometry.*;
 import javafx.scene.Scene;
+import javafx.scene.control.*;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.ContextMenu;
-import javafx.scene.control.DatePicker;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.DialogEvent;
-import javafx.scene.control.Label;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.ProgressBar;
-import javafx.scene.control.SeparatorMenuItem;
-import javafx.scene.control.TableCell;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableRow;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyCodeCombination;
-import javafx.scene.input.KeyCombination;
-import javafx.scene.input.KeyEvent;
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.RowConstraints;
+import javafx.scene.input.*;
+import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.util.Callback;
-import javafx.util.Duration;
+import javafx.util.*;
 
 /**
  * Provides the JavaFX graphical user interface for configuring and running batch media metadata
  * processing operations.
  */
-public class MediaMetadataGUI extends Application implements EventHandler<ActionEvent>
+public class MediaMetadataGUI2 extends Application implements EventHandler<ActionEvent>
 {
     private GridPane rootPane;
     private BatchTask workerTask;
     private MainViewPane viewPane;
     private StringProperty extractedMetadata;
     private ObservableList<FileProcessingRecord> fileRecords;
-    private ObservableList<FileMetadataRecord> extractedRecords;
 
     /**
      * Initialises state components prior to scene setup.
@@ -95,7 +58,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane = new MainViewPane();
         extractedMetadata = new SimpleStringProperty("");
         fileRecords = FXCollections.observableArrayList();
-        extractedRecords = FXCollections.observableArrayList();
     }
 
     /*
@@ -237,26 +199,23 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     /**
      * Triggers non-destructive background metadata structure extraction task.
      */
-    /**
-     * Triggers non-destructive background metadata structure extraction task.
-     */
     private void executeMetadataInspection()
     {
         BatchConfiguration config;
-        final StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
         ProgressBar progressBar = viewPane.progressBar;
-        final Label progressLabel = (Label) progressBar.getUserData();
+        Label progressLabel = (Label) progressBar.getUserData();
         TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
         if (logArea != null)
         {
             logArea.clear();
-            extractedRecords.clear(); // Clear old records prior to extraction
 
             try
             {
                 config = new ConfigurationBuilder(rootPane).build();
             }
+
             catch (BatchErrorException exc)
             {
                 progressLabel.setText("Configuration error");
@@ -266,7 +225,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             workerTask = new BatchTask(config, logArea, progressBar, true);
 
-            // 1. Console / Raw String Path: Accumulate formatted text
+            // Append emitted raw string lines from extraction stream
             workerTask.setOnMetadataReceived(new Consumer<String>()
             {
                 @Override
@@ -276,29 +235,13 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
             });
 
-            // 2. GUI Path: Receive populated POJO records directly
-            workerTask.setOnRecordExtracted(new Consumer<FileMetadataRecord>()
-            {
-                @Override
-                public void accept(final FileMetadataRecord record)
-                {
-                    Platform.runLater(new Runnable()
-                    {
-                        @Override
-                        public void run()
-                        {
-                            extractedRecords.add(record);
-                        }
-                    });
-                }
-            });
-
             workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
             {
                 @Override
                 public void handle(WorkerStateEvent event)
                 {
                     extractedMetadata.set(sb.toString());
+                    // showMetadataInspector();
                     showMetadataInspectorTree();
                     resetControlStates(progressLabel);
                 }
@@ -502,6 +445,66 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             worker.setDaemon(true);
             worker.start();
         }
+    }
+
+    /**
+     * Opens modal dialog window displaying structural metadata contents.
+     */
+    private void showMetadataInspector()
+    {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.initModality(Modality.NONE);
+        dialog.setTitle("Extracted Media Metadata");
+        dialog.setHeaderText("Discovered Structure Attributes");
+
+        ButtonType copyBtnType = new ButtonType("Copy to Clipboard");
+        ButtonType exportBtnType = new ButtonType("Export to File");
+        dialog.getDialogPane().getButtonTypes().addAll(copyBtnType, exportBtnType, ButtonType.CLOSE);
+
+        TextArea textDisplay = new TextArea();
+        textDisplay.setEditable(false);
+        textDisplay.setWrapText(false);
+        textDisplay.setStyle("-fx-font-family: 'Courier New', monospace; -fx-font-size: 12px;");
+
+        textDisplay.textProperty().bind(extractedMetadata);
+
+        GridPane content = new GridPane();
+        content.setHgap(10);
+        content.setVgap(10);
+        content.setPadding(new Insets(10));
+        content.add(textDisplay, 0, 0);
+
+        GridPane.setHgrow(textDisplay, Priority.ALWAYS);
+        GridPane.setVgrow(textDisplay, Priority.ALWAYS);
+
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setPrefSize(700, 500);
+
+        Button copyBtn = (Button) dialog.getDialogPane().lookupButton(copyBtnType);
+        Button exportBtn = (Button) dialog.getDialogPane().lookupButton(exportBtnType);
+
+        // Intercept action events to prevent default dialog dismissal
+        copyBtn.addEventFilter(ActionEvent.ACTION, new EventHandler<ActionEvent>()
+        {
+            @Override
+            public void handle(ActionEvent event)
+            {
+                copyTextAreaWithFlash(textDisplay);
+                event.consume();
+            }
+        });
+
+        exportBtn.addEventFilter(ActionEvent.ACTION, new EventHandler<ActionEvent>()
+        {
+            @Override
+            public void handle(ActionEvent event)
+            {
+                exportMetadataToFile(textDisplay.getText());
+                event.consume();
+            }
+        });
+
+        dialog.show();
     }
 
     /**
@@ -1063,9 +1066,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         {
             StringJoiner joiner = new StringJoiner(",");
 
-            for (File file : files)
+            for (int i = 0; i < files.size(); i++)
             {
-                joiner.add(file.getName());
+                joiner.add(files.get(i).getName());
             }
 
             String joined = joiner.toString();
@@ -1150,6 +1153,38 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     }
 
     /**
+     * Writes raw extracted string metadata out onto an external text file path.
+     *
+     * @param content
+     *        Raw string metadata to save.
+     */
+    private void exportMetadataToFile(String content)
+    {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Save Metadata to File");
+        chooser.setInitialFileName("metadata_output.txt");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files (*.txt)", "*.txt"));
+
+        File file = chooser.showSaveDialog(rootPane.getScene().getWindow());
+
+        if (file != null)
+        {
+            try
+            {
+                byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+
+                Files.write(file.toPath(), bytes);
+                GUIUtils.launchPopup("Success", "Metadata exported successfully to:\n" + file.getAbsolutePath(), AlertType.INFORMATION);
+            }
+
+            catch (IOException exc)
+            {
+                GUIUtils.launchPopup("Error", "Failed to save metadata file: " + exc.getMessage(), AlertType.ERROR);
+            }
+        }
+    }
+
+    /**
      * Opens modal dialog window displaying structural metadata contents
      * using the interactive dual TreeTableView / Raw Flat Text inspector.
      */
@@ -1159,8 +1194,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         ExtractedMetadataDialog dialog = new ExtractedMetadataDialog(ownerStage);
 
         dialog.setMetadataText(extractedMetadata.get());
-        dialog.setMetadataRecords(extractedRecords); // Pass structured POJOs to populate
-                                                     // TreeTableView
         dialog.show();
     }
 }
