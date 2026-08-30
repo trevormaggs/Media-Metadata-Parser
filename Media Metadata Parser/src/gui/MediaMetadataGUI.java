@@ -275,7 +275,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnRecordExtracted(new Consumer<FileMetadataRecord>()
         {
             @Override
-            public void accept(final FileMetadataRecord record)
+            public void accept(FileMetadataRecord record)
             {
                 Platform.runLater(new Runnable()
                 {
@@ -1149,17 +1149,13 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void showMetadataInspectorTree()
     {
-        Stage ownerStage = (Stage) rootPane.getScene().getWindow();
-        ExtractedMetadataDialog dialog = new ExtractedMetadataDialog(ownerStage);
+        ExtractedMetadataDialog dialog = new ExtractedMetadataDialog((Stage) rootPane.getScene().getWindow());
 
         dialog.setMetadataText(extractedMetadata.get());
-
-        // Pass structured POJOs to populate TreeTableView
         dialog.setMetadataRecords(extractedRecords);
-
         dialog.show();
     }
-    
+
     /**
      * Launches the JavaFX application.
      *

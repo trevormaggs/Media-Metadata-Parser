@@ -31,9 +31,9 @@ import tif.tagspecs.Taggable;
  */
 public class ExtractedMetadataDialog extends Stage
 {
-    private final TreeTableView<MetadataNode> treeTableView;
     private final TextArea flatTextArea;
     private final StackPane containerStack;
+    private final TreeTableView<MetadataNode> treeTableView;
 
     public ExtractedMetadataDialog(Stage owner)
     {
@@ -57,9 +57,13 @@ public class ExtractedMetadataDialog extends Stage
             {
                 if (param != null && param.getValue() != null && param.getValue().getValue() != null)
                 {
-                    String name = param.getValue().getValue().getName();
+                    TreeItem<MetadataNode> item = param.getValue();
+                    MetadataNode node = item.getValue();
+                    String name = node.getName();
+
                     return new ReadOnlyStringWrapper(name != null ? name : "");
                 }
+
                 return new ReadOnlyStringWrapper("");
             }
         });
@@ -72,9 +76,13 @@ public class ExtractedMetadataDialog extends Stage
             {
                 if (param != null && param.getValue() != null && param.getValue().getValue() != null)
                 {
-                    String value = param.getValue().getValue().getValue();
+                    TreeItem<MetadataNode> item = param.getValue();
+                    MetadataNode node = item.getValue();
+                    String value = node.getValue();
+
                     return new ReadOnlyStringWrapper(value != null ? value : "");
                 }
+
                 return new ReadOnlyStringWrapper("");
             }
         });
@@ -87,7 +95,6 @@ public class ExtractedMetadataDialog extends Stage
         flatTextArea.setStyle("-fx-font-family: 'Courier New', monospace; -fx-font-size: 12px;");
         flatTextArea.setEditable(false);
 
-        // StackPane container
         containerStack = new StackPane(treeTableView, flatTextArea);
 
         // Toggle View Group (Radio Buttons for Flat vs Tree)
@@ -100,7 +107,6 @@ public class ExtractedMetadataDialog extends Stage
         rbTree.setSelected(true);
 
         // Single Dynamic Expansion Toggle Button
-        final boolean[] isExpanded = new boolean[]{true};
         final Button btnToggleExpand = new Button("Collapse All");
 
         btnToggleExpand.setOnAction(new EventHandler<ActionEvent>()
@@ -108,32 +114,20 @@ public class ExtractedMetadataDialog extends Stage
             @Override
             public void handle(ActionEvent event)
             {
-                if (isExpanded[0])
+                boolean isExpanded = btnToggleExpand.getText().equals("Collapse All");
+
+                if (treeTableView.getRoot() != null)
                 {
-                    if (treeTableView.getRoot() != null)
-                    {
-                        setExpandedRecursive(treeTableView.getRoot(), false);
-                    }
-                    btnToggleExpand.setText("Expand All");
-                    isExpanded[0] = false;
+                    setExpandedRecursive(treeTableView.getRoot(), !isExpanded);
                 }
-                else
-                {
-                    if (treeTableView.getRoot() != null)
-                    {
-                        setExpandedRecursive(treeTableView.getRoot(), true);
-                    }
-                    btnToggleExpand.setText("Collapse All");
-                    isExpanded[0] = true;
-                }
+
+                btnToggleExpand.setText(isExpanded ? "Expand All" : "Collapse All");
             }
         });
 
-        // Initial Visibility
-        flatTextArea.setVisible(false);
         treeTableView.setVisible(true);
-
-        // View Switch Listener (hides/shows the toggle button based on active view)
+        flatTextArea.setVisible(false);
+        
         toggleGroup.selectedToggleProperty().addListener(new ChangeListener<Toggle>()
         {
             @Override
@@ -147,7 +141,6 @@ public class ExtractedMetadataDialog extends Stage
             }
         });
 
-        // Top Toolbar Assembly
         HBox toolbarPane = new HBox(12, new Label("View Mode:"), rbTree, rbFlat, new Region(), btnToggleExpand);
         toolbarPane.setAlignment(Pos.CENTER_LEFT);
         toolbarPane.setPadding(new Insets(5, 10, 5, 10));
@@ -157,6 +150,7 @@ public class ExtractedMetadataDialog extends Stage
 
         // Bottom Action Buttons
         Button btnCopy = new Button("Copy to Clipboard");
+        
         btnCopy.setOnAction(new EventHandler<ActionEvent>()
         {
             @Override
@@ -171,6 +165,7 @@ public class ExtractedMetadataDialog extends Stage
         });
 
         Button btnExport = new Button("Export to File");
+
         btnExport.setOnAction(new EventHandler<ActionEvent>()
         {
             @Override
@@ -181,6 +176,7 @@ public class ExtractedMetadataDialog extends Stage
         });
 
         Button btnClose = new Button("Close");
+
         btnClose.setOnAction(new EventHandler<ActionEvent>()
         {
             @Override
@@ -236,6 +232,7 @@ public class ExtractedMetadataDialog extends Stage
                         // Level 2: Metadata Group (e.g. [IFD0], [ExifIFD])
                         String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
                         TreeItem<MetadataNode> groupNode = new TreeItem<MetadataNode>(new MetadataNode(groupName, ""));
+
                         groupNode.setExpanded(true);
 
                         for (DirectoryIFD.EntryIFD entry : ifd)
@@ -264,6 +261,7 @@ public class ExtractedMetadataDialog extends Stage
                 {
                     PngMetadataProvider png = (PngMetadataProvider) meta;
                     final TreeItem<MetadataNode> groupNode = new TreeItem<MetadataNode>(new MetadataNode("[PNG]", ""));
+
                     groupNode.setExpanded(true);
 
                     PropertyConsumer consumer = new PropertyConsumer()
@@ -348,7 +346,7 @@ public class ExtractedMetadataDialog extends Stage
     /**
      * Inner POJO representing a single row in the TreeTableView.
      */
-    public static class MetadataNode
+    private static class MetadataNode
     {
         private final String name;
         private final String value;
