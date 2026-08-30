@@ -47,6 +47,8 @@ public class ExtractedMetadataDialog extends Stage
         treeTableView.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY);
 
         TreeTableColumn<MetadataNode, String> nameCol = new TreeTableColumn<MetadataNode, String>("File / Metadata Group / Property");
+        TreeTableColumn<MetadataNode, String> valueCol = new TreeTableColumn<MetadataNode, String>("Value");
+
         nameCol.setPrefWidth(300);
         nameCol.setCellValueFactory(new Callback<TreeTableColumn.CellDataFeatures<MetadataNode, String>, ObservableValue<String>>()
         {
@@ -62,7 +64,6 @@ public class ExtractedMetadataDialog extends Stage
             }
         });
 
-        TreeTableColumn<MetadataNode, String> valueCol = new TreeTableColumn<MetadataNode, String>("Value");
         valueCol.setPrefWidth(300);
         valueCol.setCellValueFactory(new Callback<TreeTableColumn.CellDataFeatures<MetadataNode, String>, ObservableValue<String>>()
         {
@@ -77,7 +78,7 @@ public class ExtractedMetadataDialog extends Stage
                 return new ReadOnlyStringWrapper("");
             }
         });
-        
+
         treeTableView.getColumns().add(nameCol);
         treeTableView.getColumns().add(valueCol);
 
@@ -229,7 +230,7 @@ public class ExtractedMetadataDialog extends Stage
                 if (meta instanceof TifMetadataProvider)
                 {
                     TifMetadataProvider tif = (TifMetadataProvider) meta;
-                    
+
                     for (DirectoryIFD ifd : tif)
                     {
                         // Level 2: Metadata Group (e.g. [IFD0], [ExifIFD])
@@ -240,11 +241,11 @@ public class ExtractedMetadataDialog extends Stage
                         for (DirectoryIFD.EntryIFD entry : ifd)
                         {
                             Taggable tag = entry.getTag();
-                            
+
                             if (tag != null)
                             {
                                 String value = tag.translate(entry.getData());
-                                
+
                                 if (!value.isEmpty())
                                 {
                                     // Level 3: Key / Value Pairs
@@ -321,7 +322,7 @@ public class ExtractedMetadataDialog extends Stage
             setExpandedRecursive(child, expanded);
         }
     }
-    
+
     private void exportToFile()
     {
         FileChooser chooser = new FileChooser();
@@ -336,7 +337,7 @@ public class ExtractedMetadataDialog extends Stage
             {
                 writer.write(flatTextArea.getText());
             }
-            
+
             catch (IOException exc)
             {
                 System.err.println("Failed to export metadata: " + exc.getMessage());

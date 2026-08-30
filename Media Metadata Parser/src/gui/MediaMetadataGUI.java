@@ -244,109 +244,106 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final Label progressLabel = (Label) progressBar.getUserData();
         TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
-        if (logArea != null)
+        logArea.clear();
+        extractedRecords.clear();
+
+        try
         {
-            logArea.clear();
-            extractedRecords.clear();
-
-            try
-            {
-                config = new ConfigurationBuilder(rootPane).build();
-            }
-
-            catch (BatchErrorException exc)
-            {
-                progressLabel.setText("Configuration error");
-                GUIUtils.launchPopup("Configuration Error", exc.getMessage(), AlertType.ERROR);
-                return;
-            }
-
-            workerTask = new BatchTask(config, logArea, progressBar, true);
-
-            // 1. Console / Raw String Path: Accumulate formatted text
-            workerTask.setOnMetadataReceived(new Consumer<String>()
-            {
-                @Override
-                public void accept(String text)
-                {
-                    sb.append(text);
-                }
-            });
-
-            // 2. GUI Path: Receive populated POJO records directly
-            workerTask.setOnRecordExtracted(new Consumer<FileMetadataRecord>()
-            {
-                @Override
-                public void accept(final FileMetadataRecord record)
-                {
-                    Platform.runLater(new Runnable()
-                    {
-                        @Override
-                        public void run()
-                        {
-                            extractedRecords.add(record);
-                        }
-                    });
-                }
-            });
-
-            workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
-            {
-                @Override
-                public void handle(WorkerStateEvent event)
-                {
-                    extractedMetadata.set(sb.toString());
-                    showMetadataInspectorTree();
-                    resetControlStates(progressLabel);
-                }
-            });
-
-            workerTask.setOnFailed(new EventHandler<WorkerStateEvent>()
-            {
-                @Override
-                public void handle(WorkerStateEvent event)
-                {
-                    String msg;
-                    Throwable exc = workerTask.getException();
-
-                    if (exc != null && exc.getMessage() == null && exc.getCause() != null)
-                    {
-                        exc = exc.getCause();
-                    }
-
-                    if (exc != null && exc.getMessage() != null && !exc.getMessage().trim().isEmpty())
-                    {
-                        msg = exc.getMessage();
-                    }
-
-                    else
-                    {
-                        msg = "An unexpected error occurred during metadata extraction.";
-                    }
-
-                    resetControlStates(progressLabel);
-                    GUIUtils.launchPopup("Metadata Extraction Error", msg, AlertType.ERROR);
-                }
-            });
-
-            workerTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
-            {
-                @Override
-                public void handle(WorkerStateEvent event)
-                {
-                    resetControlStates(progressLabel);
-                }
-            });
-
-            viewPane.actionBtn.setDisable(true);
-            viewPane.abortBtn.setDisable(false);
-            viewPane.copyLogBtn.setDisable(true);
-            progressLabel.textProperty().bind(workerTask.messageProperty());
-
-            Thread worker = new Thread(workerTask);
-            worker.setDaemon(true);
-            worker.start();
+            config = new ConfigurationBuilder(rootPane).build();
         }
+
+        catch (BatchErrorException exc)
+        {
+            progressLabel.setText("Configuration error");
+            GUIUtils.launchPopup("Configuration Error", exc.getMessage(), AlertType.ERROR);
+            return;
+        }
+
+        workerTask = new BatchTask(config, logArea, progressBar, true);
+
+        // Accumulate formatted text useful for console display
+        workerTask.setOnMetadataReceived(new Consumer<String>()
+        {
+            @Override
+            public void accept(String text)
+            {
+                sb.append(text);
+            }
+        });
+
+        // Populate POJO records directly useful for GUI display
+        workerTask.setOnRecordExtracted(new Consumer<FileMetadataRecord>()
+        {
+            @Override
+            public void accept(final FileMetadataRecord record)
+            {
+                Platform.runLater(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        extractedRecords.add(record);
+                    }
+                });
+            }
+        });
+
+        workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
+        {
+            @Override
+            public void handle(WorkerStateEvent event)
+            {
+                extractedMetadata.set(sb.toString());
+                showMetadataInspectorTree();
+                resetControlStates(progressLabel);
+            }
+        });
+
+        workerTask.setOnFailed(new EventHandler<WorkerStateEvent>()
+        {
+            @Override
+            public void handle(WorkerStateEvent event)
+            {
+                String msg;
+                Throwable exc = workerTask.getException();
+
+                if (exc != null && exc.getMessage() == null && exc.getCause() != null)
+                {
+                    exc = exc.getCause();
+                }
+
+                if (exc != null && exc.getMessage() != null && !exc.getMessage().trim().isEmpty())
+                {
+                    msg = exc.getMessage();
+                }
+
+                else
+                {
+                    msg = "An unexpected error occurred during metadata extraction.";
+                }
+
+                resetControlStates(progressLabel);
+                GUIUtils.launchPopup("Metadata Extraction Error", msg, AlertType.ERROR);
+            }
+        });
+
+        workerTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
+        {
+            @Override
+            public void handle(WorkerStateEvent event)
+            {
+                resetControlStates(progressLabel);
+            }
+        });
+
+        viewPane.actionBtn.setDisable(true);
+        viewPane.abortBtn.setDisable(false);
+        viewPane.copyLogBtn.setDisable(true);
+        progressLabel.textProperty().bind(workerTask.messageProperty());
+
+        Thread worker = new Thread(workerTask);
+        worker.setDaemon(true);
+        worker.start();
     }
 
     /**
@@ -1161,5 +1158,16 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.setMetadataRecords(extractedRecords);
 
         dialog.show();
+    }
+    
+    /**
+     * Launches the JavaFX application.
+     *
+     * @param args
+     *        command-line arguments supplied to the application
+     */
+    public static void main(String[] args)
+    {
+        launch(args);
     }
 }

@@ -160,18 +160,30 @@ public final class DisplayMetadata
 
                         Metadata<?> meta = parser.getMetadata();
                         FileMetadataRecord fileRecord = new FileMetadataRecord(fpath, meta);
-                        StringBuilder sb = new StringBuilder().append("======== ").append(fpath).append(" ========\n");
+                        StringBuilder sb = new StringBuilder().append("======== ").append(fpath).append(" ========");
 
                         appendSystemMetadata(fpath, sb);
 
-                        if (meta != null && meta.hasMetadata())
+                        if (meta.hasMetadata())
                         {
                             appendMetadataText(meta, sb);
                         }
 
-                        sb.append("\n");
+                        sb.append(System.lineSeparator());
 
-                        print(sb.toString());
+                        /*
+                         * Dispatches the output string to the registered
+                         * listener or standard output stream.
+                         */
+                        if (metadataReceivedListener != null)
+                        {
+                            metadataReceivedListener.accept(sb.toString());
+                        }
+
+                        else
+                        {
+                            System.out.print(sb.toString());
+                        }
 
                         if (recordExtractedListener != null)
                         {
@@ -225,15 +237,17 @@ public final class DisplayMetadata
     private void appendSystemMetadata(Path path, StringBuilder sb) throws IOException
     {
         String group = "[System]";
+        String fmt = Taggable.COLUMN_FORMAT;
         AbstractFileNode node = FileInspector.inspect(path, true);
 
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileName", node.getName()));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "Directory", path.getParent() != null ? path.getParent().toString() : "."));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileSize", (node.size() / 1024) + " KB"));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileModifyDate", formatTimestamp(node.lastModifiedTime())));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileAccessDate", formatTimestamp(node.lastAccessTime())));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileCreateDate", formatTimestamp(node.creationTime())));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FilePermissions", node.getPermissionsString()));
+        sb.append(System.lineSeparator());
+        sb.append(String.format(fmt, group, "FileName", node.getName()));
+        sb.append(String.format(fmt, group, "Directory", path.getParent() != null ? path.getParent().toString() : "."));
+        sb.append(String.format(fmt, group, "FileSize", (node.size() / 1024) + " KB"));
+        sb.append(String.format(fmt, group, "FileModifyDate", formatTimestamp(node.lastModifiedTime())));
+        sb.append(String.format(fmt, group, "FileAccessDate", formatTimestamp(node.lastAccessTime())));
+        sb.append(String.format(fmt, group, "FileCreateDate", formatTimestamp(node.creationTime())));
+        sb.append(String.format(fmt, group, "FilePermissions", node.getPermissionsString()));
     }
 
     /**
@@ -292,25 +306,6 @@ public final class DisplayMetadata
                     chunk.printProperties(consumer);
                 }
             }
-        }
-    }
-
-    /**
-     * Dispatches the provided output string to the registered listener or standard output stream.
-     *
-     * @param text
-     *        the output text to deliver
-     */
-    private void print(String text)
-    {
-        if (metadataReceivedListener != null)
-        {
-            metadataReceivedListener.accept(text);
-        }
-
-        else
-        {
-            System.out.print(text);
         }
     }
 

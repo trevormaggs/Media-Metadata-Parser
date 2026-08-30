@@ -165,6 +165,7 @@ class BatchTask extends Task<BatchMetrics>
         if (display)
         {
             DisplayMetadata display = new DisplayMetadata(config);
+            
             display.addProgressListener(attachProgressAdapter("Retrieving metadata"));
 
             if (onRecordExtracted != null)
