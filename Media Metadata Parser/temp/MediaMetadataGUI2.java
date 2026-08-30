@@ -327,7 +327,7 @@ public class MediaMetadataGUI2 extends Application implements EventHandler<Actio
             workerTask = new BatchTask(config, logArea, progressBar, showMetadata.isSelected());
 
             // Receive file execution output records for tabular summary reporting
-            workerTask.setFileSummaryListener(new PropertyConsumer()
+            workerTask.setOnFileSummaryListener(new PropertyConsumer()
             {
                 @Override
                 public void accept(String key, Object value)

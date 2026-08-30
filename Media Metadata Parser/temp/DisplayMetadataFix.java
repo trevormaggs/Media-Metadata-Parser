@@ -29,26 +29,31 @@ import png.PngParser;
 import progressbar.ProgressListener;
 import tif.DirectoryIFD;
 import tif.TifMetadataProvider;
+import tif.tagspecs.PhotoshopManager;
+import tif.tagspecs.TagIFD_Private;
 import tif.tagspecs.Taggable;
 import util.SystemInfo;
+import xmp.XmpDirectory;
+import xmp.XmpDirectory.XmpRecord;
+import xmp.XmpProperty;
 
 /**
- * Extracts and displays media metadata using a pure POJO {@link FileMetadataRecord}.
- *
- * Utility class to print media metadata in a format emulating the output style of
+ * Extracts and displays media metadata in a format emulating the output style of
  * {@code exiftool -G1 -a -s -u}.
  *
+ * <p>
  * This class coordinates file discovery through a {@link MetadataScanner}, displays file system
  * attributes under the standard {@code [System]} group, and renders metadata from supported image
  * formats in a column-aligned view.
+ * </p>
  *
  * @author Trevor Maggs
  * @version 1.2
  * @since 29 June 2026
  */
-public final class DisplayMetadata
+public final class DisplayMetadataFix
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(DisplayMetadata.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(DisplayMetadataFix.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private static final EnumSet<ChunkType> DISPLAY_CHUNK_FILTER = EnumSet.of(
             ChunkType.IHDR, ChunkType.gAMA, ChunkType.sRGB, ChunkType.pHYs,
@@ -73,7 +78,7 @@ public final class DisplayMetadata
      *        the configuration containing the validated source parameters and filters supplied on
      *        the command line
      */
-    public DisplayMetadata(BatchConfiguration config)
+    public DisplayMetadataFix(BatchConfiguration config)
     {
         this.config = config;
         this.progressListeners = new ArrayList<>();
@@ -81,8 +86,9 @@ public final class DisplayMetadata
     }
 
     /**
-     * Registers a progress listener to receive updates during both scanning and processing
-     * execution phases. You may add multiple listeners.
+     * Registers a progress listener to receive updates during file scanning and metadata
+     * extraction. These updates can be used to display overall execution progress, such as in a
+     * progress bar. You may add multiple listeners.
      *
      * @param listener
      *        the progress listener to register
@@ -97,10 +103,11 @@ public final class DisplayMetadata
     }
 
     /**
-     * Sets the callback listener that receives formatted text output as metadata is processed.
-     *
+     * Sets the listener to receive formatted metadata text generated during metadata inspection.
+     * The text is formatted to emulate the output style of {@code exiftool -G1 -a -s -u}.
+     * 
      * @param listener
-     *        the string consumer to process raw text output
+     *        the listener to receive the formatted metadata text
      */
     public void setOnMetadataReceived(Consumer<String> listener)
     {
@@ -108,10 +115,10 @@ public final class DisplayMetadata
     }
 
     /**
-     * Sets the callback listener that receives each parsed {@link FileMetadataRecord}.
+     * Sets the listener to receive the structured metadata record extracted for each media file.
      *
      * @param listener
-     *        the consumer to process extracted metadata records
+     *        the listener to receive the extracted {@link FileMetadataRecord}
      */
     public void setOnRecordExtracted(Consumer<FileMetadataRecord> listener)
     {
@@ -121,7 +128,7 @@ public final class DisplayMetadata
     /**
      * Executes the metadata extraction pipeline for all media records discovered by the scanner.
      *
-     * @return metrics containing total source files scanned and size
+     * @return metrics containing the total number of source files scanned and their cumulative size
      */
     public BatchMetrics execute()
     {
@@ -133,7 +140,7 @@ public final class DisplayMetadata
         {
             startLogging();
             scanner.start();
-            resetListeners(); // Reset progress bar state after scanning completes
+            resetListeners();// Reset progress bar state after scanning completes
 
             totalSourceFiles = scanner.getRecordCount();
 
@@ -157,21 +164,25 @@ public final class DisplayMetadata
                         }
 
                         parser.readMetadata();
-
                         Metadata<?> meta = parser.getMetadata();
-                        FileMetadataRecord fileRecord = new FileMetadataRecord(fpath, meta);
-                        StringBuilder sb = new StringBuilder().append("======== ").append(fpath).append(" ========\n");
+                        FileMetadataRecord fileRecord = new FileMetadataRecord(fpath);
 
-                        appendSystemMetadata(fpath, sb);
+                        readSystemMetadata(fpath, fileRecord);
 
                         if (meta != null && meta.hasMetadata())
                         {
-                            appendMetadataText(meta, sb);
+                            if (meta instanceof TifMetadataProvider)
+                            {
+                                readTifMetadata((TifMetadataProvider) meta, fileRecord);
+                            }
+
+                            else if (meta instanceof PngMetadataProvider)
+                            {
+                                readPngMetadata((PngMetadataProvider) meta, fileRecord);
+                            }
                         }
 
-                        sb.append("\n");
-
-                        print(sb.toString());
+                        print(fileRecord.toRawText());
 
                         if (recordExtractedListener != null)
                         {
@@ -200,7 +211,7 @@ public final class DisplayMetadata
 
         catch (Exception exc)
         {
-            // TODO: change to Logger as error or re-throw an exception?
+            // TODO: maybe change to Logger as error or re-throw an exception?
             System.err.println("Unable to initialise due to an error: " + exc.getMessage());
             return new BatchMetrics(0, 0, 0L);
         }
@@ -212,95 +223,135 @@ public final class DisplayMetadata
     }
 
     /**
-     * Appends file system attributes for the specified file to the provided string buffer.
-     * The attributes are grouped under the {@code [System]} heading.
+     * Displays file system attributes for the specified file. The attributes are grouped under the
+     * {@code [System]} heading in the output.
      *
      * @param path
      *        the file whose attributes are to be displayed
-     * @param sb
-     *        the buffer to append formatted attributes to
      * @throws IOException
      *         if the file system attributes cannot be read
      */
-    private void appendSystemMetadata(Path path, StringBuilder sb) throws IOException
+    private void readSystemMetadata(Path path, FileMetadataRecord record) throws IOException
     {
-        String group = "[System]";
+        String group = "System";
         AbstractFileNode node = FileInspector.inspect(path, true);
 
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileName", node.getName()));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "Directory", path.getParent() != null ? path.getParent().toString() : "."));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileSize", (node.size() / 1024) + " KB"));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileModifyDate", formatTimestamp(node.lastModifiedTime())));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileAccessDate", formatTimestamp(node.lastAccessTime())));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FileCreateDate", formatTimestamp(node.creationTime())));
-        sb.append(String.format(Taggable.COLUMN_FORMAT, group, "FilePermissions", node.getPermissionsString()));
+        record.addItem(group, "FileName", node.getName());
+        record.addItem(group, "Directory", path.getParent() != null ? path.getParent().toString() : ".");
+        record.addItem(group, "FileSize", (node.size() / 1024) + " KB");
+        record.addItem(group, "FileModifyDate", formatTimestamp(node.lastModifiedTime()));
+        record.addItem(group, "FileAccessDate", formatTimestamp(node.lastAccessTime()));
+        record.addItem(group, "FileCreateDate", formatTimestamp(node.creationTime()));
+        record.addItem(group, "FilePermissions", node.getPermissionsString());
     }
 
     /**
-     * Appends image format metadata (TIFF, PNG, etc.) to the provided string buffer.
+     * Displays metadata contained within the supplied TIFF metadata provider.
      *
-     * @param meta
-     *        the metadata container to extract output strings from
-     * @param sb
-     *        the buffer to append formatted metadata entries to
+     * @param tif
+     *        the metadata provider supplying TIFF directories and associated data
+     * @param record
+     *        the metadata record to which the extracted properties are added
      */
-    private void appendMetadataText(Metadata<?> meta, StringBuilder sb)
+    private void readTifMetadata(TifMetadataProvider tif, FileMetadataRecord record)
     {
-        if (meta instanceof TifMetadataProvider)
+        for (DirectoryIFD ifd : tif)
         {
-            TifMetadataProvider tif = (TifMetadataProvider) meta;
+            tif.DirectoryIdentifier dirType = ifd.getDirectoryType();
+            String groupName = dirType.getDescription();
 
-            for (DirectoryIFD ifd : tif)
+            for (DirectoryIFD.EntryIFD entry : ifd)
             {
-                String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
+                Taggable tag = entry.getTag();
+                Object rawData = entry.getData();
 
-                for (DirectoryIFD.EntryIFD entry : ifd)
+                if (tag == TagIFD_Private.IFD_PHOTOSHOP_SETTINGS)
                 {
-                    Taggable tag = entry.getTag();
-
-                    if (tag != null)
+                    PhotoshopManager.decodePhotoshopProperties(rawData, new PropertyConsumer()
                     {
-                        String name = tag.getDescription();
-                        String value = tag.translate(entry.getData());
-
-                        if (!value.isEmpty())
+                        @Override
+                        public void accept(String key, Object value)
                         {
-                            sb.append(String.format(Taggable.COLUMN_FORMAT, groupName, name, value));
+                            record.addItem("Photoshop", key, String.valueOf(value));
                         }
-                    }
+                    });
+
+                    continue;
+                }
+
+                String name = getDisplayName(dirType, tag);
+                String value = tag.translate(rawData);
+
+                if (!value.isEmpty())
+                {
+                    record.addItem(groupName, name, value);
                 }
             }
         }
 
-        else if (meta instanceof PngMetadataProvider)
+        if (tif.hasXmpData())
         {
-            PngMetadataProvider png = (PngMetadataProvider) meta;
+            XmpDirectory xmp = tif.getXmpDirectory();
 
-            PropertyConsumer consumer = new PropertyConsumer()
+            for (XmpRecord xRecord : xmp)
             {
-                @Override
-                public void accept(String key, Object value)
-                {
-                    sb.append(String.format(Taggable.COLUMN_FORMAT, "[PNG]", key, String.valueOf(value)));
-                }
-            };
+                String displayName;
+                String translatedValue;
+                String prefix = xRecord.getPrefix();
+                String rawName = xRecord.getName();
+                XmpProperty xmpProp = XmpProperty.fromQualifiedPath(xRecord.getQualifiedPath());
 
-            for (PngDirectory dir : png)
-            {
-                for (PngChunk chunk : dir)
+                if (rawName == null || rawName.contains("/xml:lang") || rawName.contains("exif:Fired") || rawName.contains("exif:Mode"))
                 {
-                    chunk.printProperties(consumer);
+                    continue;
                 }
+
+                if (xmpProp == XmpProperty.UNKNOWN)
+                {
+                    displayName = XmpProperty.format(rawName);
+                    translatedValue = XmpProperty.UNKNOWN.translate(xRecord.getValue());
+                }
+
+                else
+                {
+                    displayName = xmpProp.getDescription();
+                    translatedValue = xmpProp.translate(xRecord.getValue());
+                }
+
+                String groupName = (!prefix.isEmpty() ? "XMP-" + prefix : "XMP");
+                record.addItem(groupName, displayName, translatedValue);
             }
         }
     }
 
     /**
-     * Dispatches the provided output string to the registered listener or standard output stream.
+     * Displays metadata contained within the supplied PNG metadata provider.
      *
-     * @param text
-     *        the output text to deliver
+     * @param png
+     *        the metadata provider supplying PNG directories and chunks
+     * @param record
+     *        the metadata record to which the extracted properties are added
      */
+    private void readPngMetadata(PngMetadataProvider png, FileMetadataRecord record)
+    {
+        PropertyConsumer disp = new PropertyConsumer()
+        {
+            @Override
+            public void accept(String key, Object value)
+            {
+                record.addItem("PNG", key, String.valueOf(value));
+            }
+        };
+
+        for (PngDirectory dir : png)
+        {
+            for (PngChunk chunk : dir)
+            {
+                chunk.printProperties(disp);
+            }
+        }
+    }
+
     private void print(String text)
     {
         if (metadataReceivedListener != null)
@@ -326,7 +377,7 @@ public final class DisplayMetadata
     }
 
     /**
-     * Formats an epoch timestamp as an ExifTool-style date/time string.
+     * Formats an epoch timestamp as an exiftool-style date/time string.
      *
      * @param millis
      *        the timestamp in milliseconds since the Unix epoch
@@ -336,6 +387,39 @@ public final class DisplayMetadata
     private String formatTimestamp(long millis)
     {
         return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault()).format(DTF);
+    }
+
+    /**
+     * Returns the display name for a TIFF tag, applying compatibility adjustments where required to
+     * match ExifTool output.
+     *
+     * @param dir
+     *        the directory containing the tag
+     * @param tag
+     *        the tag whose display name is required
+     * @return the display name for the tag, or {@code "Unknown Tag"} if the tag is {@code null}
+     */
+    private String getDisplayName(tif.DirectoryIdentifier dir, Taggable tag)
+    {
+        if (tag == null)
+        {
+            return "Unknown Tag";
+        }
+
+        if (dir == tif.DirectoryIdentifier.IFD_DIRECTORY_IFD1)
+        {
+            if (tag == tif.tagspecs.TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT)
+            {
+                return "ThumbnailOffset";
+            }
+
+            if (tag == tif.tagspecs.TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT_LENGTH)
+            {
+                return "ThumbnailLength";
+            }
+        }
+
+        return tag.getDescription();
     }
 
     /**

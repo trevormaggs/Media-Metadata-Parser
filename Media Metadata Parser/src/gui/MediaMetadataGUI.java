@@ -98,11 +98,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         extractedRecords = FXCollections.observableArrayList();
     }
 
-    /*
+    /**
      * Constructs and displays the main application window.
-     *
+     * 
      * @param primaryStage
-     * Primary application window stage.
+     *        Primary application window stage
      */
     @Override
     public void start(Stage primaryStage)
@@ -208,7 +208,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             if (showMetadata.isSelected())
             {
-                // showMetadataInspector();
                 showMetadataInspectorTree();
             }
 
@@ -237,9 +236,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     /**
      * Triggers non-destructive background metadata structure extraction task.
      */
-    /**
-     * Triggers non-destructive background metadata structure extraction task.
-     */
     private void executeMetadataInspection()
     {
         BatchConfiguration config;
@@ -251,12 +247,13 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         if (logArea != null)
         {
             logArea.clear();
-            extractedRecords.clear(); // Clear old records prior to extraction
+            extractedRecords.clear();
 
             try
             {
                 config = new ConfigurationBuilder(rootPane).build();
             }
+
             catch (BatchErrorException exc)
             {
                 progressLabel.setText("Configuration error");
@@ -384,7 +381,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             workerTask = new BatchTask(config, logArea, progressBar, showMetadata.isSelected());
 
             // Receive file execution output records for tabular summary reporting
-            workerTask.setFileSummaryListener(new PropertyConsumer()
+            workerTask.setOnFileSummaryListener(new PropertyConsumer()
             {
                 @Override
                 public void accept(String key, Object value)
@@ -411,7 +408,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
             });
 
-            // Update tracked source files metrics
+            // Update scanned source file count in the metrics table
             workerTask.setOnFileScanned(new Consumer<Integer>()
             {
                 @Override
@@ -428,7 +425,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
             });
 
-            // Update tracked processed target files metrics
+            // Update processed target file count in the metrics table
             workerTask.setOnFileProcessed(new Consumer<Integer>()
             {
                 @Override
@@ -445,6 +442,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
             });
 
+            // Update final metrics when processing completes
             workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
             {
                 @Override
@@ -808,7 +806,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Disable summary output triggering until meaningful data structures are available
+        // Disable summary output triggering until meaningful data structures are ready
         BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(fileRecords);
         BooleanBinding isMetadataEmpty = extractedMetadata.isEmpty();
         BooleanBinding isViewDisabled = Bindings.when(showMetadataCheck.selectedProperty()).then(isMetadataEmpty).otherwise(isBatchRecordsEmpty);
@@ -816,7 +814,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.viewBtn.disableProperty().bind(isViewDisabled);
         viewPane.updatePreview(rootPane);
 
-        // Attach controller event routing handlers
         viewPane.sourceBtn.setOnAction(this);
         viewPane.actionBtn.setOnAction(this);
         viewPane.exitBtn.setOnAction(this);
@@ -1002,8 +999,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         textHistory = entry;
                     }
 
-                    final String targetText = textHistory;
-                    final String targetParent = parentHistory;
+                    String targetText = textHistory;
+                    String targetParent = parentHistory;
                     MenuItem item = new MenuItem(textHistory);
 
                     item.setOnAction(new EventHandler<ActionEvent>()
@@ -1150,8 +1147,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     }
 
     /**
-     * Opens modal dialog window displaying structural metadata contents
-     * using the interactive dual TreeTableView / Raw Flat Text inspector.
+     * Opens modal dialog window displaying structural metadata contents using the interactive dual
+     * TreeTableView / Raw Flat Text inspector.
      */
     private void showMetadataInspectorTree()
     {
@@ -1159,8 +1156,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         ExtractedMetadataDialog dialog = new ExtractedMetadataDialog(ownerStage);
 
         dialog.setMetadataText(extractedMetadata.get());
-        dialog.setMetadataRecords(extractedRecords); // Pass structured POJOs to populate
-                                                     // TreeTableView
+
+        // Pass structured POJOs to populate TreeTableView
+        dialog.setMetadataRecords(extractedRecords);
+
         dialog.show();
     }
 }

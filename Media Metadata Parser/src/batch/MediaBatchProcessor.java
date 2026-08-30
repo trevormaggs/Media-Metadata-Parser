@@ -56,7 +56,7 @@ public final class MediaBatchProcessor
     private final List<ProgressListener> listeners;
     private final MetadataScanner scanner;
     private final BatchConfiguration config;
-    private PropertyConsumer fileUpdateListener;
+    private PropertyConsumer summaryListener;
     public static final String DEFAULT_IMAGE_PREFIX = "image";
     public static final String DEFAULT_SOURCE_DIRECTORY = ".";
     public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
@@ -91,15 +91,17 @@ public final class MediaBatchProcessor
     }
 
     /**
-     * Sets the listener to receive detailed processing metrics and event payloads for each
-     * processed file. Only one listener can be registered at a time.
-     *
+     * Sets the listener to receive batch process events for summary reporting. Only one listener
+     * can be registered at a time. The listener receives updates used to accurately display file
+     * metrics after processing is completed. Both console and GUI applications can use these
+     * updates.
+     * 
      * @param listener
-     *        the listener to set for file processing metric events
+     *        the listener to receive batch process event updates
      */
-    public void setFileMetricsListener(PropertyConsumer listener)
+    public void setSummaryListener(PropertyConsumer listener)
     {
-        fileUpdateListener = listener;
+        summaryListener = listener;
     }
 
     /**
@@ -185,9 +187,9 @@ public final class MediaBatchProcessor
                         LOGGER.info(String.format("[File %d/%d] Processed: %s -> %s [Effective date/time: %s]", index, totalSourceFiles, record.getPath().getFileName(), targetName, formattedDate));
                     }
 
-                    if (fileUpdateListener != null)
+                    if (summaryListener != null)
                     {
-                        fileUpdateListener.accept(BatchEventType.FILE_PROCESSED.getKey(), new BatchProcessEvent(record, targetName, targetSize));
+                        summaryListener.accept(BatchEventType.FILE_PROCESSED.getKey(), new BatchProcessEvent(record, targetName, targetSize));
                     }
 
                     /* Notify progress listeners based on overall loop count */
