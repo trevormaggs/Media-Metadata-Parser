@@ -24,6 +24,8 @@ import javafx.beans.Observable;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -75,11 +77,12 @@ import javafx.util.Duration;
  * Provides the JavaFX graphical user interface for configuring and running batch media metadata
  * processing operations.
  */
-public class MediaMetadataGUI extends Application implements EventHandler<ActionEvent>
+public class MediaMetadataGUI2 extends Application implements EventHandler<ActionEvent>
 {
     private GridPane rootPane;
     private BatchTask workerTask;
     private MainViewPane viewPane;
+    private StringProperty extractedMetadata;
     private ObservableList<FileProcessingRecord> fileRecords;
     private ObservableList<FileMetadataRecord> extractedRecords;
 
@@ -90,13 +93,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     public void init()
     {
         viewPane = new MainViewPane();
+        extractedMetadata = new SimpleStringProperty("");
         fileRecords = FXCollections.observableArrayList();
         extractedRecords = FXCollections.observableArrayList();
     }
 
     /**
      * Constructs and displays the main application window.
-     *
+     * 
      * @param primaryStage
      *        Primary application window stage
      */
@@ -235,6 +239,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private void executeMetadataInspection()
     {
         BatchConfiguration config;
+        final StringBuilder sb = new StringBuilder();
         ProgressBar progressBar = viewPane.progressBar;
         final Label progressLabel = (Label) progressBar.getUserData();
         TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
@@ -256,11 +261,21 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         workerTask = new BatchTask(config, logArea, progressBar, true);
 
+        // Accumulate formatted text useful for console display
+        workerTask.setOnMetadataReceived(new Consumer<String>()
+        {
+            @Override
+            public void accept(String text)
+            {
+                sb.append(text);
+            }
+        });
+
         // Populate POJO records directly useful for GUI display
         workerTask.setOnRecordExtracted(new Consumer<FileMetadataRecord>()
         {
             @Override
-            public void accept(final FileMetadataRecord record)
+            public void accept(FileMetadataRecord record)
             {
                 Platform.runLater(new Runnable()
                 {
@@ -278,6 +293,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void handle(WorkerStateEvent event)
             {
+                extractedMetadata.set(sb.toString());
                 showMetadataInspectorTree();
                 resetControlStates(progressLabel);
             }
@@ -703,7 +719,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void configureDynamicNodes()
     {
-        final TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
+        TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
         TextField targetText = GUIUtils.getById(rootPane, MainViewPane.TGTID, TextField.class);
         TextField prefixText = GUIUtils.getById(rootPane, MainViewPane.PFXID, TextField.class);
         CheckBox embedDateTimeCheck = GUIUtils.getById(rootPane, MainViewPane.EMBID, CheckBox.class);
@@ -753,7 +769,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void handle(KeyEvent event)
             {
-                handleSourcePaste(event, sourceText);
+                // handleSourcePaste(event, sourceText);
             }
         });
 
@@ -789,7 +805,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         // Disable summary output triggering until meaningful data structures are ready
         BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(fileRecords);
-        BooleanBinding isMetadataEmpty = Bindings.isEmpty(extractedRecords);
+        BooleanBinding isMetadataEmpty = extractedMetadata.isEmpty();
         BooleanBinding isViewDisabled = Bindings.when(showMetadataCheck.selectedProperty()).then(isMetadataEmpty).otherwise(isBatchRecordsEmpty);
 
         viewPane.viewBtn.disableProperty().bind(isViewDisabled);
@@ -928,7 +944,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         ContextMenu menu = new ContextMenu();
         Button sourceBtn = viewPane.sourceBtn;
-        final TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
+        TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
 
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
@@ -980,8 +996,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         textHistory = entry;
                     }
 
-                    final String targetText = textHistory;
-                    final String targetParent = parentHistory;
+                    String targetText = textHistory;
+                    String targetParent = parentHistory;
                     MenuItem item = new MenuItem(textHistory);
 
                     item.setOnAction(new EventHandler<ActionEvent>()
@@ -1061,12 +1077,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      * @param progressLabel
      *        Progress status display text node.
      */
-    private void resetControlStates(final Label progressLabel)
+    private void resetControlStates(Label progressLabel)
     {
         Button actionBtn = viewPane.actionBtn;
         Button cancelBtn = viewPane.abortBtn;
         Button copyLogBtn = viewPane.copyLogBtn;
-        final ProgressBar progressBar = viewPane.progressBar;
+        ProgressBar progressBar = viewPane.progressBar;
 
         workerTask = null;
         actionBtn.setDisable(false);
@@ -1081,13 +1097,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void handle(ActionEvent event)
             {
-                if (progressLabel != null)
-                {
-                    progressLabel.textProperty().unbind();
-                    progressLabel.setText("");
-                }
-
+                progressLabel.textProperty().unbind();
                 progressBar.progressProperty().unbind();
+                progressLabel.setText("");
                 progressBar.setProgress(0.0);
             }
         });
@@ -1102,7 +1114,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      * @param logArea
      *        Target text field component.
      */
-    private void copyTextAreaWithFlash(final TextArea logArea)
+    private void copyTextAreaWithFlash(TextArea logArea)
     {
         if (logArea != null && !logArea.getText().isEmpty())
         {
@@ -1111,7 +1123,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             Clipboard.getSystemClipboard().setContent(content);
 
             // Apply soft green background highlight visual flash feedback
-            final String originalStyle = logArea.getStyle();
+            String originalStyle = logArea.getStyle();
             logArea.setStyle(originalStyle + " -fx-highlight-fill: #a8e6cf; -fx-highlight-text-fill: #000000;");
             logArea.selectAll();
 
@@ -1132,17 +1144,19 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     }
 
     /**
-     * Opens modal dialog window displaying structural metadata contents using the interactive
-     * TreeTableView inspector.
+     * Opens modal dialog window displaying structural metadata contents using the interactive dual
+     * TreeTableView / Raw Flat Text inspector.
      */
     private void showMetadataInspectorTree()
     {
         ExtractedMetadataDialog dialog = new ExtractedMetadataDialog((Stage) rootPane.getScene().getWindow());
+
+        dialog.setMetadataText(extractedMetadata.get());
         dialog.setMetadataRecords(extractedRecords);
         dialog.show();
     }
 
-       /**
+    /**
      * Launches the JavaFX application.
      *
      * @param args
