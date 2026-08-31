@@ -2,7 +2,6 @@ package gui;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.util.List;
 import common.Metadata;
 import common.PropertyConsumer;
@@ -13,6 +12,7 @@ import javafx.event.*;
 import javafx.geometry.*;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.*;
@@ -26,8 +26,8 @@ import tif.TifMetadataProvider;
 import tif.tagspecs.Taggable;
 
 /**
- * Modal dialog that presents extracted metadata using both a structured TreeTableView
- * and a flat raw text representation within the original toolbar layout.
+ * Modal dialog that presents extracted metadata using both a structured TreeTableView and a flat
+ * raw text representation within the original toolbar layout.
  */
 public class ExtractedMetadataDialog2 extends Stage
 {
@@ -37,17 +37,21 @@ public class ExtractedMetadataDialog2 extends Stage
 
     public ExtractedMetadataDialog2(Stage owner)
     {
+        Button btnCopy = new Button("Copy to Clipboard");
+        Button btnExport = new Button("Export to File");
+        Button btnClose = new Button("Close");
+        RadioButton rbFlat = new RadioButton("Raw Flat Text");
+        RadioButton rbTree = new RadioButton("Structured Tree");
+        TreeTableColumn<MetadataNode, String> nameCol = new TreeTableColumn<>("File / Metadata Group / Property");
+        TreeTableColumn<MetadataNode, String> valueCol = new TreeTableColumn<>("Value");
+
         initOwner(owner);
         initModality(Modality.WINDOW_MODAL);
         setTitle("Extracted Media Metadata");
 
-        // --- View 1: Structured TreeTableView ---
-        treeTableView = new TreeTableView<MetadataNode>();
+        treeTableView = new TreeTableView<>();
         treeTableView.setShowRoot(false);
         treeTableView.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY);
-
-        TreeTableColumn<MetadataNode, String> nameCol = new TreeTableColumn<MetadataNode, String>("File / Metadata Group / Property");
-        TreeTableColumn<MetadataNode, String> valueCol = new TreeTableColumn<MetadataNode, String>("Value");
 
         nameCol.setPrefWidth(300);
         nameCol.setCellValueFactory(new Callback<TreeTableColumn.CellDataFeatures<MetadataNode, String>, ObservableValue<String>>()
@@ -90,44 +94,40 @@ public class ExtractedMetadataDialog2 extends Stage
         treeTableView.getColumns().add(nameCol);
         treeTableView.getColumns().add(valueCol);
 
-        // --- View 2: Flat Text Display ---
         flatTextArea = new TextArea();
         flatTextArea.setStyle("-fx-font-family: 'Courier New', monospace; -fx-font-size: 12px;");
         flatTextArea.setEditable(false);
 
         containerStack = new StackPane(treeTableView, flatTextArea);
 
-        // Toggle View Group (Radio Buttons for Flat vs Tree)
         ToggleGroup toggleGroup = new ToggleGroup();
-        RadioButton rbFlat = new RadioButton("Raw Flat Text");
-        RadioButton rbTree = new RadioButton("Structured Tree");
-
         rbFlat.setToggleGroup(toggleGroup);
         rbTree.setToggleGroup(toggleGroup);
         rbTree.setSelected(true);
 
-        // Single Dynamic Expansion Toggle Button
-        final Button btnToggleExpand = new Button("Collapse All");
+        final Button btnExpand = new Button("Collapse All");
+        btnExpand.setUserData(Boolean.TRUE);
 
-        btnToggleExpand.setOnAction(new EventHandler<ActionEvent>()
+        btnExpand.setOnAction(new EventHandler<ActionEvent>()
         {
             @Override
             public void handle(ActionEvent event)
             {
-                boolean isExpanded = btnToggleExpand.getText().equals("Collapse All");
+                boolean expanded = Boolean.TRUE.equals(btnExpand.getUserData());
 
                 if (treeTableView.getRoot() != null)
                 {
-                    setExpandedRecursive(treeTableView.getRoot(), !isExpanded);
+                    setExpandedRecursive(treeTableView.getRoot(), !expanded);
                 }
 
-                btnToggleExpand.setText(isExpanded ? "Expand All" : "Collapse All");
+                btnExpand.setUserData(Boolean.valueOf(!expanded));
+                btnExpand.setText(!expanded ? "Collapse All" : "Expand All");
             }
         });
 
         treeTableView.setVisible(true);
         flatTextArea.setVisible(false);
-        
+
         toggleGroup.selectedToggleProperty().addListener(new ChangeListener<Toggle>()
         {
             @Override
@@ -137,20 +137,17 @@ public class ExtractedMetadataDialog2 extends Stage
 
                 treeTableView.setVisible(showTree);
                 flatTextArea.setVisible(!showTree);
-                btnToggleExpand.setVisible(showTree);
+                btnExpand.setVisible(showTree);
             }
         });
 
-        HBox toolbarPane = new HBox(12, new Label("View Mode:"), rbTree, rbFlat, new Region(), btnToggleExpand);
+        HBox toolbarPane = new HBox(12, new Label("View Mode:"), rbTree, rbFlat, new Region(), btnExpand);
         toolbarPane.setAlignment(Pos.CENTER_LEFT);
         toolbarPane.setPadding(new Insets(5, 10, 5, 10));
 
         // Push expand button to the far right
         HBox.setHgrow(toolbarPane.getChildren().get(3), Priority.ALWAYS);
 
-        // Bottom Action Buttons
-        Button btnCopy = new Button("Copy to Clipboard");
-        
         btnCopy.setOnAction(new EventHandler<ActionEvent>()
         {
             @Override
@@ -164,8 +161,6 @@ public class ExtractedMetadataDialog2 extends Stage
             }
         });
 
-        Button btnExport = new Button("Export to File");
-
         btnExport.setOnAction(new EventHandler<ActionEvent>()
         {
             @Override
@@ -174,8 +169,6 @@ public class ExtractedMetadataDialog2 extends Stage
                 exportToFile();
             }
         });
-
-        Button btnClose = new Button("Close");
 
         btnClose.setOnAction(new EventHandler<ActionEvent>()
         {
@@ -202,7 +195,7 @@ public class ExtractedMetadataDialog2 extends Stage
      */
     public void setMetadataText(String rawOutput)
     {
-        flatTextArea.setText(rawOutput != null ? rawOutput : "");
+        flatTextArea.setText(rawOutput == null ? "" : rawOutput);
     }
 
     /**
@@ -210,15 +203,15 @@ public class ExtractedMetadataDialog2 extends Stage
      */
     public void setMetadataRecords(List<FileMetadataRecord> records)
     {
-        TreeItem<MetadataNode> rootItem = new TreeItem<MetadataNode>(new MetadataNode("Root", ""));
+        TreeItem<MetadataNode> rootItem = new TreeItem<>(new MetadataNode("Root", ""));
 
         if (records != null)
         {
             for (FileMetadataRecord record : records)
             {
-                // Level 1: File Root Node
                 String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
-                TreeItem<MetadataNode> fileNode = new TreeItem<MetadataNode>(new MetadataNode(fileName, ""));
+                TreeItem<MetadataNode> fileNode = new TreeItem<>(new MetadataNode(fileName, ""));
+
                 fileNode.setExpanded(true);
 
                 Metadata<?> meta = record.getMetadata();
@@ -229,9 +222,8 @@ public class ExtractedMetadataDialog2 extends Stage
 
                     for (DirectoryIFD ifd : tif)
                     {
-                        // Level 2: Metadata Group (e.g. [IFD0], [ExifIFD])
                         String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
-                        TreeItem<MetadataNode> groupNode = new TreeItem<MetadataNode>(new MetadataNode(groupName, ""));
+                        TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode(groupName, ""));
 
                         groupNode.setExpanded(true);
 
@@ -245,8 +237,8 @@ public class ExtractedMetadataDialog2 extends Stage
 
                                 if (!value.isEmpty())
                                 {
-                                    // Level 3: Key / Value Pairs
-                                    groupNode.getChildren().add(new TreeItem<MetadataNode>(new MetadataNode(tag.getDescription(), value)));
+                                    TreeItem<MetadataNode> valueNode = new TreeItem<>(new MetadataNode(tag.getDescription(), value));
+                                    groupNode.getChildren().add(valueNode);
                                 }
                             }
                         }
@@ -257,10 +249,11 @@ public class ExtractedMetadataDialog2 extends Stage
                         }
                     }
                 }
+
                 else if (meta instanceof PngMetadataProvider)
                 {
                     PngMetadataProvider png = (PngMetadataProvider) meta;
-                    final TreeItem<MetadataNode> groupNode = new TreeItem<MetadataNode>(new MetadataNode("[PNG]", ""));
+                    final TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode("[PNG]", ""));
 
                     groupNode.setExpanded(true);
 
@@ -269,7 +262,7 @@ public class ExtractedMetadataDialog2 extends Stage
                         @Override
                         public void accept(String key, Object value)
                         {
-                            groupNode.getChildren().add(new TreeItem<MetadataNode>(new MetadataNode(key, String.valueOf(value))));
+                            groupNode.getChildren().add(new TreeItem<>(new MetadataNode(key, String.valueOf(value))));
                         }
                     };
 
@@ -304,20 +297,17 @@ public class ExtractedMetadataDialog2 extends Stage
      */
     private void setExpandedRecursive(TreeItem<?> item, boolean expanded)
     {
-        if (item == null)
+        if (item != null)
         {
-            return;
-        }
+            if (item != treeTableView.getRoot())
+            {
+                item.setExpanded(expanded);
+            }
 
-        // Keep the hidden root expanded so child rows remain visible when collapsed
-        if (item != treeTableView.getRoot())
-        {
-            item.setExpanded(expanded);
-        }
-
-        for (TreeItem<?> child : item.getChildren())
-        {
-            setExpandedRecursive(child, expanded);
+            for (TreeItem<?> child : item.getChildren())
+            {
+                setExpandedRecursive(child, expanded);
+            }
         }
     }
 
@@ -329,17 +319,15 @@ public class ExtractedMetadataDialog2 extends Stage
 
         File file = chooser.showSaveDialog(this);
 
-        if (file != null)
+        try (FileWriter writer = new FileWriter(file))
         {
-            try (FileWriter writer = new FileWriter(file))
-            {
-                writer.write(flatTextArea.getText());
-            }
+            writer.write(flatTextArea.getText());
+        }
 
-            catch (IOException exc)
-            {
-                System.err.println("Failed to export metadata: " + exc.getMessage());
-            }
+        catch (Exception exc)
+        {
+            String errorMsg = (exc.getMessage() != null && !exc.getMessage().isEmpty()) ? exc.getMessage() : exc.toString();
+            GUIUtils.launchPopup(this, "Export Error", "Failed to export metadata to file:\n" + errorMsg, AlertType.ERROR);
         }
     }
 

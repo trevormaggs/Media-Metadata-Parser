@@ -26,50 +26,17 @@ import javafx.beans.binding.BooleanBinding;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
-import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
-import javafx.collections.ObservableList;
+import javafx.collections.*;
 import javafx.concurrent.WorkerStateEvent;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.geometry.Insets;
-import javafx.geometry.Side;
+import javafx.event.*;
+import javafx.geometry.*;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.ContextMenu;
-import javafx.scene.control.DatePicker;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.DialogEvent;
-import javafx.scene.control.Label;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.ProgressBar;
-import javafx.scene.control.SeparatorMenuItem;
-import javafx.scene.control.TableCell;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableRow;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyCodeCombination;
-import javafx.scene.input.KeyCombination;
-import javafx.scene.input.KeyEvent;
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.RowConstraints;
-import javafx.stage.FileChooser;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.util.Callback;
-import javafx.util.Duration;
+import javafx.scene.control.*;
+import javafx.scene.input.*;
+import javafx.scene.layout.*;
+import javafx.stage.*;
+import javafx.util.*;
 
 /**
  * Provides the JavaFX graphical user interface for configuring and running batch media metadata
@@ -80,8 +47,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private GridPane rootPane;
     private BatchTask workerTask;
     private MainViewPane viewPane;
+    private StringBuilder flatExtractedRecords;
     private ObservableList<FileProcessingRecord> fileRecords;
-    private ObservableList<FileMetadataRecord> extractedRecords;
+    private ObservableList<FileMetadataRecord> treeExtractedRecords;
 
     /**
      * Initialises state components prior to scene setup.
@@ -90,15 +58,16 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     public void init()
     {
         viewPane = new MainViewPane();
+        flatExtractedRecords = new StringBuilder();
         fileRecords = FXCollections.observableArrayList();
-        extractedRecords = FXCollections.observableArrayList();
+        treeExtractedRecords = FXCollections.observableArrayList();
     }
 
     /**
      * Constructs and displays the main application window.
      *
      * @param primaryStage
-     *        Primary application window stage
+     *        the primary application window stage
      */
     @Override
     public void start(Stage primaryStage)
@@ -153,7 +122,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      * Handles action events from user interface buttons.
      *
      * @param event
-     *        The triggered event.
+     *        the triggered event to react to
      */
     @Override
     public void handle(ActionEvent event)
@@ -240,7 +209,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
         logArea.clear();
-        extractedRecords.clear();
+        treeExtractedRecords.clear();
+        flatExtractedRecords.setLength(0);
 
         try
         {
@@ -256,18 +226,28 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         workerTask = new BatchTask(config, logArea, progressBar, true);
 
+        // Stream raw metadata text directly into flatExtractedRecords as DisplayMetadata emits it
+        workerTask.setOnMetadataReceived(new Consumer<String>()
+        {
+            @Override
+            public void accept(String text)
+            {
+                flatExtractedRecords.append(text);
+            }
+        });
+
         // Populate POJO records directly useful for GUI display
         workerTask.setOnRecordExtracted(new Consumer<FileMetadataRecord>()
         {
             @Override
-            public void accept(final FileMetadataRecord record)
+            public void accept(FileMetadataRecord record)
             {
                 Platform.runLater(new Runnable()
                 {
                     @Override
                     public void run()
                     {
-                        extractedRecords.add(record);
+                        treeExtractedRecords.add(record);
                     }
                 });
             }
@@ -335,156 +315,147 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void executeBatchProcess()
     {
-        BatchConfiguration config;
-        ProgressBar progressBar = viewPane.progressBar;
-        TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
-        Label progressLabel = (Label) progressBar.getUserData();
-        CheckBox showMetadata = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
+        final BatchConfiguration config;
+        final ProgressBar progressBar = viewPane.progressBar;
+        final TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
+        final Label progressLabel = (Label) progressBar.getUserData();
 
-        if (logArea != null)
+        logArea.clear();
+        fileRecords.clear();
+        StatRecord.resetAll();
+
+        try
         {
-            logArea.clear();
-            fileRecords.clear();
-            StatRecord.resetAll();
-
-            try
-            {
-                config = new ConfigurationBuilder(rootPane).build();
-            }
-
-            catch (BatchErrorException exc)
-            {
-                progressLabel.setText("Configuration error");
-                GUIUtils.launchPopup("Invalid File Selection", exc.getMessage(), AlertType.ERROR);
-                return;
-            }
-
-            workerTask = new BatchTask(config, logArea, progressBar, showMetadata.isSelected());
-
-            // Receive file execution output records for tabular summary reporting
-            workerTask.setOnFileSummaryListener(new PropertyConsumer()
-            {
-                @Override
-                public void accept(String key, Object value)
-                {
-                    if (value instanceof BatchProcessEvent)
-                    {
-                        BatchProcessEvent event = (BatchProcessEvent) value;
-
-                        final long size = event.getTargetSize();
-                        final String source = event.getSourceName();
-                        final String target = event.getTargetName();
-                        final DigitalSignature magic = event.getDigitalSignature();
-                        final String status = event.isSuccess() ? "Completed" : "Failed";
-
-                        Platform.runLater(new Runnable()
-                        {
-                            @Override
-                            public void run()
-                            {
-                                fileRecords.add(new FileProcessingRecord(source, target, magic, status, size));
-                            }
-                        });
-                    }
-                }
-            });
-
-            // Update scanned source file count in the metrics table
-            workerTask.setOnFileScanned(new Consumer<Integer>()
-            {
-                @Override
-                public void accept(Integer count)
-                {
-                    Platform.runLater(new Runnable()
-                    {
-                        @Override
-                        public void run()
-                        {
-                            StatRecord.SOURCE_FILES.setValue(count);
-                        }
-                    });
-                }
-            });
-
-            // Update processed target file count in the metrics table
-            workerTask.setOnFileProcessed(new Consumer<Integer>()
-            {
-                @Override
-                public void accept(Integer count)
-                {
-                    Platform.runLater(new Runnable()
-                    {
-                        @Override
-                        public void run()
-                        {
-                            StatRecord.TARGET_FILES.setValue(count);
-                        }
-                    });
-                }
-            });
-
-            // Update final metrics when processing completes
-            workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
-            {
-                @Override
-                public void handle(WorkerStateEvent event)
-                {
-                    BatchMetrics stats = workerTask.getValue();
-
-                    if (stats != null)
-                    {
-                        StatRecord.SOURCE_FILES.setValue(stats.getScanned());
-                        StatRecord.TARGET_FILES.setValue(stats.getProcessed());
-                        StatRecord.FILES_SKIPPED.setValue(stats.getFilesSkippedCount());
-                        StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
-                    }
-
-                    resetControlStates(progressLabel);
-
-                    if (!showMetadata.isSelected())
-                    {
-                        viewPane.viewBtn.fire();
-                    }
-
-                    GUIUtils.launchPopup("Process Complete", "Batch processing completed", AlertType.INFORMATION);
-                }
-            });
-
-            workerTask.setOnFailed(new EventHandler<WorkerStateEvent>()
-            {
-                @Override
-                public void handle(WorkerStateEvent event)
-                {
-                    Throwable exc = workerTask.getException();
-                    String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
-
-                    resetControlStates(progressLabel);
-                    GUIUtils.launchPopup("Processing Error", msg, AlertType.ERROR);
-                }
-            });
-
-            workerTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
-            {
-                @Override
-                public void handle(WorkerStateEvent event)
-                {
-                    resetControlStates(progressLabel);
-                }
-            });
-
-            viewPane.actionBtn.setDisable(true);
-            viewPane.abortBtn.setDisable(false);
-            viewPane.copyLogBtn.setDisable(true);
-            progressLabel.textProperty().bind(workerTask.messageProperty());
-
-            Thread worker = new Thread(workerTask);
-            worker.setDaemon(true);
-            worker.start();
+            config = new ConfigurationBuilder(rootPane).build();
         }
+
+        catch (BatchErrorException exc)
+        {
+            progressLabel.setText("Configuration error");
+            GUIUtils.launchPopup("Invalid File Selection", exc.getMessage(), AlertType.ERROR);
+            return;
+        }
+
+        workerTask = new BatchTask(config, logArea, progressBar, false);
+
+        // Receive file execution output records for tabular summary reporting
+        workerTask.setOnFileSummaryListener(new PropertyConsumer()
+        {
+            @Override
+            public void accept(String key, Object value)
+            {
+                if (value instanceof BatchProcessEvent)
+                {
+                    BatchProcessEvent event = (BatchProcessEvent) value;
+
+                    final String source = event.getSourceName();
+                    final String target = event.getTargetName();
+                    final DigitalSignature magic = event.getDigitalSignature();
+                    final String status = event.isSuccess() ? "Completed" : "Failed";
+                    final long size = event.getTargetSize();
+
+                    Platform.runLater(new Runnable()
+                    {
+                        @Override
+                        public void run()
+                        {
+                            fileRecords.add(new FileProcessingRecord(source, target, magic, status, size));
+                        }
+                    });
+                }
+            }
+        });
+
+        // Update scanned source file count in the metrics table
+        workerTask.setOnFileScanned(new Consumer<Integer>()
+        {
+            @Override
+            public void accept(Integer count)
+            {
+                Platform.runLater(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        StatRecord.SOURCE_FILES.setValue(count);
+                    }
+                });
+            }
+        });
+
+        // Update processed target file count in the metrics table
+        workerTask.setOnFileProcessed(new Consumer<Integer>()
+        {
+            @Override
+            public void accept(Integer count)
+            {
+                Platform.runLater(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        StatRecord.TARGET_FILES.setValue(count);
+                    }
+                });
+            }
+        });
+
+        // Update final metrics when processing completes
+        workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
+        {
+            @Override
+            public void handle(WorkerStateEvent event)
+            {
+                BatchMetrics stats = workerTask.getValue();
+
+                if (stats != null)
+                {
+                    StatRecord.SOURCE_FILES.setValue(stats.getScanned());
+                    StatRecord.TARGET_FILES.setValue(stats.getProcessed());
+                    StatRecord.FILES_SKIPPED.setValue(stats.getFilesSkippedCount());
+                    StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
+                }
+
+                resetControlStates(progressLabel);
+                viewPane.viewBtn.fire();
+                GUIUtils.launchPopup("Process Complete", "Batch processing completed", AlertType.INFORMATION);
+            }
+        });
+
+        workerTask.setOnFailed(new EventHandler<WorkerStateEvent>()
+        {
+            @Override
+            public void handle(WorkerStateEvent event)
+            {
+                Throwable exc = workerTask.getException();
+                String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
+
+                resetControlStates(progressLabel);
+                GUIUtils.launchPopup("Processing Error", msg, AlertType.ERROR);
+            }
+        });
+
+        workerTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
+        {
+            @Override
+            public void handle(WorkerStateEvent event)
+            {
+                resetControlStates(progressLabel);
+            }
+        });
+
+        viewPane.actionBtn.setDisable(true);
+        viewPane.abortBtn.setDisable(false);
+        viewPane.copyLogBtn.setDisable(true);
+        progressLabel.textProperty().bind(workerTask.messageProperty());
+
+        Thread worker = new Thread(workerTask);
+        worker.setDaemon(true);
+        worker.start();
     }
 
     /**
-     * Renders detailed non-modal popup dialog summarizing execution record entries.
+     * Renders detailed non-modal popup dialog summarising execution record entries.
      */
     private void showSummaryDialog()
     {
@@ -597,12 +568,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         else
                         {
                             String[] units = {"B", "KB", "MB", "GB", "TB"};
-
                             int digitGroups = (int) (Math.log10(item) / Math.log10(1024));
-                            digitGroups = Math.min(digitGroups, units.length - 1);
 
-                            setText(new DecimalFormat("#,##0.#").format(item / Math.pow(1024, digitGroups))
-                                    + " " + units[digitGroups]);
+                            digitGroups = Math.min(digitGroups, units.length - 1);
+                            setText(new DecimalFormat("#,##0.#").format(item / Math.pow(1024, digitGroups)) + " " + units[digitGroups]);
                         }
                     }
                 };
@@ -631,15 +600,15 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         }
 
-        ImagePreviewPopup previewPopup = new ImagePreviewPopup(dialog.getDialogPane().getScene().getWindow(), targetDir);
+        final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialog.getDialogPane().getScene().getWindow(), targetDir);
 
-        // Attach hover image thumbnail listeners on rows
+        // Attach hover image thumb-nail listeners on rows
         table.setRowFactory(new Callback<TableView<FileProcessingRecord>, TableRow<FileProcessingRecord>>()
         {
             @Override
             public TableRow<FileProcessingRecord> call(TableView<FileProcessingRecord> param)
             {
-                TableRow<FileProcessingRecord> row = new TableRow<>();
+                final TableRow<FileProcessingRecord> row = new TableRow<>();
 
                 row.setOnMouseEntered(new EventHandler<MouseEvent>()
                 {
@@ -649,7 +618,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         if (!row.isEmpty())
                         {
                             row.setStyle("-fx-background-color: #0078d7; -fx-text-background-color: white;");
-                            previewPopup.showPreview(row.getItem(), event.getScreenX(), event.getScreenY());
+                            thumbnail.showPreview(row.getItem(), event.getScreenX(), event.getScreenY());
                         }
                     }
                 });
@@ -660,7 +629,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     public void handle(MouseEvent event)
                     {
                         row.setStyle("");
-                        previewPopup.hide();
+                        thumbnail.hide();
                     }
                 });
 
@@ -689,7 +658,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void handle(DialogEvent event)
             {
-                previewPopup.hide();
+                thumbnail.hide();
             }
         });
 
@@ -704,11 +673,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private void configureDynamicNodes()
     {
         final TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
-        TextField targetText = GUIUtils.getById(rootPane, MainViewPane.TGTID, TextField.class);
-        TextField prefixText = GUIUtils.getById(rootPane, MainViewPane.PFXID, TextField.class);
-        CheckBox embedDateTimeCheck = GUIUtils.getById(rootPane, MainViewPane.EMBID, CheckBox.class);
-        DatePicker modifyDatePicker = GUIUtils.getById(rootPane, MainViewPane.DTMID, DatePicker.class);
-        CheckBox showMetadataCheck = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
+        final TextField targetText = GUIUtils.getById(rootPane, MainViewPane.TGTID, TextField.class);
+        final TextField prefixText = GUIUtils.getById(rootPane, MainViewPane.PFXID, TextField.class);
+        final CheckBox embedDateTimeCheck = GUIUtils.getById(rootPane, MainViewPane.EMBID, CheckBox.class);
+        final DatePicker modifyDatePicker = GUIUtils.getById(rootPane, MainViewPane.DTMID, DatePicker.class);
+        final CheckBox showMetadataCheck = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
 
         try
         {
@@ -789,7 +758,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         // Disable summary output triggering until meaningful data structures are ready
         BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(fileRecords);
-        BooleanBinding isMetadataEmpty = Bindings.isEmpty(extractedRecords);
+        BooleanBinding isMetadataEmpty = Bindings.isEmpty(treeExtractedRecords);
         BooleanBinding isViewDisabled = Bindings.when(showMetadataCheck.selectedProperty()).then(isMetadataEmpty).otherwise(isBatchRecordsEmpty);
 
         viewPane.viewBtn.disableProperty().bind(isViewDisabled);
@@ -810,9 +779,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      * Processes paste hotkey shortcuts in the source location text field.
      *
      * @param event
-     *        The triggered key event.
+     *        the triggered key event
      * @param sourceText
-     *        Source path text component.
+     *        source path text component
      */
     public void handleSourcePaste(KeyEvent event, TextField sourceText)
     {
@@ -1059,13 +1028,13 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      * Restores main interactive controls from active execution state.
      *
      * @param progressLabel
-     *        Progress status display text node.
+     *        progress status display text label
      */
     private void resetControlStates(final Label progressLabel)
     {
-        Button actionBtn = viewPane.actionBtn;
-        Button cancelBtn = viewPane.abortBtn;
-        Button copyLogBtn = viewPane.copyLogBtn;
+        final Button actionBtn = viewPane.actionBtn;
+        final Button cancelBtn = viewPane.abortBtn;
+        final Button copyLogBtn = viewPane.copyLogBtn;
         final ProgressBar progressBar = viewPane.progressBar;
 
         workerTask = null;
@@ -1100,7 +1069,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      * feedback.
      *
      * @param logArea
-     *        Target text field component.
+     *        target text field component
      */
     private void copyTextAreaWithFlash(final TextArea logArea)
     {
@@ -1138,11 +1107,17 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private void showMetadataInspectorTree()
     {
         ExtractedMetadataDialog dialog = new ExtractedMetadataDialog((Stage) rootPane.getScene().getWindow());
-        dialog.setMetadataRecords(extractedRecords);
+
+        dialog.setMetadataRecords(treeExtractedRecords);
+        dialog.setMetadataText(flatExtractedRecords.toString());
+
+        flatExtractedRecords.setLength(0);
+        flatExtractedRecords.trimToSize();
+
         dialog.show();
     }
 
-       /**
+    /**
      * Launches the JavaFX application.
      *
      * @param args
