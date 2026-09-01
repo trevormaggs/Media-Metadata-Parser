@@ -2,7 +2,7 @@ package gui;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.net.InetAddress;
+import java.io.IOException;
 import java.util.List;
 import common.Metadata;
 import common.PropertyConsumer;
@@ -40,6 +40,7 @@ import png.PngMetadataProvider;
 import tif.DirectoryIFD;
 import tif.TifMetadataProvider;
 import tif.tagspecs.Taggable;
+import util.SystemInfo;
 
 /**
  * Modal dialog that presents extracted metadata using both a structured TreeTableView and a flat
@@ -47,6 +48,7 @@ import tif.tagspecs.Taggable;
  */
 class MetadataViewerDialog extends Stage
 {
+    private boolean allItemsExpanded;
     private final TextArea flatTextArea;
     private final StackPane containerStack;
     private final TreeTableView<MetadataNode> treeTableView;
@@ -61,13 +63,14 @@ class MetadataViewerDialog extends Stage
      */
     MetadataViewerDialog(Stage owner)
     {
-        Button btnCopy = new Button("Copy to Clipboard");
-        Button btnExport = new Button("Export to File");
-        Button btnClose = new Button("Close");
+        final Button btnExpand = new Button("Collapse All");
+        final Button btnCopy = new Button("Copy to Clipboard");
+        final Button btnExport = new Button("Export to File");
+        final Button btnClose = new Button("Close");
         final RadioButton rbFlat = new RadioButton("Raw Flat Text");
-        RadioButton rbTree = new RadioButton("Structured Tree");
-        TreeTableColumn<MetadataNode, String> nameCol = new TreeTableColumn<>("File / Metadata Group / Property");
-        TreeTableColumn<MetadataNode, String> valueCol = new TreeTableColumn<>("Value");
+        final RadioButton rbTree = new RadioButton("Structured Tree");
+        final TreeTableColumn<MetadataNode, String> nameCol = new TreeTableColumn<>("File / Metadata Group / Property");
+        final TreeTableColumn<MetadataNode, String> valueCol = new TreeTableColumn<>("Value");
 
         initOwner(owner);
         initModality(Modality.WINDOW_MODAL);
@@ -128,24 +131,21 @@ class MetadataViewerDialog extends Stage
         rbFlat.setToggleGroup(toggleGroup);
         rbTree.setToggleGroup(toggleGroup);
         rbTree.setSelected(true);
-
-        final Button btnExpand = new Button("Collapse All");
-        btnExpand.setUserData(Boolean.TRUE);
-
+        allItemsExpanded = true;
+        
         btnExpand.setOnAction(new EventHandler<ActionEvent>()
         {
             @Override
             public void handle(ActionEvent event)
             {
-                boolean expanded = Boolean.TRUE.equals(btnExpand.getUserData());
+                allItemsExpanded = !allItemsExpanded;
 
                 if (treeTableView.getRoot() != null)
                 {
-                    setExpandedRecursive(treeTableView.getRoot(), !expanded);
+                    setExpandedRecursive(treeTableView.getRoot(), allItemsExpanded);
                 }
 
-                btnExpand.setUserData(Boolean.valueOf(!expanded));
-                btnExpand.setText(!expanded ? "Collapse All" : "Expand All");
+                btnExpand.setText(allItemsExpanded ? "Collapse All" : "Expand All");
             }
         });
 
@@ -187,6 +187,7 @@ class MetadataViewerDialog extends Stage
             @Override
             public void handle(ActionEvent event)
             {
+                rbFlat.setSelected(true);
                 exportToFile();
             }
         });
@@ -223,11 +224,10 @@ class MetadataViewerDialog extends Stage
     }
 
     /**
-     * Converts a list of {@link MediaFileMetadata} POJOs into a hierarchical {@link TreeItem} root
-     * structure for display in the {@link TreeTableView}.
+     * Populates the {@link TreeTableView} with a hierarchical representation of the specified metadata records.
      *
      * @param records
-     *        the list of extracted file metadata records to parse
+     *        the extracted file metadata records to display
      */
     void setMetadataRecords(List<MediaFileMetadata> records)
     {
@@ -237,12 +237,11 @@ class MetadataViewerDialog extends Stage
         {
             for (MediaFileMetadata record : records)
             {
+                Metadata<?> meta = record.getMetadata();
                 String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
                 TreeItem<MetadataNode> fileNode = new TreeItem<>(new MetadataNode(fileName, ""));
 
                 fileNode.setExpanded(true);
-
-                Metadata<?> meta = record.getMetadata();
 
                 if (meta instanceof TifMetadataProvider)
                 {
@@ -347,7 +346,6 @@ class MetadataViewerDialog extends Stage
      */
     private void exportToFile()
     {
-        String hostName = "localhost";
         FileChooser chooser = new FileChooser();
         File userHome = new File(System.getProperty("user.home"));
 
@@ -358,30 +356,7 @@ class MetadataViewerDialog extends Stage
             chooser.setInitialDirectory(userHome);
         }
 
-        try
-        {
-            hostName = InetAddress.getLocalHost().getHostName();
-        }
-
-        catch (Exception exc)
-        {
-            // Windows
-            String envHost = System.getenv("COMPUTERNAME");
-
-            if (envHost == null)
-            {
-                // Unix, Linux or macOS
-                envHost = System.getenv("HOSTNAME");
-            }
-
-            if (envHost != null && !envHost.isEmpty())
-            {
-                hostName = envHost;
-            }
-        }
-
-        chooser.setInitialFileName(hostName + "_metadata.txt");
-
+        chooser.setInitialFileName(SystemInfo.getHostname() + "_metadata.txt");
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files (*.txt)", "*.txt"));
 
         File file = chooser.showSaveDialog(this);
@@ -393,7 +368,7 @@ class MetadataViewerDialog extends Stage
                 writer.write(flatTextArea.getText());
             }
 
-            catch (Exception exc)
+            catch (IOException exc)
             {
                 String errorMsg = (exc.getMessage() != null && !exc.getMessage().isEmpty()) ? exc.getMessage() : exc.toString();
                 GUIUtils.launchPopup(this, "Export Error", "Failed to export metadata to file:\n" + errorMsg, AlertType.ERROR);
@@ -402,7 +377,7 @@ class MetadataViewerDialog extends Stage
     }
 
     /**
-     * Inner POJO representing a single row in the {@link TreeTableView}.
+     * Represents the name and value displayed for a single metadata tree item.
      */
     private static class MetadataNode
     {
