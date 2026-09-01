@@ -2,11 +2,11 @@ batch
 common
 common.binary
 gui
-gui.login
 heif
 heif.boxes
 jpg
 png
+shell
 tif
 tif.tagspecs
 webp

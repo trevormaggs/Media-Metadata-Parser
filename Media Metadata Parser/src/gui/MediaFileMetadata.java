@@ -7,17 +7,17 @@ import java.nio.file.Path;
 /**
  * Pure POJO representing a media file and its extracted metadata container.
  */
-public class FileMetadataRecord
+public class MediaFileMetadata
 {
     private String fileName;
     private Metadata<? extends Directory<?>> metadata;
 
-    public FileMetadataRecord(Path fpath)
+    public MediaFileMetadata(Path fpath)
     {
         setFilePath(fpath);
     }
 
-    public FileMetadataRecord(Path fpath, Metadata<? extends Directory<?>> metadata)
+    public MediaFileMetadata(Path fpath, Metadata<? extends Directory<?>> metadata)
     {
         this(fpath);
         this.metadata = metadata;

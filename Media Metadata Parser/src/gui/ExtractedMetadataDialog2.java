@@ -199,15 +199,15 @@ public class ExtractedMetadataDialog2 extends Stage
     }
 
     /**
-     * Converts a list of FileMetadataRecord POJOs into a hierarchical TreeItem root structure.
+     * Converts a list of MediaFileMetadata POJOs into a hierarchical TreeItem root structure.
      */
-    public void setMetadataRecords(List<FileMetadataRecord> records)
+    public void setMetadataRecords(List<MediaFileMetadata> records)
     {
         TreeItem<MetadataNode> rootItem = new TreeItem<>(new MetadataNode("Root", ""));
 
         if (records != null)
         {
-            for (FileMetadataRecord record : records)
+            for (MediaFileMetadata record : records)
             {
                 String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
                 TreeItem<MetadataNode> fileNode = new TreeItem<>(new MetadataNode(fileName, ""));

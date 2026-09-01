@@ -19,7 +19,7 @@ import common.Metadata;
 import common.PropertyConsumer;
 import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
-import gui.FileMetadataRecord;
+import gui.MediaFileMetadata;
 import logger.LogFactory;
 import png.ChunkType;
 import png.PngChunk;
@@ -33,7 +33,7 @@ import tif.tagspecs.Taggable;
 import util.SystemInfo;
 
 /**
- * Extracts and displays media metadata using a pure POJO {@link FileMetadataRecord}.
+ * Extracts and displays media metadata using a pure POJO {@link MediaFileMetadata}.
  *
  * Utility class to print media metadata in a format emulating the output style of
  * {@code exiftool -G1 -a -s -u}.
@@ -63,7 +63,7 @@ public final class DisplayMetadata
     private final MetadataScanner scanner;
     private final List<ProgressListener> progressListeners;
     private Consumer<String> metadataReceivedListener;
-    private Consumer<FileMetadataRecord> recordExtractedListener;
+    private Consumer<MediaFileMetadata> recordExtractedListener;
 
     /**
      * Creates an instance for displaying metadata name/value attributes, similar to the output
@@ -108,12 +108,12 @@ public final class DisplayMetadata
     }
 
     /**
-     * Sets the callback listener that receives each parsed {@link FileMetadataRecord}.
+     * Sets the callback listener that receives each parsed {@link MediaFileMetadata}.
      *
      * @param listener
      *        the consumer to process extracted metadata records
      */
-    public void setOnRecordExtracted(Consumer<FileMetadataRecord> listener)
+    public void setOnRecordExtracted(Consumer<MediaFileMetadata> listener)
     {
         recordExtractedListener = listener;
     }
@@ -159,7 +159,7 @@ public final class DisplayMetadata
                         parser.readMetadata();
 
                         Metadata<?> meta = parser.getMetadata();
-                        FileMetadataRecord fileRecord = new FileMetadataRecord(fpath, meta);
+                        MediaFileMetadata fileRecord = new MediaFileMetadata(fpath, meta);
                         StringBuilder sb = new StringBuilder().append("======== ").append(fpath).append(" ========");
 
                         appendSystemMetadata(fpath, sb);
@@ -353,9 +353,20 @@ public final class DisplayMetadata
 
             LogFactory.configure(logPath.toString());
             LogFactory.setDebug(config.isDebug());
+            LogFactory.setTrace(config.isTrace());
 
             LOGGER.info(this.getClass().getSimpleName() + " loaded");
             LOGGER.info("Source: " + config.getSource().toAbsolutePath());
+
+            if (config.isDebug())
+            {
+                LOGGER.info("Debugging is enabled");
+            }
+
+            if (config.isTrace())
+            {
+                LOGGER.info("Trace logging is enabled");
+            }
         }
 
         catch (IOException exc)

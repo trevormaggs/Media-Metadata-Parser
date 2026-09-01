@@ -36,7 +36,7 @@ class BatchTask extends Task<BatchMetrics>
     private Consumer<Integer> fileScannedListener;
     private Consumer<Integer> fileProcessedListener;
     private Consumer<String> metadataReceivedListener;
-    private Consumer<FileMetadataRecord> onRecordExtracted;
+    private Consumer<MediaFileMetadata> onRecordExtracted;
     private volatile MediaBatchProcessor processor;
 
     /**
@@ -114,15 +114,18 @@ class BatchTask extends Task<BatchMetrics>
      * @param listener
      *        the listener to receive the formatted metadata text
      */
-    public void setOnMetadataReceived(Consumer<String> listener)
+    void setOnMetadataReceived(Consumer<String> listener)
     {
         metadataReceivedListener = listener;
     }
 
     /**
-     * Registers a listener to capture populated FileMetadataRecord POJOs.
+     * Registers a listener to capture populated MediaFileMetadata POJOs.
+     * 
+     * @param listener
+     *        the listener to receive the updated MediaFileMetadata object
      */
-    public void setOnRecordExtracted(Consumer<FileMetadataRecord> listener)
+    void setOnRecordExtracted(Consumer<MediaFileMetadata> listener)
     {
         this.onRecordExtracted = listener;
     }

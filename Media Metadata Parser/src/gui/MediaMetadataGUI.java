@@ -47,9 +47,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private GridPane rootPane;
     private BatchTask workerTask;
     private MainViewPane viewPane;
-    private StringBuilder flatExtractedRecords;
+    private StringBuilder flatMetadataText;
+    private ObservableList<MediaFileMetadata> treeMetadataItems;
     private ObservableList<FileProcessingRecord> fileRecords;
-    private ObservableList<FileMetadataRecord> treeExtractedRecords;
 
     /**
      * Initialises state components prior to scene setup.
@@ -58,9 +58,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     public void init()
     {
         viewPane = new MainViewPane();
-        flatExtractedRecords = new StringBuilder();
+        flatMetadataText = new StringBuilder();
         fileRecords = FXCollections.observableArrayList();
-        treeExtractedRecords = FXCollections.observableArrayList();
+        treeMetadataItems = FXCollections.observableArrayList();
     }
 
     /**
@@ -156,7 +156,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.copyLogBtn)
         {
-            copyTextAreaWithFlash((TextArea) viewPane.clearLogBtn.getUserData());
+            GUIUtils.copyTextAreaWithFlash((TextArea) viewPane.clearLogBtn.getUserData());
         }
 
         else if (source == viewPane.abortBtn)
@@ -209,8 +209,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
         logArea.clear();
-        treeExtractedRecords.clear();
-        flatExtractedRecords.setLength(0);
+        treeMetadataItems.clear();
+        flatMetadataText.setLength(0);
 
         try
         {
@@ -226,28 +226,28 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         workerTask = new BatchTask(config, logArea, progressBar, true);
 
-        // Stream raw metadata text directly into flatExtractedRecords as DisplayMetadata emits it
+        // Stream raw metadata text directly into flatMetadataText as DisplayMetadata emits it
         workerTask.setOnMetadataReceived(new Consumer<String>()
         {
             @Override
             public void accept(String text)
             {
-                flatExtractedRecords.append(text);
+                flatMetadataText.append(text);
             }
         });
 
         // Populate POJO records directly useful for GUI display
-        workerTask.setOnRecordExtracted(new Consumer<FileMetadataRecord>()
+        workerTask.setOnRecordExtracted(new Consumer<MediaFileMetadata>()
         {
             @Override
-            public void accept(FileMetadataRecord record)
+            public void accept(MediaFileMetadata record)
             {
                 Platform.runLater(new Runnable()
                 {
                     @Override
                     public void run()
                     {
-                        treeExtractedRecords.add(record);
+                        treeMetadataItems.add(record);
                     }
                 });
             }
@@ -418,7 +418,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                 resetControlStates(progressLabel);
                 viewPane.viewBtn.fire();
-                GUIUtils.launchPopup("Process Complete", "Batch processing completed", AlertType.INFORMATION);
             }
         });
 
@@ -758,7 +757,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         // Disable summary output triggering until meaningful data structures are ready
         BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(fileRecords);
-        BooleanBinding isMetadataEmpty = Bindings.isEmpty(treeExtractedRecords);
+        BooleanBinding isMetadataEmpty = Bindings.isEmpty(treeMetadataItems);
         BooleanBinding isViewDisabled = Bindings.when(showMetadataCheck.selectedProperty()).then(isMetadataEmpty).otherwise(isBatchRecordsEmpty);
 
         viewPane.viewBtn.disableProperty().bind(isViewDisabled);
@@ -1065,54 +1064,18 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     }
 
     /**
-     * Shared helper to copy text area contents to system clipboard and trigger visual flash
-     * feedback.
-     *
-     * @param logArea
-     *        target text field component
-     */
-    private void copyTextAreaWithFlash(final TextArea logArea)
-    {
-        if (logArea != null && !logArea.getText().isEmpty())
-        {
-            ClipboardContent content = new ClipboardContent();
-            content.putString(logArea.getText());
-            Clipboard.getSystemClipboard().setContent(content);
-
-            // Apply soft green background highlight visual flash feedback
-            final String originalStyle = logArea.getStyle();
-            logArea.setStyle(originalStyle + " -fx-highlight-fill: #a8e6cf; -fx-highlight-text-fill: #000000;");
-            logArea.selectAll();
-
-            PauseTransition flash = new PauseTransition(Duration.millis(550));
-
-            flash.setOnFinished(new EventHandler<ActionEvent>()
-            {
-                @Override
-                public void handle(ActionEvent event)
-                {
-                    logArea.deselect();
-                    logArea.setStyle(originalStyle);
-                }
-            });
-
-            flash.play();
-        }
-    }
-
-    /**
      * Opens modal dialog window displaying structural metadata contents using the interactive
      * TreeTableView inspector.
      */
     private void showMetadataInspectorTree()
     {
-        ExtractedMetadataDialog dialog = new ExtractedMetadataDialog((Stage) rootPane.getScene().getWindow());
+        MetadataViewerDialog dialog = new MetadataViewerDialog((Stage) rootPane.getScene().getWindow());
 
-        dialog.setMetadataRecords(treeExtractedRecords);
-        dialog.setMetadataText(flatExtractedRecords.toString());
+        dialog.setMetadataRecords(treeMetadataItems);
+        dialog.setMetadataText(flatMetadataText.toString());
 
-        flatExtractedRecords.setLength(0);
-        flatExtractedRecords.trimToSize();
+        flatMetadataText.setLength(0);
+        flatMetadataText.trimToSize();
 
         dialog.show();
     }

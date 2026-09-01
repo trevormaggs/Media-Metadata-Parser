@@ -3,14 +3,16 @@ package batch;
 /**
  * Identifies domain events emitted during batch processing operations.
  */
-public enum BatchEventType
+enum BatchEventType
 {
     FILE_PROCESSED, SCAN_COMPLETED, BATCH_FAILED;
 
     /**
      * Returns the name of the event type.
+     * 
+     * @return the string corresponding to this enum constant value
      */
-    public String getKey()
+    String getKey()
     {
         return name();
     }

@@ -1,15 +1,22 @@
 package gui;
 
 import java.util.NoSuchElementException;
+import javafx.animation.PauseTransition;
 import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Alert;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.stage.Window;
+import javafx.util.Duration;
 
 /**
  * Provides utility methods for JavaFX user-interface operations, node traversal, and popup dialogs.
@@ -147,5 +154,40 @@ final class GUIUtils
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         return spacer;
+    }
+
+    /**
+     * Copy text area contents to system clipboard and trigger visual flash feedback.
+     *
+     * @param logArea
+     *        target text field component
+     */
+    static void copyTextAreaWithFlash(final TextArea logArea)
+    {
+        if (logArea != null && !logArea.getText().isEmpty())
+        {
+            ClipboardContent content = new ClipboardContent();
+            content.putString(logArea.getText());
+            Clipboard.getSystemClipboard().setContent(content);
+
+            // Apply soft green background highlight visual flash feedback
+            final String originalStyle = logArea.getStyle();
+            logArea.setStyle(originalStyle + " -fx-highlight-fill: #a8e6cf; -fx-highlight-text-fill: #000000;");
+            logArea.selectAll();
+
+            PauseTransition flash = new PauseTransition(Duration.millis(550));
+
+            flash.setOnFinished(new EventHandler<ActionEvent>()
+            {
+                @Override
+                public void handle(ActionEvent event)
+                {
+                    logArea.deselect();
+                    logArea.setStyle(originalStyle);
+                }
+            });
+
+            flash.play();
+        }
     }
 }

@@ -249,9 +249,6 @@ final class MainViewPane
         CheckBox[] processingChecks = new CheckBox[]{
                 embedDateTimeCheck,
                 forceDateChangeCheck,
-                debugCheck,
-                traceCheck,
-                descendingCheck,
                 skipVideoCheck
         };
 
