@@ -21,9 +21,9 @@ import javafx.util.Duration;
 /**
  * Provides utility methods for JavaFX user-interface operations, node traversal, and popup dialogs.
  */
-final class GUIUtils
+final class UtilsJavaFX
 {
-    private GUIUtils()
+    private UtilsJavaFX()
     {
         // Private constructor to prevent instantiation
     }
@@ -91,7 +91,7 @@ final class GUIUtils
      */
     static <T extends Node> T getById(Node root, String id, Class<T> type)
     {
-        Node node = GUIUtils.getById(root, id);
+        Node node = UtilsJavaFX.getById(root, id);
 
         if (node == null)
         {
@@ -157,7 +157,8 @@ final class GUIUtils
     }
 
     /**
-     * Copy text area contents to system clipboard and trigger visual flash feedback.
+     * Copy text area contents to system clipboard and trigger visual flash feedback, applying  soft
+     * green background highlight visual flash feedback
      *
      * @param logArea
      *        target text field component
@@ -170,7 +171,6 @@ final class GUIUtils
             content.putString(logArea.getText());
             Clipboard.getSystemClipboard().setContent(content);
 
-            // Apply soft green background highlight visual flash feedback
             final String originalStyle = logArea.getStyle();
             logArea.setStyle(originalStyle + " -fx-highlight-fill: #a8e6cf; -fx-highlight-text-fill: #000000;");
             logArea.selectAll();

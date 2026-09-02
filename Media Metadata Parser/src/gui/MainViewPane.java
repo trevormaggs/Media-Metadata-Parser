@@ -97,9 +97,9 @@ final class MainViewPane
     {
         if (previewLabel != null)
         {
-            TextField prefixText = GUIUtils.getById(pane, PFXID, TextField.class);
-            CheckBox embedDateTimeCheck = GUIUtils.getById(pane, EMBID, CheckBox.class);
-            DatePicker modifyDatePicker = GUIUtils.getById(pane, DTMID, DatePicker.class);
+            TextField prefixText = UtilsJavaFX.getById(pane, PFXID, TextField.class);
+            CheckBox embedDateTimeCheck = UtilsJavaFX.getById(pane, EMBID, CheckBox.class);
+            DatePicker modifyDatePicker = UtilsJavaFX.getById(pane, DTMID, DatePicker.class);
             StringBuilder sb = new StringBuilder();
             String prefix = prefixText.getText().trim();
 
@@ -152,7 +152,7 @@ final class MainViewPane
         sourceBtn.setText("Browse...");
 
         HBox sourceHbox = new HBox(10);
-        sourceHbox.getChildren().addAll(sourceLabel, sourceText, GUIUtils.fillRow(), sourceBtn);
+        sourceHbox.getChildren().addAll(sourceLabel, sourceText, UtilsJavaFX.fillRow(), sourceBtn);
 
         // Row 2
         Label targetLabel = new Label("Target Directory");
@@ -167,7 +167,7 @@ final class MainViewPane
         targetBtn.setOnAction(new FilePickHandler(targetText, "Select Target Directory"));
 
         HBox targetHbox = new HBox(10);
-        targetHbox.getChildren().addAll(targetLabel, targetText, GUIUtils.fillRow(), targetBtn);
+        targetHbox.getChildren().addAll(targetLabel, targetText, UtilsJavaFX.fillRow(), targetBtn);
 
         // Row 3
         Label prefixLabel = new Label("File Prefix Name");
@@ -180,7 +180,7 @@ final class MainViewPane
         prefixText.setMaxWidth(300);
 
         HBox prefixHbox = new HBox(10);
-        prefixHbox.getChildren().addAll(prefixLabel, prefixText, GUIUtils.fillRow());
+        prefixHbox.getChildren().addAll(prefixLabel, prefixText, UtilsJavaFX.fillRow());
 
         // Row 4
         Label dateLabel = new Label("Modify Date Taken");
@@ -192,7 +192,7 @@ final class MainViewPane
         modifyDatePicker.setMaxWidth(300);
 
         HBox modifyDateHbox = new HBox(10);
-        modifyDateHbox.getChildren().addAll(dateLabel, modifyDatePicker, GUIUtils.fillRow());
+        modifyDateHbox.getChildren().addAll(dateLabel, modifyDatePicker, UtilsJavaFX.fillRow());
 
         // Row 5: Dynamic Filename Preview
         Label previewTitleLabel = new Label("Target Preview");
@@ -202,7 +202,7 @@ final class MainViewPane
         previewLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #005A9E;");
 
         HBox previewHbox = new HBox(10);
-        previewHbox.getChildren().addAll(previewTitleLabel, previewLabel, GUIUtils.fillRow());
+        previewHbox.getChildren().addAll(previewTitleLabel, previewLabel, UtilsJavaFX.fillRow());
 
         VBox contentPane = new VBox(12);
         contentPane.setPadding(new Insets(10));
@@ -366,7 +366,7 @@ final class MainViewPane
         abortBtn.setDisable(true);
         abortBtn.setText("Abort");
 
-        HBox buttonBox = new HBox(12, actionBtn, progressBox, GUIUtils.fillRow(), copyLogBtn, abortBtn);
+        HBox buttonBox = new HBox(12, actionBtn, progressBox, UtilsJavaFX.fillRow(), copyLogBtn, abortBtn);
         buttonBox.setAlignment(Pos.TOP_LEFT);
         buttonBox.setPadding(new Insets(10));
 
@@ -393,7 +393,7 @@ final class MainViewPane
         clearLogBtn.setText("Clear Log");
         exitBtn.setText("Exit");
 
-        HBox controlLayout = new HBox(10, viewBtn, clearLogBtn, GUIUtils.fillRow(), exitBtn);
+        HBox controlLayout = new HBox(10, viewBtn, clearLogBtn, UtilsJavaFX.fillRow(), exitBtn);
         controlLayout.setPadding(new Insets(5, 0, 0, 0));
 
         GridPane.setHgrow(controlLayout, Priority.ALWAYS);

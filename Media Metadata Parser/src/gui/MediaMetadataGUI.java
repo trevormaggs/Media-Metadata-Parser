@@ -104,8 +104,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     @Override
     public void stop()
     {
-        TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
-        TextField targetText = GUIUtils.getById(rootPane, MainViewPane.TGTID, TextField.class);
+        TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
+        TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
 
         try
         {
@@ -141,7 +141,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.actionBtn)
         {
-            CheckBox showMetadata = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
+            CheckBox showMetadata = UtilsJavaFX.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
 
             if (showMetadata.isSelected())
             {
@@ -156,7 +156,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.copyLogBtn)
         {
-            GUIUtils.copyTextAreaWithFlash((TextArea) viewPane.clearLogBtn.getUserData());
+            UtilsJavaFX.copyTextAreaWithFlash((TextArea) viewPane.clearLogBtn.getUserData());
         }
 
         else if (source == viewPane.abortBtn)
@@ -169,7 +169,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.viewBtn)
         {
-            CheckBox showMetadata = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
+            CheckBox showMetadata = UtilsJavaFX.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
 
             if (showMetadata.isSelected())
             {
@@ -220,7 +220,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         catch (BatchErrorException exc)
         {
             progressLabel.setText("Configuration error");
-            GUIUtils.launchPopup("Configuration Error", exc.getMessage(), AlertType.ERROR);
+            UtilsJavaFX.launchPopup("Configuration Error", exc.getMessage(), AlertType.ERROR);
             return;
         }
 
@@ -287,7 +287,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
 
                 resetControlStates(progressLabel);
-                GUIUtils.launchPopup("Metadata Extraction Error", msg, AlertType.ERROR);
+                UtilsJavaFX.launchPopup("Metadata Extraction Error", msg, AlertType.ERROR);
             }
         });
 
@@ -332,7 +332,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         catch (BatchErrorException exc)
         {
             progressLabel.setText("Configuration error");
-            GUIUtils.launchPopup("Invalid File Selection", exc.getMessage(), AlertType.ERROR);
+            UtilsJavaFX.launchPopup("Invalid File Selection", exc.getMessage(), AlertType.ERROR);
             return;
         }
 
@@ -430,7 +430,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
 
                 resetControlStates(progressLabel);
-                GUIUtils.launchPopup("Processing Error", msg, AlertType.ERROR);
+                UtilsJavaFX.launchPopup("Processing Error", msg, AlertType.ERROR);
             }
         });
 
@@ -584,7 +584,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         table.setItems(fileRecords);
 
         Path targetDir = null;
-        TextField targetText = GUIUtils.getById(rootPane, MainViewPane.TGTID, TextField.class);
+        TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
 
         if (targetText != null && !targetText.getText().trim().isEmpty())
         {
@@ -671,12 +671,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void configureDynamicNodes()
     {
-        final TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
-        final TextField targetText = GUIUtils.getById(rootPane, MainViewPane.TGTID, TextField.class);
-        final TextField prefixText = GUIUtils.getById(rootPane, MainViewPane.PFXID, TextField.class);
-        final CheckBox embedDateTimeCheck = GUIUtils.getById(rootPane, MainViewPane.EMBID, CheckBox.class);
-        final DatePicker modifyDatePicker = GUIUtils.getById(rootPane, MainViewPane.DTMID, DatePicker.class);
-        final CheckBox showMetadataCheck = GUIUtils.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
+        final TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
+        final TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
+        final TextField prefixText = UtilsJavaFX.getById(rootPane, MainViewPane.PFXID, TextField.class);
+        final CheckBox embedDateTimeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.EMBID, CheckBox.class);
+        final DatePicker modifyDatePicker = UtilsJavaFX.getById(rootPane, MainViewPane.DTMID, DatePicker.class);
+        final CheckBox showMetadataCheck = UtilsJavaFX.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
 
         try
         {
@@ -686,7 +686,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         catch (IOException exc)
         {
             String errmsg = "Unable to load path history information from properties due to an error.\n\n" + exc.getMessage();
-            GUIUtils.launchPopup("Configuration Error", errmsg, AlertType.ERROR);
+            UtilsJavaFX.launchPopup("Configuration Error", errmsg, AlertType.ERROR);
         }
 
         // Primary mouse click opens folder picker menu directly
@@ -853,7 +853,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     else
                     {
                         String msg = "One or more pasted files is unknown or not in the same directory:\n\n" + pastedText;
-                        GUIUtils.launchPopup("Invalid File Set", msg, AlertType.WARNING);
+                        UtilsJavaFX.launchPopup("Invalid File Set", msg, AlertType.WARNING);
                     }
                 }
 
@@ -873,14 +873,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         else
                         {
                             String msg = "The pasted path does not exist:\n\n" + pastedText;
-                            GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
+                            UtilsJavaFX.launchPopup("Invalid Path", msg, AlertType.WARNING);
                         }
                     }
 
                     catch (InvalidPathException exc)
                     {
                         String msg = "The pasted content is not a valid file path:\n\n" + pastedText;
-                        GUIUtils.launchPopup("Invalid Path", msg, AlertType.WARNING);
+                        UtilsJavaFX.launchPopup("Invalid Path", msg, AlertType.WARNING);
                     }
                 }
             }
@@ -896,7 +896,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         ContextMenu menu = new ContextMenu();
         Button sourceBtn = viewPane.sourceBtn;
-        final TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
+        final TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
 
         MenuItem selectFolder = new MenuItem("Select Folder...");
         selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
@@ -991,7 +991,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void handleFileSelection()
     {
-        TextField sourceText = GUIUtils.getById(rootPane, MainViewPane.SRCID, TextField.class);
+        TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
         String actualText = sourceText.getText().trim();
         File sourceDir = new File(actualText.isEmpty() ? System.getProperty("user.home") : actualText);
         FileChooser chooser = new FileChooser();

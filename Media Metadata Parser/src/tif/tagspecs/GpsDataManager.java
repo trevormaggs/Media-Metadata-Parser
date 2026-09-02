@@ -106,6 +106,39 @@ public final class GpsDataManager
     }
 
     /**
+     * Converts a raw degrees/minutes/seconds rational array and an optional hemisphere reference
+     * indicator into signed decimal degrees format.
+     *
+     * @param val
+     *        the raw GPS coordinate value (typically a RationalNumber array)
+     * @param ref
+     *        the hemisphere reference direction string (e.g., "S", "W", "South", "West")
+     * @return the coordinate converted to signed decimal degrees, or {@code null} if parsing fails
+     */
+    public static Double parseToDecimal(Object val, String ref)
+    {
+        RationalNumber[] dms = TagValueTranslator.toRationalArray(val);
+
+        if (dms == null || dms.length < 3 || dms[0] == null || dms[1] == null || dms[2] == null)
+        {
+            return null;
+        }
+
+        double deg = dms[0].doubleValue();
+        double min = dms[1].doubleValue();
+        double sec = dms[2].doubleValue();
+
+        double decimal = deg + (min / 60.0) + (sec / 3600.0);
+
+        if (ref != null && (ref.startsWith("S") || ref.startsWith("W") || ref.equalsIgnoreCase("South") || ref.equalsIgnoreCase("West")))
+        {
+            decimal = -decimal;
+        }
+
+        return decimal;
+    }
+
+    /**
      * Translates a GPS latitude reference.
      *
      * @param val
