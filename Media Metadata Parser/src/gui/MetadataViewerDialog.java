@@ -42,7 +42,7 @@ class MetadataViewerDialog extends Stage
     private final RadioButton rbMap;
     private final ComboBox<String> cbGpsFiles;
     private final StackPane containerStack;
-    private final GpsMetadataViewerManager gpsMapManager;
+    private final ViewManagerGPS gpsMapManager;
     private final TreeTableView<MetadataNode> treeTableView;
     private boolean allItemsExpanded;
 
@@ -82,7 +82,7 @@ class MetadataViewerDialog extends Stage
         });
 
         // Delegate UI integration and events to GpsMapHtmlManager
-        gpsMapManager = new GpsMetadataViewerManager(mapView);
+        gpsMapManager = new ViewManagerGPS(mapView);
 
         initOwner(owner);
         initModality(Modality.WINDOW_MODAL);
@@ -255,7 +255,7 @@ class MetadataViewerDialog extends Stage
      */
     void setMetadataRecords(List<MediaFileMetadata> records)
     {
-        TreeItem<MetadataNode> rootItem = new TreeItem<>(new MetadataNode("Root", ""));
+        TreeItem<MetadataNode> rootNode = new TreeItem<>(new MetadataNode("Root", ""));
 
         gpsMapManager.reset();
 
@@ -279,6 +279,7 @@ class MetadataViewerDialog extends Stage
 
                         String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
                         TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode(groupName, ""));
+                        
                         groupNode.setExpanded(true);
 
                         for (DirectoryIFD.EntryIFD entry : ifd)
@@ -334,7 +335,7 @@ class MetadataViewerDialog extends Stage
                     }
                 }
 
-                rootItem.getChildren().add(fileNode);
+                rootNode.getChildren().add(fileNode);
             }
         }
 
@@ -349,7 +350,7 @@ class MetadataViewerDialog extends Stage
 
         rbMap.setDisable(!gpsMapManager.hasLocations());
 
-        treeTableView.setRoot(rootItem);
+        treeTableView.setRoot(rootNode);
     }
 
     /**

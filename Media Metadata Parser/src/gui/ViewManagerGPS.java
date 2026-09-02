@@ -13,12 +13,12 @@ import tif.tagspecs.TagIFD_GPS;
  * Manages Leaflet map rendering for {@link MetadataViewerDialog} using
  * {@link GpsDataManager} as a static delegate.
  */
-public class GpsMetadataViewerManager
+public class ViewManagerGPS
 {
     private final WebView mapView;
     private final Map<String, GpsLocation> locationMap;
 
-    public GpsMetadataViewerManager(WebView mapView)
+    public ViewManagerGPS(WebView mapView)
     {
         this.mapView = mapView;
         this.locationMap = new LinkedHashMap<>();
@@ -33,40 +33,10 @@ public class GpsMetadataViewerManager
     {
         if (ifd != null && !locationMap.containsKey(fileName))
         {
-            String latRef = null;
-            String lonRef = null;
-            Object rawLatData = null;
-            Object rawLonData = null;
-
-            for (DirectoryIFD.EntryIFD entry : ifd)
-            {
-                if (entry.getTag() instanceof TagIFD_GPS)
-                {
-                    TagIFD_GPS tag = (TagIFD_GPS) entry.getTag();
-
-                    switch (tag)
-                    {
-                        case GPS_LATITUDE_REF:
-                            latRef = GpsDataManager.getDisplayValue(entry.getData(), tag);
-                        break;
-
-                        case GPS_LONGITUDE_REF:
-                            lonRef = GpsDataManager.getDisplayValue(entry.getData(), tag);
-                        break;
-
-                        case GPS_LATITUDE:
-                            rawLatData = entry.getData();
-                        break;
-
-                        case GPS_LONGITUDE:
-                            rawLonData = entry.getData();
-                        break;
-
-                        default:
-                        break;
-                    }
-                }
-            }
+            String latRef = (ifd.hasTag(TagIFD_GPS.GPS_LATITUDE_REF) ? (String) ifd.getTagEntry(TagIFD_GPS.GPS_LATITUDE_REF).getData() : null);
+            String lonRef = (ifd.hasTag(TagIFD_GPS.GPS_LONGITUDE_REF) ? (String) ifd.getTagEntry(TagIFD_GPS.GPS_LONGITUDE_REF).getData() : null);
+            Object rawLatData = (ifd.hasTag(TagIFD_GPS.GPS_LATITUDE) ? ifd.getTagEntry(TagIFD_GPS.GPS_LATITUDE).getData() : null);
+            Object rawLonData = (ifd.hasTag(TagIFD_GPS.GPS_LONGITUDE) ? ifd.getTagEntry(TagIFD_GPS.GPS_LONGITUDE).getData() : null);
 
             if (rawLatData != null && rawLonData != null)
             {
