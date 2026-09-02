@@ -45,7 +45,7 @@ class MetadataViewerDialog extends Stage
     private final GpsMetadataViewerManager gpsMapManager;
     private final TreeTableView<MetadataNode> treeTableView;
     private boolean allItemsExpanded;
-    
+
     /**
      * Constructs a new dialog box initialised with layout components, cell value factories, view
      * toggle listeners, and action handlers for viewing metadata items in either tree or flat text
@@ -62,25 +62,33 @@ class MetadataViewerDialog extends Stage
         final Button btnClose = new Button("Close");
         final RadioButton rbFlat = new RadioButton("Raw Flat Text");
         final RadioButton rbTree = new RadioButton("Structured Tree");
-        final TreeTableColumn<MetadataNode, String> nameCol = new TreeTableColumn<>("File / Metadata Group / Property");
-        final TreeTableColumn<MetadataNode, String> valueCol = new TreeTableColumn<>("Value");
 
         mapView = new WebView();
         cbGpsFiles = new ComboBox<>();
         cbGpsFiles.setPromptText("Select GPS File...");
         cbGpsFiles.setVisible(false);
         cbGpsFiles.setManaged(false);
+        cbGpsFiles.setOnAction(new EventHandler<ActionEvent>()
+        {
+            @Override
+            public void handle(ActionEvent event)
+            {
+                String selectedFile = cbGpsFiles.getValue();
+                if (selectedFile != null)
+                {
+                    gpsMapManager.renderMap(selectedFile);
+                }
+            }
+        });
 
         // Delegate UI integration and events to GpsMapHtmlManager
-        gpsMapManager = new GpsMetadataViewerManager(mapView, cbGpsFiles);
+        gpsMapManager = new GpsMetadataViewerManager(mapView);
 
         initOwner(owner);
         initModality(Modality.WINDOW_MODAL);
         setTitle("Media Metadata Viewer");
 
-        treeTableView = new TreeTableView<>();
-        treeTableView.setShowRoot(false);
-        treeTableView.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY);
+        TreeTableColumn<MetadataNode, String> nameCol = new TreeTableColumn<>("File / Metadata Group / Property");
 
         nameCol.setPrefWidth(300);
         nameCol.setCellValueFactory(new Callback<CellDataFeatures<MetadataNode, String>, ObservableValue<String>>()
@@ -101,6 +109,8 @@ class MetadataViewerDialog extends Stage
             }
         });
 
+        TreeTableColumn<MetadataNode, String> valueCol = new TreeTableColumn<>("Value");
+
         valueCol.setPrefWidth(300);
         valueCol.setCellValueFactory(new Callback<CellDataFeatures<MetadataNode, String>, ObservableValue<String>>()
         {
@@ -120,6 +130,9 @@ class MetadataViewerDialog extends Stage
             }
         });
 
+        treeTableView = new TreeTableView<>();
+        treeTableView.setShowRoot(false);
+        treeTableView.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY);
         treeTableView.getColumns().add(nameCol);
         treeTableView.getColumns().add(valueCol);
 
@@ -243,8 +256,8 @@ class MetadataViewerDialog extends Stage
     void setMetadataRecords(List<MediaFileMetadata> records)
     {
         TreeItem<MetadataNode> rootItem = new TreeItem<>(new MetadataNode("Root", ""));
-        
-        gpsMapManager.clear();
+
+        gpsMapManager.reset();
 
         if (records != null)
         {
@@ -325,7 +338,15 @@ class MetadataViewerDialog extends Stage
             }
         }
 
-        gpsMapManager.syncUi();
+        List<String> gpsFiles = gpsMapManager.update();
+
+        cbGpsFiles.getItems().setAll(gpsFiles);
+
+        if (!gpsFiles.isEmpty())
+        {
+            cbGpsFiles.getSelectionModel().selectFirst();
+        }
+
         rbMap.setDisable(!gpsMapManager.hasLocations());
 
         treeTableView.setRoot(rootItem);

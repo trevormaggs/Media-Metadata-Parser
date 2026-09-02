@@ -1,47 +1,30 @@
 package gui;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.scene.control.ComboBox;
 import javafx.scene.web.WebView;
 import tif.DirectoryIFD;
 import tif.tagspecs.GpsDataManager;
 import tif.tagspecs.TagIFD_GPS;
 
 /**
- * Manages UI presentation, ComboBox synchronization, and Leaflet map rendering
- * for {@link MetadataViewerDialog} using {@link GpsDataManager} as a static delegate.
+ * Manages Leaflet map rendering for {@link MetadataViewerDialog} using
+ * {@link GpsDataManager} as a static delegate.
  */
 public class GpsMetadataViewerManager
 {
     private final WebView mapView;
-    private final ComboBox<String> cbGpsFiles;
     private final Map<String, GpsLocation> locationMap;
 
-    public GpsMetadataViewerManager(WebView mapView, ComboBox<String> cbGpsFiles)
+    public GpsMetadataViewerManager(WebView mapView)
     {
         this.mapView = mapView;
-        this.cbGpsFiles = cbGpsFiles;
         this.locationMap = new LinkedHashMap<>();
-
-        this.cbGpsFiles.setOnAction(new EventHandler<ActionEvent>()
-        {
-            @Override
-            public void handle(ActionEvent event)
-            {
-                String selectedFile = cbGpsFiles.getValue();
-
-                if (selectedFile != null)
-                {
-                    renderMap(selectedFile);
-                }
-            }
-        });
     }
 
-    public void clear()
+    public void reset()
     {
         locationMap.clear();
     }
@@ -65,22 +48,22 @@ public class GpsMetadataViewerManager
                     {
                         case GPS_LATITUDE_REF:
                             latRef = GpsDataManager.getDisplayValue(entry.getData(), tag);
-                            break;
+                        break;
 
                         case GPS_LONGITUDE_REF:
                             lonRef = GpsDataManager.getDisplayValue(entry.getData(), tag);
-                            break;
+                        break;
 
                         case GPS_LATITUDE:
                             rawLatData = entry.getData();
-                            break;
+                        break;
 
                         case GPS_LONGITUDE:
                             rawLonData = entry.getData();
-                            break;
+                        break;
 
                         default:
-                            break;
+                        break;
                     }
                 }
             }
@@ -98,16 +81,22 @@ public class GpsMetadataViewerManager
         }
     }
 
-    public void syncUi()
+    /**
+     * Returns all processed file names containing GPS data and automatically renders
+     * the map for the first available location.
+     *
+     * @return a list of file names with valid GPS locations
+     */
+    public List<String> update()
     {
-        cbGpsFiles.getItems().clear();
+        List<String> fileNames = new ArrayList<>(locationMap.keySet());
 
-        if (hasLocations())
+        if (!fileNames.isEmpty())
         {
-            cbGpsFiles.getItems().addAll(locationMap.keySet());
-            cbGpsFiles.getSelectionModel().selectFirst();
-            renderMap(cbGpsFiles.getValue());
+            renderMap(fileNames.get(0));
         }
+
+        return fileNames;
     }
 
     public boolean hasLocations()
@@ -115,7 +104,7 @@ public class GpsMetadataViewerManager
         return !locationMap.isEmpty();
     }
 
-    private void renderMap(String fileName)
+    public void renderMap(String fileName)
     {
         GpsLocation loc = locationMap.get(fileName);
 
