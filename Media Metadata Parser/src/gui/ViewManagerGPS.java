@@ -29,7 +29,7 @@ public class ViewManagerGPS
         locationMap.clear();
     }
 
-    public void processIfd(String fileName, DirectoryIFD ifd)
+    public void addGpsLocation(String fileName, DirectoryIFD ifd)
     {
         if (ifd != null && !locationMap.containsKey(fileName))
         {
@@ -69,7 +69,7 @@ public class ViewManagerGPS
         return fileNames;
     }
 
-    public boolean hasLocations()
+    public boolean hasDataGPS()
     {
         return !locationMap.isEmpty();
     }

@@ -74,6 +74,7 @@ class MetadataViewerDialog extends Stage
             public void handle(ActionEvent event)
             {
                 String selectedFile = cbGpsFiles.getValue();
+                
                 if (selectedFile != null)
                 {
                     gpsMapManager.renderMap(selectedFile);
@@ -275,7 +276,7 @@ class MetadataViewerDialog extends Stage
 
                     for (DirectoryIFD ifd : tif)
                     {
-                        gpsMapManager.processIfd(fileName, ifd);
+                        gpsMapManager.addGpsLocation(fileName, ifd);
 
                         String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
                         TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode(groupName, ""));
@@ -348,7 +349,7 @@ class MetadataViewerDialog extends Stage
             cbGpsFiles.getSelectionModel().selectFirst();
         }
 
-        rbMap.setDisable(!gpsMapManager.hasLocations());
+        rbMap.setDisable(!gpsMapManager.hasDataGPS());
 
         treeTableView.setRoot(rootNode);
     }
