@@ -156,7 +156,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.copyLogBtn)
         {
-            UtilsJavaFX.copyTextAreaWithFlash((TextArea) viewPane.clearLogBtn.getUserData());
+            UtilsJavaFX.doFlashCopyTextArea((TextArea) viewPane.clearLogBtn.getUserData());
         }
 
         else if (source == viewPane.abortBtn)

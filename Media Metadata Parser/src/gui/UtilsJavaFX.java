@@ -163,7 +163,7 @@ final class UtilsJavaFX
      * @param logArea
      *        target text field component
      */
-    static void copyTextAreaWithFlash(final TextArea logArea)
+    static void doFlashCopyTextArea(final TextArea logArea)
     {
         if (logArea != null && !logArea.getText().isEmpty())
         {
@@ -189,5 +189,24 @@ final class UtilsJavaFX
 
             flash.play();
         }
+    }
+    
+    /**
+     * Checks if the given tag description represents a linkable GPS coordinate property.
+     *
+     * @param name
+     *        the metadata tag description
+     * @return true if the tag contains latitude or longitude keywords
+     */
+    static boolean isGpsLocationTag(String name)
+    {
+        if (name == null)
+        {
+            return false;
+        }
+
+        String lower = name.toLowerCase();
+
+        return lower.contains("latitude") || lower.contains("longitude");
     }
 }

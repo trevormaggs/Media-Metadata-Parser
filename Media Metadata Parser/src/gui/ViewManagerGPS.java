@@ -29,19 +29,19 @@ public class ViewManagerGPS
         locationMap.clear();
     }
 
-    public void addGpsLocation(String fileName, DirectoryIFD ifd)
+    public void addLocationGPS(String fileName, DirectoryIFD ifd)
     {
         if (ifd != null && !locationMap.containsKey(fileName))
         {
-            String latRef = (ifd.hasTag(TagIFD_GPS.GPS_LATITUDE_REF) ? (String) ifd.getTagEntry(TagIFD_GPS.GPS_LATITUDE_REF).getData() : null);
-            String lonRef = (ifd.hasTag(TagIFD_GPS.GPS_LONGITUDE_REF) ? (String) ifd.getTagEntry(TagIFD_GPS.GPS_LONGITUDE_REF).getData() : null);
+            Object latRef = (ifd.hasTag(TagIFD_GPS.GPS_LATITUDE_REF) ? ifd.getTagEntry(TagIFD_GPS.GPS_LATITUDE_REF).getData() : null);
+            Object lonRef = (ifd.hasTag(TagIFD_GPS.GPS_LONGITUDE_REF) ? ifd.getTagEntry(TagIFD_GPS.GPS_LONGITUDE_REF).getData() : null);
             Object rawLatData = (ifd.hasTag(TagIFD_GPS.GPS_LATITUDE) ? ifd.getTagEntry(TagIFD_GPS.GPS_LATITUDE).getData() : null);
             Object rawLonData = (ifd.hasTag(TagIFD_GPS.GPS_LONGITUDE) ? ifd.getTagEntry(TagIFD_GPS.GPS_LONGITUDE).getData() : null);
 
             if (rawLatData != null && rawLonData != null)
             {
-                Double lat = GpsDataManager.parseToDecimal(rawLatData, latRef);
-                Double lon = GpsDataManager.parseToDecimal(rawLonData, lonRef);
+                Double lat = GpsDataManager.parseToDecimal(rawLatData, (String) latRef);
+                Double lon = GpsDataManager.parseToDecimal(rawLonData, (String) lonRef);
 
                 if (lat != null && lon != null)
                 {

@@ -17,8 +17,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.TreeTableColumn.CellDataFeatures;
 import javafx.scene.control.*;
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
@@ -37,7 +35,7 @@ import util.SystemInfo;
  * Modal dialog that presents extracted general metadata using a structured TreeTableView
  * and flat raw text, delegating dedicated GPS map rendering to an external manager.
  */
-class MetadataViewerDialog extends Stage
+class MetadataViewerDialog2 extends Stage
 {
     private final TextArea flatTextArea;
     private final WebView mapView;
@@ -56,7 +54,7 @@ class MetadataViewerDialog extends Stage
      * @param owner
      *        the parent {@link Stage} owning this modal dialog
      */
-    MetadataViewerDialog(Stage owner)
+    MetadataViewerDialog2(Stage owner)
     {
         final Button btnExpand = new Button("Collapse All");
         final Button btnCopy = new Button("Copy to Clipboard");
@@ -76,7 +74,7 @@ class MetadataViewerDialog extends Stage
             public void handle(ActionEvent event)
             {
                 String selectedFile = cbGpsFiles.getValue();
-
+                
                 if (selectedFile != null)
                 {
                     gpsMapManager.renderMap(selectedFile);
@@ -130,78 +128,6 @@ class MetadataViewerDialog extends Stage
                 }
 
                 return new ReadOnlyStringWrapper("");
-            }
-        });
-
-        valueCol.setCellFactory(new Callback<TreeTableColumn<MetadataNode, String>, TreeTableCell<MetadataNode, String>>()
-        {
-            @Override
-            public TreeTableCell<MetadataNode, String> call(TreeTableColumn<MetadataNode, String> param)
-            {
-                final TreeTableCell<MetadataNode, String> cell = new TreeTableCell<MetadataNode, String>()
-                {
-                    @Override
-                    protected void updateItem(String value, boolean empty)
-                    {
-                        super.updateItem(value, empty);
-
-                        if (empty || value == null)
-                        {
-                            setText(null);
-                            setStyle("");
-                        }
-                        else
-                        {
-                            setText(value);
-
-                            TreeItem<MetadataNode> item = getTreeTableRow() != null ? getTreeTableRow().getTreeItem() : null;
-
-                            if (item != null && item.getValue() != null)
-                            {
-                                String name = item.getValue().getName();
-
-                                if (UtilsJavaFX.isGpsLocationTag(name))
-                                {
-                                    setStyle("-fx-text-fill: #0066cc; -fx-underline: true; -fx-cursor: hand;");
-                                    return;
-                                }
-                            }
-
-                            setStyle("");
-                        }
-                    }
-                };
-
-                cell.setOnMouseClicked(new EventHandler<MouseEvent>()
-                {
-                    @Override
-                    public void handle(MouseEvent event)
-                    {
-                        if (event.getButton() == MouseButton.PRIMARY && !cell.isEmpty())
-                        {
-                            TreeItem<MetadataNode> item = cell.getTreeTableRow().getTreeItem();
-
-                            if (item != null && item.getValue() != null)
-                            {
-                                String name = item.getValue().getName();
-
-                                if (UtilsJavaFX.isGpsLocationTag(name))
-                                {
-                                    String targetFileName = resolveFileNameFromNode(item);
-
-                                    if (targetFileName != null && gpsMapManager.hasDataGPS())
-                                    {
-                                        rbMap.setSelected(true);
-                                        cbGpsFiles.getSelectionModel().select(targetFileName);
-                                        gpsMapManager.renderMap(targetFileName);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-
-                return cell;
             }
         });
 
@@ -311,23 +237,6 @@ class MetadataViewerDialog extends Stage
     }
 
     /**
-     * Traverses up the tree structure to determine the root file name for a given node.
-     *
-     * @param item
-     *        the target tree item
-     * @return the associated file name string, or null
-     */
-    private String resolveFileNameFromNode(TreeItem<MetadataNode> item)
-    {
-        TreeItem<MetadataNode> curr = item;
-        while (curr != null && curr.getParent() != null && curr.getParent() != treeTableView.getRoot())
-        {
-            curr = curr.getParent();
-        }
-        return (curr != null && curr.getValue() != null) ? curr.getValue().getName() : null;
-    }
-
-    /**
      * Sets raw flat output text into the preview component.
      *
      * @param rawOutput
@@ -340,7 +249,7 @@ class MetadataViewerDialog extends Stage
 
     /**
      * Populates the {@link TreeTableView} with general metadata records and delegates
-     * GPS metadata processing to {@link ViewManagerGPS}.
+     * GPS metadata processing to {@link GpsMapHtmlManager}.
      *
      * @param records
      *        the extracted file metadata records to display
@@ -371,7 +280,7 @@ class MetadataViewerDialog extends Stage
 
                         String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
                         TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode(groupName, ""));
-
+                        
                         groupNode.setExpanded(true);
 
                         for (DirectoryIFD.EntryIFD entry : ifd)
