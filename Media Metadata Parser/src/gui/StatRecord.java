@@ -12,7 +12,7 @@ import javafx.beans.property.SimpleStringProperty;
 class StatRecord
 {
     static final StatRecord SOURCE_FILES = new StatRecord("Source Files", "0");
-    static final StatRecord TARGET_FILES = new StatRecord("Target Files", "0");
+    static final StatRecord TARGET_FILES = new StatRecord("Processed Files", "0");
     static final StatRecord FILES_SKIPPED = new StatRecord("Files Skipped", "0");
     static final StatRecord TOTAL_SIZE = new StatRecord("Total Size", "0.00 MB");
 

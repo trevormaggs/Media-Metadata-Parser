@@ -150,6 +150,7 @@ class MetadataViewerDialog extends Stage
                             setText(null);
                             setStyle("");
                         }
+                        
                         else
                         {
                             setText(value);
@@ -187,7 +188,7 @@ class MetadataViewerDialog extends Stage
 
                                 if (UtilsJavaFX.isGpsLocationTag(name))
                                 {
-                                    String targetFileName = resolveFileNameFromNode(item);
+                                    String targetFileName = traverseToRootName(item);
 
                                     if (targetFileName != null && gpsMapManager.hasDataGPS())
                                     {
@@ -311,20 +312,22 @@ class MetadataViewerDialog extends Stage
     }
 
     /**
-     * Traverses up the tree structure to determine the root file name for a given node.
+     * Traverses up the tree structure to find the root file name from  the specified node.
      *
      * @param item
      *        the target tree item
      * @return the associated file name string, or null
      */
-    private String resolveFileNameFromNode(TreeItem<MetadataNode> item)
+    private String traverseToRootName(TreeItem<MetadataNode> item)
     {
-        TreeItem<MetadataNode> curr = item;
-        while (curr != null && curr.getParent() != null && curr.getParent() != treeTableView.getRoot())
+        TreeItem<MetadataNode> node = item;
+        
+        while (node != null && node.getParent() != null && node.getParent() != treeTableView.getRoot())
         {
-            curr = curr.getParent();
+            node = node.getParent();
         }
-        return (curr != null && curr.getValue() != null) ? curr.getValue().getName() : null;
+        
+        return (node != null && node.getValue() != null) ? node.getValue().getName() : null;
     }
 
     /**

@@ -209,6 +209,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
         logArea.clear();
+        StatRecord.resetAll();
         treeMetadataItems.clear();
         flatMetadataText.setLength(0);
 
@@ -225,6 +226,22 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         }
 
         workerTask = new BatchTask(config, logArea, progressBar, true);
+
+        workerTask.setOnFileScanned(new Consumer<Integer>()
+        {
+            @Override
+            public void accept(Integer count)
+            {
+                Platform.runLater(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        StatRecord.SOURCE_FILES.setValue(count);
+                    }
+                });
+            }
+        });
 
         // Stream raw metadata text directly into flatMetadataText as DisplayMetadata emits it
         workerTask.setOnMetadataReceived(new Consumer<String>()
@@ -258,6 +275,16 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void handle(WorkerStateEvent event)
             {
+                BatchMetrics stats = workerTask.getValue();
+
+                if (stats != null)
+                {
+                    StatRecord.SOURCE_FILES.setValue(stats.getScanned());
+                    StatRecord.TARGET_FILES.setValue(stats.getProcessed());
+                    StatRecord.FILES_SKIPPED.setValue(stats.getFilesSkippedCount());
+                    StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
+                }
+
                 showMetadataInspectorTree();
                 resetControlStates(progressLabel);
             }

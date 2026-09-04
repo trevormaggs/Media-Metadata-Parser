@@ -40,8 +40,8 @@ public class ViewManagerGPS
 
             if (rawLatData != null && rawLonData != null)
             {
-                Double lat = GpsDataManager.parseToDecimal(rawLatData, (String) latRef);
-                Double lon = GpsDataManager.parseToDecimal(rawLonData, (String) lonRef);
+                Double lat = GpsDataManager.parseToDecimal(rawLatData, String.valueOf(latRef));
+                Double lon = GpsDataManager.parseToDecimal(rawLonData, String.valueOf(lonRef));
 
                 if (lat != null && lon != null)
                 {
