@@ -35,7 +35,7 @@ import util.SystemInfo;
  * Modal dialog that presents extracted general metadata using a structured TreeTableView
  * and flat raw text, delegating dedicated GPS map rendering to an external manager.
  */
-class MetadataViewerDialog2 extends Stage
+class MetadataViewerDialog5Sept2026 extends Stage
 {
     private final TextArea flatTextArea;
     private final WebView mapView;
@@ -54,7 +54,7 @@ class MetadataViewerDialog2 extends Stage
      * @param owner
      *        the parent {@link Stage} owning this modal dialog
      */
-    MetadataViewerDialog2(Stage owner)
+    MetadataViewerDialog5Sept2026(Stage owner)
     {
         final Button btnExpand = new Button("Collapse All");
         final Button btnCopy = new Button("Copy to Clipboard");
@@ -74,7 +74,7 @@ class MetadataViewerDialog2 extends Stage
             public void handle(ActionEvent event)
             {
                 String selectedFile = cbGpsFiles.getValue();
-                
+
                 if (selectedFile != null)
                 {
                     gpsMapManager.renderMap(selectedFile);
@@ -128,6 +128,61 @@ class MetadataViewerDialog2 extends Stage
                 }
 
                 return new ReadOnlyStringWrapper("");
+            }
+        });
+
+        valueCol.setCellFactory(new Callback<TreeTableColumn<MetadataNode, String>, TreeTableCell<MetadataNode, String>>()
+        {
+            @Override
+            public TreeTableCell<MetadataNode, String> call(TreeTableColumn<MetadataNode, String> param)
+            {
+                return new TreeTableCell<MetadataNode, String>()
+                {
+                    @Override
+                    protected void updateItem(String value, boolean empty)
+                    {
+                        super.updateItem(value, empty);
+
+                        if (empty || value == null)
+                        {
+                            setText(null);
+                            setGraphic(null);
+                            return;
+                        }
+
+                        final TreeItem<MetadataNode> item = getTreeTableRow() != null ? getTreeTableRow().getTreeItem() : null;
+
+                        if (item != null && item.getValue() != null && UtilsJavaFX.isGpsLocationTag(item.getValue().getName()))
+                        {
+                            Hyperlink link = new Hyperlink(value);
+                            
+                            link.setOnAction(new EventHandler<ActionEvent>()
+                            {
+                                @Override
+                                public void handle(ActionEvent event)
+                                {
+                                    String targetFileName = traverseToRootName(item);
+
+                                    if (targetFileName != null && gpsMapManager.hasDataGPS())
+                                    {
+                                        rbMap.setSelected(true);
+                                        cbGpsFiles.getSelectionModel().select(targetFileName);
+                                        gpsMapManager.renderMap(targetFileName);
+                                    }
+                                }
+                            });
+
+                            setText(null);
+                            setGraphic(link);
+                        }
+                        
+                        else
+                        {
+                            setText(value);
+                            setGraphic(null);
+                        }
+                    }
+                };
             }
         });
 
@@ -237,6 +292,25 @@ class MetadataViewerDialog2 extends Stage
     }
 
     /**
+     * Traverses up the tree structure to find the root file name from the specified node.
+     *
+     * @param item
+     *        the target tree item
+     * @return the associated file name string, or null
+     */
+    private String traverseToRootName(TreeItem<MetadataNode> item)
+    {
+        TreeItem<MetadataNode> node = item;
+
+        while (node != null && node.getParent() != null && node.getParent() != treeTableView.getRoot())
+        {
+            node = node.getParent();
+        }
+
+        return (node != null && node.getValue() != null) ? node.getValue().getName() : null;
+    }
+
+    /**
      * Sets raw flat output text into the preview component.
      *
      * @param rawOutput
@@ -249,7 +323,7 @@ class MetadataViewerDialog2 extends Stage
 
     /**
      * Populates the {@link TreeTableView} with general metadata records and delegates
-     * GPS metadata processing to {@link GpsMapHtmlManager}.
+     * GPS metadata processing to {@link ViewManagerGPS}.
      *
      * @param records
      *        the extracted file metadata records to display
@@ -280,7 +354,7 @@ class MetadataViewerDialog2 extends Stage
 
                         String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
                         TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode(groupName, ""));
-                        
+
                         groupNode.setExpanded(true);
 
                         for (DirectoryIFD.EntryIFD entry : ifd)

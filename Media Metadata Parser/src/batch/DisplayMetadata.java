@@ -159,7 +159,6 @@ public final class DisplayMetadata
                         parser.readMetadata();
 
                         Metadata<?> meta = parser.getMetadata();
-                        MediaFileMetadata fileRecord = new MediaFileMetadata(fpath, meta);
                         StringBuilder sb = new StringBuilder().append("======== ").append(fpath).append(" ========");
 
                         appendSystemMetadata(fpath, sb);
@@ -172,8 +171,8 @@ public final class DisplayMetadata
                         sb.append(System.lineSeparator());
 
                         /*
-                         * Dispatches the output string to the registered
-                         * listener or standard output stream.
+                         * Dispatches the output string to the registered listener
+                         * or standard output stream.
                          */
                         if (metadataReceivedListener != null)
                         {
@@ -185,9 +184,13 @@ public final class DisplayMetadata
                             System.out.print(sb.toString());
                         }
 
+                        /*
+                         * Dispatches the output of metadata values
+                         * to the registered listener.
+                         */
                         if (recordExtractedListener != null)
                         {
-                            recordExtractedListener.accept(fileRecord);
+                            recordExtractedListener.accept(new MediaFileMetadata(fpath, meta));
                         }
                     }
 
