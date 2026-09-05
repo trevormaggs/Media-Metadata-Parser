@@ -56,6 +56,13 @@ public interface Metadata<D extends Directory<?>> extends Iterable<D>
     boolean isEmpty();
 
     /**
+     * Returns the number of directories that have been recorded.
+     *
+     * @return the number of directories available for retrieval
+     */
+    int getDirectoryCount();
+
+    /**
      * Returns the native byte order used by the metadata structure.
      *
      * @return either {@link java.nio.ByteOrder#BIG_ENDIAN} or

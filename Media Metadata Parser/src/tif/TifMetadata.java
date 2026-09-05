@@ -138,6 +138,17 @@ public class TifMetadata implements TifMetadataProvider
     }
 
     /**
+     * Returns the number of directories that have been recorded.
+     *
+     * @return the number of directories available for retrieval
+     */
+    @Override
+    public int getDirectoryCount()
+    {
+        return ifdMap.size();
+    }
+
+    /**
      * Returns the byte order, indicating how data values will be interpreted correctly.
      *
      * @return either {@link java.nio.ByteOrder#BIG_ENDIAN} or

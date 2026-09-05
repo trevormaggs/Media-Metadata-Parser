@@ -109,6 +109,17 @@ public class PngMetadata implements PngMetadataProvider
     }
 
     /**
+     * Returns the number of directories that have been recorded.
+     *
+     * @return the number of directories available for retrieval
+     */
+    @Override
+    public int getDirectoryCount()
+    {
+        return pngMap.size();
+    }
+
+    /**
      * Returns the byte order, indicating how data values are interpreted correctly.
      *
      * @return always {@link java.nio.ByteOrder#BIG_ENDIAN}

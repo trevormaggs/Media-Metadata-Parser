@@ -1,6 +1,5 @@
 package gui;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -19,22 +18,39 @@ import javafx.scene.control.Tooltip;
 /**
  * Manages persistent user configuration settings across application sessions using a simple
  * key-value configuration file.
+ * 
+ * The settings file is stored in the user's home directory and maintains the most recently used
+ * source and target paths, together with a limited history of recent source entries.
  */
-final class PathHistoryStore
+final class PathHistoryStore2
 {
     private static final String CONFIG_FILE_NAME = "app_settings.properties";
     private static final String KEY_SOURCE_PATH = "last.source.path";
     private static final String KEY_SOURCE_PARENT_PATH = "last.source.parent.path";
     private static final String KEY_TARGET_PATH = "last.target.path";
-    private static final String KEY_EXPORT_PATH = "last.export.path";
     private static final String KEY_RECENT_PREFIX = "recent.source.path.";
     private static final int MAX_RECENT_ENTRIES = 5;
 
-    private PathHistoryStore()
+    /**
+     * Prevents instantiation of this utility class.
+     *
+     * @throws UnsupportedOperationException
+     *         always thrown when an instance is created
+     */
+    private PathHistoryStore2()
     {
         throw new UnsupportedOperationException("Instantiation not allowed");
     }
 
+    /**
+     * Loads the recent source path history, up to 5 recent entries, from the persistent settings
+     * file.
+     *
+     * @return a list of recent source path entries, ordered from most recent to oldest
+     * 
+     * @throws BatchErrorException
+     *         if the settings file cannot be read
+     */
     static List<String> loadRecentSourcePaths() throws BatchErrorException
     {
         Path history = getSettingsPath();
@@ -58,6 +74,7 @@ final class PathHistoryStore
                     }
                 }
             }
+
             catch (IOException exc)
             {
                 throw new BatchErrorException("Failed to read settings file:\n" + exc.getMessage(), exc);
@@ -67,6 +84,21 @@ final class PathHistoryStore
         return historyConfig;
     }
 
+    /**
+     * Saves the current source and target paths to the persistent settings file and updates the
+     * recent history.
+     *
+     * When possible, the source's absolute parent directory is determined from the source field's
+     * tooltip or from one of its absolute paths. For multiple source files, the parent directory is
+     * stored together with the source list using a pipe delimiter.
+     * 
+     * @param sourceText
+     *        the text field containing the source path or paths
+     * @param targetText
+     *        the text field containing the target path
+     * @throws IOException
+     *         if the settings file cannot be read or written
+     */
     static void saveSettings(TextField sourceText, TextField targetText) throws IOException
     {
         Path sourceParentPath = null;
@@ -99,6 +131,7 @@ final class PathHistoryStore
                         sourceParentPath = (Files.isDirectory(fpath) ? fpath : (fpath.getParent() == null ? fpath.getRoot() : fpath.getParent()));
                     }
                 }
+
                 catch (InvalidPathException exc)
                 {
                     // Fall back to path token parsing
@@ -123,6 +156,7 @@ final class PathHistoryStore
                         break;
                     }
                 }
+
                 catch (InvalidPathException exc)
                 {
                     // Continue checking subsequent tokens
@@ -134,6 +168,7 @@ final class PathHistoryStore
         {
             props.remove(KEY_SOURCE_PARENT_PATH);
         }
+
         else
         {
             props.setProperty(KEY_SOURCE_PARENT_PATH, sourceParentPath.toAbsolutePath().toString());
@@ -143,6 +178,7 @@ final class PathHistoryStore
         {
             props.remove(KEY_TARGET_PATH);
         }
+
         else
         {
             props.setProperty(KEY_TARGET_PATH, targetPath);
@@ -152,6 +188,7 @@ final class PathHistoryStore
         {
             props.remove(KEY_SOURCE_PATH);
         }
+
         else
         {
             String entry;
@@ -160,6 +197,7 @@ final class PathHistoryStore
             {
                 entry = String.format("%s|%s", sourceParentPath.toAbsolutePath().toString(), sourcePath);
             }
+
             else
             {
                 entry = sourcePath;
@@ -175,6 +213,21 @@ final class PathHistoryStore
         }
     }
 
+    /**
+     * Loads the previously saved source and target paths into the supplied text fields.
+     * 
+     * A source entry stored in pipe-delimited form is unpacked so that the source text and its
+     * parent directory can be restored separately. The restored parent directory is stored in the
+     * source field's tooltip.
+     *
+     * @param sourceText
+     *        the text field into which the saved source path or paths are loaded
+     * @param targetText
+     *        the text field into which the saved target path is loaded
+     *
+     * @throws IOException
+     *         if the settings file cannot be read
+     */
     static void loadSettings(TextField sourceText, TextField targetText) throws IOException
     {
         Path settingsPath = getSettingsPath();
@@ -217,11 +270,25 @@ final class PathHistoryStore
         }
     }
 
+    /**
+     * Returns the path of the persistent application settings file.
+     *
+     * @return the settings file path in the current user's home directory
+     */
     private static Path getSettingsPath()
     {
         return Paths.get(System.getProperty("user.home"), CONFIG_FILE_NAME);
     }
 
+    /**
+     * Updates the recent source path history by placing the supplied entry at the front and
+     * retaining unique existing entries up to the configured maximum.
+     *
+     * @param props
+     *        the properties containing the existing history
+     * @param newEntry
+     *        the source path entry to place at the front of the history
+     */
     private static void updateRecentHistory(Properties props, String newEntry)
     {
         List<String> oldHistory = new ArrayList<>();
@@ -258,89 +325,16 @@ final class PathHistoryStore
         }
     }
 
+    /**
+     * Extracts the source display text from a stored history entry.
+     * 
+     * @param rawEntry
+     *        the stored source history entry
+     * @return the source text portion of the entry
+     */
     private static String getDisplayText(String rawEntry)
     {
         int pos = rawEntry.indexOf('|');
         return (pos != -1 ? rawEntry.substring(pos + 1) : rawEntry);
-    }
-
-    /**
-     * Reads and resolves the last saved export directory from app_settings.properties,
-     * falling back to user home if invalid or missing.
-     *
-     * @return a valid {@link File} directory
-     */
-    static File resolveExportDirectory()
-    {
-        File defaultHome = new File(System.getProperty("user.home"));
-        Path settingsPath = getSettingsPath();
-
-        if (Files.exists(settingsPath))
-        {
-            Properties props = new Properties();
-
-            try (InputStream is = Files.newInputStream(settingsPath))
-            {
-                props.load(is);
-                String savedExportPath = props.getProperty(KEY_EXPORT_PATH, "");
-
-                if (!savedExportPath.isEmpty())
-                {
-                    File exportDir = new File(savedExportPath);
-
-                    if (exportDir.exists() && exportDir.isDirectory())
-                    {
-                        return exportDir;
-                    }
-                }
-            }
-            catch (IOException exc)
-            {
-                // Fall back to default home on error
-            }
-        }
-
-        return defaultHome;
-    }
-
-    /**
-     * Persists the export directory path into application settings under 'last.export.path'.
-     *
-     * @param exportDir
-     *        the directory path to persist
-     */
-    static void saveExportDirectory(File exportDir)
-    {
-        if (exportDir == null || !exportDir.isDirectory())
-        {
-            return;
-        }
-
-        Path settingsPath = getSettingsPath();
-        Properties props = new Properties();
-
-        if (Files.exists(settingsPath))
-        {
-            try (InputStream is = Files.newInputStream(settingsPath))
-            {
-                props.load(is);
-            }
-            catch (IOException exc)
-            {
-                // Ignore load errors and continue with empty properties
-            }
-        }
-
-        props.setProperty(KEY_EXPORT_PATH, exportDir.getAbsolutePath());
-
-        try (OutputStream os = Files.newOutputStream(settingsPath))
-        {
-            props.store(os, "Media Metadata App User Settings");
-        }
-
-        catch (IOException exc)
-        {
-            // Ignore settings write errors gracefully
-        }
     }
 }
