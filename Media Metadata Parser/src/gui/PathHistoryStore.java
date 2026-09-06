@@ -8,10 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Properties;
-
 import batch.BatchErrorException;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -32,6 +29,7 @@ final class PathHistoryStore
     private static final String KEY_EXPORT_PATH = "last.export.path";
     private static final String KEY_RECENT_PREFIX = "recent.source.path.";
     private static final int MAX_RECENT_ENTRIES = 5;
+    private static final String KEY_DARK_THEME = "ui.dark.theme";
 
     /**
      * Prevents instantiation of this utility class.
@@ -46,20 +44,21 @@ final class PathHistoryStore
 
     /**
      * Loads the recent source path history from the persistent settings file.
-     * 
-     * @return a list of recent source path entries, ordered from most recent to oldest
-     * 
+     *
+     * @return an array of recent source path entries, ordered from most recent to oldest
+     *
      * @throws BatchErrorException
      *         if the settings file cannot be read
      */
-    static List<String> loadRecentSourcePaths() throws BatchErrorException
+    static String[] loadRecentSourcePaths() throws BatchErrorException
     {
         Path history = getSettingsPath();
-        List<String> historyEntries = new ArrayList<>();
 
         if (Files.exists(history))
         {
+            int count = 0;
             Properties props = new Properties();
+            String[] temp = new String[MAX_RECENT_ENTRIES];
 
             try (InputStream is = Files.newInputStream(history))
             {
@@ -71,9 +70,15 @@ final class PathHistoryStore
 
                     if (!entry.isEmpty())
                     {
-                        historyEntries.add(entry);
+                        temp[count++] = entry;
                     }
                 }
+
+                String[] historyEntries = new String[count];
+
+                System.arraycopy(temp, 0, historyEntries, 0, count);
+
+                return historyEntries;
             }
 
             catch (IOException exc)
@@ -82,7 +87,7 @@ final class PathHistoryStore
             }
         }
 
-        return historyEntries;
+        return new String[0];
     }
 
     /**
@@ -98,11 +103,11 @@ final class PathHistoryStore
      *        the text field containing the source path or paths
      * @param targetText
      *        the text field containing the target path
-     * 
+     *
      * @throws IOException
      *         if the settings file cannot be read or written
      */
-    static void saveSettings(TextField sourceText, TextField targetText) throws IOException
+    static void saveSettings(TextField sourceText, TextField targetText, boolean isDarkTheme) throws IOException
     {
         Path sourceParentPath = null;
         Path history = getSettingsPath();
@@ -118,6 +123,8 @@ final class PathHistoryStore
                 props.load(is);
             }
         }
+
+        props.setProperty(KEY_DARK_THEME, String.valueOf(isDarkTheme));
 
         if (sourceTooltip != null)
         {
@@ -231,9 +238,10 @@ final class PathHistoryStore
      * @throws IOException
      *         if the settings file cannot be read
      */
-    static void loadSettings(TextField sourceText, TextField targetText) throws IOException
+    static boolean loadSettings(TextField sourceText, TextField targetText) throws IOException
     {
         Path settingsPath = getSettingsPath();
+        boolean isDarkTheme = false;
 
         if (Files.exists(settingsPath))
         {
@@ -242,6 +250,8 @@ final class PathHistoryStore
             try (InputStream is = Files.newInputStream(settingsPath))
             {
                 props.load(is);
+
+                isDarkTheme = Boolean.parseBoolean(props.getProperty(KEY_DARK_THEME, "false"));
 
                 String savedSource = props.getProperty(KEY_SOURCE_PATH, "");
                 String savedTarget = props.getProperty(KEY_TARGET_PATH, "");
@@ -271,10 +281,12 @@ final class PathHistoryStore
                 }
             }
         }
+
+        return isDarkTheme;
     }
 
     /**
-     * 
+     *
      * Loads the last saved export directory from the application settings file.
      *
      * If the saved path is missing or does not identify an existing directory, the user's home
@@ -284,7 +296,7 @@ final class PathHistoryStore
      *         missing or invalid
      */
 
-    static Path loadExportDirectory()
+    static File loadExportDirectory()
     {
         Path settingsPath = getSettingsPath();
         Path defaultHome = Paths.get(System.getProperty("user.home"));
@@ -305,7 +317,7 @@ final class PathHistoryStore
 
                     if (Files.exists(exportDir) && Files.isDirectory(exportDir))
                     {
-                        return exportDir;
+                        return exportDir.toFile();
                     }
                 }
             }
@@ -316,11 +328,11 @@ final class PathHistoryStore
             }
         }
 
-        return defaultHome;
+        return defaultHome.toFile();
     }
 
     /**
-     * 
+     *
      * Persists the export directory path in the application settings.
      *
      * If the specified directory is {@code null} or does not exist as a directory, no changes are
@@ -384,26 +396,18 @@ final class PathHistoryStore
      */
     private static void updateRecentHistory(Properties props, String newEntry)
     {
-        List<String> oldHistory = new ArrayList<>();
-        List<String> newHistory = new ArrayList<>();
+        int count = 1;
+        String[] newHistory = new String[MAX_RECENT_ENTRIES];
 
-        for (int i = 0; i < MAX_RECENT_ENTRIES; i++)
+        newHistory[0] = newEntry;
+
+        for (int i = 0; i < MAX_RECENT_ENTRIES && count < MAX_RECENT_ENTRIES; i++)
         {
             String entry = props.getProperty(KEY_RECENT_PREFIX + i, "");
 
-            if (!entry.isEmpty())
+            if (!entry.isEmpty() && !getDisplayText(entry).equalsIgnoreCase(getDisplayText(newEntry)))
             {
-                oldHistory.add(entry);
-            }
-        }
-
-        newHistory.add(newEntry);
-
-        for (String entry : oldHistory)
-        {
-            if (!getDisplayText(entry).equalsIgnoreCase(getDisplayText(newEntry)) && newHistory.size() < MAX_RECENT_ENTRIES)
-            {
-                newHistory.add(entry);
+                newHistory[count++] = entry;
             }
         }
 
@@ -412,14 +416,14 @@ final class PathHistoryStore
             props.remove(KEY_RECENT_PREFIX + i);
         }
 
-        for (int i = 0; i < newHistory.size(); i++)
+        for (int i = 0; i < count; i++)
         {
-            props.setProperty(KEY_RECENT_PREFIX + i, newHistory.get(i));
+            props.setProperty(KEY_RECENT_PREFIX + i, newHistory[i]);
         }
     }
 
     /**
-     * 
+     *
      * Extracts the source display text from a stored history entry.
      *
      * @param rawEntry

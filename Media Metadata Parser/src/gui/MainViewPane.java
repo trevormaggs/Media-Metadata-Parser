@@ -27,11 +27,13 @@ import logger.LogFactory;
  * Builds and manages the JavaFX view layout for the Media Metadata Structure Viewer interface.
  *
  * <p>
- * The class and its package-private members are not intended to form part of the application's public API.
+ * The class and its package-private members are not intended to form part of the application's
+ * public API.
  * </p>
  */
 final class MainViewPane
 {
+    static final String THMID = "thmId";
     static final String SRCID = "srcId";
     static final String TGTID = "tgtId";
     static final String PFXID = "pfxId";
@@ -88,10 +90,12 @@ final class MainViewPane
      * Updates the target filename preview using the current values of the relevant input controls.
      *
      * <p>
-     * The preview reflects the configured filename prefix, optional date/time value, and the initial sequence number used by the batch process.
+     * The preview reflects the configured filename prefix, optional date/time value, and the
+     * initial sequence number used by the batch process.
      * </p>
      *
-     * @param pane the container holding the input controls used to generate the preview
+     * @param pane
+     *        the container holding the input controls used to generate the preview
      */
     void updatePreview(GridPane pane)
     {
@@ -130,9 +134,11 @@ final class MainViewPane
     }
 
     /**
-     * Builds the input options section containing source, target, prefix, date, and filename preview controls.
+     * Builds the input options section containing source, target, prefix, date, and filename
+     * preview controls.
      *
-     * @param pane the container to which the input options section is added
+     * @param pane
+     *        the container to which the input options section is added
      */
     private void addTopPane(GridPane pane)
     {
@@ -220,7 +226,8 @@ final class MainViewPane
     /**
      * Builds the processing options section and execution statistics table.
      *
-     * @param pane the container to which the processing options and statistics are added
+     * @param pane
+     *        the container to which the processing options and statistics are added
      */
     private void addMiddlePane(GridPane pane)
     {
@@ -246,6 +253,9 @@ final class MainViewPane
         CheckBox showMetadataCheck = new CheckBox("Display Metadata");
         showMetadataCheck.setId(SHWID);
 
+        CheckBox themeCheck = new CheckBox("Dark Theme");
+        themeCheck.setId(THMID);
+
         CheckBox[] processingChecks = new CheckBox[]{
                 embedDateTimeCheck,
                 forceDateChangeCheck,
@@ -253,7 +263,7 @@ final class MainViewPane
         };
 
         VBox leftCol = new VBox(10, embedDateTimeCheck, forceDateChangeCheck, debugCheck, traceCheck);
-        VBox rightCol = new VBox(10, descendingCheck, skipVideoCheck, showMetadataCheck);
+        VBox rightCol = new VBox(10, descendingCheck, skipVideoCheck, showMetadataCheck, themeCheck);
 
         for (CheckBox processingCheck : processingChecks)
         {
@@ -314,7 +324,8 @@ final class MainViewPane
     /**
      * Builds the execution log section and registers its log listener.
      *
-     * @param pane the container to which the execution log section is added
+     * @param pane
+     *        the container to which the execution log section is added
      */
     private void addLogPane(GridPane pane)
     {
@@ -343,9 +354,11 @@ final class MainViewPane
     }
 
     /**
-     * Builds the action section containing the batch execution, progress, log-copy, and abort controls.
+     * Builds the action section containing the batch execution, progress, log-copy, and abort
+     * controls.
      *
-     * @param pane the container to which the action section is added
+     * @param pane
+     *        the container to which the action section is added
      */
     private void addControlPane(GridPane pane)
     {
@@ -383,7 +396,8 @@ final class MainViewPane
     /**
      * Builds the bottom toolbar containing summary, log-clearing, and exit controls.
      *
-     * @param pane the container to which the toolbar is added
+     * @param pane
+     *        the container to which the toolbar is added
      */
     private void addBottomPane(GridPane pane)
     {

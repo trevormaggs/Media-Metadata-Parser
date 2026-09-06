@@ -1,0 +1,133 @@
+/* Base Root Application Styling */
+.root {
+    -fx-base: #2B2B2B;
+    -fx-background: #2B2B2B;
+    -fx-control-inner-background: #3C3F41;
+    -fx-accent: #0078D7;
+    -fx-focus-color: #0078D7;
+    -fx-faint-focus-color: transparent;
+    
+    /* Text Colors */
+    -fx-text-base-color: #BBBBBB;
+    -fx-text-background-color: #BBBBBB;
+    -fx-text-inner-color: #BBBBBB;
+}
+
+/* Container Panels & TitledPanes */
+.pane, .grid-pane, .vbox, .hbox {
+    -fx-background-color: #2B2B2B;
+}
+
+.titled-pane {
+    -fx-text-fill: #BBBBBB;
+}
+
+.titled-pane > .title {
+    -fx-background-color: #3C3F41;
+    -fx-border-color: #4A4A4A;
+}
+
+.titled-pane > .title > .text {
+    -fx-fill: #BBBBBB;
+    -fx-font-weight: bold;
+}
+
+.titled-pane > *.content {
+    -fx-background-color: #2B2B2B;
+    -fx-border-color: #4A4A4A;
+}
+
+/* Inputs & Labels */
+.text-field, .text-area, .date-picker {
+    -fx-background-color: #3C3F41;
+    -fx-text-fill: #EEEEEE;
+    -fx-border-color: #555555;
+    -fx-border-radius: 3px;
+}
+
+.read-only-path-field {
+    -fx-background-color: #1E1E1E !important;
+    -fx-text-fill: #AAAAAA !important;
+    -fx-border-color: #444444 !important;
+}
+
+/* Table View Dark Styling */
+.table-view {
+    -fx-background-color: #2B2B2B;
+    -fx-border-color: #4A4A4A;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #3C3F41;
+}
+
+.table-view .column-header, .table-view .filler {
+    -fx-background-color: #3C3F41;
+    -fx-border-color: #4A4A4A;
+}
+
+.table-view .table-cell {
+    -fx-text-fill: #BBBBBB;
+    -fx-border-color: #333333;
+}
+
+.table-view .table-cell.metric-column {
+    -fx-font-weight: bold;
+    -fx-text-fill: #E0E0E0;
+}
+
+/* Buttons & Checkboxes */
+.button {
+    -fx-background-color: #3C3F41;
+    -fx-text-fill: #DDDDDD;
+    -fx-border-color: #555555;
+    -fx-border-radius: 3px;
+}
+
+.button:hover {
+    -fx-background-color: #4E5254;
+}
+
+.check-box {
+    -fx-text-fill: #BBBBBB;
+}
+
+.log-area {
+    -fx-font-size: 11px;
+    -fx-text-inner-color: #64B5F6;
+}
+
+/* Ensure target preview link contrast pops against the dark background */
+#previewLabel, .preview-label {
+    -fx-text-fill: #64B5F6 !important;
+}
+
+/* Dialog Pane Base & Backgrounds */
+.dialog-pane {
+    -fx-background-color: #2B2B2B;
+}
+
+.dialog-pane > .content {
+    -fx-background-color: #2B2B2B;
+}
+
+/* Dialog Header Area */
+.dialog-pane:header .header-panel {
+    -fx-background-color: #1E1E1E;
+}
+
+.dialog-pane:header .header-panel .label {
+    -fx-text-fill: #E0E0E0;
+    -fx-font-weight: bold;
+}
+
+/* Dialog Button Bar */
+.dialog-pane .button-bar {
+    -fx-background-color: #2B2B2B;
+}
+
+.dialog-pane .button-bar .button {
+    -fx-background-color: #3C3F41;
+    -fx-text-fill: #DDDDDD;
+    -fx-border-color: #555555;
+}

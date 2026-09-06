@@ -48,9 +48,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private BatchTask workerTask;
     private MainViewPane viewPane;
     private StringBuilder flatMetadataText;
-    private ObservableList<MediaFileMetadata> treeMetadataItems;
     private ObservableList<FileProcessingRecord> fileRecords;
-
+    private ObservableList<MediaFileMetadata> treeMetadataItems;
+    
     /**
      * Initialises state components prior to scene setup.
      */
@@ -96,6 +96,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         primaryStage.show();
 
         configureDynamicNodes();
+        populateRecentHistoryMenu();
     }
 
     /**
@@ -109,7 +110,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         try
         {
-            PathHistoryStore.saveSettings(sourceText, targetText);
+            PathHistoryStore.saveSettings(sourceText, targetText, true);
         }
 
         catch (IOException exc)
@@ -118,7 +119,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         }
     }
 
-    /**
+    /** 
      * Handles action events from user interface buttons.
      *
      * @param event
@@ -489,6 +490,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.setTitle("Batch Processing Summary");
         dialog.setHeaderText("Detailed Processing Results");
         dialog.initModality(Modality.NONE);
+
+        if (rootPane.getScene() != null && rootPane.getScene().getStylesheets() != null)
+        {
+            dialog.getDialogPane().getStylesheets().setAll(rootPane.getScene().getStylesheets());
+        }
+
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
         TableView<FileProcessingRecord> table = new TableView<>();
@@ -705,6 +712,21 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final DatePicker modifyDatePicker = UtilsJavaFX.getById(rootPane, MainViewPane.DTMID, DatePicker.class);
         final CheckBox showMetadataCheck = UtilsJavaFX.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
 
+        final CheckBox themeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
+
+        if (themeCheck != null)
+        {
+            themeCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
+            {
+                @Override
+                public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
+                {
+                    String themeFile = newVal.booleanValue() ? "dark.css" : "light.css";
+                    switchTheme(rootPane.getScene(), themeFile);
+                }
+            });
+        }
+
         try
         {
             PathHistoryStore.loadSettings(sourceText, targetText);
@@ -797,8 +819,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.clearLogBtn.setOnAction(this);
         viewPane.abortBtn.setOnAction(this);
         viewPane.viewBtn.setOnAction(this);
-
-        populateRecentHistoryMenu();
     }
 
     /**
@@ -942,9 +962,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         try
         {
-            List<String> history = PathHistoryStore.loadRecentSourcePaths();
+            String[] history = PathHistoryStore.loadRecentSourcePaths();
 
-            if (history.isEmpty())
+            if (history.length == 0)
             {
                 MenuItem blankItem = new MenuItem("No recent paths");
                 blankItem.setDisable(true);
@@ -1105,6 +1125,25 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         flatMetadataText.trimToSize();
 
         dialog.show();
+    }
+
+    public void switchTheme(Scene scene, String themeFileName)
+    {
+        if (scene != null && themeFileName != null)
+        {
+            java.net.URL resource = getClass().getResource("/gui/" + themeFileName);
+
+            if (resource != null)
+            {
+                scene.getStylesheets().clear();
+                scene.getStylesheets().add(resource.toExternalForm());
+            }
+
+            else
+            {
+                System.err.println("Theme stylesheet not found: /gui/" + themeFileName);
+            }
+        }
     }
 
     /**

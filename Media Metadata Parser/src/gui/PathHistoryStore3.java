@@ -1,5 +1,6 @@
 package gui;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -16,18 +17,19 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 
 /**
- * Manages persistent user configuration settings across application sessions using a simple
- * key-value configuration file.
- * 
- * The settings file is stored in the user's home directory and maintains the most recently used
- * source and target paths, together with a limited history of recent source entries.
+ * Manages persistent user configuration settings across application sessions using a Java
+ * properties file.
+ *
+ * The settings file is stored in the user's home directory and maintains the most used source and
+ * target paths, together with a limited history of recent source entries.
  */
-final class PathHistoryStore2
+final class PathHistoryStore3
 {
     private static final String CONFIG_FILE_NAME = "app_settings.properties";
     private static final String KEY_SOURCE_PATH = "last.source.path";
     private static final String KEY_SOURCE_PARENT_PATH = "last.source.parent.path";
     private static final String KEY_TARGET_PATH = "last.target.path";
+    private static final String KEY_EXPORT_PATH = "last.export.path";
     private static final String KEY_RECENT_PREFIX = "recent.source.path.";
     private static final int MAX_RECENT_ENTRIES = 5;
 
@@ -37,15 +39,14 @@ final class PathHistoryStore2
      * @throws UnsupportedOperationException
      *         always thrown when an instance is created
      */
-    private PathHistoryStore2()
+    private PathHistoryStore3()
     {
         throw new UnsupportedOperationException("Instantiation not allowed");
     }
 
     /**
-     * Loads the recent source path history, up to 5 recent entries, from the persistent settings
-     * file.
-     *
+     * Loads the recent source path history from the persistent settings file.
+     * 
      * @return a list of recent source path entries, ordered from most recent to oldest
      * 
      * @throws BatchErrorException
@@ -54,7 +55,7 @@ final class PathHistoryStore2
     static List<String> loadRecentSourcePaths() throws BatchErrorException
     {
         Path history = getSettingsPath();
-        List<String> historyConfig = new ArrayList<>();
+        List<String> historyEntries = new ArrayList<>();
 
         if (Files.exists(history))
         {
@@ -70,7 +71,7 @@ final class PathHistoryStore2
 
                     if (!entry.isEmpty())
                     {
-                        historyConfig.add(entry);
+                        historyEntries.add(entry);
                     }
                 }
             }
@@ -81,21 +82,23 @@ final class PathHistoryStore2
             }
         }
 
-        return historyConfig;
+        return historyEntries;
     }
 
     /**
      * Saves the current source and target paths to the persistent settings file and updates the
-     * recent history.
+     * recent source path history.
      *
-     * When possible, the source's absolute parent directory is determined from the source field's
-     * tooltip or from one of its absolute paths. For multiple source files, the parent directory is
-     * stored together with the source list using a pipe delimiter.
-     * 
+     * When available, the source base directory is obtained from the source text field's tooltip.
+     * Otherwise, an absolute path from the source text is used to determine the directory. For
+     * multiple source paths, the resolved base directory is stored together with the source list
+     * using a pipe delimiter.
+     *
      * @param sourceText
      *        the text field containing the source path or paths
      * @param targetText
      *        the text field containing the target path
+     * 
      * @throws IOException
      *         if the settings file cannot be read or written
      */
@@ -215,10 +218,10 @@ final class PathHistoryStore2
 
     /**
      * Loads the previously saved source and target paths into the supplied text fields.
-     * 
-     * A source entry stored in pipe-delimited form is unpacked so that the source text and its
-     * parent directory can be restored separately. The restored parent directory is stored in the
-     * source field's tooltip.
+     *
+     * A source entry stored in pipe-delimited form is unpacked so that the source text and its base
+     * directory can be restored separately. The restored base directory is stored in the source
+     * field's tooltip.
      *
      * @param sourceText
      *        the text field into which the saved source path or paths are loaded
@@ -271,6 +274,96 @@ final class PathHistoryStore2
     }
 
     /**
+     * 
+     * Loads the last saved export directory from the application settings file.
+     *
+     * If the saved path is missing or does not identify an existing directory, the user's home
+     * directory is returned.
+     *
+     * @return the saved export directory, or the user's home directory if the saved directory is
+     *         missing or invalid
+     */
+
+    static Path loadExportDirectory()
+    {
+        Path settingsPath = getSettingsPath();
+        Path defaultHome = Paths.get(System.getProperty("user.home"));
+
+        if (Files.exists(settingsPath))
+        {
+            Properties props = new Properties();
+
+            try (InputStream is = Files.newInputStream(settingsPath))
+            {
+                props.load(is);
+
+                String savedExportPath = props.getProperty(KEY_EXPORT_PATH, "");
+
+                if (!savedExportPath.isEmpty())
+                {
+                    Path exportDir = Paths.get(savedExportPath);
+
+                    if (Files.exists(exportDir) && Files.isDirectory(exportDir))
+                    {
+                        return exportDir;
+                    }
+                }
+            }
+
+            catch (IOException exc)
+            {
+                // Fall back to default home on error
+            }
+        }
+
+        return defaultHome;
+    }
+
+    /**
+     * 
+     * Persists the export directory path in the application settings.
+     *
+     * If the specified directory is {@code null} or does not exist as a directory, no changes are
+     * made. Errors encountered while loading or writing the settings are ignored.
+     *
+     * @param exportDir
+     *        the export directory to persist
+     */
+    static void saveExportDirectory(File exportDir)
+    {
+        if (exportDir != null && exportDir.isDirectory())
+        {
+            Path settingsPath = getSettingsPath();
+            Properties props = new Properties();
+
+            if (Files.exists(settingsPath))
+            {
+                try (InputStream is = Files.newInputStream(settingsPath))
+                {
+                    props.load(is);
+                }
+
+                catch (IOException exc)
+                {
+                    // Ignore load errors and continue with empty properties
+                }
+            }
+
+            props.setProperty(KEY_EXPORT_PATH, exportDir.getAbsolutePath());
+
+            try (OutputStream os = Files.newOutputStream(settingsPath))
+            {
+                props.store(os, "Media Metadata App User Settings");
+            }
+
+            catch (IOException exc)
+            {
+                // Ignore settings write errors gracefully
+            }
+        }
+    }
+
+    /**
      * Returns the path of the persistent application settings file.
      *
      * @return the settings file path in the current user's home directory
@@ -282,7 +375,7 @@ final class PathHistoryStore2
 
     /**
      * Updates the recent source path history by placing the supplied entry at the front and
-     * retaining unique existing entries up to the configured maximum.
+     * retaining unique existing entries up to the maximum number of entries.
      *
      * @param props
      *        the properties containing the existing history
@@ -326,11 +419,12 @@ final class PathHistoryStore2
     }
 
     /**
-     * Extracts the source display text from a stored history entry.
      * 
+     * Extracts the source display text from a stored history entry.
+     *
      * @param rawEntry
      *        the stored source history entry
-     * @return the source text portion of the entry
+     * @return the source text portion of the entry, excluding any stored base directory
      */
     private static String getDisplayText(String rawEntry)
     {

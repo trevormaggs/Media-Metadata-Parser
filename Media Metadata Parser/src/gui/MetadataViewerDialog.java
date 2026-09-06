@@ -63,6 +63,9 @@ class MetadataViewerDialog extends Stage
         final RadioButton rbFlat = new RadioButton("Raw Flat Text");
         final RadioButton rbTree = new RadioButton("Structured Tree");
 
+        mapView = new WebView();
+        cbGpsFiles = new ComboBox<>();
+
         txtSearch = new TextField();
         txtSearch.setPromptText("Search tags or values...");
         txtSearch.setPrefWidth(180);
@@ -84,8 +87,6 @@ class MetadataViewerDialog extends Stage
             }
         });
 
-        mapView = new WebView();
-        cbGpsFiles = new ComboBox<>();
         cbGpsFiles.setPromptText("Select GPS File...");
         cbGpsFiles.setVisible(false);
         cbGpsFiles.setManaged(false);
@@ -431,18 +432,17 @@ class MetadataViewerDialog extends Stage
     void setMetadataRecords(List<MediaFileMetadata> records)
     {
         MediaFileMetadata[] mediaItems = records.toArray(new MediaFileMetadata[0]);
-
         TreeItem<MetadataNode> rootNode = new TreeItem<>(new MetadataNode("Root", ""));
         treeTableView.setUserData(mediaItems);
-        txtSearch.clear();
         gpsMapManager.reset();
+        txtSearch.clear();
 
         if (records != null)
         {
-            for (MediaFileMetadata record : records)
+            for (MediaFileMetadata item : mediaItems)
             {
-                Metadata<?> meta = record.getMetadata();
-                String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
+                Metadata<?> meta = item.getMetadata();
+                String fileName = item.getFileName() != null ? item.getFileName() : "Unknown File";
                 TreeItem<MetadataNode> fileNode = new TreeItem<>(new MetadataNode(fileName, ""));
 
                 fileNode.setExpanded(true);
@@ -526,9 +526,9 @@ class MetadataViewerDialog extends Stage
             cbGpsFiles.getSelectionModel().selectFirst();
         }
 
-        masterRootNode = rootNode;
         rbMap.setDisable(!gpsMapManager.hasDataGPS());
         treeTableView.setRoot(rootNode);
+        masterRootNode = rootNode;
     }
 
     /**
@@ -571,17 +571,20 @@ class MetadataViewerDialog extends Stage
             return;
         }
 
-        // 1. Construct Format Selection Dialog
         Dialog<SAVE_FORMAT> exportDialog = new Dialog<>();
         exportDialog.initOwner(this);
         exportDialog.setTitle("Export Options");
-        exportDialog.setHeaderText("Select your desired export format:");
+
+        Label headerLabel = new Label("Select your desired export format");
+        headerLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #555555; -fx-padding: 10px 15px 0px 15px;");
+        exportDialog.getDialogPane().setHeader(headerLabel);
 
         ChoiceBox<SAVE_FORMAT> cbFormat = new ChoiceBox<>();
         cbFormat.getItems().addAll(SAVE_FORMAT.TXT, SAVE_FORMAT.CSV, SAVE_FORMAT.JSON);
         cbFormat.setValue(SAVE_FORMAT.TXT);
 
-        VBox content = new VBox(10, new Label("Export Format:"), cbFormat);
+        HBox content = new HBox(10, new Label("Export Format:"), cbFormat);
+        content.setAlignment(Pos.CENTER);
         content.setPadding(new Insets(15));
         exportDialog.getDialogPane().setContent(content);
 
@@ -610,7 +613,7 @@ class MetadataViewerDialog extends Stage
             {
                 FileChooser chooser = new FileChooser();
                 chooser.setTitle("Save Export File");
-                chooser.setInitialDirectory(PathHistoryStore.loadExportDirectory().toFile());
+                chooser.setInitialDirectory(PathHistoryStore.loadExportDirectory());
 
                 // Define extension filters
                 FileChooser.ExtensionFilter txtFilter = new FileChooser.ExtensionFilter("Text Files (*.txt)", "*.txt");
