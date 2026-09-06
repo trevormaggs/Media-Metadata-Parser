@@ -430,11 +430,11 @@ class MetadataViewerDialog extends Stage
      */
     void setMetadataRecords(List<MediaFileMetadata> records)
     {
-        masterRootNode = new TreeItem<>(new MetadataNode("Root", ""));
+        MediaFileMetadata[] mediaItems = records.toArray(new MediaFileMetadata[0]);
 
-        treeTableView.setUserData(records);
+        TreeItem<MetadataNode> rootNode = new TreeItem<>(new MetadataNode("Root", ""));
+        treeTableView.setUserData(mediaItems);
         txtSearch.clear();
-
         gpsMapManager.reset();
 
         if (records != null)
@@ -513,7 +513,7 @@ class MetadataViewerDialog extends Stage
                     }
                 }
 
-                masterRootNode.getChildren().add(fileNode);
+                rootNode.getChildren().add(fileNode);
             }
         }
 
@@ -526,9 +526,9 @@ class MetadataViewerDialog extends Stage
             cbGpsFiles.getSelectionModel().selectFirst();
         }
 
+        masterRootNode = rootNode;
         rbMap.setDisable(!gpsMapManager.hasDataGPS());
-
-        treeTableView.setRoot(masterRootNode);
+        treeTableView.setRoot(rootNode);
     }
 
     /**
@@ -558,14 +558,14 @@ class MetadataViewerDialog extends Stage
 
     /**
      * Prompts the user with a modal dialog containing a {@link ChoiceBox} to explicitly select an
-     * export format (JSON, CSV, or TXT), then launches a {@link FileChooser} pre-configured for that format.
+     * export format (JSON, CSV, or TXT), then launches a {@link FileChooser} pre-configured for
+     * that format.
      */
     private void exportToFile()
     {
-        @SuppressWarnings("unchecked")
-        List<MediaFileMetadata> records = (List<MediaFileMetadata>) treeTableView.getUserData();
+        MediaFileMetadata[] mediaItems = (MediaFileMetadata[]) treeTableView.getUserData();
 
-        if (records == null || records.isEmpty())
+        if (mediaItems == null || mediaItems.length == 0)
         {
             UtilsJavaFX.launchPopup(this, "Export Warning", "No metadata records available to export.", AlertType.WARNING);
             return;
@@ -579,7 +579,7 @@ class MetadataViewerDialog extends Stage
 
         ChoiceBox<SAVE_FORMAT> cbFormat = new ChoiceBox<>();
         cbFormat.getItems().addAll(SAVE_FORMAT.TXT, SAVE_FORMAT.CSV, SAVE_FORMAT.JSON);
-        cbFormat.setValue(SAVE_FORMAT.TXT); 
+        cbFormat.setValue(SAVE_FORMAT.TXT);
 
         VBox content = new VBox(10, new Label("Export Format:"), cbFormat);
         content.setPadding(new Insets(15));
@@ -597,7 +597,7 @@ class MetadataViewerDialog extends Stage
                 {
                     return cbFormat.getValue();
                 }
-                
+
                 return null;
             }
         });
@@ -610,7 +610,7 @@ class MetadataViewerDialog extends Stage
             {
                 FileChooser chooser = new FileChooser();
                 chooser.setTitle("Save Export File");
-                chooser.setInitialDirectory(PathHistoryStore.resolveExportDirectory());
+                chooser.setInitialDirectory(PathHistoryStore.loadExportDirectory().toFile());
 
                 // Define extension filters
                 FileChooser.ExtensionFilter txtFilter = new FileChooser.ExtensionFilter("Text Files (*.txt)", "*.txt");
@@ -624,15 +624,15 @@ class MetadataViewerDialog extends Stage
                 {
                     case CSV:
                         chooser.setSelectedExtensionFilter(csvFilter);
-                        break;
-                        
+                    break;
+
                     case JSON:
                         chooser.setSelectedExtensionFilter(jsonFilter);
-                        break;
-                        
+                    break;
+
                     default:
                         chooser.setSelectedExtensionFilter(txtFilter);
-                        break;
+                    break;
                 }
 
                 String ext = selectedFormat.name().toLowerCase();
@@ -647,22 +647,22 @@ class MetadataViewerDialog extends Stage
                     {
                         PathHistoryStore.saveExportDirectory(file.getParentFile());
                     }
-                    
+
                     try
                     {
                         if (selectedFormat == SAVE_FORMAT.TXT)
                         {
                             MetadataExporter.export(file, flatTextArea);
                         }
-                        
+
                         else
                         {
-                            MetadataExporter.export(file, records, selectedFormat);
+                            MetadataExporter.export(file, mediaItems, selectedFormat);
                         }
 
                         UtilsJavaFX.launchPopup(MetadataViewerDialog.this, "Export Successful", "Metadata exported successfully to:\n" + file.getAbsolutePath(), AlertType.INFORMATION);
                     }
-                    
+
                     catch (IOException exc)
                     {
                         String errorMsg = (exc.getMessage() != null && !exc.getMessage().isEmpty()) ? exc.getMessage() : exc.toString();
@@ -671,67 +671,6 @@ class MetadataViewerDialog extends Stage
                 }
             }
         });
-    }
-    /**
-     * Prompts the user with a {@link FileChooser} supporting multiple export formats (JSON, CSV,
-     * TXT) and exports the stored metadata records accordingly.
-     */
-    private void exportToFile2()
-    {
-        @SuppressWarnings("unchecked")
-        List<MediaFileMetadata> records = (List<MediaFileMetadata>) treeTableView.getUserData();
-
-        if (records == null || records.isEmpty())
-        {
-            UtilsJavaFX.launchPopup(this, "Export Warning", "No metadata records available to export.", AlertType.WARNING);
-            return;
-        }
-
-        FileChooser chooser = new FileChooser();
-        File userHome = new File(System.getProperty("user.home"));
-
-        chooser.setTitle("Export Metadata Records");
-
-        if (userHome.exists() && userHome.isDirectory())
-        {
-            chooser.setInitialDirectory(userHome);
-        }
-
-        FileChooser.ExtensionFilter txtFilter = new FileChooser.ExtensionFilter("Text Files (*.txt)", "*.txt");
-        FileChooser.ExtensionFilter csvFilter = new FileChooser.ExtensionFilter("CSV Files (*.csv)", "*.csv");
-        FileChooser.ExtensionFilter jsonFilter = new FileChooser.ExtensionFilter("JSON Files (*.json)", "*.json");
-
-        chooser.getExtensionFilters().addAll(txtFilter, csvFilter, jsonFilter);
-        chooser.setInitialFileName(SystemInfo.getHostname() + "_metadata");
-
-        File file = chooser.showSaveDialog(this);
-
-        if (file != null)
-        {
-            FileChooser.ExtensionFilter selectedFilter = chooser.getSelectedExtensionFilter();
-            SAVE_FORMAT format = (selectedFilter == jsonFilter ? SAVE_FORMAT.JSON : (selectedFilter == csvFilter ? SAVE_FORMAT.CSV : SAVE_FORMAT.TXT));
-
-            try
-            {
-                if (format == SAVE_FORMAT.TXT)
-                {
-                    MetadataExporter.export(file, flatTextArea);
-                }
-
-                else
-                {
-                    MetadataExporter.export(file, records, format);
-                }
-
-                UtilsJavaFX.launchPopup(this, "Export Successful", "Metadata exported successfully to:\n" + file.getAbsolutePath(), AlertType.INFORMATION);
-            }
-
-            catch (IOException exc)
-            {
-                String errorMsg = (exc.getMessage() != null && !exc.getMessage().isEmpty()) ? exc.getMessage() : exc.toString();
-                UtilsJavaFX.launchPopup(this, "Export Error", "Failed to export metadata:\n" + errorMsg, AlertType.ERROR);
-            }
-        }
     }
 
     /**

@@ -3,7 +3,6 @@ package gui;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.List;
 import common.Metadata;
 import common.PropertyConsumer;
 import javafx.scene.control.TextArea;
@@ -50,18 +49,18 @@ final class MetadataExporter
      * @throws IOException
      *         if file output fails
      */
-    static void export(File targetFile, List<MediaFileMetadata> records, SAVE_FORMAT format) throws IOException
+    static void export(File targetFile, MediaFileMetadata[] mediaItems, SAVE_FORMAT format) throws IOException
     {
         String content;
 
         if (format == SAVE_FORMAT.CSV)
         {
-            content = toCSV(records);
+            content = toCSV(mediaItems);
         }
 
         else if (format == SAVE_FORMAT.JSON)
         {
-            content = toJSON(records);
+            content = toJSON(mediaItems);
         }
 
         else
@@ -75,13 +74,13 @@ final class MetadataExporter
         }
     }
 
-    private static String toCSV(List<MediaFileMetadata> records)
+    private static String toCSV(MediaFileMetadata[] mediaItems)
     {
         StringBuilder csv = new StringBuilder("File Name,Group,Property,Value\n");
 
-        if (records != null)
+        if (mediaItems != null)
         {
-            for (MediaFileMetadata record : records)
+            for (MediaFileMetadata record : mediaItems)
             {
                 Metadata<?> meta = record.getMetadata();
                 String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
@@ -101,7 +100,7 @@ final class MetadataExporter
                             if (tag != null)
                             {
                                 String val = tag.translate(entry.getData());
-                                
+
                                 csv.append(escapeCSV(fileName)).append(",")
                                         .append(escapeCSV(group)).append(",")
                                         .append(escapeCSV(tag.getDescription())).append(",")
@@ -141,15 +140,15 @@ final class MetadataExporter
         return csv.toString();
     }
 
-    private static String toJSON(List<MediaFileMetadata> records)
+    private static String toJSON(MediaFileMetadata[] mediaItems)
     {
         StringBuilder json = new StringBuilder("[\n");
 
-        if (records != null)
+        if (mediaItems != null)
         {
-            for (int i = 0; i < records.size(); i++)
+            for (int i = 0; i < mediaItems.length; i++)
             {
-                MediaFileMetadata record = records.get(i);
+                MediaFileMetadata record = mediaItems[i];
                 String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
                 Metadata<?> meta = record.getMetadata();
 
@@ -245,18 +244,9 @@ final class MetadataExporter
 
     private static String escapeJson(String input)
     {
-        if (input == null)
-        {
-            return "";
-        }
-
-        return input.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
+        return (input == null ? ""
+                : input.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t"));
     }
-
     private static String escapeCSV(String input)
     {
         if (input == null)
