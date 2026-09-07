@@ -312,7 +312,15 @@ class MetadataViewerDialog extends Stage
         rootLayout.setPadding(new Insets(10));
 
         VBox.setVgrow(containerStack, Priority.ALWAYS);
-        setScene(new Scene(rootLayout, 850, 550));
+        Scene scene = new Scene(rootLayout, 850, 550);
+
+        // Copy main stylesheet to this dialog stage
+        if (owner != null && owner.getScene() != null)
+        {
+            scene.getStylesheets().addAll(owner.getScene().getStylesheets());
+        }
+
+        setScene(scene);
     }
 
     /**
@@ -576,7 +584,7 @@ class MetadataViewerDialog extends Stage
         exportDialog.setTitle("Export Options");
 
         Label headerLabel = new Label("Select your desired export format");
-        headerLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #555555; -fx-padding: 10px 15px 0px 15px;");
+        headerLabel.setStyle("-fx-font-weight: bold; -fx-padding: 10px 15px 0px 15px;");
         exportDialog.getDialogPane().setHeader(headerLabel);
 
         ChoiceBox<SAVE_FORMAT> cbFormat = new ChoiceBox<>();

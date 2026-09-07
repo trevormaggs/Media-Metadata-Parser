@@ -6,8 +6,6 @@
     -fx-accent: #0078D7;
     -fx-focus-color: #0078D7;
     -fx-faint-focus-color: transparent;
-    
-    /* Text Colors */
     -fx-text-base-color: #BBBBBB;
     -fx-text-background-color: #BBBBBB;
     -fx-text-inner-color: #BBBBBB;
@@ -92,14 +90,26 @@
     -fx-text-fill: #BBBBBB;
 }
 
+/* Log Area Styling */
 .log-area {
     -fx-font-size: 11px;
+    -fx-text-fill: #64B5F6;
     -fx-text-inner-color: #64B5F6;
 }
 
-/* Ensure target preview link contrast pops against the dark background */
+.log-area .text {
+    -fx-text-inner-color: #64B5F6;
+    -fx-fill: #64B5F6;
+}
+
 #previewLabel, .preview-label {
     -fx-text-fill: #64B5F6 !important;
+}
+
+.progress-label {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #AAAAAA;
 }
 
 /* Dialog Pane Base & Backgrounds */
@@ -111,7 +121,6 @@
     -fx-background-color: #2B2B2B;
 }
 
-/* Dialog Header Area */
 .dialog-pane:header .header-panel {
     -fx-background-color: #1E1E1E;
 }
@@ -121,7 +130,6 @@
     -fx-font-weight: bold;
 }
 
-/* Dialog Button Bar */
 .dialog-pane .button-bar {
     -fx-background-color: #2B2B2B;
 }

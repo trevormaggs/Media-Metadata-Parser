@@ -19,7 +19,7 @@ import javafx.stage.Window;
 import javafx.util.Duration;
 
 /**
- * Provides utility methods for JavaFX user-interface operations, node traversal, and popup dialogs.
+ * Provides utility methods for JavaFX user interface operations, node traversal, and popup dialogs.
  */
 final class UtilsJavaFX
 {
@@ -29,10 +29,11 @@ final class UtilsJavaFX
     }
 
     /**
-     * Displays a modal alert dialog to the user.
+     * Displays a modal alert dialog to the user, applying the stylesheets from the given owner
+     * window to the dialog.
      *
      * @param owner
-     *        the owner {@link Window} for the dialog. It may be {@code null}
+     *        the owner {@link Window} for the dialog; may be {@code null}
      * @param title
      *        the title string for the alert window
      * @param msg
@@ -51,14 +52,28 @@ final class UtilsJavaFX
         if (owner != null)
         {
             alert.initOwner(owner);
+
+            if (owner.getScene() != null)
+            {
+                ObservableList<String> stylesheets = owner.getScene().getStylesheets();
+
+                for (int i = 0; i < stylesheets.size(); i++)
+                {
+                    alert.getDialogPane().getStylesheets().add(stylesheets.get(i));
+                }
+            }
         }
 
         alert.showAndWait();
     }
 
     /**
-     * Displays a modal alert dialog without specifying an owner window.
+     * Displays a modal alert dialog to the user, using the specified UI node to determine the owner
+     * window and theme stylesheets when available.
      *
+     * @param targetNode
+     *        a UI {@link Node} whose scene and window are used to style and own the dialog when
+     *        available
      * @param title
      *        the title string for the alert window
      * @param msg
@@ -66,9 +81,16 @@ final class UtilsJavaFX
      * @param type
      *        the {@link AlertType} defining the severity level
      */
-    static void launchPopup(String title, String msg, AlertType type)
+    static void launchPopup(Node targetNode, String title, String msg, AlertType type)
     {
-        launchPopup(null, title, msg, type);
+        Window owner = null;
+
+        if (targetNode != null && targetNode.getScene() != null)
+        {
+            owner = targetNode.getScene().getWindow();
+        }
+
+        launchPopup(owner, title, msg, type);
     }
 
     /**
@@ -81,7 +103,8 @@ final class UtilsJavaFX
      * @param id
      *        the target JavaFX node ID
      * @param type
-     *        the expected node type token, for example {@code TextField.class}
+     *        the expected node type token, for example {@code TextField.class}. It must not be
+     *        {@code null}
      * @return the matching node cast to {@code T}
      *
      * @throws NoSuchElementException
@@ -112,7 +135,7 @@ final class UtilsJavaFX
      * @param root
      *        the root node from which to begin the search
      * @param id
-     *        the JavaFX ID to search for
+     *        the JavaFX node ID to search for
      * @return the first node whose ID matches {@code id}, or {@code null} if no matching node is
      *         found
      */
@@ -157,11 +180,11 @@ final class UtilsJavaFX
     }
 
     /**
-     * Copy text area contents to system clipboard and trigger visual flash feedback, applying  soft
-     * green background highlight visual flash feedback
+     * Copies the text area's contents to the system clipboard and provides temporary visual
+     * feedback by highlighting the selected text with a soft green background.
      *
      * @param logArea
-     *        target text field component
+     *        the target {@link TextArea}
      */
     static void doFlashCopyTextArea(final TextArea logArea)
     {
@@ -190,13 +213,14 @@ final class UtilsJavaFX
             flash.play();
         }
     }
-    
+
     /**
-     * Checks if the given tag description represents a linkable GPS coordinate property.
+     * Determines whether the specified tag description contains a latitude or longitude keyword.
      *
      * @param name
      *        the metadata tag description
-     * @return true if the tag contains latitude or longitude keywords
+     * @return {@code true} if the description contains {@code "latitude"} or {@code "longitude"},
+     *         {@code false} otherwise
      */
     static boolean isGpsLocationTag(String name)
     {

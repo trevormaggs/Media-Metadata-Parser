@@ -6,8 +6,6 @@
     -fx-accent: #0078D7;
     -fx-focus-color: #0078D7;
     -fx-faint-focus-color: transparent;
-    
-    /* Text Colors */
     -fx-text-base-color: #333333;
     -fx-text-background-color: #333333;
     -fx-text-inner-color: #333333;
@@ -58,7 +56,7 @@
     -fx-background-color: #E2E2E2 !important;
 }
 
-/* Table View Light Styling */
+/* Table View Styling */
 .table-view {
     -fx-background-color: #FFFFFF;
     -fx-border-color: #D0D0D0;
@@ -102,7 +100,13 @@
 
 .log-area {
     -fx-font-size: 11px;
+    -fx-text-fill: #1A73E8;
     -fx-text-inner-color: #1A73E8;
+}
+
+.log-area .text {
+    -fx-text-inner-color: #1A73E8;
+    -fx-fill: #1A73E8;
 }
 
 .progress-label {
@@ -111,7 +115,7 @@
     -fx-text-fill: #555555;
 }
 
-/* Reusable Custom Header Style for Dialogs */
+/* Dialog Header Label */
 .export-header-label {
     -fx-font-weight: bold;
     -fx-text-fill: #555555;

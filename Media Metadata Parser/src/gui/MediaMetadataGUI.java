@@ -2,6 +2,7 @@ package gui;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -48,9 +49,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private BatchTask workerTask;
     private MainViewPane viewPane;
     private StringBuilder flatMetadataText;
-    private ObservableList<FileProcessingRecord> fileRecords;
-    private ObservableList<MediaFileMetadata> treeMetadataItems;
-    
+    private ObservableList<MediaFileMetadata> extractedMetadata;
+    private ObservableList<FileProcessingRecord> completedFileRecords;
+
     /**
      * Initialises state components prior to scene setup.
      */
@@ -59,8 +60,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         viewPane = new MainViewPane();
         flatMetadataText = new StringBuilder();
-        fileRecords = FXCollections.observableArrayList();
-        treeMetadataItems = FXCollections.observableArrayList();
+        completedFileRecords = FXCollections.observableArrayList();
+        extractedMetadata = FXCollections.observableArrayList();
     }
 
     /**
@@ -89,7 +90,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.buildLayout(rootPane);
 
         Scene scene = new Scene(rootPane, 620, 650);
-        scene.getStylesheets().add(getClass().getResource("/gui/styles.css").toExternalForm());
 
         primaryStage.setTitle("Image Metadata Structure Viewer");
         primaryStage.setScene(scene);
@@ -107,10 +107,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
         TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
+        CheckBox themeBox = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
 
         try
         {
-            PathHistoryStore.saveSettings(sourceText, targetText, true);
+            PathHistoryStore.saveSettings(sourceText, targetText, themeBox.isSelected());
         }
 
         catch (IOException exc)
@@ -119,7 +120,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         }
     }
 
-    /** 
+    /**
      * Handles action events from user interface buttons.
      *
      * @param event
@@ -204,14 +205,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void executeMetadataInspection()
     {
-        BatchConfiguration config;
-        ProgressBar progressBar = viewPane.progressBar;
+        final BatchConfiguration config;
+        final ProgressBar progressBar = viewPane.progressBar;
         final Label progressLabel = (Label) progressBar.getUserData();
-        TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
+        final TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
         logArea.clear();
         StatRecord.resetAll();
-        treeMetadataItems.clear();
+        extractedMetadata.clear();
         flatMetadataText.setLength(0);
 
         try
@@ -222,7 +223,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         catch (BatchErrorException exc)
         {
             progressLabel.setText("Configuration error");
-            UtilsJavaFX.launchPopup("Configuration Error", exc.getMessage(), AlertType.ERROR);
+            UtilsJavaFX.launchPopup(rootPane, "Configuration Error", exc.getMessage(), AlertType.ERROR);
             return;
         }
 
@@ -244,7 +245,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Stream raw metadata text directly into flatMetadataText as DisplayMetadata emits it
+        // Stream metadata text directly into Text Area while DisplayMetadata emits it
         workerTask.setOnMetadataReceived(new Consumer<String>()
         {
             @Override
@@ -254,7 +255,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Populate POJO records directly useful for GUI display
+        // Populate metadata directly into List
         workerTask.setOnRecordExtracted(new Consumer<MediaFileMetadata>()
         {
             @Override
@@ -265,7 +266,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     @Override
                     public void run()
                     {
-                        treeMetadataItems.add(record);
+                        extractedMetadata.add(record);
                     }
                 });
             }
@@ -315,7 +316,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
 
                 resetControlStates(progressLabel);
-                UtilsJavaFX.launchPopup("Metadata Extraction Error", msg, AlertType.ERROR);
+                UtilsJavaFX.launchPopup(rootPane, "Metadata Extraction Error", msg, AlertType.ERROR);
             }
         });
 
@@ -349,7 +350,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final Label progressLabel = (Label) progressBar.getUserData();
 
         logArea.clear();
-        fileRecords.clear();
+        completedFileRecords.clear();
         StatRecord.resetAll();
 
         try
@@ -360,7 +361,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         catch (BatchErrorException exc)
         {
             progressLabel.setText("Configuration error");
-            UtilsJavaFX.launchPopup("Invalid File Selection", exc.getMessage(), AlertType.ERROR);
+            UtilsJavaFX.launchPopup(rootPane, "Invalid File Selection", exc.getMessage(), AlertType.ERROR);
             return;
         }
 
@@ -387,7 +388,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         @Override
                         public void run()
                         {
-                            fileRecords.add(new FileProcessingRecord(source, target, magic, status, size));
+                            completedFileRecords.add(new FileProcessingRecord(source, target, magic, status, size));
                         }
                     });
                 }
@@ -446,6 +447,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                 resetControlStates(progressLabel);
                 viewPane.viewBtn.fire();
+                
+                UtilsJavaFX.launchPopup(rootPane, "Nice Results", "Success!", AlertType.INFORMATION);
             }
         });
 
@@ -458,7 +461,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
 
                 resetControlStates(progressLabel);
-                UtilsJavaFX.launchPopup("Processing Error", msg, AlertType.ERROR);
+                UtilsJavaFX.launchPopup(rootPane, "Processing Error", msg, AlertType.ERROR);
             }
         });
 
@@ -491,12 +494,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.setHeaderText("Detailed Processing Results");
         dialog.initModality(Modality.NONE);
 
-        if (rootPane.getScene() != null && rootPane.getScene().getStylesheets() != null)
-        {
-            dialog.getDialogPane().getStylesheets().setAll(rootPane.getScene().getStylesheets());
-        }
-
-        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        DialogPane dialogPane = dialog.getDialogPane();
+        dialogPane.getStylesheets().addAll(rootPane.getScene().getStylesheets());
+        dialogPane.getButtonTypes().add(ButtonType.CLOSE);
 
         TableView<FileProcessingRecord> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -615,7 +615,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         table.getColumns().add(sourceCol);
         table.getColumns().add(targetCol);
         table.getColumns().add(sizeCol);
-        table.setItems(fileRecords);
+        table.setItems(completedFileRecords);
 
         Path targetDir = null;
         TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
@@ -633,9 +633,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         }
 
-        final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialog.getDialogPane().getScene().getWindow(), targetDir);
+        final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialogPane.getScene().getWindow(), targetDir);
 
-        // Attach hover image thumb-nail listeners on rows
+        // Attach hover image thumbnail listeners on rows
         table.setRowFactory(new Callback<TableView<FileProcessingRecord>, TableRow<FileProcessingRecord>>()
         {
             @Override
@@ -650,7 +650,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     {
                         if (!row.isEmpty())
                         {
-                            row.setStyle("-fx-background-color: #0078d7; -fx-text-background-color: white;");
                             thumbnail.showPreview(row.getItem(), event.getScreenX(), event.getScreenY());
                         }
                     }
@@ -661,7 +660,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     @Override
                     public void handle(MouseEvent event)
                     {
-                        row.setStyle("");
                         thumbnail.hide();
                     }
                 });
@@ -671,16 +669,16 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         });
 
         // Ensure newly appending rows pull scrolling view downward automatically
-        fileRecords.addListener(new ListChangeListener<FileProcessingRecord>()
+        completedFileRecords.addListener(new ListChangeListener<FileProcessingRecord>()
         {
             @Override
             public void onChanged(ListChangeListener.Change<? extends FileProcessingRecord> change)
             {
                 while (change.next())
                 {
-                    if (change.wasAdded() && !fileRecords.isEmpty())
+                    if (change.wasAdded() && !completedFileRecords.isEmpty())
                     {
-                        table.scrollTo(fileRecords.size() - 1);
+                        table.scrollTo(completedFileRecords.size() - 1);
                     }
                 }
             }
@@ -695,8 +693,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        dialog.getDialogPane().setContent(table);
-        dialog.getDialogPane().setPrefSize(550, 320);
+        dialogPane.setContent(table);
+        dialogPane.setPrefSize(550, 320);
         dialog.show();
     }
 
@@ -711,31 +709,36 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final CheckBox embedDateTimeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.EMBID, CheckBox.class);
         final DatePicker modifyDatePicker = UtilsJavaFX.getById(rootPane, MainViewPane.DTMID, DatePicker.class);
         final CheckBox showMetadataCheck = UtilsJavaFX.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
-
         final CheckBox themeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
 
-        if (themeCheck != null)
+        themeCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
         {
-            themeCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
+            @Override
+            public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
             {
-                @Override
-                public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
-                {
-                    String themeFile = newVal.booleanValue() ? "dark.css" : "light.css";
-                    switchTheme(rootPane.getScene(), themeFile);
-                }
-            });
-        }
+                switchTheme(rootPane.getScene(), newVal.booleanValue() ? "dark.css" : "light.css");
+            }
+        });
 
         try
         {
-            PathHistoryStore.loadSettings(sourceText, targetText);
+            boolean isDark = PathHistoryStore.loadSettings(sourceText, targetText);
+
+            if (isDark)
+            {
+                themeCheck.setSelected(true);
+            }
+
+            else
+            {
+                switchTheme(rootPane.getScene(), "light.css");
+            }
         }
 
         catch (IOException exc)
         {
             String errmsg = "Unable to load path history information from properties due to an error.\n\n" + exc.getMessage();
-            UtilsJavaFX.launchPopup("Configuration Error", errmsg, AlertType.ERROR);
+            UtilsJavaFX.launchPopup(rootPane, "Configuration Error", errmsg, AlertType.ERROR);
         }
 
         // Primary mouse click opens folder picker menu directly
@@ -805,8 +808,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         });
 
         // Disable summary output triggering until meaningful data structures are ready
-        BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(fileRecords);
-        BooleanBinding isMetadataEmpty = Bindings.isEmpty(treeMetadataItems);
+        BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(completedFileRecords);
+        BooleanBinding isMetadataEmpty = Bindings.isEmpty(extractedMetadata);
         BooleanBinding isViewDisabled = Bindings.when(showMetadataCheck.selectedProperty()).then(isMetadataEmpty).otherwise(isBatchRecordsEmpty);
 
         viewPane.viewBtn.disableProperty().bind(isViewDisabled);
@@ -900,7 +903,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     else
                     {
                         String msg = "One or more pasted files is unknown or not in the same directory:\n\n" + pastedText;
-                        UtilsJavaFX.launchPopup("Invalid File Set", msg, AlertType.WARNING);
+                        UtilsJavaFX.launchPopup(rootPane, "Invalid File Set", msg, AlertType.WARNING);
                     }
                 }
 
@@ -920,14 +923,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         else
                         {
                             String msg = "The pasted path does not exist:\n\n" + pastedText;
-                            UtilsJavaFX.launchPopup("Invalid Path", msg, AlertType.WARNING);
+                            UtilsJavaFX.launchPopup(rootPane, "Invalid Path", msg, AlertType.WARNING);
                         }
                     }
 
                     catch (InvalidPathException exc)
                     {
                         String msg = "The pasted content is not a valid file path:\n\n" + pastedText;
-                        UtilsJavaFX.launchPopup("Invalid Path", msg, AlertType.WARNING);
+                        UtilsJavaFX.launchPopup(rootPane, "Invalid Path", msg, AlertType.WARNING);
                     }
                 }
             }
@@ -1118,7 +1121,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         MetadataViewerDialog dialog = new MetadataViewerDialog((Stage) rootPane.getScene().getWindow());
 
-        dialog.setMetadataRecords(treeMetadataItems);
+        dialog.setMetadataRecords(extractedMetadata);
         dialog.setMetadataText(flatMetadataText.toString());
 
         flatMetadataText.setLength(0);
@@ -1127,11 +1130,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.show();
     }
 
-    public void switchTheme(Scene scene, String themeFileName)
+    private void switchTheme(Scene scene, String themeFileName)
     {
         if (scene != null && themeFileName != null)
         {
-            java.net.URL resource = getClass().getResource("/gui/" + themeFileName);
+            URL resource = getClass().getResource("/gui/" + themeFileName);
 
             if (resource != null)
             {

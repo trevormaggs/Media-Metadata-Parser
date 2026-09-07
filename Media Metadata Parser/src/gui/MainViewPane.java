@@ -33,7 +33,6 @@ import logger.LogFactory;
  */
 final class MainViewPane
 {
-    static final String THMID = "thmId";
     static final String SRCID = "srcId";
     static final String TGTID = "tgtId";
     static final String PFXID = "pfxId";
@@ -45,7 +44,8 @@ final class MainViewPane
     static final String SRTID = "srtId";
     static final String DBGID = "dbgId";
     static final String TRCID = "trcId";
-
+    static final String THMID = "thmId";
+    
     final ProgressBar progressBar;
     final Button sourceBtn;
     final Button actionBtn;
