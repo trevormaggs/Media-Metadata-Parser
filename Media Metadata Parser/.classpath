@@ -16,5 +16,12 @@
 	<classpathentry combineaccessrules="false" kind="src" path="/Toolbox"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/CLI Parsing"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/FileInspector"/>
+	<classpathentry kind="lib" path="jar/common-image-3.13.1.jar"/>
+	<classpathentry kind="lib" path="jar/common-io-3.13.1.jar"/>
+	<classpathentry kind="lib" path="jar/common-lang-3.13.1.jar"/>
+	<classpathentry kind="lib" path="jar/imageio-core-3.13.1.jar"/>
+	<classpathentry kind="lib" path="jar/imageio-metadata-3.13.1.jar"/>
+	<classpathentry kind="lib" path="jar/imageio-tiff-3.13.1.jar"/>
+	<classpathentry kind="lib" path="jar/imageio-webp-3.13.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

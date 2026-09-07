@@ -4,10 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
@@ -25,53 +22,25 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.Window;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import javafx.concurrent.Task;
 
 /**
  * A lightweight, frameless floating JavaFX popup window that displays dynamic image previews when
  * hovering over media records.
  * 
  * <p>
- * Includes an LRU memory cache to serve previously decoded thumbnails instantly, avoiding
- * unnecessary re-decodes on repeated hovers.
+ * Supports native JavaFX formats (JPEG, PNG) directly via standard streams, and delegates
+ * high-density formats (TIFF, WebP, DNG) to TwelveMonkeys ImageIO plug-ins using stream sub-sampling
+ * to prevent full-raster memory allocations.
  * </p>
  *
+ * Note, unfortunately, there is no TwelveMonkeys ImageIO plug-in to support the HEIC/HEIF format.
+ * 
  * @author Trevor Maggs
- * @version 1.1
+ * @version 1.0
  * @since 7 September 2026
  */
-public class ImagePreviewPopup
+public class ImagePreviewPopup2
 {
-    private static final int MAX_CACHE_SIZE = 50;
-
-    /**
-     * Thread-safe LRU cache mapping file paths to scaled JavaFX Image objects.
-     * Automatically evicts the least recently accessed thumbnail when capacity exceeds 50 entries.
-     */
-    private final Map<Path, Image> thumbnailCache = Collections.synchronizedMap(new LinkedHashMap<Path, Image>(MAX_CACHE_SIZE, 0.75f, true)
-    {
-        private static final long serialVersionUID = 1L;
-
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Path, Image> eldest)
-        {
-            return size() > MAX_CACHE_SIZE;
-        }
-    });
-
-    // Dedicated single-threaded executor for image decoding (daemon thread closes with app)
-    private final ExecutorService imageLoaderExecutor = Executors.newSingleThreadExecutor(r ->
-    {
-        Thread t = new Thread(r, "ImagePreview-Loader-Thread");
-        t.setDaemon(true);
-        return t;
-    });
-
-    // Reference to track the current running loading task
-    private Task<Image> currentLoadTask;
-
     private final Path targetDir;
     private final Stage popupStage;
     private final ImageView imageView;
@@ -85,7 +54,7 @@ public class ImagePreviewPopup
      * @param targetDir
      *        the base {@link Path} directory used for resolving relative paths, or {@code null}
      */
-    public ImagePreviewPopup(Window ownerWindow, Path targetDir)
+    public ImagePreviewPopup2(Window ownerWindow, Path targetDir)
     {
         this.targetDir = targetDir;
 
@@ -117,9 +86,9 @@ public class ImagePreviewPopup
      * coordinates.
      *
      * <p>
-     * Checks the LRU memory cache before reading from disk. On cache miss, decodes via standard FX
-     * stream (JPG/PNG) or TwelveMonkeys stream subsampling (TIFF/WebP/DNG) and stores the resulting
-     * image.
+     * Resolves relative paths against {@code targetDir}, checks viewability via magic-number
+     * signatures, clamps window placement within screen visual bounds, and safely falls back to a
+     * message label on failure.
      * </p>
      *
      * @param record
@@ -129,7 +98,6 @@ public class ImagePreviewPopup
      * @param screenY
      *        the absolute vertical cursor coordinate on screen
      */
-
     public void showPreview(FileProcessingRecord record, double screenX, double screenY)
     {
         if (record == null)
@@ -139,6 +107,7 @@ public class ImagePreviewPopup
         }
 
         Path fpath = record.getTargetPath();
+
         if (fpath == null)
         {
             hide();
@@ -147,133 +116,102 @@ public class ImagePreviewPopup
 
         Path realPath = (fpath.isAbsolute() ? fpath : (targetDir != null ? targetDir.resolve(fpath) : fpath.toAbsolutePath()));
 
-        if (!Files.exists(realPath))
+        if (Files.exists(realPath))
         {
-            hide();
-            return;
-        }
+            DigitalSignature sig = record.getDigitalSignature();
 
-        DigitalSignature sig = record.getDigitalSignature();
-
-        if (!isViewable(sig))
-        {
-            imageView.setImage(null);
-            imageView.setVisible(false);
-            unsupportedLabel.setVisible(true);
-            positionAndShow(screenX, screenY);
-            return;
-        }
-
-        // 1. FAST PATH: Instant Cache Hit on FX Application Thread
-        Image cachedThumb = thumbnailCache.get(realPath);
-        if (cachedThumb != null)
-        {
-            if (currentLoadTask != null && currentLoadTask.isRunning())
+            if (isViewable(sig))
             {
-                currentLoadTask.cancel();
-            }
-
-            unsupportedLabel.setVisible(false);
-            imageView.setVisible(true);
-            imageView.setImage(cachedThumb);
-            positionAndShow(screenX, screenY);
-            return;
-        }
-
-        // 2. SLOW PATH: Cancel previous pending task & load asynchronously
-        if (currentLoadTask != null && currentLoadTask.isRunning())
-        {
-            currentLoadTask.cancel();
-        }
-
-        // Temporarily clear current image while background thread decodes
-        imageView.setImage(null);
-        imageView.setVisible(false);
-        unsupportedLabel.setVisible(false);
-
-        currentLoadTask = new Task<Image>()
-        {
-            @Override
-            protected Image call() throws Exception
-            {
-                // Executed entirely on background thread
-                if (sig == DigitalSignature.JPG || sig == DigitalSignature.PNG)
-                {
-                    try (InputStream is = Files.newInputStream(realPath))
-                    {
-                        return new Image(is, 250, 250, true, true);
-                    }
-                }
-                else
-                {
-                    return readThumbnail(realPath, 250, 250);
-                }
-            }
-        };
-
-        currentLoadTask.setOnSucceeded(event ->
-        {
-            Image loadedImage = currentLoadTask.getValue();
-            if (loadedImage != null)
-            {
-                thumbnailCache.put(realPath, loadedImage);
                 imageView.setVisible(true);
                 unsupportedLabel.setVisible(false);
-                imageView.setImage(loadedImage);
+
+                try (InputStream is = Files.newInputStream(realPath))
+                {
+                    Image thumb;
+
+                    // Native JavaFX Formats
+                    if (sig == DigitalSignature.JPG || sig == DigitalSignature.PNG)
+                    {
+                        thumb = new Image(is, 250, 250, true, true);
+                    }
+
+                    else
+                    {
+                        // Use TwelveMonkeys ImageIO decoders for TIFF, WebP, and DNG
+                        thumb = readThumbnail(realPath, 250, 250);
+
+                        if (thumb == null)
+                        {
+                            throw new Exception("Decoder returned null for format: " + sig);
+                        }
+                    }
+
+                    imageView.setImage(thumb);
+                }
+
+                catch (Exception exc)
+                {
+                    imageView.setImage(null);  
+                    imageView.setVisible(false);
+                    unsupportedLabel.setVisible(true);
+                }
             }
+
             else
             {
                 imageView.setImage(null);
                 imageView.setVisible(false);
                 unsupportedLabel.setVisible(true);
             }
-        });
 
-        currentLoadTask.setOnFailed(event ->
-        {
-            imageView.setImage(null);
-            imageView.setVisible(false);
-            unsupportedLabel.setVisible(true);
-        });
+            // Show window FIRST so JavaFX measures stage dimensions accurately
+            if (!popupStage.isShowing())
+            {
+                popupStage.show();
+            }
 
-        // Position window frame and submit background task
-        positionAndShow(screenX, screenY);
-        imageLoaderExecutor.submit(currentLoadTask);
-    }
+            // Calculate screen bounds and clamp window position to monitor visual bounds
+            Rectangle2D screenBounds = Screen.getScreensForRectangle(screenX, screenY, 1, 1).get(0).getVisualBounds();
 
-    /** Helper method to manage positioning logic cleanly. */
-    private void positionAndShow(double screenX, double screenY)
-    {
-        if (!popupStage.isShowing())
-        {
-            popupStage.show();
+            // Fall back to container size (250x250 + padding) if stage size hasn't reported yet
+            double popupWidth = popupStage.getWidth() > 0 ? popupStage.getWidth() : 266;
+            double popupHeight = popupStage.getHeight() > 0 ? popupStage.getHeight() : 266;
+
+            double targetX = screenX + 15;
+            double targetY = screenY + 15;
+
+            // Flip to left side of cursor if extending past right boundary
+            if (targetX + popupWidth > screenBounds.getMaxX())
+            {
+                targetX = screenX - popupWidth - 10;
+            }
+
+            // Flip above cursor if extending past bottom boundary
+            if (targetY + popupHeight > screenBounds.getMaxY())
+            {
+                targetY = screenY - popupHeight - 10;
+            }
+
+            popupStage.setX(targetX);
+            popupStage.setY(targetY);
         }
-
-        Rectangle2D screenBounds = Screen.getScreensForRectangle(screenX, screenY, 1, 1).get(0).getVisualBounds();
-
-        double popupWidth = popupStage.getWidth() > 0 ? popupStage.getWidth() : 266;
-        double popupHeight = popupStage.getHeight() > 0 ? popupStage.getHeight() : 266;
-
-        double targetX = screenX + 15;
-        double targetY = screenY + 15;
-
-        if (targetX + popupWidth > screenBounds.getMaxX())
+        else
         {
-            targetX = screenX - popupWidth - 10;
+            hide();
         }
-
-        if (targetY + popupHeight > screenBounds.getMaxY())
-        {
-            targetY = screenY - popupHeight - 10;
-        }
-
-        popupStage.setX(targetX);
-        popupStage.setY(targetY);
     }
 
     /**
-     * Reads and scales an image to create a lightweight thumbnail, utilising TwelveMonkeys ImageIO
+     * Reads and scales an image to create a lightweight thumbnail, utilizing TwelveMonkeys ImageIO
      * decoders to support formats not natively handled by JavaFX, such as TIFF, DNG, and WebP.
+     * 
+     * <p>
+     * Standard {@code ImageIO.read()} forces a full-raster decode into heap memory before scaling,
+     * which causes significant latency on large files. This method uses stream subsampling to skip
+     * intermediate pixel bytes during decoding. Header metadata is retrieved via
+     * {@code reader.getWidth(0)} and {@code reader.getHeight(0)} without rendering full pixel
+     * arrays, bypassing full-raster memory allocations.
+     * </p>
      *
      * @param path
      *        the {@link Path} to the target image file
@@ -298,9 +236,11 @@ public class ImagePreviewPopup
                 {
                     reader.setInput(stream);
 
+                    // Calculate image dimensions without full decode
                     int imageWidth = reader.getWidth(0);
                     int imageHeight = reader.getHeight(0);
 
+                    // Calculate subsampling ratio to decode a fraction of total pixels
                     int subsample = Math.max(1, Math.min(imageWidth / targetWidth, imageHeight / targetHeight));
 
                     ImageReadParam param = reader.getDefaultReadParam();
@@ -327,30 +267,15 @@ public class ImagePreviewPopup
     }
 
     /**
-     * Hides the preview popup stage and releases the displayed image reference. The image remains
-     * cached in memory within {@link #thumbnailCache}.
+     * Hides the preview popup stage and releases the rendered image reference to conserve RAM.
      */
     public void hide()
     {
-        if (currentLoadTask != null && currentLoadTask.isRunning())
-        {
-            currentLoadTask.cancel();
-        }
-
         if (popupStage.isShowing())
         {
             popupStage.hide();
             imageView.setImage(null);
         }
-    }
-
-    /**
-     * Clears all cached thumbnails from memory. Call this if the active workspace or target
-     * directory changes.
-     */
-    public void clearCache()
-    {
-        thumbnailCache.clear();
     }
 
     /**

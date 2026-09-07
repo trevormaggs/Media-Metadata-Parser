@@ -1,6 +1,10 @@
 package gui;
 
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.NoSuchElementException;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
 import javafx.animation.PauseTransition;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -232,5 +236,29 @@ final class UtilsJavaFX
         String lower = name.toLowerCase();
 
         return lower.contains("latitude") || lower.contains("longitude");
+    }
+
+    static void verifyImageIOSupport()
+    {
+        // Check registered file extensions
+        String[] suffixes = ImageIO.getReaderFileSuffixes();
+
+        System.out.println("Registered Suffixes: " + Arrays.toString(suffixes));
+
+        Iterator<ImageReader> tiffReaders = ImageIO.getImageReadersByFormatName("TIFF");
+
+        while (tiffReaders.hasNext())
+        {
+            ImageReader reader = tiffReaders.next();
+            System.out.println("TIFF Reader Class: " + reader.getClass().getName());
+        }
+
+        Iterator<ImageReader> webpReaders = ImageIO.getImageReadersByFormatName("WebP");
+
+        while (webpReaders.hasNext())
+        {
+            ImageReader reader = webpReaders.next();
+            System.out.println("WebP Reader Class: " + reader.getClass().getName());
+        }
     }
 }

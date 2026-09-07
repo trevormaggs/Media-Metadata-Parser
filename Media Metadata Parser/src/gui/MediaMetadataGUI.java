@@ -27,17 +27,50 @@ import javafx.beans.binding.BooleanBinding;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
-import javafx.collections.*;
+import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import javafx.concurrent.WorkerStateEvent;
-import javafx.event.*;
-import javafx.geometry.*;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Side;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.control.*;
-import javafx.scene.input.*;
-import javafx.scene.layout.*;
-import javafx.stage.*;
-import javafx.util.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogEvent;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.RowConstraints;
+import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.util.Callback;
+import javafx.util.Duration;
 
 /**
  * Provides the JavaFX graphical user interface for configuring and running batch media metadata
@@ -447,8 +480,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                 resetControlStates(progressLabel);
                 viewPane.viewBtn.fire();
-                
-                UtilsJavaFX.launchPopup(rootPane, "Nice Results", "Success!", AlertType.INFORMATION);
             }
         });
 
@@ -620,7 +651,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         Path targetDir = null;
         TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
 
-        if (targetText != null && !targetText.getText().trim().isEmpty())
+        if (!targetText.getText().trim().isEmpty())
         {
             try
             {
@@ -716,7 +747,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
             {
-                switchTheme(rootPane.getScene(), newVal.booleanValue() ? "dark.css" : "light.css");
+                switchTheme(newVal.booleanValue() ? "dark.css" : "light.css");
             }
         });
 
@@ -731,7 +762,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             else
             {
-                switchTheme(rootPane.getScene(), "light.css");
+                switchTheme("light.css");
             }
         }
 
@@ -944,8 +975,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void populateRecentHistoryMenu()
     {
-        ContextMenu menu = new ContextMenu();
-        Button sourceBtn = viewPane.sourceBtn;
+        final ContextMenu menu = new ContextMenu();
+        final Button sourceBtn = viewPane.sourceBtn;
         final TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
 
         MenuItem selectFolder = new MenuItem("Select Folder...");
@@ -1081,16 +1112,13 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void resetControlStates(final Label progressLabel)
     {
-        final Button actionBtn = viewPane.actionBtn;
-        final Button cancelBtn = viewPane.abortBtn;
-        final Button copyLogBtn = viewPane.copyLogBtn;
         final ProgressBar progressBar = viewPane.progressBar;
 
         workerTask = null;
-        actionBtn.setDisable(false);
-        actionBtn.getScene().getRoot().requestFocus();
-        cancelBtn.setDisable(true);
-        copyLogBtn.setDisable(false);
+        viewPane.actionBtn.setDisable(false);
+        viewPane.actionBtn.getScene().getRoot().requestFocus();
+        viewPane.abortBtn.setDisable(true);
+        viewPane.copyLogBtn.setDisable(false);
 
         PauseTransition delay = new PauseTransition(Duration.seconds(3));
 
@@ -1130,9 +1158,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.show();
     }
 
-    private void switchTheme(Scene scene, String themeFileName)
+    private void switchTheme(String themeFileName)
     {
-        if (scene != null && themeFileName != null)
+        Scene scene = rootPane.getScene();
+
+        if (themeFileName != null)
         {
             URL resource = getClass().getResource("/gui/" + themeFileName);
 

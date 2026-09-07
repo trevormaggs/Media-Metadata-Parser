@@ -172,30 +172,39 @@ public final class MediaBatchProcessor
                         break;
                     }
 
-                    int index = processedCount + 1;
-                    FileTime effectiveTime = calculateEffectiveTime(record, index);
-                    String targetName = generateTargetName(record, index, effectiveTime);
-                    long targetSize = processRecord(record, effectiveTime, targetName);
-
-                    if (targetSize != -1L)
+                    if (!record.isMetadataEmpty())
                     {
-                        String formattedDate = effectiveTime.toInstant().atZone(ZoneId.systemDefault()).format(DTF);
+                        int index = processedCount + 1;
+                        FileTime effectiveTime = calculateEffectiveTime(record, index);
+                        String targetName = generateTargetName(record, index, effectiveTime);
+                        long targetSize = processRecord(record, effectiveTime, targetName);
 
-                        processedCount++;
-                        totalTargetSize += targetSize;
+                        if (targetSize != -1L)
+                        {
+                            String formattedDate = effectiveTime.toInstant().atZone(ZoneId.systemDefault()).format(DTF);
 
-                        LOGGER.info(String.format("[File %d/%d] Processed: %s -> %s [Effective date/time: %s]", index, totalSourceFiles, record.getPath().getFileName(), targetName, formattedDate));
+                            processedCount++;
+                            totalTargetSize += targetSize;
+
+                            LOGGER.info(String.format("[File %d/%d] Processed: %s -> %s [Effective date/time: %s]", index, totalSourceFiles, record.getPath().getFileName(), targetName, formattedDate));
+                        }
+
+                        if (summaryListener != null)
+                        {
+                            summaryListener.accept(BatchEventType.FILE_PROCESSED.getKey(), new BatchProcessEvent(record, targetName, targetSize));
+                        }
+
+                        /* Notify progress listeners based on overall loop count */
+                        for (ProgressListener listener : listeners)
+                        {
+                            listener.onProgressUpdate(count, totalSourceFiles);
+                        }
                     }
 
-                    if (summaryListener != null)
+                    else
                     {
-                        summaryListener.accept(BatchEventType.FILE_PROCESSED.getKey(), new BatchProcessEvent(record, targetName, targetSize));
-                    }
-
-                    /* Notify progress listeners based on overall loop count */
-                    for (ProgressListener listener : listeners)
-                    {
-                        listener.onProgressUpdate(count, totalSourceFiles);
+                        // TODO at this stage, do nothing, but worth handling it
+                        LOGGER.info("File [" + record.getPath().getFileName() + "] skipped");
                     }
 
                     count++;
