@@ -8,12 +8,18 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import common.DigitalSignature;
+import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.event.EventHandler;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
@@ -25,70 +31,42 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.Window;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import javafx.concurrent.Task;
 
 /**
  * A lightweight, frameless floating JavaFX popup window that displays dynamic image previews when
  * hovering over media records.
- * 
+ *
  * <p>
- * Includes an LRU memory cache to serve previously decoded thumbnails instantly, avoiding
- * unnecessary re-decodes on repeated hovers.
+ * Includes an LRU memory cache to serve previously decoded thumbnails quickly, avoiding unnecessary
+ * re-decodes on repeated hovers.
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.1
+ * @version 1.2
  * @since 7 September 2026
  */
 public class ImagePreviewPopup
 {
     private static final int MAX_CACHE_SIZE = 50;
-
-    /**
-     * Thread-safe LRU cache mapping file paths to scaled JavaFX Image objects.
-     * Automatically evicts the least recently accessed thumbnail when capacity exceeds 50 entries.
-     */
-    private final Map<Path, Image> thumbnailCache = Collections.synchronizedMap(new LinkedHashMap<Path, Image>(MAX_CACHE_SIZE, 0.75f, true)
-    {
-        private static final long serialVersionUID = 1L;
-
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Path, Image> eldest)
-        {
-            return size() > MAX_CACHE_SIZE;
-        }
-    });
-
-    // Dedicated single-threaded executor for image decoding (daemon thread closes with app)
-    private final ExecutorService imageLoaderExecutor = Executors.newSingleThreadExecutor(r ->
-    {
-        Thread t = new Thread(r, "ImagePreview-Loader-Thread");
-        t.setDaemon(true);
-        return t;
-    });
-
-    // Reference to track the current running loading task
-    private Task<Image> currentLoadTask;
-
     private final Path targetDir;
     private final Stage popupStage;
     private final ImageView imageView;
     private final Label unsupportedLabel;
+    private Task<Image> currentThreadTask;
+    private final Map<Path, Image> thumbnailCache;
+    private final ExecutorService imageLoaderExecutor;
 
     /**
      * Constructs a new floating image preview popup associated with a parent window.
      *
      * @param ownerWindow
-     *        the parent {@link Window} anchor for modal and z-index ordering
+     *        the parent {@link Window} that owns the popup, or {@code null} if no owner is
+     *        specified
      * @param targetDir
      *        the base {@link Path} directory used for resolving relative paths, or {@code null}
      */
     public ImagePreviewPopup(Window ownerWindow, Path targetDir)
     {
-        this.targetDir = targetDir;
-
         popupStage = new Stage();
         popupStage.initStyle(StageStyle.TRANSPARENT);
         popupStage.initOwner(ownerWindow);
@@ -110,6 +88,41 @@ public class ImagePreviewPopup
         Scene popupScene = new Scene(container);
         popupScene.setFill(null);
         popupStage.setScene(popupScene);
+
+        this.targetDir = targetDir;
+
+        /*
+         * We use a dedicated single-threaded background executor to ensure intensive
+         * thumbnail decoding operations are handled sequentially. This prevents disk I/O
+         * thrashing caused by reading multiple large files concurrently, while keeping
+         * the main UI thread completely responsive.
+         */
+        this.imageLoaderExecutor = Executors.newSingleThreadExecutor(new ThreadFactory()
+        {
+            @Override
+            public Thread newThread(Runnable r)
+            {
+                Thread t = new Thread(r, "ImagePreview-Loader-Thread");
+                t.setDaemon(true);
+                return t;
+            }
+        });
+
+        /*
+         * Since storing multiple images in a Map could potentially cause an OutOfMemoryError, we
+         * use a thread-safe LRU (Least Recently Used) cache to map file paths to scaled JavaFX
+         * Image objects. The least recently accessed thumbnail is automatically evicted whenever
+         * the cache exceeds MAX_CACHE_SIZE entries. This ensures fast, instant loading on repeated
+         * hovers over them.
+         */
+        this.thumbnailCache = Collections.synchronizedMap(new LinkedHashMap<Path, Image>(MAX_CACHE_SIZE, 0.75f, true)
+        {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<Path, Image> eldest)
+            {
+                return size() > MAX_CACHE_SIZE;
+            }
+        });
     }
 
     /**
@@ -117,9 +130,10 @@ public class ImagePreviewPopup
      * coordinates.
      *
      * <p>
-     * Checks the LRU memory cache before reading from disk. On cache miss, decodes via standard FX
-     * stream (JPG/PNG) or TwelveMonkeys stream subsampling (TIFF/WebP/DNG) and stores the resulting
-     * image.
+     * Checks the LRU memory cache before reading from disk. On a cache miss, JPG and PNG images are
+     * decoded using JavaFX, while other supported formats are decoded using an {@link ImageIO}
+     * {@link ImageReader} with source subsampling, being implemented by TwelveMonkeys stream
+     * subsampling.
      * </p>
      *
      * @param record
@@ -129,23 +143,16 @@ public class ImagePreviewPopup
      * @param screenY
      *        the absolute vertical cursor coordinate on screen
      */
-
     public void showPreview(FileProcessingRecord record, double screenX, double screenY)
     {
-        if (record == null)
+        if (record == null || record.getTargetPath() == null)
         {
             hide();
             return;
         }
 
-        Path fpath = record.getTargetPath();
-        if (fpath == null)
-        {
-            hide();
-            return;
-        }
-
-        Path realPath = (fpath.isAbsolute() ? fpath : (targetDir != null ? targetDir.resolve(fpath) : fpath.toAbsolutePath()));
+        final Path fpath = record.getTargetPath();
+        final Path realPath = (fpath.isAbsolute() ? fpath : (targetDir != null ? targetDir.resolve(fpath) : fpath.toAbsolutePath()));
 
         if (!Files.exists(realPath))
         {
@@ -153,37 +160,39 @@ public class ImagePreviewPopup
             return;
         }
 
-        DigitalSignature sig = record.getDigitalSignature();
+        Image cachedThumb = thumbnailCache.get(realPath);
+        final DigitalSignature sig = record.getDigitalSignature();
 
         if (!isViewable(sig))
         {
             imageView.setImage(null);
             imageView.setVisible(false);
             unsupportedLabel.setVisible(true);
-            positionAndShow(screenX, screenY);
+            showThumbnailPopup(screenX, screenY);
+
             return;
         }
 
         // 1. FAST PATH: Instant Cache Hit on FX Application Thread
-        Image cachedThumb = thumbnailCache.get(realPath);
         if (cachedThumb != null)
         {
-            if (currentLoadTask != null && currentLoadTask.isRunning())
+            if (currentThreadTask != null && currentThreadTask.isRunning())
             {
-                currentLoadTask.cancel();
+                currentThreadTask.cancel();
             }
 
             unsupportedLabel.setVisible(false);
             imageView.setVisible(true);
             imageView.setImage(cachedThumb);
-            positionAndShow(screenX, screenY);
+            showThumbnailPopup(screenX, screenY);
+
             return;
         }
 
         // 2. SLOW PATH: Cancel previous pending task & load asynchronously
-        if (currentLoadTask != null && currentLoadTask.isRunning())
+        if (currentThreadTask != null && currentThreadTask.isRunning())
         {
-            currentLoadTask.cancel();
+            currentThreadTask.cancel();
         }
 
         // Temporarily clear current image while background thread decodes
@@ -191,12 +200,11 @@ public class ImagePreviewPopup
         imageView.setVisible(false);
         unsupportedLabel.setVisible(false);
 
-        currentLoadTask = new Task<Image>()
+        Task<Image> task = new Task<Image>()
         {
             @Override
             protected Image call() throws Exception
             {
-                // Executed entirely on background thread
                 if (sig == DigitalSignature.JPG || sig == DigitalSignature.PNG)
                 {
                     try (InputStream is = Files.newInputStream(realPath))
@@ -204,45 +212,78 @@ public class ImagePreviewPopup
                         return new Image(is, 250, 250, true, true);
                     }
                 }
-                else
-                {
-                    return readThumbnail(realPath, 250, 250);
-                }
+
+                return readThumbnail(realPath, 250, 250);
             }
         };
 
-        currentLoadTask.setOnSucceeded(event ->
+        task.setOnSucceeded(new EventHandler<WorkerStateEvent>()
         {
-            Image loadedImage = currentLoadTask.getValue();
-            if (loadedImage != null)
+            @Override
+            public void handle(WorkerStateEvent event)
             {
-                thumbnailCache.put(realPath, loadedImage);
-                imageView.setVisible(true);
-                unsupportedLabel.setVisible(false);
-                imageView.setImage(loadedImage);
+                if (task != currentThreadTask)
+                {
+                    return;
+                }
+
+                Image loadedImage = task.getValue();
+
+                if (loadedImage == null)
+                {
+                    imageView.setImage(null);
+                    imageView.setVisible(false);
+                    unsupportedLabel.setVisible(true);
+                }
+
+                else
+                {
+                    thumbnailCache.put(realPath, loadedImage);
+                    imageView.setVisible(true);
+                    unsupportedLabel.setVisible(false);
+                    imageView.setImage(loadedImage);
+                }
             }
-            else
+        });
+
+        task.setOnFailed(new EventHandler<WorkerStateEvent>()
+        {
+            @Override
+            public void handle(WorkerStateEvent event)
             {
+                if (task != currentThreadTask)
+                {
+                    return;
+                }
+
                 imageView.setImage(null);
                 imageView.setVisible(false);
                 unsupportedLabel.setVisible(true);
             }
         });
 
-        currentLoadTask.setOnFailed(event ->
-        {
-            imageView.setImage(null);
-            imageView.setVisible(false);
-            unsupportedLabel.setVisible(true);
-        });
-
-        // Position window frame and submit background task
-        positionAndShow(screenX, screenY);
-        imageLoaderExecutor.submit(currentLoadTask);
+        currentThreadTask = task;
+        showThumbnailPopup(screenX, screenY);
+        imageLoaderExecutor.submit(task);
     }
 
-    /** Helper method to manage positioning logic cleanly. */
-    private void positionAndShow(double screenX, double screenY)
+    /**
+     * Displays the thumbnail preview popup and positions it relative to the specified screen
+     * coordinates.
+     *
+     * <p>
+     * The popup is positioned to the lower-right of the cursor when space permits. If insufficient
+     * space is available at the right or bottom edge of the screen, the popup is repositioned to
+     * the opposite side of the cursor.
+     * </p>
+     *
+     * @param screenX
+     *        the absolute horizontal cursor coordinate on screen
+     * @param screenY
+     *        the absolute vertical cursor coordinate on screen
+     */
+    private void showThumbnailPopup(double screenX, double screenY)
+
     {
         if (!popupStage.isShowing())
         {
@@ -250,10 +291,8 @@ public class ImagePreviewPopup
         }
 
         Rectangle2D screenBounds = Screen.getScreensForRectangle(screenX, screenY, 1, 1).get(0).getVisualBounds();
-
         double popupWidth = popupStage.getWidth() > 0 ? popupStage.getWidth() : 266;
         double popupHeight = popupStage.getHeight() > 0 ? popupStage.getHeight() : 266;
-
         double targetX = screenX + 15;
         double targetY = screenY + 15;
 
@@ -272,8 +311,13 @@ public class ImagePreviewPopup
     }
 
     /**
-     * Reads and scales an image to create a lightweight thumbnail, utilising TwelveMonkeys ImageIO
-     * decoders to support formats not natively handled by JavaFX, such as TIFF, DNG, and WebP.
+     * Reads and scales an image to create a lightweight thumbnail using a native ImageIO image
+     * reader.
+     *
+     * <p>
+     * Source sub-sampling is used to reduce the amount of image data decoded for large source
+     * images.
+     * </p>
      *
      * @param path
      *        the {@link Path} to the target image file
@@ -332,16 +376,17 @@ public class ImagePreviewPopup
      */
     public void hide()
     {
-        if (currentLoadTask != null && currentLoadTask.isRunning())
+        if (currentThreadTask != null && currentThreadTask.isRunning())
         {
-            currentLoadTask.cancel();
+            currentThreadTask.cancel();
         }
 
         if (popupStage.isShowing())
         {
             popupStage.hide();
-            imageView.setImage(null);
         }
+
+        imageView.setImage(null);
     }
 
     /**
@@ -354,18 +399,27 @@ public class ImagePreviewPopup
     }
 
     /**
-     * Evaluates whether a given file signature matches supported preview formats.
+     * Cancels pending operations, hides the stage, and shuts down the background image loader.
+     * Call this when shutting down the application.
+     */
+    public void dispose()
+    {
+        hide();
+        imageLoaderExecutor.shutdownNow();
+    }
+
+    /**
+     * Determines whether a digital signature corresponds to a supported preview format.
      *
      * @param type
      *        the {@link DigitalSignature} magic-number signature enum to check
-     * @return {@code true} if format decoding is supported; {@code false} otherwise
+     * @return {@code true} if the signature corresponds to a supported preview format,
+     *         {@code false} otherwise
      */
     private boolean isViewable(DigitalSignature type)
     {
-        return type == DigitalSignature.JPG ||
-                type == DigitalSignature.PNG ||
-                type == DigitalSignature.TIF ||
-                type == DigitalSignature.WEBP ||
+        return type == DigitalSignature.JPG || type == DigitalSignature.PNG ||
+                type == DigitalSignature.TIF || type == DigitalSignature.WEBP ||
                 type == DigitalSignature.DNG;
     }
 }

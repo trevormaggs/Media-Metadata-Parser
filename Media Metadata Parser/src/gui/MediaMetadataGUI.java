@@ -530,10 +530,15 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialogPane.getButtonTypes().add(ButtonType.CLOSE);
 
         TableView<FileProcessingRecord> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
 
-        // Define dynamic numerical row index column
+        // Fixed-width Row Index Column (#)
         TableColumn<FileProcessingRecord, Void> indexCol = new TableColumn<>("#");
+        indexCol.setMinWidth(35);
+        indexCol.setMaxWidth(35);
+        indexCol.setPrefWidth(35);
+        indexCol.setResizable(false);
+        indexCol.setStyle("-fx-alignment: CENTER;");
 
         indexCol.setCellFactory(new Callback<TableColumn<FileProcessingRecord, Void>, TableCell<FileProcessingRecord, Void>>()
         {
@@ -561,16 +566,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        indexCol.setMinWidth(30);
-        indexCol.setMaxWidth(30);
-        indexCol.setPrefWidth(30);
-        indexCol.setResizable(false);
-        indexCol.setStyle("-fx-alignment: CENTER;");
-
-        // Source filename column
+        // Dynamic Source Filename Column
         TableColumn<FileProcessingRecord, String> sourceCol = new TableColumn<>("Source File");
-
-        sourceCol.setPrefWidth(190);
+        sourceCol.setMinWidth(150);
+        sourceCol.setPrefWidth(210);
         sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -580,10 +579,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Target filename column
+        // Dynamic Target Filename Column
         TableColumn<FileProcessingRecord, String> targetCol = new TableColumn<>("Target File");
-
-        targetCol.setPrefWidth(190);
+        targetCol.setMinWidth(150);
+        targetCol.setPrefWidth(210);
         targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -593,11 +592,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Target file byte size column with formatted units display
+        // Fixed-width File Size Column
         TableColumn<FileProcessingRecord, Long> sizeCol = new TableColumn<>("File Size");
-
-        sizeCol.setPrefWidth(100);
+        sizeCol.setMinWidth(90);
+        sizeCol.setMaxWidth(90);
+        sizeCol.setPrefWidth(90);
+        sizeCol.setResizable(false);
         sizeCol.setStyle("-fx-alignment: CENTER-RIGHT;");
+
         sizeCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, Long>, ObservableValue<Long>>()
         {
             @Override
@@ -720,12 +722,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void handle(DialogEvent event)
             {
-                thumbnail.hide();
+                thumbnail.dispose();
             }
         });
 
         dialogPane.setContent(table);
-        dialogPane.setPrefSize(550, 320);
+        dialogPane.setPrefSize(570, 320);
         dialog.show();
     }
 
