@@ -18,6 +18,8 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.TreeTableColumn.CellDataFeatures;
 import javafx.scene.control.*;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.web.WebView;
@@ -197,7 +199,7 @@ class MetadataViewerDialog extends Stage
                             setText(null);
                             setGraphic(link);
                         }
-                        
+
                         else
                         {
                             setText(value);
@@ -213,6 +215,83 @@ class MetadataViewerDialog extends Stage
         treeTableView.setColumnResizePolicy(TreeTableView.CONSTRAINED_RESIZE_POLICY);
         treeTableView.getColumns().add(nameCol);
         treeTableView.getColumns().add(valueCol);
+
+        treeTableView.setRowFactory(new Callback<TreeTableView<MetadataNode>, TreeTableRow<MetadataNode>>()
+        {
+            @Override
+            public TreeTableRow<MetadataNode> call(TreeTableView<MetadataNode> param)
+            {
+                final TreeTableRow<MetadataNode> row = new TreeTableRow<>();
+                final ContextMenu contextMenu = new ContextMenu();
+                MenuItem copyKeyItem = new MenuItem("Copy Key");
+                MenuItem copyValueItem = new MenuItem("Copy Value");
+                MenuItem copyPairItem = new MenuItem("Copy Key = Value");
+
+                copyKeyItem.setOnAction(new EventHandler<ActionEvent>()
+                {
+                    @Override
+                    public void handle(ActionEvent event)
+                    {
+                        MetadataNode item = row.getItem();
+                        
+                        if (item != null)
+                        {
+                            copyToClipboard(item.getName());
+                        }
+                    }
+                });
+
+                copyValueItem.setOnAction(new EventHandler<ActionEvent>()
+                {
+                    @Override
+                    public void handle(ActionEvent event)
+                    {
+                        MetadataNode item = row.getItem();
+                        
+                        if (item != null)
+                        {
+                            copyToClipboard(item.getValue());
+                        }
+                    }
+                });
+
+                copyPairItem.setOnAction(new EventHandler<ActionEvent>()
+                {
+                    @Override
+                    public void handle(ActionEvent event)
+                    {
+                        MetadataNode item = row.getItem();
+                        
+                        if (item != null)
+                        {
+                            copyToClipboard(item.getName() + " = " + item.getValue());
+                        }
+                    }
+                });
+
+                contextMenu.getItems().addAll(copyKeyItem, copyValueItem, copyPairItem);
+
+                // Attach context menu only to populated rows
+                row.emptyProperty().addListener(new ChangeListener<Boolean>()
+                {
+                    @Override
+                    public void changed(ObservableValue<? extends Boolean> obs, Boolean wasEmpty, Boolean isEmpty)
+                    {
+                        if (isEmpty)
+                        {
+                            row.setContextMenu(null);
+                        }
+                        
+                        else
+                        {
+                            row.setContextMenu(contextMenu);
+                        }
+                    }
+                });
+
+                return row;
+            }
+        });
 
         flatTextArea = new TextArea();
         flatTextArea.setStyle("-fx-font-family: 'Courier New', monospace; -fx-font-size: 12px;");
@@ -322,6 +401,22 @@ class MetadataViewerDialog extends Stage
         }
 
         setScene(scene);
+    }
+
+    /**
+     * Copies the provided text string into the system clipboard.
+     * 
+     * @param text
+     *        the text content to copy
+     */
+    private static void copyToClipboard(String text)
+    {
+        if (text != null && !text.trim().isEmpty())
+        {
+            ClipboardContent content = new ClipboardContent();
+            content.putString(text);
+            Clipboard.getSystemClipboard().setContent(content);
+        }
     }
 
     /**
