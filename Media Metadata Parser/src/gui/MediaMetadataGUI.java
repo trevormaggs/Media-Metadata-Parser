@@ -1160,6 +1160,20 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialog.show();
     }
 
+    /**
+     * Switches the active application UI theme by replacing the stylesheets applied to the scene
+     * containing the root pane.
+     * 
+     * <p>
+     * The specified theme is loaded and applied to the application. If {@code themeFileName} is
+     * {@code null}, no change is made. If the specified theme cannot be found, the current theme
+     * remains unchanged and an error is reported.
+     * </p>
+     *
+     * @param themeFileName
+     *        the file name of the theme to apply (e.g., {@code "dark-theme.css"}), or {@code null}
+     *        to leave the current theme unchanged
+     */
     private void switchTheme(String themeFileName)
     {
         Scene scene = rootPane.getScene();

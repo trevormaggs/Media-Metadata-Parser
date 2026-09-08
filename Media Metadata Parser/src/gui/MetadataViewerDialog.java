@@ -45,8 +45,8 @@ class MetadataViewerDialog extends Stage
     private final ViewManagerGPS gpsMapManager;
     private final TreeTableView<MetadataNode> treeTableView;
     private final TextField txtSearch;
-    private TreeItem<MetadataNode> masterRootNode;
     private boolean allItemsExpanded;
+    private TreeItem<MetadataNode> masterRootNode;
 
     /**
      * Constructs a new metadata viewer dialog owned by the specified stage.
@@ -197,6 +197,7 @@ class MetadataViewerDialog extends Stage
                             setText(null);
                             setGraphic(link);
                         }
+                        
                         else
                         {
                             setText(value);

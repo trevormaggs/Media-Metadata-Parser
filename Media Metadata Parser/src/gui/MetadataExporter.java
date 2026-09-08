@@ -19,6 +19,8 @@ import tif.tagspecs.Taggable;
  */
 final class MetadataExporter
 {
+    // TODO: REVIEW AND IMPROVE
+
     private MetadataExporter()
     {
         // Prevent instantiation
@@ -195,6 +197,7 @@ final class MetadataExporter
                         json.append("      }").append(ifdIndex < totalIfds ? ",\n" : "\n");
                     }
                 }
+
                 else if (meta instanceof PngMetadataProvider)
                 {
                     PngMetadataProvider png = (PngMetadataProvider) meta;
@@ -247,6 +250,7 @@ final class MetadataExporter
         return (input == null ? ""
                 : input.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t"));
     }
+
     private static String escapeCSV(String input)
     {
         if (input == null)

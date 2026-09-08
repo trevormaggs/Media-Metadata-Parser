@@ -45,31 +45,31 @@ import javafx.stage.Window;
  * @version 1.2
  * @since 7 September 2026
  */
-public class ImagePreviewPopup
+public class ImagePreviewPopup2
 {
     private static final int MAX_CACHE_SIZE = 50;
     private final Path targetDir;
     private final Stage popupStage;
     private final ImageView imageView;
     private final Label unsupportedLabel;
+    private Task<Image> currentThreadTask;
     private final Map<Path, Image> thumbnailCache;
     private final ExecutorService imageLoaderExecutor;
-    private Task<Image> currentThreadTask;
 
     /**
      * Constructs a new floating image preview popup associated with a parent window.
      *
-     * @param owner
+     * @param ownerWindow
      *        the parent {@link Window} that owns the popup, or {@code null} if no owner is
      *        specified
      * @param targetDir
      *        the base {@link Path} directory used for resolving relative paths, or {@code null}
      */
-    public ImagePreviewPopup(Window owner, Path targetDir)
+    public ImagePreviewPopup2(Window ownerWindow, Path targetDir)
     {
         popupStage = new Stage();
         popupStage.initStyle(StageStyle.TRANSPARENT);
-        popupStage.initOwner(owner);
+        popupStage.initOwner(ownerWindow);
 
         imageView = new ImageView();
         imageView.setFitWidth(250);
@@ -126,51 +126,14 @@ public class ImagePreviewPopup
     }
 
     /**
-     * Clears all cached thumbnails from memory. Call this if the active workspace or target
-     * directory changes.
-     */
-    public void clearCache()
-    {
-        thumbnailCache.clear();
-    }
-
-    /**
-     * Cancels pending operations, hides the stage, and shuts down the background image loader.
-     * Call this when shutting down the application.
-     */
-    public void dispose()
-    {
-        hide();
-        imageLoaderExecutor.shutdownNow();
-    }
-
-    /**
-     * Hides the preview popup stage and releases the displayed image reference. The image remains
-     * cached in memory within {@link #thumbnailCache}.
-     */
-    public void hide()
-    {
-        if (currentThreadTask != null && currentThreadTask.isRunning())
-        {
-            currentThreadTask.cancel();
-        }
-
-        if (popupStage.isShowing())
-        {
-            popupStage.hide();
-        }
-
-        imageView.setImage(null);
-    }
-
-    /**
      * Displays the preview thumbnail overlay for a specified file record at the given cursor
      * coordinates.
      *
      * <p>
      * Checks the LRU memory cache before reading from disk. On a cache miss, JPG and PNG images are
-     * decoded using native JavaFX image pipelines, while other formats are decoded using an
-     * {@link ImageIO} {@link ImageReader} configured with source subsampling via TwelveMonkeys.
+     * decoded using JavaFX, while other supported formats are decoded using an {@link ImageIO}
+     * {@link ImageReader} with source subsampling, being implemented by TwelveMonkeys stream
+     * subsampling.
      * </p>
      *
      * @param record
@@ -210,7 +173,7 @@ public class ImagePreviewPopup
             return;
         }
 
-        // Instant Cache Hit on FX Application Thread if data is active
+        // 1. FAST PATH: Instant Cache Hit on FX Application Thread
         if (cachedThumb != null)
         {
             if (currentThreadTask != null && currentThreadTask.isRunning())
@@ -226,7 +189,7 @@ public class ImagePreviewPopup
             return;
         }
 
-        // Cancel previous pending task & load asynchronously again
+        // 2. SLOW PATH: Cancel previous pending task & load asynchronously
         if (currentThreadTask != null && currentThreadTask.isRunning())
         {
             currentThreadTask.cancel();
@@ -237,8 +200,6 @@ public class ImagePreviewPopup
         imageView.setVisible(false);
         unsupportedLabel.setVisible(false);
 
-        // Each Task instance is persistently bound to a single image loading request. If the user
-        // hovers over a new image, 'currentThreadTask' is reassigned to a NEW Task instance.
         Task<Image> task = new Task<Image>()
         {
             @Override
@@ -261,24 +222,26 @@ public class ImagePreviewPopup
             @Override
             public void handle(WorkerStateEvent event)
             {
-                if (task == currentThreadTask)
+                if (task != currentThreadTask)
                 {
-                    Image loadedImage = task.getValue();
+                    return;
+                }
 
-                    if (loadedImage == null)
-                    {
-                        imageView.setImage(null);
-                        imageView.setVisible(false);
-                        unsupportedLabel.setVisible(true);
-                    }
+                Image loadedImage = task.getValue();
 
-                    else
-                    {
-                        thumbnailCache.put(realPath, loadedImage);
-                        imageView.setVisible(true);
-                        unsupportedLabel.setVisible(false);
-                        imageView.setImage(loadedImage);
-                    }
+                if (loadedImage == null)
+                {
+                    imageView.setImage(null);
+                    imageView.setVisible(false);
+                    unsupportedLabel.setVisible(true);
+                }
+
+                else
+                {
+                    thumbnailCache.put(realPath, loadedImage);
+                    imageView.setVisible(true);
+                    unsupportedLabel.setVisible(false);
+                    imageView.setImage(loadedImage);
                 }
             }
         });
@@ -288,12 +251,14 @@ public class ImagePreviewPopup
             @Override
             public void handle(WorkerStateEvent event)
             {
-                if (task == currentThreadTask)
+                if (task != currentThreadTask)
                 {
-                    imageView.setImage(null);
-                    imageView.setVisible(false);
-                    unsupportedLabel.setVisible(true);
+                    return;
                 }
+
+                imageView.setImage(null);
+                imageView.setVisible(false);
+                unsupportedLabel.setVisible(true);
             }
         });
 
@@ -379,13 +344,15 @@ public class ImagePreviewPopup
 
                     int imageWidth = reader.getWidth(0);
                     int imageHeight = reader.getHeight(0);
+
                     int subsample = Math.max(1, Math.min(imageWidth / targetWidth, imageHeight / targetHeight));
+
                     ImageReadParam param = reader.getDefaultReadParam();
-
                     param.setSourceSubsampling(subsample, subsample, 0, 0);
-                    BufferedImage bufImage = reader.read(0, param);
 
-                    return SwingFXUtils.toFXImage(bufImage, null);
+                    BufferedImage bImg = reader.read(0, param);
+
+                    return SwingFXUtils.toFXImage(bImg, null);
                 }
 
                 finally
@@ -401,6 +368,44 @@ public class ImagePreviewPopup
         }
 
         return null;
+    }
+
+    /**
+     * Hides the preview popup stage and releases the displayed image reference. The image remains
+     * cached in memory within {@link #thumbnailCache}.
+     */
+    public void hide()
+    {
+        if (currentThreadTask != null && currentThreadTask.isRunning())
+        {
+            currentThreadTask.cancel();
+        }
+
+        if (popupStage.isShowing())
+        {
+            popupStage.hide();
+        }
+
+        imageView.setImage(null);
+    }
+
+    /**
+     * Clears all cached thumbnails from memory. Call this if the active workspace or target
+     * directory changes.
+     */
+    public void clearCache()
+    {
+        thumbnailCache.clear();
+    }
+
+    /**
+     * Cancels pending operations, hides the stage, and shuts down the background image loader.
+     * Call this when shutting down the application.
+     */
+    public void dispose()
+    {
+        hide();
+        imageLoaderExecutor.shutdownNow();
     }
 
     /**

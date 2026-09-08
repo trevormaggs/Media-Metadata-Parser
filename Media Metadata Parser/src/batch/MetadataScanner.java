@@ -266,7 +266,6 @@ final class MetadataScanner implements Iterable<MediaRecord>
                         Metadata<?> meta = parser.getMetadata();
                         recordSet.add(new MediaRecord(fpath, attr, meta));
                         notifyListeners(recordSet.size(), totalCount);
-
                         // System.out.printf("%s\n", parser.formatDiagnosticString());
                     }
 

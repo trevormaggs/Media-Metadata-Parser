@@ -52,9 +52,11 @@ public final class MediaRecord
      */
     public MediaRecord(Path fpath, BasicFileAttributes attr, Metadata<?> record)
     {
+        // TODO: Watch out when record is null. For example, MP4 media. Fix it.
+
         this.mediaFile = fpath;
         this.metadata = record;
-        this.mediaFormat = (record != null ? record.getImageFormat() : null);
+        this.mediaFormat = (record != null ? record.getImageFormat() : DigitalSignature.UNKNOWN);
         this.fileSize = attr.size();
         this.fileSystemDate = attr.lastModifiedTime();
         this.hasMetadataContainer = (record != null && record.hasMetadata());
