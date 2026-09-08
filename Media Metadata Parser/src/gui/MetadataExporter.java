@@ -44,8 +44,8 @@ final class MetadataExporter
      *
      * @param targetFile
      *        the file destination chosen by the user
-     * @param records
-     *        the list of media metadata models
+     * @param mediaItems
+     *        the array of media metadata items
      * @param format
      *        "JSON", "CSV", or "TXT"
      * @throws IOException

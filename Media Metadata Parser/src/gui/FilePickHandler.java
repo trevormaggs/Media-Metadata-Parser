@@ -23,7 +23,6 @@ import javafx.stage.Window;
  * intended strictly for internal use within the {@code gui} package.
  * </p>
  *
- * @PackagePrivate
  * @author Trevor Maggs
  * @version 1.2
  * @since 6 August 2026

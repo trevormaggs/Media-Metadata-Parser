@@ -98,12 +98,12 @@ public abstract class AbstractImageParser<T extends Metadata<?>>
          * Special Case: If the filename is the extension itself (e.g., file named "tif")
          * or if it's an extension-only hidden file (e.g., ".tif").
          */
-        if (filename.equalsIgnoreCase("." + targetExt) || filename.equalsIgnoreCase(targetExt))
+        if (filename.equalsIgnoreCase("." + targetExt) || filename.equalsIgnoreCase(targetExt) || filename.equals(baseName))
         {
             return String.format("File [%s] has no proper extension, but contains [%s] data", baseName, targetExt.toUpperCase());
         }
 
-        return String.format("File [%s] contains [%s] data, but expected extension is [.%s]", filename, targetExt.toUpperCase(), targetExt);
+        return String.format("File [%s] contains [%s] data, but has a [%s] extension", filename, targetExt.toUpperCase(), filename.substring(lastDot));
     }
 
     /**

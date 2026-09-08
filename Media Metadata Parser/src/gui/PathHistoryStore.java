@@ -103,6 +103,8 @@ final class PathHistoryStore
      *        the text field containing the source path or paths
      * @param targetText
      *        the text field containing the target path
+     * @param isDarkTheme
+     *        {@code true} if the GUI is configured to use the dark theme
      *
      * @throws IOException
      *         if the settings file cannot be read or written
@@ -224,16 +226,19 @@ final class PathHistoryStore
     }
 
     /**
-     * Loads the previously saved source and target paths into the supplied text fields.
+     * Loads the previously saved source and target paths into the specified text fields.
      *
+     * <p>
      * A source entry stored in pipe-delimited form is unpacked so that the source text and its base
      * directory can be restored separately. The restored base directory is stored in the source
      * field's tooltip.
+     * </p>
      *
      * @param sourceText
      *        the text field into which the saved source path or paths are loaded
      * @param targetText
      *        the text field into which the saved target path is loaded
+     * @return {@code true} if the GUI is configured to use the dark theme
      *
      * @throws IOException
      *         if the settings file cannot be read

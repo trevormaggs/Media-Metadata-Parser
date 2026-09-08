@@ -221,7 +221,7 @@ class MetadataViewerDialog extends Stage
         containerStack = new StackPane(treeTableView, flatTextArea, mapView);
 
         ToggleGroup toggleGroup = new ToggleGroup();
-        rbMap = new RadioButton("GPS Map 📍");
+        rbMap = new RadioButton("GPS Map");
         rbMap.setToggleGroup(toggleGroup);
         rbMap.setDisable(true);
         rbFlat.setToggleGroup(toggleGroup);

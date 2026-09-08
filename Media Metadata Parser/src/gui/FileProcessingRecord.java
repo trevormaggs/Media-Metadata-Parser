@@ -192,7 +192,12 @@ class FileProcessingRecord implements PropertyConsumer
     }
 
     /**
-     * Helper method to safely convert path strings into {@link Path} objects.
+     * Converts a path string into a {@link Path} object.
+     *
+     * @param rawPath
+     *        the path string to convert
+     * @return the resulting {@link Path}, or {@code null} if the string is empty or contains an
+     *         invalid path
      */
     private Path toPath(String rawPath)
     {

@@ -15,6 +15,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import common.DigitalSignature;
 import common.PropertyConsumer;
 import heif.HeifDatePatcher;
 import jpg.JpgDatePatcher;
@@ -219,6 +220,85 @@ public final class MediaBatchProcessor
     }
 
     /**
+     * Determines the effective timestamp for a media record.
+     *
+     * <p>
+     * If date changes are forced, the batch configuration guarantees that a user-defined date is
+     * available. A fixed 10-second offset is then applied based on the record position to ensure
+     * unique chronological ordering.
+     * </p>
+     *
+     * <p>
+     * Otherwise, the media record's natural timestamp is returned. The natural timestamp is
+     * determined by the metadata date when available, if no metadata date exists, the user-defined
+     * date is used when configured, otherwise the file's last modified time is used.
+     * </p>
+     *
+     * @param record
+     *        the media record being processed
+     * @param index
+     *        the current index used to calculate the 10-second offset
+     * @return the effective {@link FileTime} used for metadata and file-system updates
+     */
+    private FileTime calculateEffectiveTime(MediaRecord record, int index)
+    {
+        if (config.isForceDateChange() && config.getUserDate() != null)
+        {
+            long extraSeconds = (index - 1) * TEN_SECOND_OFFSET;
+            return FileTime.from(config.getUserDate().plusSeconds(extraSeconds).toInstant());
+        }
+
+        return record.getNaturalDate();
+    }
+
+    /**
+     * Constructs the target filename using prefix, date/time embedding, and index padding.
+     *
+     * @param record
+     *        the media record
+     * @param index
+     *        the batch index used for numerical padding (for example, 001, 002, and so on)
+     * @param time
+     *        the timestamp to embed if enabled
+     * @return the generated filename for the copied media file
+     */
+    private String generateTargetName(MediaRecord record, int index, FileTime time)
+    {
+        if (record.getMediaFormat() != DigitalSignature.UNKNOWN)
+        {
+            StringBuilder sb = new StringBuilder();
+
+            if (config.getPrefix() != null && !config.getPrefix().isEmpty())
+            {
+                sb.append(config.getPrefix()).append("_");
+            }
+
+            if (config.isEmbedDateTime())
+            {
+                ZonedDateTime zdt = time.toInstant().atZone(ZoneId.systemDefault());
+                sb.append(zdt.format(EMBED_DTF)).append("_");
+            }
+
+            sb.append(String.format("%04d", index));
+
+            String ext = record.getMediaFormat().getFileExtensionName();
+
+            if (!ext.startsWith("."))
+            {
+                sb.append(".");
+            }
+
+            sb.append(ext);
+
+            return sb.toString();
+        }
+
+        LOGGER.info("Unsupported file [" + record.getPath().getFileName() + "] detected and copied");
+        
+        return record.getPath().getFileName().toString();
+    }
+
+    /**
      * Handles the end-to-end processing of a single media record.
      *
      * <p>
@@ -327,78 +407,6 @@ public final class MediaBatchProcessor
         }
 
         return -1L;
-    }
-
-    /**
-     * Determines the effective timestamp for a media record.
-     *
-     * <p>
-     * If date changes are forced, the batch configuration guarantees that a user-defined date is
-     * available. A fixed 10-second offset is then applied based on the record position to ensure
-     * unique chronological ordering.
-     * </p>
-     *
-     * <p>
-     * Otherwise, the media record's natural timestamp is returned. The natural timestamp is
-     * determined by the metadata date when available, if no metadata date exists, the user-defined
-     * date is used when configured, otherwise the file's last modified time is used.
-     * </p>
-     *
-     * @param record
-     *        the media record being processed
-     * @param index
-     *        the current index used to calculate the 10-second offset
-     * @return the effective {@link FileTime} used for metadata and file-system updates
-     */
-    private FileTime calculateEffectiveTime(MediaRecord record, int index)
-    {
-        if (config.isForceDateChange() && config.getUserDate() != null)
-        {
-            long extraSeconds = (index - 1) * TEN_SECOND_OFFSET;
-            return FileTime.from(config.getUserDate().plusSeconds(extraSeconds).toInstant());
-        }
-
-        return record.getNaturalDate();
-    }
-
-    /**
-     * Constructs the target filename using prefix, date/time embedding, and index padding.
-     *
-     * @param record
-     *        the media record
-     * @param index
-     *        the batch index used for numerical padding (for example, 001, 002, and so on)
-     * @param time
-     *        the timestamp to embed if enabled
-     * @return the generated filename for the copied media file
-     */
-    private String generateTargetName(MediaRecord record, int index, FileTime time)
-    {
-        StringBuilder sb = new StringBuilder();
-
-        if (config.getPrefix() != null && !config.getPrefix().isEmpty())
-        {
-            sb.append(config.getPrefix()).append("_");
-        }
-
-        if (config.isEmbedDateTime())
-        {
-            ZonedDateTime zdt = time.toInstant().atZone(ZoneId.systemDefault());
-            sb.append(zdt.format(EMBED_DTF)).append("_");
-        }
-
-        sb.append(String.format("%04d", index));
-
-        String ext = record.getMediaFormat().getFileExtensionName();
-
-        if (!ext.startsWith("."))
-        {
-            sb.append(".");
-        }
-
-        sb.append(ext);
-
-        return sb.toString();
     }
 
     /**
