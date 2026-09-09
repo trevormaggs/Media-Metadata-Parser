@@ -83,7 +83,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private MainViewPane viewPane;
     private StringBuilder flatMetadataText;
     private ObservableList<MediaFileMetadata> extractedMetadata;
-    private ObservableList<FileProcessingRecord> completedFileRecords;
+    private ObservableList<ProcessedFileRecord> completedFileRecords;
 
     /**
      * Initialises state components prior to scene setup.
@@ -421,7 +421,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         @Override
                         public void run()
                         {
-                            completedFileRecords.add(new FileProcessingRecord(source, target, magic, status, size));
+                            completedFileRecords.add(new ProcessedFileRecord(source, target, magic, status, size));
                         }
                     });
                 }
@@ -529,23 +529,23 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         dialogPane.getStylesheets().addAll(rootPane.getScene().getStylesheets());
         dialogPane.getButtonTypes().add(ButtonType.CLOSE);
 
-        TableView<FileProcessingRecord> table = new TableView<>();
+        TableView<ProcessedFileRecord> table = new TableView<>();
         table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
 
         // Fixed-width Row Index Column (#)
-        TableColumn<FileProcessingRecord, Void> indexCol = new TableColumn<>("#");
+        TableColumn<ProcessedFileRecord, Void> indexCol = new TableColumn<>("#");
         indexCol.setMinWidth(35);
         indexCol.setMaxWidth(35);
         indexCol.setPrefWidth(35);
         indexCol.setResizable(false);
         indexCol.setStyle("-fx-alignment: CENTER;");
 
-        indexCol.setCellFactory(new Callback<TableColumn<FileProcessingRecord, Void>, TableCell<FileProcessingRecord, Void>>()
+        indexCol.setCellFactory(new Callback<TableColumn<ProcessedFileRecord, Void>, TableCell<ProcessedFileRecord, Void>>()
         {
             @Override
-            public TableCell<FileProcessingRecord, Void> call(TableColumn<FileProcessingRecord, Void> param)
+            public TableCell<ProcessedFileRecord, Void> call(TableColumn<ProcessedFileRecord, Void> param)
             {
-                return new TableCell<FileProcessingRecord, Void>()
+                return new TableCell<ProcessedFileRecord, Void>()
                 {
                     @Override
                     protected void updateItem(Void item, boolean empty)
@@ -567,54 +567,54 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         });
 
         // Dynamic Source Filename Column
-        TableColumn<FileProcessingRecord, String> sourceCol = new TableColumn<>("Source File");
+        TableColumn<ProcessedFileRecord, String> sourceCol = new TableColumn<>("Source File");
         sourceCol.setMinWidth(150);
         sourceCol.setPrefWidth(210);
-        sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, String>, ObservableValue<String>>()
+        sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, String>, ObservableValue<String>>()
         {
             @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileProcessingRecord, String> cellData)
+            public ObservableValue<String> call(TableColumn.CellDataFeatures<ProcessedFileRecord, String> cellData)
             {
                 return cellData.getValue().sourceNameProperty();
             }
         });
 
         // Dynamic Target Filename Column
-        TableColumn<FileProcessingRecord, String> targetCol = new TableColumn<>("Target File");
+        TableColumn<ProcessedFileRecord, String> targetCol = new TableColumn<>("Target File");
         targetCol.setMinWidth(150);
         targetCol.setPrefWidth(210);
-        targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, String>, ObservableValue<String>>()
+        targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, String>, ObservableValue<String>>()
         {
             @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<FileProcessingRecord, String> cellData)
+            public ObservableValue<String> call(TableColumn.CellDataFeatures<ProcessedFileRecord, String> cellData)
             {
                 return cellData.getValue().targetNameProperty();
             }
         });
 
         // Fixed-width File Size Column
-        TableColumn<FileProcessingRecord, Long> sizeCol = new TableColumn<>("File Size");
+        TableColumn<ProcessedFileRecord, Long> sizeCol = new TableColumn<>("File Size");
         sizeCol.setMinWidth(90);
         sizeCol.setMaxWidth(90);
         sizeCol.setPrefWidth(90);
         sizeCol.setResizable(false);
         sizeCol.setStyle("-fx-alignment: CENTER-RIGHT;");
 
-        sizeCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<FileProcessingRecord, Long>, ObservableValue<Long>>()
+        sizeCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, Long>, ObservableValue<Long>>()
         {
             @Override
-            public ObservableValue<Long> call(TableColumn.CellDataFeatures<FileProcessingRecord, Long> cellData)
+            public ObservableValue<Long> call(TableColumn.CellDataFeatures<ProcessedFileRecord, Long> cellData)
             {
                 return new ReadOnlyObjectWrapper<>(cellData.getValue().getFileSize());
             }
         });
 
-        sizeCol.setCellFactory(new Callback<TableColumn<FileProcessingRecord, Long>, TableCell<FileProcessingRecord, Long>>()
+        sizeCol.setCellFactory(new Callback<TableColumn<ProcessedFileRecord, Long>, TableCell<ProcessedFileRecord, Long>>()
         {
             @Override
-            public TableCell<FileProcessingRecord, Long> call(TableColumn<FileProcessingRecord, Long> param)
+            public TableCell<ProcessedFileRecord, Long> call(TableColumn<ProcessedFileRecord, Long> param)
             {
-                return new TableCell<FileProcessingRecord, Long>()
+                return new TableCell<ProcessedFileRecord, Long>()
                 {
                     @Override
                     protected void updateItem(Long item, boolean empty)
@@ -669,12 +669,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialogPane.getScene().getWindow(), targetDir);
 
         // Attach hover image thumbnail listeners on rows
-        table.setRowFactory(new Callback<TableView<FileProcessingRecord>, TableRow<FileProcessingRecord>>()
+        table.setRowFactory(new Callback<TableView<ProcessedFileRecord>, TableRow<ProcessedFileRecord>>()
         {
             @Override
-            public TableRow<FileProcessingRecord> call(TableView<FileProcessingRecord> param)
+            public TableRow<ProcessedFileRecord> call(TableView<ProcessedFileRecord> param)
             {
-                final TableRow<FileProcessingRecord> row = new TableRow<>();
+                final TableRow<ProcessedFileRecord> row = new TableRow<>();
 
                 row.setOnMouseEntered(new EventHandler<MouseEvent>()
                 {
@@ -702,10 +702,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         });
 
         // Ensure newly appending rows pull scrolling view downward automatically
-        completedFileRecords.addListener(new ListChangeListener<FileProcessingRecord>()
+        completedFileRecords.addListener(new ListChangeListener<ProcessedFileRecord>()
         {
             @Override
-            public void onChanged(ListChangeListener.Change<? extends FileProcessingRecord> change)
+            public void onChanged(ListChangeListener.Change<? extends ProcessedFileRecord> change)
             {
                 while (change.next())
                 {
@@ -723,6 +723,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             public void handle(DialogEvent event)
             {
                 thumbnail.dispose();
+                thumbnail.clearCache();
             }
         });
 

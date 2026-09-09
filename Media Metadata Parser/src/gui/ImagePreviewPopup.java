@@ -174,13 +174,13 @@ public class ImagePreviewPopup
      * </p>
      *
      * @param record
-     *        the {@link FileProcessingRecord} containing target path and magic signature metadata
+     *        the {@link ProcessedFileRecord} containing target path and magic signature metadata
      * @param screenX
      *        the absolute horizontal cursor coordinate on screen
      * @param screenY
      *        the absolute vertical cursor coordinate on screen
      */
-    public void showPreview(FileProcessingRecord record, double screenX, double screenY)
+    public void showPreview(ProcessedFileRecord record, double screenX, double screenY)
     {
         if (record == null || record.getTargetPath() == null)
         {
