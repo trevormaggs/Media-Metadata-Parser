@@ -16,17 +16,17 @@ import javafx.beans.property.SimpleStringProperty;
  */
 class ProcessedFileRecord implements PropertyConsumer
 {
-    static final String KEY_SOURCE = "SOURCE";
-    static final String KEY_TARGET = "TARGET";
-    static final String KEY_MAGIC = "MAGIC";
-    static final String KEY_STATUS = "STATUS";
-    static final String KEY_SIZE = "SIZE";
     private final SimpleStringProperty sourceName;
     private final SimpleStringProperty targetName;
     private final ObjectProperty<DigitalSignature> digitalSignature;
     private final SimpleStringProperty status;
     private final SimpleLongProperty fileSize;
-
+    static final String KEY_SOURCE = "SOURCE";
+    static final String KEY_TARGET = "TARGET";
+    static final String KEY_MAGIC = "MAGIC";
+    static final String KEY_STATUS = "STATUS";
+    static final String KEY_SIZE = "SIZE";
+    
     /**
      * Creates an empty file processing record with default values.
      */

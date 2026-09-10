@@ -34,6 +34,7 @@ import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Side;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert.AlertType;
@@ -520,6 +521,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     private void showSummaryDialog()
     {
+        Path targetDir = null;
+        TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
+
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Batch Processing Summary");
         dialog.setHeaderText("Detailed Processing Results");
@@ -528,9 +532,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         DialogPane dialogPane = dialog.getDialogPane();
         dialogPane.getStylesheets().addAll(rootPane.getScene().getStylesheets());
         dialogPane.getButtonTypes().add(ButtonType.CLOSE);
-
-        TableView<ProcessedFileRecord> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
 
         // Fixed-width Row Index Column (#)
         TableColumn<ProcessedFileRecord, Void> indexCol = new TableColumn<>("#");
@@ -644,15 +645,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        table.getColumns().add(indexCol);
-        table.getColumns().add(sourceCol);
-        table.getColumns().add(targetCol);
-        table.getColumns().add(sizeCol);
-        table.setItems(completedFileRecords);
-
-        Path targetDir = null;
-        TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
-
         if (!targetText.getText().trim().isEmpty())
         {
             try
@@ -667,6 +659,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         }
 
         final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialogPane.getScene().getWindow(), targetDir);
+
+        TableView<ProcessedFileRecord> table = new TableView<>();
+        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        table.getColumns().add(indexCol);
+        table.getColumns().add(sourceCol);
+        table.getColumns().add(targetCol);
+        table.getColumns().add(sizeCol);
+        table.setItems(completedFileRecords);
 
         // Attach hover image thumbnail listeners on rows
         table.setRowFactory(new Callback<TableView<ProcessedFileRecord>, TableRow<ProcessedFileRecord>>()
@@ -698,6 +698,72 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 });
 
                 return row;
+            }
+        });
+
+        // Attach hover & keyboard image thumbnail listeners on rows
+        table.setRowFactory(new Callback<TableView<ProcessedFileRecord>, TableRow<ProcessedFileRecord>>()
+        {
+            @Override
+            public TableRow<ProcessedFileRecord> call(TableView<ProcessedFileRecord> param)
+            {
+                final TableRow<ProcessedFileRecord> row = new TableRow<>();
+
+                // Mouse hover events
+                row.setOnMouseEntered(new EventHandler<MouseEvent>()
+                {
+                    @Override
+                    public void handle(MouseEvent event)
+                    {
+                        if (!row.isEmpty())
+                        {
+                            thumbnail.showPreview(row.getItem(), event.getScreenX(), event.getScreenY());
+                        }
+                    }
+                });
+
+                row.setOnMouseExited(new EventHandler<MouseEvent>()
+                {
+                    @Override
+                    public void handle(MouseEvent event)
+                    {
+                        thumbnail.hide();
+                    }
+                });
+
+                return row;
+            }
+        });
+
+        // Keyboard arrow navigation event handling
+        table.setOnKeyReleased(new EventHandler<KeyEvent>()
+        {
+            @Override
+            public void handle(KeyEvent event)
+            {
+                if (event.getCode() == KeyCode.UP || event.getCode() == KeyCode.DOWN)
+                {
+                    ProcessedFileRecord selectedRecord = table.getSelectionModel().getSelectedItem();
+
+                    if (selectedRecord != null)
+                    {
+                        // Get active table bounds on screen to position preview near the table
+                        Point2D point = table.localToScreen(0, 0);
+
+                        if (point != null)
+                        {
+                            double screenX = point.getX() + table.getWidth() / 2;
+                            double screenY = point.getY() + 50;
+
+                            thumbnail.showPreview(selectedRecord, screenX, screenY);
+                        }
+                    }
+                }
+                
+                else if (event.getCode() == KeyCode.ESCAPE)
+                {
+                    thumbnail.hide();
+                }
             }
         });
 
