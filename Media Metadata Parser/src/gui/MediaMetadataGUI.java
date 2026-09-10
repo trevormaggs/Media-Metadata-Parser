@@ -1,15 +1,7 @@
 package gui;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.text.DecimalFormat;
-import java.util.List;
-import java.util.StringJoiner;
 import java.util.function.Consumer;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
@@ -24,53 +16,35 @@ import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
-import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
-import javafx.geometry.Point2D;
 import javafx.geometry.Side;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.DatePicker;
-import javafx.scene.control.Dialog;
-import javafx.scene.control.DialogEvent;
-import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.SeparatorMenuItem;
-import javafx.scene.control.TableCell;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableRow;
-import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyCodeCombination;
-import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.RowConstraints;
-import javafx.stage.FileChooser;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.util.Callback;
 import javafx.util.Duration;
 
 /**
@@ -107,7 +81,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     @Override
     public void start(Stage primaryStage)
     {
-        // Define explicit row layout behavior for the main grid container
         RowConstraints fixedRow = new RowConstraints();
         fixedRow.setVgrow(Priority.NEVER);
 
@@ -214,7 +187,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
             else
             {
-                showSummaryDialog();
+                TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
+                SummaryDialogFactory.show(rootPane.getScene().getWindow(), targetText, completedFileRecords);
             }
         }
 
@@ -517,288 +491,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     }
 
     /**
-     * Renders detailed non-modal popup dialog summarising execution record entries.
-     */
-    private void showSummaryDialog()
-    {
-        Path targetDir = null;
-        TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
-
-        Dialog<Void> dialog = new Dialog<>();
-        dialog.setTitle("Batch Processing Summary");
-        dialog.setHeaderText("Detailed Processing Results");
-        dialog.initModality(Modality.NONE);
-
-        DialogPane dialogPane = dialog.getDialogPane();
-        dialogPane.getStylesheets().addAll(rootPane.getScene().getStylesheets());
-        dialogPane.getButtonTypes().add(ButtonType.CLOSE);
-
-        // Fixed-width Row Index Column (#)
-        TableColumn<ProcessedFileRecord, Void> indexCol = new TableColumn<>("#");
-        indexCol.setMinWidth(35);
-        indexCol.setMaxWidth(35);
-        indexCol.setPrefWidth(35);
-        indexCol.setResizable(false);
-        indexCol.setStyle("-fx-alignment: CENTER;");
-
-        indexCol.setCellFactory(new Callback<TableColumn<ProcessedFileRecord, Void>, TableCell<ProcessedFileRecord, Void>>()
-        {
-            @Override
-            public TableCell<ProcessedFileRecord, Void> call(TableColumn<ProcessedFileRecord, Void> param)
-            {
-                return new TableCell<ProcessedFileRecord, Void>()
-                {
-                    @Override
-                    protected void updateItem(Void item, boolean empty)
-                    {
-                        super.updateItem(item, empty);
-
-                        if (empty || getTableRow() == null || getTableRow().getItem() == null)
-                        {
-                            setText(null);
-                        }
-
-                        else
-                        {
-                            setText(String.valueOf(getIndex() + 1));
-                        }
-                    }
-                };
-            }
-        });
-
-        // Dynamic Source Filename Column
-        TableColumn<ProcessedFileRecord, String> sourceCol = new TableColumn<>("Source File");
-        sourceCol.setMinWidth(150);
-        sourceCol.setPrefWidth(210);
-        sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, String>, ObservableValue<String>>()
-        {
-            @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<ProcessedFileRecord, String> cellData)
-            {
-                return cellData.getValue().sourceNameProperty();
-            }
-        });
-
-        // Dynamic Target Filename Column
-        TableColumn<ProcessedFileRecord, String> targetCol = new TableColumn<>("Target File");
-        targetCol.setMinWidth(150);
-        targetCol.setPrefWidth(210);
-        targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, String>, ObservableValue<String>>()
-        {
-            @Override
-            public ObservableValue<String> call(TableColumn.CellDataFeatures<ProcessedFileRecord, String> cellData)
-            {
-                return cellData.getValue().targetNameProperty();
-            }
-        });
-
-        // Fixed-width File Size Column
-        TableColumn<ProcessedFileRecord, Long> sizeCol = new TableColumn<>("File Size");
-        sizeCol.setMinWidth(90);
-        sizeCol.setMaxWidth(90);
-        sizeCol.setPrefWidth(90);
-        sizeCol.setResizable(false);
-        sizeCol.setStyle("-fx-alignment: CENTER-RIGHT;");
-
-        sizeCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, Long>, ObservableValue<Long>>()
-        {
-            @Override
-            public ObservableValue<Long> call(TableColumn.CellDataFeatures<ProcessedFileRecord, Long> cellData)
-            {
-                return new ReadOnlyObjectWrapper<>(cellData.getValue().getFileSize());
-            }
-        });
-
-        sizeCol.setCellFactory(new Callback<TableColumn<ProcessedFileRecord, Long>, TableCell<ProcessedFileRecord, Long>>()
-        {
-            @Override
-            public TableCell<ProcessedFileRecord, Long> call(TableColumn<ProcessedFileRecord, Long> param)
-            {
-                return new TableCell<ProcessedFileRecord, Long>()
-                {
-                    @Override
-                    protected void updateItem(Long item, boolean empty)
-                    {
-                        super.updateItem(item, empty);
-
-                        if (empty || item == null)
-                        {
-                            setText(null);
-                        }
-
-                        else if (item <= 0)
-                        {
-                            setText("0 B");
-                        }
-
-                        else
-                        {
-                            String[] units = {"B", "KB", "MB", "GB", "TB"};
-                            int digitGroups = (int) (Math.log10(item) / Math.log10(1024));
-
-                            digitGroups = Math.min(digitGroups, units.length - 1);
-                            setText(new DecimalFormat("#,##0.#").format(item / Math.pow(1024, digitGroups)) + " " + units[digitGroups]);
-                        }
-                    }
-                };
-            }
-        });
-
-        if (!targetText.getText().trim().isEmpty())
-        {
-            try
-            {
-                targetDir = Paths.get(targetText.getText().trim()).toAbsolutePath();
-            }
-
-            catch (InvalidPathException exc)
-            {
-                // Fall back to null if target path string cannot be parsed
-            }
-        }
-
-        final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialogPane.getScene().getWindow(), targetDir);
-
-        TableView<ProcessedFileRecord> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
-        table.getColumns().add(indexCol);
-        table.getColumns().add(sourceCol);
-        table.getColumns().add(targetCol);
-        table.getColumns().add(sizeCol);
-        table.setItems(completedFileRecords);
-
-        // Attach hover image thumbnail listeners on rows
-        table.setRowFactory(new Callback<TableView<ProcessedFileRecord>, TableRow<ProcessedFileRecord>>()
-        {
-            @Override
-            public TableRow<ProcessedFileRecord> call(TableView<ProcessedFileRecord> param)
-            {
-                final TableRow<ProcessedFileRecord> row = new TableRow<>();
-
-                row.setOnMouseEntered(new EventHandler<MouseEvent>()
-                {
-                    @Override
-                    public void handle(MouseEvent event)
-                    {
-                        if (!row.isEmpty())
-                        {
-                            thumbnail.showPreview(row.getItem(), event.getScreenX(), event.getScreenY());
-                        }
-                    }
-                });
-
-                row.setOnMouseExited(new EventHandler<MouseEvent>()
-                {
-                    @Override
-                    public void handle(MouseEvent event)
-                    {
-                        thumbnail.hide();
-                    }
-                });
-
-                return row;
-            }
-        });
-
-        // Attach hover & keyboard image thumbnail listeners on rows
-        table.setRowFactory(new Callback<TableView<ProcessedFileRecord>, TableRow<ProcessedFileRecord>>()
-        {
-            @Override
-            public TableRow<ProcessedFileRecord> call(TableView<ProcessedFileRecord> param)
-            {
-                final TableRow<ProcessedFileRecord> row = new TableRow<>();
-
-                // Mouse hover events
-                row.setOnMouseEntered(new EventHandler<MouseEvent>()
-                {
-                    @Override
-                    public void handle(MouseEvent event)
-                    {
-                        if (!row.isEmpty())
-                        {
-                            thumbnail.showPreview(row.getItem(), event.getScreenX(), event.getScreenY());
-                        }
-                    }
-                });
-
-                row.setOnMouseExited(new EventHandler<MouseEvent>()
-                {
-                    @Override
-                    public void handle(MouseEvent event)
-                    {
-                        thumbnail.hide();
-                    }
-                });
-
-                return row;
-            }
-        });
-
-        // Keyboard arrow navigation event handling
-        table.setOnKeyReleased(new EventHandler<KeyEvent>()
-        {
-            @Override
-            public void handle(KeyEvent event)
-            {
-                if (event.getCode() == KeyCode.UP || event.getCode() == KeyCode.DOWN)
-                {
-                    ProcessedFileRecord selectedRecord = table.getSelectionModel().getSelectedItem();
-
-                    if (selectedRecord != null)
-                    {
-                        // Get active table bounds on screen to position preview near the table
-                        Point2D point = table.localToScreen(0, 0);
-
-                        if (point != null)
-                        {
-                            double screenX = point.getX() + table.getWidth() / 2;
-                            double screenY = point.getY() + 50;
-
-                            thumbnail.showPreview(selectedRecord, screenX, screenY);
-                        }
-                    }
-                }
-                
-                else if (event.getCode() == KeyCode.ESCAPE)
-                {
-                    thumbnail.hide();
-                }
-            }
-        });
-
-        // Ensure newly appending rows pull scrolling view downward automatically
-        completedFileRecords.addListener(new ListChangeListener<ProcessedFileRecord>()
-        {
-            @Override
-            public void onChanged(ListChangeListener.Change<? extends ProcessedFileRecord> change)
-            {
-                while (change.next())
-                {
-                    if (change.wasAdded() && !completedFileRecords.isEmpty())
-                    {
-                        table.scrollTo(completedFileRecords.size() - 1);
-                    }
-                }
-            }
-        });
-
-        dialog.setOnCloseRequest(new EventHandler<DialogEvent>()
-        {
-            @Override
-            public void handle(DialogEvent event)
-            {
-                thumbnail.dispose();
-                thumbnail.clearCache();
-            }
-        });
-
-        dialogPane.setContent(table);
-        dialogPane.setPrefSize(570, 320);
-        dialog.show();
-    }
-
-    /**
      * Binds control events, property listeners, and state dependencies.
      */
     private void configureDynamicNodes()
@@ -873,7 +565,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void handle(KeyEvent event)
             {
-                handleSourcePaste(event, sourceText);
+                UtilsJavaFX.handleSourcePaste(rootPane.getScene().getWindow(), event, sourceText);
             }
         });
 
@@ -925,121 +617,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     }
 
     /**
-     * Processes paste hotkey shortcuts in the source location text field.
-     *
-     * @param event
-     *        the triggered key event
-     * @param sourceText
-     *        source path text component
-     */
-    public void handleSourcePaste(KeyEvent event, TextField sourceText)
-    {
-        KeyCodeCombination shortcut = new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN);
-
-        if (shortcut.match(event))
-        {
-            Clipboard clipboard = Clipboard.getSystemClipboard();
-
-            if (clipboard.hasString())
-            {
-                String pastedText = clipboard.getString().trim();
-
-                if (pastedText.contains(","))
-                {
-                    // Evaluate multi-file comma-separated list path validity
-                    Path parentDir = null;
-                    String[] parts = pastedText.split("\\s*,\\s*");
-
-                    for (String token : parts)
-                    {
-                        try
-                        {
-                            Path fpath = Paths.get(token).toAbsolutePath();
-
-                            if (Files.isRegularFile(fpath))
-                            {
-                                parentDir = fpath.getParent();
-                                break;
-                            }
-                        }
-
-                        catch (InvalidPathException exc)
-                        {
-                            // Ignore invalid path components during initial root discovery
-                        }
-                    }
-
-                    boolean valid = (parentDir != null);
-
-                    if (valid)
-                    {
-                        for (String token : parts)
-                        {
-                            try
-                            {
-                                Path fpath = parentDir.resolve(token);
-
-                                if (!Files.isRegularFile(fpath) || !parentDir.equals(fpath.getParent()))
-                                {
-                                    valid = false;
-                                    break;
-                                }
-                            }
-
-                            catch (InvalidPathException exc)
-                            {
-                                valid = false;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (valid)
-                    {
-                        sourceText.setText(pastedText);
-                        sourceText.setTooltip(new Tooltip(pastedText));
-                    }
-
-                    else
-                    {
-                        String msg = "One or more pasted files is unknown or not in the same directory:\n\n" + pastedText;
-                        UtilsJavaFX.launchPopup(rootPane, "Invalid File Set", msg, AlertType.WARNING);
-                    }
-                }
-
-                else
-                {
-                    // Evaluate single folder or file target path
-                    try
-                    {
-                        Path fpath = Paths.get(pastedText);
-
-                        if (Files.exists(fpath))
-                        {
-                            sourceText.setText(pastedText);
-                            sourceText.setTooltip(new Tooltip(pastedText));
-                        }
-
-                        else
-                        {
-                            String msg = "The pasted path does not exist:\n\n" + pastedText;
-                            UtilsJavaFX.launchPopup(rootPane, "Invalid Path", msg, AlertType.WARNING);
-                        }
-                    }
-
-                    catch (InvalidPathException exc)
-                    {
-                        String msg = "The pasted content is not a valid file path:\n\n" + pastedText;
-                        UtilsJavaFX.launchPopup(rootPane, "Invalid Path", msg, AlertType.WARNING);
-                    }
-                }
-            }
-
-            event.consume();
-        }
-    }
-
-    /**
      * Builds and populates the recent paths context menu.
      */
     private void populateRecentHistoryMenu()
@@ -1057,7 +634,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void handle(ActionEvent event)
             {
-                handleFileSelection();
+                UtilsJavaFX.handleFileSelection(rootPane.getScene().getWindow());
             }
         });
 
@@ -1137,43 +714,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     }
 
     /**
-     * Prompts a file open selection dialog to capture explicit media files.
-     */
-    private void handleFileSelection()
-    {
-        TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
-        String actualText = sourceText.getText().trim();
-        File sourceDir = new File(actualText.isEmpty() ? System.getProperty("user.home") : actualText);
-        FileChooser chooser = new FileChooser();
-
-        chooser.setTitle("Select Source Files");
-
-        if (sourceDir.isDirectory())
-        {
-            chooser.setInitialDirectory(sourceDir);
-        }
-
-        List<File> files = chooser.showOpenMultipleDialog(rootPane.getScene().getWindow());
-
-        if (files != null && !files.isEmpty())
-        {
-            StringJoiner joiner = new StringJoiner(",");
-
-            for (File file : files)
-            {
-                joiner.add(file.getName());
-            }
-
-            String joined = joiner.toString();
-            Path parent = files.get(0).toPath().getParent();
-            Path commonDir = (parent == null ? files.get(0).toPath().getRoot() : parent);
-
-            sourceText.setText(joined);
-            sourceText.setTooltip(new Tooltip(commonDir.toAbsolutePath().toString()));
-        }
-    }
-
-    /**
      * Restores main interactive controls from active execution state.
      *
      * @param progressLabel
@@ -1230,7 +770,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     /**
      * Switches the active application UI theme by replacing the stylesheets applied to the scene
      * containing the root pane.
-     * 
+     *
      * <p>
      * The specified theme is loaded and applied to the application. If {@code themeFileName} is
      * {@code null}, no change is made. If the specified theme cannot be found, the current theme

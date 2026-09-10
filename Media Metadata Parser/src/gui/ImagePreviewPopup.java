@@ -135,7 +135,14 @@ public class ImagePreviewPopup
      */
     public void clearCache()
     {
+        // Clear references from map to un-anchor image pixel buffers from Java heap
         thumbnailCache.clear();
+
+        // Explicitly release currently displayed image reference
+        imageView.setImage(null);
+
+        // Hint to JVM to reclaim released image byte buffers immediately
+        System.gc();
     }
 
     /**
@@ -146,6 +153,7 @@ public class ImagePreviewPopup
     {
         hide();
         imageLoaderExecutor.shutdownNow();
+        clearCache();
     }
 
     /**

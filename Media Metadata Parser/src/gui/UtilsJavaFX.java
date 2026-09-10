@@ -1,8 +1,15 @@
 package gui;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.StringJoiner;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javafx.animation.PauseTransition;
@@ -13,12 +20,19 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.stage.FileChooser;
 import javafx.stage.Window;
 import javafx.util.Duration;
 
@@ -184,6 +198,174 @@ final class UtilsJavaFX
     }
 
     /**
+     * Processes paste hotkey shortcuts in the source location text field.
+     *
+     * @param owner
+     *        the parent {@link Window} owning the active scene
+     * @param event
+     *        the triggered key event
+     * @param sourceText
+     *        the source path text field component
+     */
+    static void handleSourcePaste(Window owner, KeyEvent event, TextField sourceText)
+    {
+        KeyCodeCombination shortcut = new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN);
+
+        if (shortcut.match(event))
+        {
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+
+            if (clipboard.hasString())
+            {
+                String pastedText = clipboard.getString().trim();
+
+                if (pastedText.contains(","))
+                {
+                    // Evaluate multi-file comma-separated list path validity
+                    Path parentDir = null;
+                    String[] parts = pastedText.split("\\s*,\\s*");
+
+                    for (String token : parts)
+                    {
+                        try
+                        {
+                            Path fpath = Paths.get(token).toAbsolutePath();
+
+                            if (Files.isRegularFile(fpath))
+                            {
+                                parentDir = fpath.getParent();
+                                break;
+                            }
+                        }
+
+                        catch (InvalidPathException exc)
+                        {
+                            // Ignore invalid path components during initial root discovery
+                        }
+                    }
+
+                    boolean valid = (parentDir != null);
+
+                    if (valid)
+                    {
+                        for (String token : parts)
+                        {
+                            try
+                            {
+                                Path fpath = parentDir.resolve(token);
+
+                                if (!Files.isRegularFile(fpath) || !parentDir.equals(fpath.getParent()))
+                                {
+                                    valid = false;
+                                    break;
+                                }
+                            }
+
+                            catch (InvalidPathException exc)
+                            {
+                                valid = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (valid)
+                    {
+                        sourceText.setText(pastedText);
+                        sourceText.setTooltip(new Tooltip(pastedText));
+                    }
+
+                    else
+                    {
+                        String msg = "One or more pasted files is unknown or not in the same directory:\n\n" + pastedText;
+                        UtilsJavaFX.launchPopup(owner, "Invalid File Set", msg, AlertType.WARNING);
+                    }
+                }
+
+                else
+                {
+                    // Evaluate single folder or file target path
+                    try
+                    {
+                        Path fpath = Paths.get(pastedText);
+
+                        if (Files.exists(fpath))
+                        {
+                            sourceText.setText(pastedText);
+                            sourceText.setTooltip(new Tooltip(pastedText));
+                        }
+
+                        else
+                        {
+                            String msg = "The pasted path does not exist:\n\n" + pastedText;
+                            UtilsJavaFX.launchPopup(owner, "Invalid Path", msg, AlertType.WARNING);
+                        }
+                    }
+
+                    catch (InvalidPathException exc)
+                    {
+                        String msg = "The pasted content is not a valid file path:\n\n" + pastedText;
+                        UtilsJavaFX.launchPopup(owner, "Invalid Path", msg, AlertType.WARNING);
+                    }
+                }
+            }
+
+            event.consume();
+        }
+    }
+
+    /**
+     * Prompts a file open selection dialog to capture explicit media files and sets the
+     * formatted file list into the source path input component.
+     *
+     * @param owner
+     *        the parent {@link Window} hosting the file chooser dialog
+     */
+    static void handleFileSelection(Window owner)
+    {
+        if (owner == null || owner.getScene() == null)
+        {
+            return;
+        }
+
+        TextField sourceText = UtilsJavaFX.getById(owner.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
+        if (sourceText == null)
+        {
+            return;
+        }
+
+        String actualText = sourceText.getText().trim();
+        File sourceDir = new File(actualText.isEmpty() ? System.getProperty("user.home") : actualText);
+        FileChooser chooser = new FileChooser();
+
+        chooser.setTitle("Select Source Files");
+
+        if (sourceDir.isDirectory())
+        {
+            chooser.setInitialDirectory(sourceDir);
+        }
+
+        List<File> files = chooser.showOpenMultipleDialog(owner);
+
+        if (files != null && !files.isEmpty())
+        {
+            StringJoiner joiner = new StringJoiner(",");
+
+            for (File file : files)
+            {
+                joiner.add(file.getName());
+            }
+
+            String joined = joiner.toString();
+            Path parent = files.get(0).toPath().getParent();
+            Path commonDir = (parent == null ? files.get(0).toPath().getRoot() : parent);
+
+            sourceText.setText(joined);
+            sourceText.setTooltip(new Tooltip(commonDir.toAbsolutePath().toString()));
+        }
+    }
+
+    /**
      * Copies the text area's contents to the system clipboard and provides temporary visual
      * feedback by highlighting the selected text with a soft green background.
      *
@@ -238,6 +420,10 @@ final class UtilsJavaFX
         return lower.contains("latitude") || lower.contains("longitude");
     }
 
+    /**
+     * Diagnostic utility that prints registered ImageIO file extensions and inspects
+     * available image reader implementations for TIFF and WebP formats to standard output.
+     */
     static void verifyImageIOSupport()
     {
         // Check registered file extensions
