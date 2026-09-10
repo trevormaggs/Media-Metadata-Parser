@@ -19,7 +19,7 @@ import common.Metadata;
 import common.PropertyConsumer;
 import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
-import gui.MediaFileMetadata;
+import gui.CollectedMetadata;
 import logger.LogFactory;
 import png.ChunkType;
 import png.PngChunk;
@@ -33,7 +33,7 @@ import tif.tagspecs.Taggable;
 import util.SystemInfo;
 
 /**
- * Extracts and displays media metadata using a pure POJO {@link MediaFileMetadata}.
+ * Extracts and displays media metadata using a pure POJO {@link CollectedMetadata}.
  *
  * Utility class to print media metadata in a format emulating the output style of
  * {@code exiftool -G1 -a -s -u}.
@@ -63,7 +63,7 @@ public final class DisplayMetadata
     private final MetadataScanner scanner;
     private final List<ProgressListener> progressListeners;
     private Consumer<String> metadataReceivedListener;
-    private Consumer<MediaFileMetadata> recordExtractedListener;
+    private Consumer<CollectedMetadata> recordExtractedListener;
 
     /**
      * Creates an instance for displaying metadata name/value attributes, similar to the output
@@ -108,12 +108,12 @@ public final class DisplayMetadata
     }
 
     /**
-     * Sets the callback listener that receives each parsed {@link MediaFileMetadata}.
+     * Sets the callback listener that receives each parsed {@link CollectedMetadata}.
      *
      * @param listener
      *        the consumer to process extracted metadata records
      */
-    public void setOnRecordExtracted(Consumer<MediaFileMetadata> listener)
+    public void setOnRecordExtracted(Consumer<CollectedMetadata> listener)
     {
         recordExtractedListener = listener;
     }
@@ -190,7 +190,7 @@ public final class DisplayMetadata
                          */
                         if (recordExtractedListener != null)
                         {
-                            recordExtractedListener.accept(new MediaFileMetadata(fpath, meta));
+                            recordExtractedListener.accept(new CollectedMetadata(fpath, meta));
                         }
                     }
 

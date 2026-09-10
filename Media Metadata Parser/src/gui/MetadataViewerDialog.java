@@ -533,9 +533,9 @@ class MetadataViewerDialog extends Stage
      * @param records
      *        the extracted metadata records to display
      */
-    void setMetadataRecords(List<MediaFileMetadata> records)
+    void setMetadataRecords(List<CollectedMetadata> records)
     {
-        MediaFileMetadata[] mediaItems = records.toArray(new MediaFileMetadata[0]);
+        CollectedMetadata[] mediaItems = records.toArray(new CollectedMetadata[0]);
         TreeItem<MetadataNode> rootNode = new TreeItem<>(new MetadataNode("Root", ""));
         treeTableView.setUserData(mediaItems);
         gpsMapManager.reset();
@@ -543,7 +543,7 @@ class MetadataViewerDialog extends Stage
 
         if (records != null)
         {
-            for (MediaFileMetadata item : mediaItems)
+            for (CollectedMetadata item : mediaItems)
             {
                 Metadata<?> meta = item.getMetadata();
                 String fileName = item.getFileName() != null ? item.getFileName() : "Unknown File";
@@ -667,7 +667,7 @@ class MetadataViewerDialog extends Stage
      */
     private void exportToFile()
     {
-        MediaFileMetadata[] mediaItems = (MediaFileMetadata[]) treeTableView.getUserData();
+        CollectedMetadata[] mediaItems = (CollectedMetadata[]) treeTableView.getUserData();
 
         if (mediaItems == null || mediaItems.length == 0)
         {

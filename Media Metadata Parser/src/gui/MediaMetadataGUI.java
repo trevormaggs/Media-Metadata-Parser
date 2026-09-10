@@ -57,7 +57,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private BatchTask workerTask;
     private MainViewPane viewPane;
     private StringBuilder flatMetadataText;
-    private ObservableList<MediaFileMetadata> extractedMetadata;
+    private ObservableList<CollectedMetadata> extractedMetadata;
     private ObservableList<ProcessedFileRecord> completedFileRecords;
 
     /**
@@ -264,10 +264,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         });
 
         // Populate metadata directly into List
-        workerTask.setOnRecordExtracted(new Consumer<MediaFileMetadata>()
+        workerTask.setOnRecordExtracted(new Consumer<CollectedMetadata>()
         {
             @Override
-            public void accept(MediaFileMetadata record)
+            public void accept(CollectedMetadata record)
             {
                 Platform.runLater(new Runnable()
                 {

@@ -51,7 +51,7 @@ final class MetadataExporter
      * @throws IOException
      *         if file output fails
      */
-    static void export(File targetFile, MediaFileMetadata[] mediaItems, SAVE_FORMAT format) throws IOException
+    static void export(File targetFile, CollectedMetadata[] mediaItems, SAVE_FORMAT format) throws IOException
     {
         String content;
 
@@ -76,13 +76,13 @@ final class MetadataExporter
         }
     }
 
-    private static String toCSV(MediaFileMetadata[] mediaItems)
+    private static String toCSV(CollectedMetadata[] mediaItems)
     {
         StringBuilder csv = new StringBuilder("File Name,Group,Property,Value\n");
 
         if (mediaItems != null)
         {
-            for (MediaFileMetadata record : mediaItems)
+            for (CollectedMetadata record : mediaItems)
             {
                 Metadata<?> meta = record.getMetadata();
                 String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
@@ -142,7 +142,7 @@ final class MetadataExporter
         return csv.toString();
     }
 
-    private static String toJSON(MediaFileMetadata[] mediaItems)
+    private static String toJSON(CollectedMetadata[] mediaItems)
     {
         StringBuilder json = new StringBuilder("[\n");
 
@@ -150,7 +150,7 @@ final class MetadataExporter
         {
             for (int i = 0; i < mediaItems.length; i++)
             {
-                MediaFileMetadata record = mediaItems[i];
+                CollectedMetadata record = mediaItems[i];
                 String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
                 Metadata<?> meta = record.getMetadata();
 
