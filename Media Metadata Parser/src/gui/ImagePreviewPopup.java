@@ -26,7 +26,11 @@ import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -38,12 +42,12 @@ import javafx.stage.Window;
  *
  * <p>
  * Includes an LRU memory cache to serve previously decoded thumbnails quickly, avoiding unnecessary
- * re-decodes on repeated hovers.
+ * re-decodes on repeated hovers, as well as a sleek metadata footer bar.
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
- * @since 7 September 2026
+ * @version 1.4
+ * @since 11 September 2026
  */
 public class ImagePreviewPopup
 {
@@ -52,6 +56,13 @@ public class ImagePreviewPopup
     private final Stage popupStage;
     private final ImageView imageView;
     private final Label unsupportedLabel;
+
+    // Metadata Overlay Controls
+    private final HBox overlayBar;
+    private final Label formatLabel;
+    private final Label dimensionsLabel;
+    private final Label sizeLabel;
+
     private final Map<Path, Image> thumbnailCache;
     private final ExecutorService imageLoaderExecutor;
     private Task<Image> currentThreadTask;
@@ -81,25 +92,48 @@ public class ImagePreviewPopup
         unsupportedLabel.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 15px;");
         unsupportedLabel.setAlignment(Pos.CENTER);
 
-        StackPane container = new StackPane(imageView, unsupportedLabel);
-        container.setPrefSize(250, 250);
-        container.setStyle("-fx-background-color: #2b2b2b; -fx-padding: 8px; -fx-background-radius: 6px; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 4);");
+        // Metadata Footer Bar Setup
+        formatLabel = new Label();
+        formatLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 11px; -fx-font-weight: bold;");
+
+        dimensionsLabel = new Label();
+        dimensionsLabel.setStyle("-fx-text-fill: #dcdcdc; -fx-font-size: 11px;");
+
+        sizeLabel = new Label();
+        sizeLabel.setStyle("-fx-text-fill: #dcdcdc; -fx-font-size: 11px;");
+
+        Region spacer1 = new Region();
+        Region spacer2 = new Region();
+        HBox.setHgrow(spacer1, Priority.ALWAYS);
+        HBox.setHgrow(spacer2, Priority.ALWAYS);
+
+        overlayBar = new HBox(8, formatLabel, spacer1, dimensionsLabel, spacer2, sizeLabel);
+        overlayBar.setAlignment(Pos.CENTER);
+        // Match bottom corner radiuses of outer container (6px)
+        overlayBar.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 6px 10px 6px 10px; -fx-background-radius: 0 0 6px 6px;");
+        overlayBar.setMaxWidth(Double.MAX_VALUE);
+        overlayBar.setMinHeight(Region.USE_PREF_SIZE);
+        VBox.setVgrow(overlayBar, Priority.NEVER);
+
+        // Image container with unsupported format overlay
+        StackPane imageHolder = new StackPane(imageView, unsupportedLabel);
+        imageHolder.setAlignment(Pos.CENTER);
+        VBox.setVgrow(imageHolder, Priority.ALWAYS);
+
+        // Dynamic VBox container that shrinks to fit the thumbnail height + footer
+        VBox container = new VBox(imageHolder, overlayBar);
+        container.setAlignment(Pos.CENTER);
+        container.setStyle("-fx-background-color: #2b2b2b; -fx-padding: 6px; -fx-background-radius: 6px; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 4);");
 
         Scene popupScene = new Scene(container);
         popupScene.setFill(null);
         popupStage.setScene(popupScene);
 
-        // We dont want the stackpane to steal focus from the image list
+        // Prevent container from stealing focus from underlying control
         container.setFocusTraversable(false);
 
         this.targetDir = targetDir;
 
-        /*
-         * We use a dedicated single-threaded background executor to ensure intensive
-         * thumbnail decoding operations are handled sequentially. This prevents disk I/O
-         * thrashing caused by reading multiple large files concurrently, while keeping
-         * the main UI thread completely responsive.
-         */
         this.imageLoaderExecutor = Executors.newSingleThreadExecutor(new ThreadFactory()
         {
             @Override
@@ -111,13 +145,6 @@ public class ImagePreviewPopup
             }
         });
 
-        /*
-         * Since storing multiple images in a Map could potentially cause an OutOfMemoryError, we
-         * use a thread-safe LRU (Least Recently Used) cache to map file paths to scaled JavaFX
-         * Image objects. The least recently accessed thumbnail is automatically evicted whenever
-         * the cache exceeds MAX_CACHE_SIZE entries. This ensures fast, inst ant loading on repeated
-         * hovers over them.
-         */
         this.thumbnailCache = Collections.synchronizedMap(new LinkedHashMap<Path, Image>(MAX_CACHE_SIZE, 0.75f, true)
         {
             @Override
@@ -130,21 +157,17 @@ public class ImagePreviewPopup
 
     /**
      * Clears all cached thumbnails from memory. Call this if the active workspace or target
-     * directory changes. This is important to release memory for garbage collection once users have
-     * finished.
+     * directory changes.
      */
     public void clearCache()
     {
         thumbnailCache.clear();
         imageView.setImage(null);
-
-        // Hint to JVM to reclaim released image byte buffers immediately
         System.gc();
     }
 
     /**
      * Cancels pending operations, hides the stage, and shuts down the background image loader.
-     * Call this when shutting down the application.
      */
     public void dispose()
     {
@@ -154,8 +177,7 @@ public class ImagePreviewPopup
     }
 
     /**
-     * Hides the preview popup stage and releases the displayed image reference. The image remains
-     * cached in memory within {@link #thumbnailCache}.
+     * Hides the preview popup stage and releases the displayed image reference.
      */
     public void hide()
     {
@@ -175,12 +197,6 @@ public class ImagePreviewPopup
     /**
      * Displays the preview thumbnail overlay for a specified file record at the given cursor
      * coordinates.
-     *
-     * <p>
-     * Checks the LRU memory cache before reading from disk. On a cache miss, JPG and PNG images are
-     * decoded using native JavaFX image pipelines, while other formats are decoded using an
-     * {@link ImageIO} {@link ImageReader} configured with source subsampling via TwelveMonkeys.
-     * </p>
      *
      * @param record
      *        the {@link ProcessedFileRecord} containing target path and magic signature metadata
@@ -214,12 +230,13 @@ public class ImagePreviewPopup
             imageView.setImage(null);
             imageView.setVisible(false);
             unsupportedLabel.setVisible(true);
+            overlayBar.setVisible(false);
             showThumbnailPopup(screenX, screenY);
 
             return;
         }
 
-        // Instant Cache Hit on FX Application Thread if data is active
+        // Instant Cache Hit on FX Application Thread
         if (cachedThumb != null)
         {
             if (currentThreadTask != null && currentThreadTask.isRunning())
@@ -230,12 +247,13 @@ public class ImagePreviewPopup
             unsupportedLabel.setVisible(false);
             imageView.setVisible(true);
             imageView.setImage(cachedThumb);
+            updateOverlay(record, cachedThumb);
             showThumbnailPopup(screenX, screenY);
 
             return;
         }
 
-        // Cancel previous pending task & load asynchronously again
+        // Cancel previous pending task & load asynchronously
         if (currentThreadTask != null && currentThreadTask.isRunning())
         {
             currentThreadTask.cancel();
@@ -245,9 +263,8 @@ public class ImagePreviewPopup
         imageView.setImage(null);
         imageView.setVisible(false);
         unsupportedLabel.setVisible(false);
+        overlayBar.setVisible(false);
 
-        // Each Task instance is persistently bound to a single image loading request. If the user
-        // hovers over a new image, 'currentThreadTask' is reassigned to a NEW Task instance.
         Task<Image> task = new Task<Image>()
         {
             @Override
@@ -279,14 +296,15 @@ public class ImagePreviewPopup
                         imageView.setImage(null);
                         imageView.setVisible(false);
                         unsupportedLabel.setVisible(true);
+                        overlayBar.setVisible(false);
                     }
-
                     else
                     {
                         thumbnailCache.put(realPath, loadedImage);
                         imageView.setVisible(true);
                         unsupportedLabel.setVisible(false);
                         imageView.setImage(loadedImage);
+                        updateOverlay(record, loadedImage);
                     }
                 }
             }
@@ -302,6 +320,7 @@ public class ImagePreviewPopup
                     imageView.setImage(null);
                     imageView.setVisible(false);
                     unsupportedLabel.setVisible(true);
+                    overlayBar.setVisible(false);
                 }
             }
         });
@@ -312,20 +331,50 @@ public class ImagePreviewPopup
     }
 
     /**
-     * Displays the thumbnail preview popup and positions it relative to the specified screen
-     * coordinates.
-     *
-     * <p>
-     * The popup is positioned to the lower-right of the cursor when space permits. If insufficient
-     * space is available at the right or bottom edge of the screen, the popup is repositioned to
-     * the opposite side of the cursor.
-     * </p>
-     *
-     * @param screenX
-     *        the absolute horizontal cursor coordinate on screen
-     * @param screenY
-     *        the absolute vertical cursor coordinate on screen
+     * Updates text labels on the translucent metadata bar.
      */
+    private void updateOverlay(ProcessedFileRecord record, Image loadedImage)
+    {
+        if (record == null)
+        {
+            overlayBar.setVisible(false);
+            return;
+        }
+
+        DigitalSignature sig = record.getDigitalSignature();
+        formatLabel.setText(sig != null ? sig.name() : "FILE");
+
+        if (loadedImage != null && !loadedImage.isError())
+        {
+            int width = (int) loadedImage.getWidth();
+            int height = (int) loadedImage.getHeight();
+            dimensionsLabel.setText(width + "×" + height);
+        }
+        else
+        {
+            dimensionsLabel.setText("—");
+        }
+
+        sizeLabel.setText(formatFileSize(record.getFileSize()));
+        overlayBar.setVisible(true);
+    }
+
+    /**
+     * Helper to format raw byte values into human-readable string units.
+     */
+    private String formatFileSize(long bytes)
+    {
+        if (bytes <= 0)
+        {
+            return "0 B";
+        }
+        String[] units = {"B", "KB", "MB", "GB"};
+        int digitGroups = (int) (Math.log10(bytes) / Math.log10(1024));
+        digitGroups = Math.min(digitGroups, units.length - 1);
+
+        return String.format("%.1f %s", bytes / Math.pow(1024, digitGroups), units[digitGroups]);
+    }
+
     private void showThumbnailPopup(double screenX, double screenY)
     {
         if (!popupStage.isShowing())
@@ -338,9 +387,11 @@ public class ImagePreviewPopup
             }
         }
 
+        popupStage.sizeToScene();
+
         Rectangle2D screenBounds = Screen.getScreensForRectangle(screenX, screenY, 1, 1).get(0).getVisualBounds();
-        double popupWidth = popupStage.getWidth() > 0 ? popupStage.getWidth() : 266;
-        double popupHeight = popupStage.getHeight() > 0 ? popupStage.getHeight() : 266;
+        double popupWidth = popupStage.getWidth() > 0 ? popupStage.getWidth() : 262;
+        double popupHeight = popupStage.getHeight() > 0 ? popupStage.getHeight() : 290;
         double targetX = screenX + 15;
         double targetY = screenY + 15;
 
@@ -358,24 +409,6 @@ public class ImagePreviewPopup
         popupStage.setY(targetY);
     }
 
-    /**
-     * Reads and scales an image to create a lightweight thumbnail using a native ImageIO image
-     * reader.
-     *
-     * <p>
-     * Source sub-sampling is used to reduce the amount of image data decoded for large source
-     * images.
-     * </p>
-     *
-     * @param path
-     *        the {@link Path} to the target image file
-     * @param targetWidth
-     *        the maximum desired thumbnail width in pixels
-     * @param targetHeight
-     *        the maximum desired thumbnail height in pixels
-     * @return a scaled JavaFX {@link Image}, or {@code null} if decoding fails or no reader is
-     *         registered
-     */
     private Image readThumbnail(Path path, int targetWidth, int targetHeight)
     {
         try (ImageInputStream stream = ImageIO.createImageInputStream(path.toFile()))
@@ -400,14 +433,12 @@ public class ImagePreviewPopup
 
                     return SwingFXUtils.toFXImage(bufImage, null);
                 }
-
                 finally
                 {
                     reader.dispose();
                 }
             }
         }
-
         catch (Exception exc)
         {
             // Pass through to return null on stream read error
@@ -416,14 +447,6 @@ public class ImagePreviewPopup
         return null;
     }
 
-    /**
-     * Determines whether a digital signature corresponds to a supported preview format.
-     *
-     * @param type
-     *        the {@link DigitalSignature} magic-number signature enum to check
-     * @return {@code true} if the signature corresponds to a supported preview format,
-     *         {@code false} otherwise
-     */
     private boolean isViewable(DigitalSignature type)
     {
         return type == DigitalSignature.JPG || type == DigitalSignature.PNG ||

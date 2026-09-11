@@ -89,6 +89,9 @@ public class ImagePreviewPopup2
         popupScene.setFill(null);
         popupStage.setScene(popupScene);
 
+        // We dont want the stackpane to steal focus from the image list
+        container.setFocusTraversable(false);
+
         this.targetDir = targetDir;
 
         /*
@@ -112,7 +115,7 @@ public class ImagePreviewPopup2
          * Since storing multiple images in a Map could potentially cause an OutOfMemoryError, we
          * use a thread-safe LRU (Least Recently Used) cache to map file paths to scaled JavaFX
          * Image objects. The least recently accessed thumbnail is automatically evicted whenever
-         * the cache exceeds MAX_CACHE_SIZE entries. This ensures fast, instant loading on repeated
+         * the cache exceeds MAX_CACHE_SIZE entries. This ensures fast, inst ant loading on repeated
          * hovers over them.
          */
         this.thumbnailCache = Collections.synchronizedMap(new LinkedHashMap<Path, Image>(MAX_CACHE_SIZE, 0.75f, true)
@@ -127,11 +130,16 @@ public class ImagePreviewPopup2
 
     /**
      * Clears all cached thumbnails from memory. Call this if the active workspace or target
-     * directory changes.
+     * directory changes. This is important to release memory for garbage collection once users have
+     * finished.
      */
     public void clearCache()
     {
         thumbnailCache.clear();
+        imageView.setImage(null);
+
+        // Hint to JVM to reclaim released image byte buffers immediately
+        System.gc();
     }
 
     /**
@@ -142,6 +150,7 @@ public class ImagePreviewPopup2
     {
         hide();
         imageLoaderExecutor.shutdownNow();
+        clearCache();
     }
 
     /**
@@ -318,11 +327,15 @@ public class ImagePreviewPopup2
      *        the absolute vertical cursor coordinate on screen
      */
     private void showThumbnailPopup(double screenX, double screenY)
-
     {
         if (!popupStage.isShowing())
         {
             popupStage.show();
+
+            if (popupStage.getOwner() != null)
+            {
+                popupStage.getOwner().requestFocus();
+            }
         }
 
         Rectangle2D screenBounds = Screen.getScreensForRectangle(screenX, screenY, 1, 1).get(0).getVisualBounds();
