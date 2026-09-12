@@ -419,6 +419,23 @@ final class UtilsJavaFX
 
         return lower.contains("latitude") || lower.contains("longitude");
     }
+    
+    /**
+     * Helper to format raw byte values into human-readable string units.
+     */
+    static String formatFileSize(long bytes)
+    {
+        if (bytes <= 0)
+        {
+            return "0 B";
+        }
+        
+        String[] units = {"B", "KB", "MB", "GB"};
+        int digitGroups = (int) (Math.log10(bytes) / Math.log10(1024));
+        digitGroups = Math.min(digitGroups, units.length - 1);
+
+        return String.format("%.1f %s", bytes / Math.pow(1024, digitGroups), units[digitGroups]);
+    }
 
     /**
      * Diagnostic utility that prints registered ImageIO file extensions and inspects

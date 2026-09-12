@@ -22,11 +22,16 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -52,6 +57,7 @@ public class ImagePreviewPopup2
     private final Stage popupStage;
     private final ImageView imageView;
     private final Label unsupportedLabel;
+    private final HBox overlayBar;
     private final Map<Path, Image> thumbnailCache;
     private final ExecutorService imageLoaderExecutor;
     private Task<Image> currentThreadTask;
@@ -81,15 +87,46 @@ public class ImagePreviewPopup2
         unsupportedLabel.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 15px;");
         unsupportedLabel.setAlignment(Pos.CENTER);
 
-        StackPane container = new StackPane(imageView, unsupportedLabel);
-        container.setPrefSize(250, 250);
-        container.setStyle("-fx-background-color: #2b2b2b; -fx-padding: 8px; -fx-background-radius: 6px; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 4);");
+        // Metadata Footer Bar Setup
+        Label formatLabel = new Label();
+        formatLabel.setUserData("FORMAT");
+        formatLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 11px; -fx-font-weight: bold;");
+
+        Label dimensionsLabel = new Label();
+        dimensionsLabel.setUserData("DIMENSIONS");
+        dimensionsLabel.setStyle("-fx-text-fill: #dcdcdc; -fx-font-size: 11px;");
+
+        Label sizeLabel = new Label();
+        sizeLabel.setUserData("SIZE");
+        sizeLabel.setStyle("-fx-text-fill: #dcdcdc; -fx-font-size: 11px;");
+
+        Region spacer1 = new Region();
+        Region spacer2 = new Region();
+        HBox.setHgrow(spacer1, Priority.ALWAYS);
+        HBox.setHgrow(spacer2, Priority.ALWAYS);
+
+        overlayBar = new HBox(8, formatLabel, spacer1, dimensionsLabel, spacer2, sizeLabel);
+        overlayBar.setAlignment(Pos.CENTER);
+        overlayBar.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 6px 10px 6px 10px; -fx-background-radius: 0 0 6px 6px;");
+        overlayBar.setMaxWidth(Double.MAX_VALUE);
+        overlayBar.setMinHeight(Region.USE_PREF_SIZE);
+        VBox.setVgrow(overlayBar, Priority.NEVER);
+
+        // Image container with unsupported format overlay
+        StackPane imageHolder = new StackPane(imageView, unsupportedLabel);
+        imageHolder.setAlignment(Pos.CENTER);
+        VBox.setVgrow(imageHolder, Priority.ALWAYS);
+
+        // Dynamic VBox container that shrinks to fit the thumbnail height + footer
+        VBox container = new VBox(imageHolder, overlayBar);
+        container.setAlignment(Pos.CENTER);
+        container.setStyle("-fx-background-color: #2b2b2b; -fx-padding: 6px; -fx-background-radius: 6px; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 4);");
 
         Scene popupScene = new Scene(container);
         popupScene.setFill(null);
         popupStage.setScene(popupScene);
 
-        // We dont want the stackpane to steal focus from the image list
+        // Prevent container from stealing focus from underlying control
         container.setFocusTraversable(false);
 
         this.targetDir = targetDir;
@@ -143,8 +180,8 @@ public class ImagePreviewPopup2
     }
 
     /**
-     * Cancels pending operations, hides the stage, and shuts down the background image loader.
-     * Call this when shutting down the application.
+     * Cancels pending operations, hides the stage, and shuts down the background image loader. Call
+     * this when shutting down the application.
      */
     public void dispose()
     {
@@ -214,12 +251,13 @@ public class ImagePreviewPopup2
             imageView.setImage(null);
             imageView.setVisible(false);
             unsupportedLabel.setVisible(true);
+            overlayBar.setVisible(false);
             showThumbnailPopup(screenX, screenY);
 
             return;
         }
 
-        // Instant Cache Hit on FX Application Thread if data is active
+        // Instant Cache Hit on FX Application Thread
         if (cachedThumb != null)
         {
             if (currentThreadTask != null && currentThreadTask.isRunning())
@@ -230,21 +268,21 @@ public class ImagePreviewPopup2
             unsupportedLabel.setVisible(false);
             imageView.setVisible(true);
             imageView.setImage(cachedThumb);
+            updateOverlay(record, cachedThumb);
             showThumbnailPopup(screenX, screenY);
 
             return;
         }
 
-        // Cancel previous pending task & load asynchronously again
         if (currentThreadTask != null && currentThreadTask.isRunning())
         {
             currentThreadTask.cancel();
         }
 
-        // Temporarily clear current image while background thread decodes
         imageView.setImage(null);
         imageView.setVisible(false);
         unsupportedLabel.setVisible(false);
+        overlayBar.setVisible(false);
 
         // Each Task instance is persistently bound to a single image loading request. If the user
         // hovers over a new image, 'currentThreadTask' is reassigned to a NEW Task instance.
@@ -279,6 +317,7 @@ public class ImagePreviewPopup2
                         imageView.setImage(null);
                         imageView.setVisible(false);
                         unsupportedLabel.setVisible(true);
+                        overlayBar.setVisible(false);
                     }
 
                     else
@@ -287,6 +326,7 @@ public class ImagePreviewPopup2
                         imageView.setVisible(true);
                         unsupportedLabel.setVisible(false);
                         imageView.setImage(loadedImage);
+                        updateOverlay(record, loadedImage);
                     }
                 }
             }
@@ -302,6 +342,7 @@ public class ImagePreviewPopup2
                     imageView.setImage(null);
                     imageView.setVisible(false);
                     unsupportedLabel.setVisible(true);
+                    overlayBar.setVisible(false);
                 }
             }
         });
@@ -309,6 +350,53 @@ public class ImagePreviewPopup2
         currentThreadTask = task;
         showThumbnailPopup(screenX, screenY);
         imageLoaderExecutor.submit(task);
+    }
+
+    private Label getOverlayLabel(String key)
+    {
+        for (Node node : overlayBar.getChildren())
+        {
+            if (key.equals(node.getUserData()) && node instanceof Label)
+            {
+                return (Label) node;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Updates text labels on the translucent metadata bar.
+     */
+    private void updateOverlay(ProcessedFileRecord record, Image loadedImage)
+    {
+        if (record == null)
+        {
+            overlayBar.setVisible(false);
+            return;
+        }
+
+        DigitalSignature sig = record.getDigitalSignature();
+        Label formatLabel = getOverlayLabel("FORMAT");
+        Label dimensionsLabel = getOverlayLabel("DIMENSIONS");
+        Label sizeLabel = getOverlayLabel("SIZE");
+
+        formatLabel.setText(sig != null ? sig.name() : "FILE");
+
+        if (loadedImage != null && !loadedImage.isError())
+        {
+            int width = (int) loadedImage.getWidth();
+            int height = (int) loadedImage.getHeight();
+            dimensionsLabel.setText(width + "×" + height);
+        }
+
+        else
+        {
+            dimensionsLabel.setText("—");
+        }
+
+        sizeLabel.setText(UtilsJavaFX.formatFileSize(record.getFileSize()));
+        overlayBar.setVisible(true);
     }
 
     /**
@@ -338,9 +426,11 @@ public class ImagePreviewPopup2
             }
         }
 
+        popupStage.sizeToScene();
+
         Rectangle2D screenBounds = Screen.getScreensForRectangle(screenX, screenY, 1, 1).get(0).getVisualBounds();
-        double popupWidth = popupStage.getWidth() > 0 ? popupStage.getWidth() : 266;
-        double popupHeight = popupStage.getHeight() > 0 ? popupStage.getHeight() : 266;
+        double popupWidth = popupStage.getWidth() > 0 ? popupStage.getWidth() : 262;
+        double popupHeight = popupStage.getHeight() > 0 ? popupStage.getHeight() : 290;
         double targetX = screenX + 15;
         double targetY = screenY + 15;
 

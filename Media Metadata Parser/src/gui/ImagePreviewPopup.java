@@ -22,6 +22,7 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
@@ -37,17 +38,17 @@ import javafx.stage.StageStyle;
 import javafx.stage.Window;
 
 /**
- * A lightweight, frameless floating JavaFX popup window that displays dynamic image previews when
- * hovering over media records.
+ * A lightweight, frameless JavaFX popup window that displays dynamic image previews when hovering
+ * over media records.
  *
  * <p>
- * Includes an LRU memory cache to serve previously decoded thumbnails quickly, avoiding unnecessary
- * re-decodes on repeated hovers, as well as a sleek metadata footer bar.
+ * Previously loaded thumbnails are kept in memory so they can be displayed quickly when viewed
+ * again.
  * </p>
- *
+ * 
  * @author Trevor Maggs
- * @version 1.4
- * @since 11 September 2026
+ * @version 1.2
+ * @since 7 September 2026
  */
 public class ImagePreviewPopup
 {
@@ -56,25 +57,18 @@ public class ImagePreviewPopup
     private final Stage popupStage;
     private final ImageView imageView;
     private final Label unsupportedLabel;
-
-    // Metadata Overlay Controls
     private final HBox overlayBar;
-    private final Label formatLabel;
-    private final Label dimensionsLabel;
-    private final Label sizeLabel;
-
     private final Map<Path, Image> thumbnailCache;
     private final ExecutorService imageLoaderExecutor;
     private Task<Image> currentThreadTask;
 
     /**
-     * Constructs a new floating image preview popup associated with a parent window.
+     * Creates a new floating image preview popup associated with a parent window.
      *
      * @param owner
-     *        the parent {@link Window} that owns the popup, or {@code null} if no owner is
-     *        specified
+     *        the parent {@link Window}, or {@code null} if no owner is specified
      * @param targetDir
-     *        the base {@link Path} directory used for resolving relative paths, or {@code null}
+     *        the base {@link Path} used to resolve relative paths, or {@code null}
      */
     public ImagePreviewPopup(Window owner, Path targetDir)
     {
@@ -93,13 +87,16 @@ public class ImagePreviewPopup
         unsupportedLabel.setAlignment(Pos.CENTER);
 
         // Metadata Footer Bar Setup
-        formatLabel = new Label();
+        Label formatLabel = new Label();
+        formatLabel.setUserData("FORMAT");
         formatLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 11px; -fx-font-weight: bold;");
 
-        dimensionsLabel = new Label();
+        Label dimensionsLabel = new Label();
+        dimensionsLabel.setUserData("DIMENSIONS");
         dimensionsLabel.setStyle("-fx-text-fill: #dcdcdc; -fx-font-size: 11px;");
 
-        sizeLabel = new Label();
+        Label sizeLabel = new Label();
+        sizeLabel.setUserData("SIZE");
         sizeLabel.setStyle("-fx-text-fill: #dcdcdc; -fx-font-size: 11px;");
 
         Region spacer1 = new Region();
@@ -109,7 +106,6 @@ public class ImagePreviewPopup
 
         overlayBar = new HBox(8, formatLabel, spacer1, dimensionsLabel, spacer2, sizeLabel);
         overlayBar.setAlignment(Pos.CENTER);
-        // Match bottom corner radiuses of outer container (6px)
         overlayBar.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 6px 10px 6px 10px; -fx-background-radius: 0 0 6px 6px;");
         overlayBar.setMaxWidth(Double.MAX_VALUE);
         overlayBar.setMinHeight(Region.USE_PREF_SIZE);
@@ -134,6 +130,12 @@ public class ImagePreviewPopup
 
         this.targetDir = targetDir;
 
+        /*
+         * We use a dedicated single-threaded background executor to ensure intensive
+         * thumbnail decoding operations are handled sequentially. This prevents disk I/O
+         * thrashing caused by reading multiple large files concurrently, while keeping
+         * the main UI thread completely responsive.
+         */
         this.imageLoaderExecutor = Executors.newSingleThreadExecutor(new ThreadFactory()
         {
             @Override
@@ -145,6 +147,13 @@ public class ImagePreviewPopup
             }
         });
 
+        /*
+         * Since storing multiple images in a Map could potentially cause an OutOfMemoryError, we
+         * use a thread-safe LRU (Least Recently Used) cache to map file paths to scaled JavaFX
+         * Image objects. The least recently accessed thumbnail is automatically evicted whenever
+         * the cache exceeds MAX_CACHE_SIZE entries. This ensures fast, inst ant loading on repeated
+         * hovers over them.
+         */
         this.thumbnailCache = Collections.synchronizedMap(new LinkedHashMap<Path, Image>(MAX_CACHE_SIZE, 0.75f, true)
         {
             @Override
@@ -156,18 +165,29 @@ public class ImagePreviewPopup
     }
 
     /**
-     * Clears all cached thumbnails from memory. Call this if the active workspace or target
-     * directory changes.
+     * Clears all cached thumbnails from memory.
+     *
+     * <p>
+     * Call this when the active workspace or target directory changes so that thumbnails from the
+     * previous location are no longer retained.
+     * </p>
      */
     public void clearCache()
     {
         thumbnailCache.clear();
         imageView.setImage(null);
+
+        // Hint to JVM to reclaim released image byte buffers immediately
         System.gc();
     }
 
     /**
-     * Cancels pending operations, hides the stage, and shuts down the background image loader.
+     * Hides the preview popup, cancels background image loading, clears the thumbnail cache, and
+     * shuts down the image loader.
+     *
+     * <p>
+     * Call this when the application is shutting down.
+     * </p>
      */
     public void dispose()
     {
@@ -177,7 +197,11 @@ public class ImagePreviewPopup
     }
 
     /**
-     * Hides the preview popup stage and releases the displayed image reference.
+     * Hides the preview popup and removes the currently displayed image.
+     *
+     * <p>
+     * The image remains available in the thumbnail cache for future previews.
+     * </p>
      */
     public void hide()
     {
@@ -195,15 +219,19 @@ public class ImagePreviewPopup
     }
 
     /**
-     * Displays the preview thumbnail overlay for a specified file record at the given cursor
-     * coordinates.
+     * Displays an image preview for the specified file record at the given screen coordinates.
+     *
+     * <p>
+     * Previously loaded thumbnails are displayed immediately. Otherwise, the image is loaded in the
+     * background and displayed when ready.
+     * </p>
      *
      * @param record
-     *        the {@link ProcessedFileRecord} containing target path and magic signature metadata
+     *        the {@link ProcessedFileRecord} containing the target path and file type information
      * @param screenX
-     *        the absolute horizontal cursor coordinate on screen
+     *        the horizontal cursor position on screen
      * @param screenY
-     *        the absolute vertical cursor coordinate on screen
+     *        the vertical cursor position on screen
      */
     public void showPreview(ProcessedFileRecord record, double screenX, double screenY)
     {
@@ -253,18 +281,18 @@ public class ImagePreviewPopup
             return;
         }
 
-        // Cancel previous pending task & load asynchronously
         if (currentThreadTask != null && currentThreadTask.isRunning())
         {
             currentThreadTask.cancel();
         }
 
-        // Temporarily clear current image while background thread decodes
         imageView.setImage(null);
         imageView.setVisible(false);
         unsupportedLabel.setVisible(false);
         overlayBar.setVisible(false);
 
+        // Each Task instance is persistently bound to a single image loading request. If the user
+        // hovers over a new image, 'currentThreadTask' is reassigned to a NEW Task instance.
         Task<Image> task = new Task<Image>()
         {
             @Override
@@ -298,6 +326,7 @@ public class ImagePreviewPopup
                         unsupportedLabel.setVisible(true);
                         overlayBar.setVisible(false);
                     }
+
                     else
                     {
                         thumbnailCache.put(realPath, loadedImage);
@@ -331,6 +360,25 @@ public class ImagePreviewPopup
     }
 
     /**
+     * Finds an overlay label associated with the specified key.
+     *
+     * @param key
+     *        the key used to identify the label
+     * @return the matching {@link Label}, or {@code null} if no matching label is found
+     */
+    private Label getOverlayLabel(String key)
+    {
+        for (Node node : overlayBar.getChildren())
+        {
+            if (key.equals(node.getUserData()) && node instanceof Label)
+            {
+                return (Label) node;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Updates text labels on the translucent metadata bar.
      */
     private void updateOverlay(ProcessedFileRecord record, Image loadedImage)
@@ -342,6 +390,10 @@ public class ImagePreviewPopup
         }
 
         DigitalSignature sig = record.getDigitalSignature();
+        Label formatLabel = getOverlayLabel("FORMAT");
+        Label dimensionsLabel = getOverlayLabel("DIMENSIONS");
+        Label sizeLabel = getOverlayLabel("SIZE");
+
         formatLabel.setText(sig != null ? sig.name() : "FILE");
 
         if (loadedImage != null && !loadedImage.isError())
@@ -350,31 +402,29 @@ public class ImagePreviewPopup
             int height = (int) loadedImage.getHeight();
             dimensionsLabel.setText(width + "×" + height);
         }
+
         else
         {
             dimensionsLabel.setText("—");
         }
 
-        sizeLabel.setText(formatFileSize(record.getFileSize()));
+        sizeLabel.setText(UtilsJavaFX.formatFileSize(record.getFileSize()));
         overlayBar.setVisible(true);
     }
 
     /**
-     * Helper to format raw byte values into human-readable string units.
+     * Displays the thumbnail preview popup and positions it near the specified screen coordinates.
+     *
+     * <p>
+     * The popup is positioned to the lower-right of the cursor when space permits. If there is not
+     * enough space, it is moved to the opposite side of the cursor.
+     * </p>
+     *
+     * @param screenX
+     *        the horizontal cursor position on screen
+     * @param screenY
+     *        the vertical cursor position on screen
      */
-    private String formatFileSize(long bytes)
-    {
-        if (bytes <= 0)
-        {
-            return "0 B";
-        }
-        String[] units = {"B", "KB", "MB", "GB"};
-        int digitGroups = (int) (Math.log10(bytes) / Math.log10(1024));
-        digitGroups = Math.min(digitGroups, units.length - 1);
-
-        return String.format("%.1f %s", bytes / Math.pow(1024, digitGroups), units[digitGroups]);
-    }
-
     private void showThumbnailPopup(double screenX, double screenY)
     {
         if (!popupStage.isShowing())
@@ -409,6 +459,21 @@ public class ImagePreviewPopup
         popupStage.setY(targetY);
     }
 
+    /**
+     * Reads an image and creates a thumbnail of the requested size.
+     *
+     * <p>
+     * Large images are reduced while being read to avoid loading more image data than necessary.
+     * </p>
+     *
+     * @param path
+     *        the {@link Path} to the image file
+     * @param targetWidth
+     *        the maximum desired thumbnail width in pixels
+     * @param targetHeight
+     *        the maximum desired thumbnail height in pixels
+     * @return a scaled JavaFX {@link Image}, or {@code null} if the image cannot be read
+     */
     private Image readThumbnail(Path path, int targetWidth, int targetHeight)
     {
         try (ImageInputStream stream = ImageIO.createImageInputStream(path.toFile()))
@@ -433,12 +498,14 @@ public class ImagePreviewPopup
 
                     return SwingFXUtils.toFXImage(bufImage, null);
                 }
+
                 finally
                 {
                     reader.dispose();
                 }
             }
         }
+
         catch (Exception exc)
         {
             // Pass through to return null on stream read error
@@ -447,6 +514,13 @@ public class ImagePreviewPopup
         return null;
     }
 
+    /**
+     * Determines whether the file type is supported for image previews.
+     *
+     * @param type
+     *        the file type to check
+     * @return {@code true} if the file type can be previewed, {@code false} otherwise
+     */
     private boolean isViewable(DigitalSignature type)
     {
         return type == DigitalSignature.JPG || type == DigitalSignature.PNG ||
