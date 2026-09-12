@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.StringJoiner;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -133,6 +134,7 @@ final class UtilsJavaFX
     static <T extends Node> T getById(Node root, String id, Class<T> type)
     {
         Node node = UtilsJavaFX.getById(root, id);
+        Objects.requireNonNull(type, "Node type must not be null");
 
         if (node == null)
         {
@@ -221,7 +223,7 @@ final class UtilsJavaFX
 
                 if (pastedText.contains(","))
                 {
-                    // Evaluate multi-file comma-separated list path validity
+                    // Validate a comma-separated list of file names
                     Path parentDir = null;
                     String[] parts = pastedText.split("\\s*,\\s*");
 
@@ -419,9 +421,18 @@ final class UtilsJavaFX
 
         return lower.contains("latitude") || lower.contains("longitude");
     }
-    
+
     /**
-     * Helper to format raw byte values into human-readable string units.
+     * Formats a byte count as a human-readable file size using binary units.
+     *
+     * <p>
+     * Values are expressed using units of B, KB, MB, or GB, where each unit represents 1024 of the
+     * previous unit. Values less than or equal to zero are formatted as {@code "0 B"}.
+     * </p>
+     *
+     * @param bytes
+     *        the file size in bytes
+     * @return the formatted file size using a single decimal place
      */
     static String formatFileSize(long bytes)
     {
@@ -429,7 +440,7 @@ final class UtilsJavaFX
         {
             return "0 B";
         }
-        
+
         String[] units = {"B", "KB", "MB", "GB"};
         int digitGroups = (int) (Math.log10(bytes) / Math.log10(1024));
         digitGroups = Math.min(digitGroups, units.length - 1);
@@ -438,8 +449,8 @@ final class UtilsJavaFX
     }
 
     /**
-     * Diagnostic utility that prints registered ImageIO file extensions and inspects
-     * available image reader implementations for TIFF and WebP formats to standard output.
+     * Diagnostic utility that prints registered ImageIO file extensions and reports available image
+     * reader implementations for TIFF and WebP formats to standard output.
      */
     static void verifyImageIOSupport()
     {

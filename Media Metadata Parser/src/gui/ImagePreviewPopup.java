@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
@@ -20,22 +19,12 @@ import javafx.concurrent.Task;
 import javafx.concurrent.WorkerStateEvent;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.EventHandler;
-import javafx.geometry.Pos;
-import javafx.geometry.Rectangle2D;
-import javafx.scene.Node;
-import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
-import javafx.stage.Screen;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
-import javafx.stage.Window;
+import javafx.geometry.*;
+import javafx.scene.*;
+import javafx.scene.control.*;
+import javafx.scene.image.*;
+import javafx.scene.layout.*;
+import javafx.stage.*;
 
 /**
  * A lightweight, frameless JavaFX popup window that displays dynamic image previews when hovering
@@ -45,9 +34,15 @@ import javafx.stage.Window;
  * Previously loaded thumbnails are kept in memory so they can be displayed quickly when viewed
  * again.
  * </p>
+ *
+ * <p>
+ * <b>Note:</b> Extended image format support (such as TIFF, WebP, and DNG) relies on external
+ * <a href="https://github.com/haraldk/TwelveMonkeys">TwelveMonkeys ImageIO</a> plugins registered
+ * in the application classpath.
+ * </p>
  * 
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.3
  * @since 7 September 2026
  */
 public class ImagePreviewPopup
@@ -136,22 +131,18 @@ public class ImagePreviewPopup
          * thrashing caused by reading multiple large files concurrently, while keeping
          * the main UI thread completely responsive.
          */
-        this.imageLoaderExecutor = Executors.newSingleThreadExecutor(new ThreadFactory()
+        this.imageLoaderExecutor = Executors.newSingleThreadExecutor(r ->
         {
-            @Override
-            public Thread newThread(Runnable r)
-            {
-                Thread t = new Thread(r, "ImagePreview-Loader-Thread");
-                t.setDaemon(true);
-                return t;
-            }
+            Thread t = new Thread(r, "ImagePreview-Loader-Thread");
+            t.setDaemon(true);
+            return t;
         });
 
         /*
          * Since storing multiple images in a Map could potentially cause an OutOfMemoryError, we
          * use a thread-safe LRU (Least Recently Used) cache to map file paths to scaled JavaFX
          * Image objects. The least recently accessed thumbnail is automatically evicted whenever
-         * the cache exceeds MAX_CACHE_SIZE entries. This ensures fast, inst ant loading on repeated
+         * the cache exceeds MAX_CACHE_SIZE entries. This ensures fast, instant loading on repeated
          * hovers over them.
          */
         this.thumbnailCache = Collections.synchronizedMap(new LinkedHashMap<Path, Image>(MAX_CACHE_SIZE, 0.75f, true)
@@ -176,9 +167,6 @@ public class ImagePreviewPopup
     {
         thumbnailCache.clear();
         imageView.setImage(null);
-
-        // Hint to JVM to reclaim released image byte buffers immediately
-        System.gc();
     }
 
     /**
@@ -205,7 +193,7 @@ public class ImagePreviewPopup
      */
     public void hide()
     {
-        if (currentThreadTask != null && currentThreadTask.isRunning())
+        if (currentThreadTask != null && !currentThreadTask.isDone())
         {
             currentThreadTask.cancel();
         }
@@ -375,6 +363,7 @@ public class ImagePreviewPopup
                 return (Label) node;
             }
         }
+
         return null;
     }
 
@@ -394,21 +383,31 @@ public class ImagePreviewPopup
         Label dimensionsLabel = getOverlayLabel("DIMENSIONS");
         Label sizeLabel = getOverlayLabel("SIZE");
 
-        formatLabel.setText(sig != null ? sig.name() : "FILE");
-
-        if (loadedImage != null && !loadedImage.isError())
+        if (formatLabel != null)
         {
-            int width = (int) loadedImage.getWidth();
-            int height = (int) loadedImage.getHeight();
-            dimensionsLabel.setText(width + "×" + height);
+            formatLabel.setText(sig != null ? sig.name() : "FILE");
         }
 
-        else
+        if (dimensionsLabel != null)
         {
-            dimensionsLabel.setText("—");
+            if (loadedImage != null && !loadedImage.isError())
+            {
+                int width = (int) loadedImage.getWidth();
+                int height = (int) loadedImage.getHeight();
+                dimensionsLabel.setText(width + "×" + height);
+            }
+
+            else
+            {
+                dimensionsLabel.setText("—");
+            }
         }
 
-        sizeLabel.setText(UtilsJavaFX.formatFileSize(record.getFileSize()));
+        if (sizeLabel != null)
+        {
+            sizeLabel.setText(UtilsJavaFX.formatFileSize(record.getFileSize()));
+        }
+
         overlayBar.setVisible(true);
     }
 
@@ -508,7 +507,7 @@ public class ImagePreviewPopup
 
         catch (Exception exc)
         {
-            // Pass through to return null on stream read error
+            return null;
         }
 
         return null;
@@ -521,7 +520,7 @@ public class ImagePreviewPopup
      *        the file type to check
      * @return {@code true} if the file type can be previewed, {@code false} otherwise
      */
-    private boolean isViewable(DigitalSignature type)
+    private static boolean isViewable(DigitalSignature type)
     {
         return type == DigitalSignature.JPG || type == DigitalSignature.PNG ||
                 type == DigitalSignature.TIF || type == DigitalSignature.WEBP ||
