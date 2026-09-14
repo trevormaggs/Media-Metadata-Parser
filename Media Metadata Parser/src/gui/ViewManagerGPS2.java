@@ -14,7 +14,7 @@ import tif.tagspecs.TagIFD_GPS;
  * Manages Leaflet map rendering for {@link MetadataViewerDialog} and delegates GPS coordinate
  * parsing to the static methods in {@link GpsDataManager}.
  */
-public class ViewManagerGPS
+public class ViewManagerGPS2
 {
     private final WebView mapView;
     private final Map<String, GpsLocation> locationMap;
@@ -25,7 +25,7 @@ public class ViewManagerGPS
      * @param mapView
      *        the JavaFX {@link WebView} used to render Leaflet map instances
      */
-    public ViewManagerGPS(WebView mapView)
+    public ViewManagerGPS2(WebView mapView)
     {
         this.mapView = mapView;
         this.locationMap = new LinkedHashMap<>();
@@ -146,20 +146,10 @@ public class ViewManagerGPS
                 + "  <div id='map'></div>"
                 + "  <script>"
                 + "    var map = L.map('map').setView([" + lat + ", " + lon + "], 15);"
-                + "    var tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {"
+                + "    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {"
                 + "      maxZoom: 19,"
                 + "      attribution: '© OpenStreetMap'"
                 + "    }).addTo(map);"
-                + "    tileLayer.on('tileerror', function(error) {"
-                + "      document.getElementById('map').innerHTML = "
-                + "        '<div style=\"display:flex; justify-content:center; align-items:center; height:100%; font-family:sans-serif; color:#666; background:#f4f4f4;\">' +"
-                + "        '  <div style=\"text-align:center;\">' +"
-                + "        '    <h3>Map Unavailable Offline</h3>' +"
-                + "        '    <p><b>" + title + "</b></p>' +"
-                + "        '    <p>Lat: " + lat + " | Lon: " + lon + "</p>' +"
-                + "        '  </div>' +"
-                + "        '</div>';"
-                + "    });"
                 + "    L.marker([" + lat + ", " + lon + "]).addTo(map)"
                 + "      .bindPopup('<b>" + title + "</b><br>Lat: " + lat + "<br>Lon: " + lon + "')"
                 + "      .openPopup();"

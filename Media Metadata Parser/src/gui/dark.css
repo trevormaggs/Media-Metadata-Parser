@@ -55,6 +55,7 @@
   -fx-prompt-text-fill: #808080;
   -fx-border-color: #555555;
   -fx-border-radius: 3px;
+  -fx-background-radius: 3px;
 }
 
 .read-only-path-field

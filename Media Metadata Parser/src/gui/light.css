@@ -48,6 +48,7 @@
   -fx-text-fill: #333333;
   -fx-border-color: #BABABA;
   -fx-border-radius: 3px;
+  -fx-background-radius: 3px;
 }
 
 .read-only-path-field

@@ -47,6 +47,7 @@ class MetadataViewerDialog extends Stage
     private final ViewManagerGPS gpsMapManager;
     private final TreeTableView<MetadataNode> treeTableView;
     private final TextField txtSearch;
+    private final HoverDebouncer searchDebouncer = new HoverDebouncer(150);
     private boolean allItemsExpanded;
     private TreeItem<MetadataNode> masterRootNode;
 
@@ -71,12 +72,20 @@ class MetadataViewerDialog extends Stage
         txtSearch = new TextField();
         txtSearch.setPromptText("Search tags or values...");
         txtSearch.setPrefWidth(180);
+
         txtSearch.textProperty().addListener(new ChangeListener<String>()
         {
             @Override
             public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue)
             {
-                filterTree(newValue);
+                searchDebouncer.request(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        filterTree(newValue);
+                    }
+                });
             }
         });
 

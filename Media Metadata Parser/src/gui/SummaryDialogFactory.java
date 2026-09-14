@@ -3,6 +3,7 @@ package gui;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
@@ -111,8 +112,8 @@ final class SummaryDialogFactory
 
         // Dynamic Target Filename Column
         TableColumn<ProcessedFileRecord, String> targetCol = new TableColumn<>("Target File");
-        sourceCol.setMinWidth(130);
-        sourceCol.setPrefWidth(180);
+        targetCol.setMinWidth(130);
+        targetCol.setPrefWidth(180);
         targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -129,7 +130,7 @@ final class SummaryDialogFactory
         sizeCol.setPrefWidth(90);
         sizeCol.setResizable(false);
         sizeCol.setStyle("-fx-alignment: CENTER-RIGHT;");
-
+        
         sizeCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, Long>, ObservableValue<Long>>()
         {
             @Override
@@ -181,8 +182,8 @@ final class SummaryDialogFactory
         table.getColumns().add(sizeCol);
         table.setItems(completedFileRecords);
 
-        // Attach hover image thumbnail listeners on rows, debounced to reduce redundant loader
-        // tasks
+        // Attach hover image thumbnail listeners on rows, 
+        // debounced to reduce redundant loader tasks
         table.setRowFactory(new Callback<TableView<ProcessedFileRecord>, TableRow<ProcessedFileRecord>>()
         {
             @Override
@@ -308,5 +309,15 @@ final class SummaryDialogFactory
         dialogPane.setContent(table);
         dialogPane.setPrefSize(570, 320);
         dialog.show();
+
+        Platform.runLater(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                table.applyCss();
+                table.requestLayout();
+            }
+        });
     }
 }
