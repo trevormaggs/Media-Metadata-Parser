@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import common.Metadata;
-import common.PropertyConsumer;
+import common.PropertyBiConsumer;
 import javafx.scene.control.TextArea;
 import png.PngChunk;
 import png.PngDirectory;
@@ -116,7 +116,7 @@ final class MetadataExporter
                 {
                     PngMetadataProvider png = (PngMetadataProvider) meta;
 
-                    PropertyConsumer consumer = new PropertyConsumer()
+                    PropertyBiConsumer consumer = new PropertyBiConsumer()
                     {
                         @Override
                         public void accept(String key, Object value)
@@ -148,9 +148,8 @@ final class MetadataExporter
 
         if (mediaItems != null)
         {
-            for (int i = 0; i < mediaItems.length; i++)
+            for (CollectedMetadata record : mediaItems)
             {
-                CollectedMetadata record = mediaItems[i];
                 String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
                 Metadata<?> meta = record.getMetadata();
 
@@ -175,7 +174,10 @@ final class MetadataExporter
 
                         for (DirectoryIFD.EntryIFD entry : ifd)
                         {
-                            if (entry.getTag() != null) totalEntries++;
+                            if (entry.getTag() != null)
+                            {
+                                totalEntries++;
+                            }
                         }
 
                         for (DirectoryIFD.EntryIFD entry : ifd)
@@ -208,7 +210,7 @@ final class MetadataExporter
 
                     final StringBuilder pngProps = new StringBuilder();
 
-                    PropertyConsumer consumer = new PropertyConsumer()
+                    PropertyBiConsumer consumer = new PropertyBiConsumer()
                     {
                         @Override
                         public void accept(String key, Object value)

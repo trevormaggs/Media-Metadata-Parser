@@ -16,7 +16,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import common.DigitalSignature;
-import common.PropertyConsumer;
+import common.PropertyBiConsumer;
 import heif.HeifDatePatcher;
 import jpg.JpgDatePatcher;
 import logger.LogFactory;
@@ -57,7 +57,7 @@ public final class MediaBatchProcessor
     private final List<ProgressListener> listeners;
     private final MetadataScanner scanner;
     private final BatchConfiguration config;
-    private PropertyConsumer summaryListener;
+    private PropertyBiConsumer summaryListener;
     public static final String DEFAULT_IMAGE_PREFIX = "image";
     public static final String DEFAULT_SOURCE_DIRECTORY = ".";
     public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
@@ -96,11 +96,11 @@ public final class MediaBatchProcessor
      * can be registered at a time. The listener receives updates used to accurately display file
      * metrics after processing is completed. Both console and GUI applications can use these
      * updates.
-     * 
+     *
      * @param listener
      *        the listener to receive batch process event updates
      */
-    public void setSummaryListener(PropertyConsumer listener)
+    public void setSummaryListener(PropertyBiConsumer listener)
     {
         summaryListener = listener;
     }
@@ -294,7 +294,7 @@ public final class MediaBatchProcessor
         }
 
         LOGGER.info("Unsupported file [" + record.getPath().getFileName() + "] detected and copied");
-        
+
         return record.getPath().getFileName().toString();
     }
 
@@ -320,7 +320,7 @@ public final class MediaBatchProcessor
      *        the target filename to use for output
      * @return the file size of the newly generated file, or {@code -1} if processing was cancelled
      *         before completion
-     * 
+     *
      * @throws BatchErrorException
      *         if file I/O or metadata patching fails
      */

@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -434,19 +435,21 @@ final class UtilsJavaFX
      *        the file size in bytes
      * @return the formatted file size using a single decimal place
      */
-    static String formatFileSize(long bytes)
+    static String formatFileSize(Long bytes)
     {
-        if (bytes <= 0)
+        if (bytes == null || bytes <= 0)
         {
             return "0 B";
         }
 
-        String[] units = {"B", "KB", "MB", "GB"};
+        String[] units = {"B", "KB", "MB", "GB", "TB"};
         int digitGroups = (int) (Math.log10(bytes) / Math.log10(1024));
-        digitGroups = Math.min(digitGroups, units.length - 1);
 
-        return String.format("%.1f %s", bytes / Math.pow(1024, digitGroups), units[digitGroups]);
+        digitGroups = Math.min(digitGroups, units.length - 1);
+        
+        return new DecimalFormat("#,##0.#").format(bytes / Math.pow(1024, digitGroups)) + " " + units[digitGroups];
     }
+
 
     /**
      * Diagnostic utility that prints registered ImageIO file extensions and reports available image

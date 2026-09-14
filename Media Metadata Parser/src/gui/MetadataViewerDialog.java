@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.function.Consumer;
 import common.Metadata;
-import common.PropertyConsumer;
+import common.PropertyBiConsumer;
 import gui.MetadataExporter.SAVE_FORMAT;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.value.ChangeListener;
@@ -233,7 +233,7 @@ class MetadataViewerDialog extends Stage
                     public void handle(ActionEvent event)
                     {
                         MetadataNode item = row.getItem();
-                        
+
                         if (item != null)
                         {
                             copyToClipboard(item.getName());
@@ -247,7 +247,7 @@ class MetadataViewerDialog extends Stage
                     public void handle(ActionEvent event)
                     {
                         MetadataNode item = row.getItem();
-                        
+
                         if (item != null)
                         {
                             copyToClipboard(item.getValue());
@@ -261,7 +261,7 @@ class MetadataViewerDialog extends Stage
                     public void handle(ActionEvent event)
                     {
                         MetadataNode item = row.getItem();
-                        
+
                         if (item != null)
                         {
                             copyToClipboard(item.getName() + " = " + item.getValue());
@@ -281,7 +281,7 @@ class MetadataViewerDialog extends Stage
                         {
                             row.setContextMenu(null);
                         }
-                        
+
                         else
                         {
                             row.setContextMenu(contextMenu);
@@ -594,7 +594,7 @@ class MetadataViewerDialog extends Stage
 
                     groupNode.setExpanded(true);
 
-                    PropertyConsumer consumer = new PropertyConsumer()
+                    PropertyBiConsumer consumer = new PropertyBiConsumer()
                     {
                         @Override
                         public void accept(String key, Object value)

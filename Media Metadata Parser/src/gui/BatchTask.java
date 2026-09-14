@@ -8,7 +8,7 @@ import batch.BatchMetrics;
 import batch.BatchProcessEvent;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
-import common.PropertyConsumer;
+import common.PropertyBiConsumer;
 import javafx.concurrent.Task;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
@@ -32,7 +32,7 @@ class BatchTask extends Task<BatchMetrics>
     private final TextArea logArea;
     private final ProgressBar progressBar;
     private final boolean display;
-    private PropertyConsumer fileSummaryListener;
+    private PropertyBiConsumer fileSummaryListener;
     private Consumer<Integer> fileScannedListener;
     private Consumer<Integer> fileProcessedListener;
     private Consumer<String> metadataReceivedListener;
@@ -102,7 +102,7 @@ class BatchTask extends Task<BatchMetrics>
      * @param listener
      *        the listener to receive batch process event updates
      */
-    void setOnFileSummaryListener(PropertyConsumer listener)
+    void setOnFileSummaryListener(PropertyBiConsumer listener)
     {
         fileSummaryListener = listener;
     }
@@ -168,7 +168,7 @@ class BatchTask extends Task<BatchMetrics>
         if (display)
         {
             DisplayMetadata display = new DisplayMetadata(config);
-            
+
             display.addProgressListener(attachProgressAdapter("Retrieving metadata"));
 
             if (onRecordExtracted != null)
@@ -195,7 +195,7 @@ class BatchTask extends Task<BatchMetrics>
 
         if (fileSummaryListener != null)
         {
-            processor.setSummaryListener(new PropertyConsumer()
+            processor.setSummaryListener(new PropertyBiConsumer()
             {
                 @Override
                 public void accept(String key, Object value)

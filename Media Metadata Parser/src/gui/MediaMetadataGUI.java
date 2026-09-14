@@ -8,7 +8,7 @@ import batch.BatchErrorException;
 import batch.BatchMetrics;
 import batch.BatchProcessEvent;
 import common.DigitalSignature;
-import common.PropertyConsumer;
+import common.PropertyBiConsumer;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -376,7 +376,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask = new BatchTask(config, logArea, progressBar, false);
 
         // Receive file execution output records for tabular summary reporting
-        workerTask.setOnFileSummaryListener(new PropertyConsumer()
+        workerTask.setOnFileSummaryListener(new PropertyBiConsumer()
         {
             @Override
             public void accept(String key, Object value)

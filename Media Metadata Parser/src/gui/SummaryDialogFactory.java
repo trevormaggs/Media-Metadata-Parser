@@ -3,7 +3,6 @@ package gui;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.DecimalFormat;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
@@ -99,8 +98,8 @@ final class SummaryDialogFactory
 
         // Dynamic Source Filename Column
         TableColumn<ProcessedFileRecord, String> sourceCol = new TableColumn<>("Source File");
-        sourceCol.setMinWidth(150);
-        sourceCol.setPrefWidth(210);
+        sourceCol.setMinWidth(130);
+        sourceCol.setPrefWidth(180);
         sourceCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -112,8 +111,8 @@ final class SummaryDialogFactory
 
         // Dynamic Target Filename Column
         TableColumn<ProcessedFileRecord, String> targetCol = new TableColumn<>("Target File");
-        targetCol.setMinWidth(150);
-        targetCol.setPrefWidth(210);
+        sourceCol.setMinWidth(130);
+        sourceCol.setPrefWidth(180);
         targetCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, String>, ObservableValue<String>>()
         {
             @Override
@@ -152,24 +151,7 @@ final class SummaryDialogFactory
                     {
                         super.updateItem(item, empty);
 
-                        if (empty || item == null)
-                        {
-                            setText(null);
-                        }
-
-                        else if (item <= 0)
-                        {
-                            setText("0 B");
-                        }
-
-                        else
-                        {
-                            String[] units = {"B", "KB", "MB", "GB", "TB"};
-                            int digitGroups = (int) (Math.log10(item) / Math.log10(1024));
-
-                            digitGroups = Math.min(digitGroups, units.length - 1);
-                            setText(new DecimalFormat("#,##0.#").format(item / Math.pow(1024, digitGroups)) + " " + units[digitGroups]);
-                        }
+                        setText(UtilsJavaFX.formatFileSize(item));
                     }
                 };
             }
@@ -192,14 +174,15 @@ final class SummaryDialogFactory
         final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialogPane.getScene().getWindow(), targetDir);
 
         TableView<ProcessedFileRecord> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.getColumns().add(indexCol);
         table.getColumns().add(sourceCol);
         table.getColumns().add(targetCol);
         table.getColumns().add(sizeCol);
         table.setItems(completedFileRecords);
 
-        // Attach hover image thumbnail listeners on rows, debounced to reduce redundant loader tasks
+        // Attach hover image thumbnail listeners on rows, debounced to reduce redundant loader
+        // tasks
         table.setRowFactory(new Callback<TableView<ProcessedFileRecord>, TableRow<ProcessedFileRecord>>()
         {
             @Override

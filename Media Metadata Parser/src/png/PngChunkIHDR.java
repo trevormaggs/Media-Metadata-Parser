@@ -2,8 +2,8 @@ package png;
 
 import java.nio.ByteBuffer;
 import common.ByteValueConverter;
+import common.PropertyBiConsumer;
 import common.Utils;
-import common.PropertyConsumer;
 import logger.LogFactory;
 
 /**
@@ -244,7 +244,7 @@ public class PngChunkIHDR extends PngChunk
      *        the target that receives the formatted metadata properties
      */
     @Override
-    public void printProperties(PropertyConsumer display)
+    public void printProperties(PropertyBiConsumer display)
     {
         display.accept("Image Width", getWidth());
         display.accept("Image Height", getHeight());

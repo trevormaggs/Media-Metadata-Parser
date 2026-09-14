@@ -6,8 +6,8 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import common.ByteValueConverter;
+import common.PropertyBiConsumer;
 import common.Utils;
-import common.PropertyConsumer;
 import logger.LogFactory;
 
 /**
@@ -72,7 +72,7 @@ public class PngChunkGAMA extends PngChunk
     /**
      * Converts the stored PNG gamma value into a human-readable display gamma, using the reciprocal
      * of the encoded value to match ExifTool's output.
-     * 
+     *
      * @return the formatted gamma metric string (e.g., "2.2")
      */
     public String translateGamma()
@@ -106,7 +106,7 @@ public class PngChunkGAMA extends PngChunk
      *        the target that receives the formatted metadata properties
      */
     @Override
-    public void printProperties(PropertyConsumer display)
+    public void printProperties(PropertyBiConsumer display)
     {
         display.accept("Gamma", translateGamma());
     }

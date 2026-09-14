@@ -16,7 +16,7 @@ import common.AbstractImageParser;
 import common.DetectedFormatResult;
 import common.ImageParserFactory;
 import common.Metadata;
-import common.PropertyConsumer;
+import common.PropertyBiConsumer;
 import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
 import gui.CollectedMetadata;
@@ -293,7 +293,7 @@ public final class DisplayMetadata
         {
             PngMetadataProvider png = (PngMetadataProvider) meta;
 
-            PropertyConsumer consumer = new PropertyConsumer()
+            PropertyBiConsumer consumer = new PropertyBiConsumer()
             {
                 @Override
                 public void accept(String key, Object value)

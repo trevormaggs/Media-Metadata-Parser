@@ -3,7 +3,7 @@ package png;
 import java.nio.ByteOrder;
 import common.ByteValueConverter;
 import common.Utils;
-import common.PropertyConsumer;
+import common.PropertyBiConsumer;
 
 /**
  * Represents a PNG {@code pHYs} (Physical Pixel Dimensions) chunk.
@@ -131,7 +131,7 @@ public class PngChunkPHYS extends PngChunk
      *        the target that receives the formatted metadata properties
      */
     @Override
-    public void printProperties(PropertyConsumer display)
+    public void printProperties(PropertyBiConsumer display)
     {
         display.accept("PixelsPerUnitX", getPixelsPerUnitX());
         display.accept("PixelsPerUnitY", getPixelsPerUnitY());

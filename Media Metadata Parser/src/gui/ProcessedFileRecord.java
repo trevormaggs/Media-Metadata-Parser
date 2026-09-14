@@ -5,7 +5,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import common.DigitalSignature;
-import common.PropertyConsumer;
+import common.PropertyBiConsumer;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleLongProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -14,7 +14,7 @@ import javafx.beans.property.SimpleStringProperty;
 /**
  * Table model representing the processing status of an individual file.
  */
-class ProcessedFileRecord implements PropertyConsumer
+class ProcessedFileRecord implements PropertyBiConsumer
 {
     private final SimpleStringProperty sourceName;
     private final SimpleStringProperty targetName;
@@ -26,7 +26,7 @@ class ProcessedFileRecord implements PropertyConsumer
     static final String KEY_MAGIC = "MAGIC";
     static final String KEY_STATUS = "STATUS";
     static final String KEY_SIZE = "SIZE";
-    
+
     /**
      * Creates an empty file processing record with default values.
      */

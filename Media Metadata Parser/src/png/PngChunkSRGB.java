@@ -2,7 +2,7 @@ package png;
 
 import common.ByteValueConverter;
 import common.Utils;
-import common.PropertyConsumer;
+import common.PropertyBiConsumer;
 import logger.LogFactory;
 
 /**
@@ -103,7 +103,7 @@ public class PngChunkSRGB extends PngChunk
      *        the target that receives the formatted metadata properties
      */
     @Override
-    public void printProperties(PropertyConsumer display)
+    public void printProperties(PropertyBiConsumer display)
     {
         display.accept("SRGB Rendering", translateRendering());
     }
