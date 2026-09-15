@@ -1,35 +1,24 @@
 package gui;
 
-import java.awt.Desktop;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
-import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
-import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Point2D;
-import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogEvent;
 import javafx.scene.control.DialogPane;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
@@ -41,12 +30,12 @@ import javafx.util.Callback;
  * Factory class responsible for constructing and displaying the batch processing summary dialog.
  *
  * @author Trevor Maggs
- * @version 1.1
+ * @version 1.0
  * @since 7 September 2026
  */
-final class SummaryDialogFactory
+final class SummaryDialogFactory2
 {
-    private SummaryDialogFactory()
+    private SummaryDialogFactory2()
     {
         // Private constructor to prevent instantiation. This is a utility class.
     }
@@ -63,7 +52,7 @@ final class SummaryDialogFactory
      */
     static void show(Window owner, TextField targetText, ObservableList<ProcessedFileRecord> completedFileRecords)
     {
-        Path resolvedTargetDir = null;
+        Path targetDir = null;
 
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Batch Processing Summary");
@@ -141,7 +130,7 @@ final class SummaryDialogFactory
         sizeCol.setPrefWidth(90);
         sizeCol.setResizable(false);
         sizeCol.setStyle("-fx-alignment: CENTER-RIGHT;");
-
+        
         sizeCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<ProcessedFileRecord, Long>, ObservableValue<Long>>()
         {
             @Override
@@ -173,7 +162,7 @@ final class SummaryDialogFactory
         {
             try
             {
-                resolvedTargetDir = Paths.get(targetText.getText().trim()).toAbsolutePath();
+                targetDir = Paths.get(targetText.getText().trim()).toAbsolutePath();
             }
 
             catch (InvalidPathException exc)
@@ -182,7 +171,6 @@ final class SummaryDialogFactory
             }
         }
 
-        final Path targetDir = resolvedTargetDir;
         final HoverDebouncer debouncer = new HoverDebouncer(120);
         final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialogPane.getScene().getWindow(), targetDir);
 
@@ -194,94 +182,14 @@ final class SummaryDialogFactory
         table.getColumns().add(sizeCol);
         table.setItems(completedFileRecords);
 
-        // Row factory handling hover preview popups and right-click context menu
+        // Attach hover image thumbnail listeners on rows, 
+        // debounced to reduce redundant loader tasks
         table.setRowFactory(new Callback<TableView<ProcessedFileRecord>, TableRow<ProcessedFileRecord>>()
         {
             @Override
             public TableRow<ProcessedFileRecord> call(TableView<ProcessedFileRecord> param)
             {
                 final TableRow<ProcessedFileRecord> row = new TableRow<>();
-                final ContextMenu contextMenu = new ContextMenu();
-
-                MenuItem openFolderItem = new MenuItem("Open Target Location");
-                MenuItem copyPathItem = new MenuItem("Copy Target Path");
-                MenuItem copyNameItem = new MenuItem("Copy Target Name");
-
-                openFolderItem.setOnAction(new EventHandler<ActionEvent>()
-                {
-                    @Override
-                    public void handle(ActionEvent event)
-                    {
-                        ProcessedFileRecord record = row.getItem();
-
-                        if (record != null && targetDir != null)
-                        {
-                            Path fpath = targetDir.resolve(record.getTargetName());
-                            Path dpath = Files.exists(fpath) ? fpath.getParent() : targetDir;
-
-                            try
-                            {
-                                if (Desktop.isDesktopSupported() && Files.exists(dpath))
-                                {
-                                    Desktop.getDesktop().open(dpath.toFile());
-                                }
-                            }
-
-                            catch (IOException exc)
-                            {
-                                UtilsJavaFX.launchPopup(dialogPane.getScene().getWindow(), "File Error", "Unable to open directory location:\n" + exc.getMessage(), AlertType.ERROR);
-                            }
-                        }
-                    }
-                });
-
-                copyPathItem.setOnAction(new EventHandler<ActionEvent>()
-                {
-                    @Override
-                    public void handle(ActionEvent event)
-                    {
-                        ProcessedFileRecord record = row.getItem();
-
-                        if (record != null)
-                        {
-                            String fullPath = (targetDir != null ? targetDir.resolve(record.getTargetName()).toString() : record.getTargetName());
-                            copyToClipboard(fullPath);
-                        }
-                    }
-                });
-
-                copyNameItem.setOnAction(new EventHandler<ActionEvent>()
-                {
-                    @Override
-                    public void handle(ActionEvent event)
-                    {
-                        ProcessedFileRecord record = row.getItem();
-
-                        if (record != null)
-                        {
-                            copyToClipboard(record.getTargetName());
-                        }
-                    }
-                });
-
-                contextMenu.getItems().addAll(openFolderItem, copyPathItem, copyNameItem);
-
-                row.emptyProperty().addListener(new ChangeListener<Boolean>()
-                {
-                    @Override
-                    public void changed(ObservableValue<? extends Boolean> obs, Boolean wasEmpty, Boolean isEmpty)
-                    {
-                        if (isEmpty)
-                        {
-                            row.setContextMenu(null);
-                        }
-
-                        else
-                        {
-                            row.setContextMenu(contextMenu);
-                        }
-                    }
-                });
 
                 row.setOnMouseEntered(new EventHandler<MouseEvent>()
                 {
@@ -313,44 +221,6 @@ final class SummaryDialogFactory
                     {
                         debouncer.cancel();
                         thumbnail.hide();
-                    }
-                });
-
-                row.setOnMouseClicked(new EventHandler<MouseEvent>()
-                {
-                    @Override
-                    public void handle(MouseEvent event)
-                    {
-                        // Check for primary double-click on a non-empty row
-                        if (event.getClickCount() == 2 && !row.isEmpty())
-                        {
-                            ProcessedFileRecord record = row.getItem();
-
-                            if (record != null && targetDir != null)
-                            {
-                                File file = targetDir.resolve(record.getTargetName()).toFile();
-
-                                try
-                                {
-                                    if (Desktop.isDesktopSupported() && file.exists())
-                                    {
-                                        // Launches system default viewer/application for the file
-                                        Desktop.getDesktop().open(file);
-                                    }
-
-                                    else if (Desktop.isDesktopSupported() && file.getParentFile() != null && file.getParentFile().exists())
-                                    {
-                                        // Fall back to opening the parent directory if file missing
-                                        Desktop.getDesktop().open(file.getParentFile());
-                                    }
-                                }
-
-                                catch (IOException exc)
-                                {
-                                    UtilsJavaFX.launchPopup(dialogPane.getScene().getWindow(), "File Error", "Unable to open target file:\n" + exc.getMessage(), AlertType.ERROR);
-                                }
-                            }
-                        }
                     }
                 });
 
@@ -449,21 +319,5 @@ final class SummaryDialogFactory
                 table.requestLayout();
             }
         });
-    }
-
-    /**
-     * Helper utility for copying string text to the system clipboard.
-     * 
-     * @param text
-     *        the text string to place on clipboard
-     */
-    private static void copyToClipboard(String text)
-    {
-        if (text != null && !text.trim().isEmpty())
-        {
-            ClipboardContent content = new ClipboardContent();
-            content.putString(text);
-            Clipboard.getSystemClipboard().setContent(content);
-        }
     }
 }

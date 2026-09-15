@@ -47,7 +47,7 @@ class MetadataViewerDialog extends Stage
     private final ViewManagerGPS gpsMapManager;
     private final TreeTableView<MetadataNode> treeTableView;
     private final TextField txtSearch;
-    private final HoverDebouncer searchDebouncer = new HoverDebouncer(150);
+    private final HoverDebouncer searchDebouncer;
     private boolean allItemsExpanded;
     private TreeItem<MetadataNode> masterRootNode;
 
@@ -65,6 +65,8 @@ class MetadataViewerDialog extends Stage
         final Button btnClose = new Button("Close");
         final RadioButton rbFlat = new RadioButton("Raw Flat Text");
         final RadioButton rbTree = new RadioButton("Structured Tree");
+        
+        this.searchDebouncer = new HoverDebouncer(150);
 
         mapView = new WebView();
         cbGpsFiles = new ComboBox<>();
