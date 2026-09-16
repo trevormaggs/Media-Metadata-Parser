@@ -115,6 +115,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
         TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
         CheckBox themeBox = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
+        
+        if (workerTask != null && workerTask.isRunning())
+        {
+            workerTask.cancel(true);
+        }
 
         try
         {

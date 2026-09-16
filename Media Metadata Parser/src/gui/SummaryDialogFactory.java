@@ -3,7 +3,6 @@ package gui;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -23,6 +22,7 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogEvent;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
@@ -31,6 +31,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.stage.Modality;
@@ -41,8 +42,8 @@ import javafx.util.Callback;
  * Factory class responsible for constructing and displaying the batch processing summary dialog.
  *
  * @author Trevor Maggs
- * @version 1.1
- * @since 7 September 2026
+ * @version 1.2
+ * @since 16 September 2026
  */
 final class SummaryDialogFactory
 {
@@ -186,26 +187,31 @@ final class SummaryDialogFactory
         final HoverDebouncer debouncer = new HoverDebouncer(120);
         final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialogPane.getScene().getWindow(), targetDir);
 
-        TableView<ProcessedFileRecord> table = new TableView<>();
+        final TableView<ProcessedFileRecord> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        // Enable multi-row selection mode
+        table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+
         table.getColumns().add(indexCol);
         table.getColumns().add(sourceCol);
         table.getColumns().add(targetCol);
         table.getColumns().add(sizeCol);
         table.setItems(completedFileRecords);
 
-        // Row factory handling hover preview popups and right-click context menu
+        // Row factory handling hover preview popups, double-click open, and context menu
         table.setRowFactory(new Callback<TableView<ProcessedFileRecord>, TableRow<ProcessedFileRecord>>()
         {
             @Override
             public TableRow<ProcessedFileRecord> call(TableView<ProcessedFileRecord> param)
             {
-                final TableRow<ProcessedFileRecord> row = new TableRow<>();
                 final ContextMenu contextMenu = new ContextMenu();
+                final TableRow<ProcessedFileRecord> row = new TableRow<>();
 
                 MenuItem openFolderItem = new MenuItem("Open Target Location");
-                MenuItem copyPathItem = new MenuItem("Copy Target Path");
-                MenuItem copyNameItem = new MenuItem("Copy Target Name");
+                MenuItem copyPathItem = new MenuItem("Copy Target Path(s)");
+                MenuItem copyNameItem = new MenuItem("Copy Target Name(s)");
+                MenuItem copyCsvItem = new MenuItem("Copy Selected (CSV)");
 
                 openFolderItem.setOnAction(new EventHandler<ActionEvent>()
                 {
@@ -216,14 +222,14 @@ final class SummaryDialogFactory
 
                         if (record != null && targetDir != null)
                         {
-                            Path fpath = targetDir.resolve(record.getTargetName());
-                            Path dpath = Files.exists(fpath) ? fpath.getParent() : targetDir;
+                            File file = targetDir.resolve(record.getTargetName()).toFile();
+                            File folderToOpen = file.exists() ? file.getParentFile() : targetDir.toFile();
 
                             try
                             {
-                                if (Desktop.isDesktopSupported() && Files.exists(dpath))
+                                if (Desktop.isDesktopSupported() && folderToOpen.exists())
                                 {
-                                    Desktop.getDesktop().open(dpath.toFile());
+                                    Desktop.getDesktop().open(folderToOpen);
                                 }
                             }
 
@@ -240,12 +246,22 @@ final class SummaryDialogFactory
                     @Override
                     public void handle(ActionEvent event)
                     {
-                        ProcessedFileRecord record = row.getItem();
+                        ObservableList<ProcessedFileRecord> selected = table.getSelectionModel().getSelectedItems();
 
-                        if (record != null)
+                        if (selected != null && !selected.isEmpty())
                         {
-                            String fullPath = (targetDir != null ? targetDir.resolve(record.getTargetName()).toString() : record.getTargetName());
-                            copyToClipboard(fullPath);
+                            StringBuilder sb = new StringBuilder();
+
+                            for (ProcessedFileRecord record : selected)
+                            {
+                                if (record != null)
+                                {
+                                    String fullPath = (targetDir != null ? targetDir.resolve(record.getTargetName()).toString() : record.getTargetName());
+                                    sb.append(fullPath).append(System.lineSeparator());
+                                }
+                            }
+
+                            copyToClipboard(sb.toString().trim());
                         }
                     }
                 });
@@ -255,16 +271,37 @@ final class SummaryDialogFactory
                     @Override
                     public void handle(ActionEvent event)
                     {
-                        ProcessedFileRecord record = row.getItem();
+                        ObservableList<ProcessedFileRecord> selected = table.getSelectionModel().getSelectedItems();
 
-                        if (record != null)
+                        if (selected != null && !selected.isEmpty())
                         {
-                            copyToClipboard(record.getTargetName());
+                            StringBuilder sb = new StringBuilder();
+
+                            for (ProcessedFileRecord record : selected)
+                            {
+                                if (record != null)
+                                {
+                                    sb.append(record.getTargetName()).append(System.lineSeparator());
+                                }
+                            }
+
+                            copyToClipboard(sb.toString().trim());
                         }
                     }
                 });
 
-                contextMenu.getItems().addAll(openFolderItem, copyPathItem, copyNameItem);
+                copyCsvItem.setOnAction(new EventHandler<ActionEvent>()
+                {
+                    @Override
+                    public void handle(ActionEvent event)
+                    {
+                        copySelectedRowsToCsv(table);
+                    }
+                });
+
+                copyCsvItem.setAccelerator(new KeyCodeCombination(KeyCode.C, KeyCodeCombination.SHORTCUT_DOWN));
+
+                contextMenu.getItems().addAll(openFolderItem, copyPathItem, copyNameItem, copyCsvItem);
 
                 row.emptyProperty().addListener(new ChangeListener<Boolean>()
                 {
@@ -279,6 +316,42 @@ final class SummaryDialogFactory
                         else
                         {
                             row.setContextMenu(contextMenu);
+                        }
+                    }
+                });
+
+                // Double-click row shortcut to open output file
+                row.setOnMouseClicked(new EventHandler<MouseEvent>()
+                {
+                    @Override
+                    public void handle(MouseEvent event)
+                    {
+                        if (event.getClickCount() == 2 && !row.isEmpty())
+                        {
+                            ProcessedFileRecord record = row.getItem();
+
+                            if (record != null && targetDir != null)
+                            {
+                                File file = targetDir.resolve(record.getTargetName()).toFile();
+
+                                try
+                                {
+                                    if (Desktop.isDesktopSupported() && file.exists())
+                                    {
+                                        Desktop.getDesktop().open(file);
+                                    }
+
+                                    else if (Desktop.isDesktopSupported() && file.getParentFile() != null && file.getParentFile().exists())
+                                    {
+                                        Desktop.getDesktop().open(file.getParentFile());
+                                    }
+                                }
+
+                                catch (IOException exc)
+                                {
+                                    UtilsJavaFX.launchPopup(dialogPane.getScene().getWindow(), "File Error", "Unable to open target file:\n" + exc.getMessage(), AlertType.ERROR);
+                                }
+                            }
                         }
                     }
                 });
@@ -313,44 +386,6 @@ final class SummaryDialogFactory
                     {
                         debouncer.cancel();
                         thumbnail.hide();
-                    }
-                });
-
-                row.setOnMouseClicked(new EventHandler<MouseEvent>()
-                {
-                    @Override
-                    public void handle(MouseEvent event)
-                    {
-                        // Check for primary double-click on a non-empty row
-                        if (event.getClickCount() == 2 && !row.isEmpty())
-                        {
-                            ProcessedFileRecord record = row.getItem();
-
-                            if (record != null && targetDir != null)
-                            {
-                                File file = targetDir.resolve(record.getTargetName()).toFile();
-
-                                try
-                                {
-                                    if (Desktop.isDesktopSupported() && file.exists())
-                                    {
-                                        // Launches system default viewer/application for the file
-                                        Desktop.getDesktop().open(file);
-                                    }
-
-                                    else if (Desktop.isDesktopSupported() && file.getParentFile() != null && file.getParentFile().exists())
-                                    {
-                                        // Fall back to opening the parent directory if file missing
-                                        Desktop.getDesktop().open(file.getParentFile());
-                                    }
-                                }
-
-                                catch (IOException exc)
-                                {
-                                    UtilsJavaFX.launchPopup(dialogPane.getScene().getWindow(), "File Error", "Unable to open target file:\n" + exc.getMessage(), AlertType.ERROR);
-                                }
-                            }
-                        }
                     }
                 });
 
@@ -405,6 +440,20 @@ final class SummaryDialogFactory
                 {
                     debouncer.cancel();
                     thumbnail.hide();
+                }
+            }
+        });
+
+        // SHORTCUT_DOWN handles Ctrl on Windows/Linux and Cmd on macOS
+        table.setOnKeyPressed(new EventHandler<KeyEvent>()
+        {
+            @Override
+            public void handle(KeyEvent event)
+            {
+                if (new KeyCodeCombination(KeyCode.C, KeyCodeCombination.SHORTCUT_DOWN).match(event))
+                {
+                    copySelectedRowsToCsv(table);
+                    event.consume();
                 }
             }
         });
@@ -464,6 +513,36 @@ final class SummaryDialogFactory
             ClipboardContent content = new ClipboardContent();
             content.putString(text);
             Clipboard.getSystemClipboard().setContent(content);
+        }
+    }
+
+    /**
+     * Helper method to format selected table rows as CSV and copy to clipboard.
+     * 
+     * @param table
+     *        the target TableView instance
+     */
+    private static void copySelectedRowsToCsv(TableView<ProcessedFileRecord> table)
+    {
+        ObservableList<ProcessedFileRecord> selected = table.getSelectionModel().getSelectedItems();
+
+        if (selected != null && !selected.isEmpty())
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.append("Source File,Target File,File Size").append(System.lineSeparator());
+
+            for (ProcessedFileRecord record : selected)
+            {
+                if (record != null)
+                {
+                    sb.append("\"").append(record.getSourceName()).append("\",")
+                            .append("\"").append(record.getTargetName()).append("\",")
+                            .append("\"").append(UtilsJavaFX.formatFileSize(record.getFileSize())).append("\"")
+                            .append(System.lineSeparator());
+                }
+            }
+
+            copyToClipboard(sb.toString().trim());
         }
     }
 }
