@@ -27,7 +27,7 @@ public final class Utils
      * Australian English locale used for application-specific date formatting.
      */
     public static final Locale LOCALE_AU = new Locale("en", "AU");
-    
+
     /**
      * Format string for printing key/value pairs (i.e. Tag: Value). Output: %-20s: %s\n
      */
@@ -37,7 +37,7 @@ public final class Utils
      * Separator line used for visual distinction between directories.
      */
     public static final String DIVIDER = "--------------------------------------------------";
-    
+
     /**
      * Prevents direct instantiation.
      *
@@ -408,5 +408,52 @@ public final class Utils
         }
 
         return zdt.format(targetFormatter);
+    }
+
+    /**
+     * Determines whether the specified string is {@code null}, empty, or contains only whitespace
+     * characters.
+     *
+     * @param value
+     *        the string to test
+     * @return {@code true} if the string is {@code null}, empty, or contains only whitespace
+     *         characters; {@code false} otherwise
+     */
+    public static boolean isBlank(String value)
+    {
+        if (value == null || value.isEmpty())
+        {
+            return true;
+        }
+
+        for (int i = 0; i < value.length(); i++)
+        {
+            if (!Character.isWhitespace(value.charAt(i)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * 
+     * Escapes a string for use as a CSV field by enclosing it in double quotes
+     * and escaping any existing double quotes.
+     *
+     * @param value
+     *        the string to escape
+     * @return the escaped CSV field, or an empty string if {@code value} is {@code null}
+     * 
+     */
+    public static String csvEscape(String value)
+    {
+        if (value == null)
+        {
+            return "";
+        }
+
+        return "\"" + value.replace("\"", "\"\"") + "\"";
     }
 }
