@@ -279,8 +279,10 @@ public class ImagePreviewPopup
         unsupportedLabel.setVisible(false);
         overlayBar.setVisible(false);
 
-        // Each Task instance is persistently bound to a single image loading request. If the user
-        // hovers over a new image, 'currentThreadTask' is reassigned to a NEW Task instance.
+        /*
+         * Each Task instance is persistently bound to a single image loading request. If the user
+         * hovers over a new image, 'currentThreadTask' is reassigned to a NEW Task instance.
+         */
         Task<Image> task = new Task<Image>()
         {
             @Override

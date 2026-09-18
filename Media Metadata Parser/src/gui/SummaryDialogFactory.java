@@ -77,16 +77,6 @@ final class SummaryDialogFactory
     static void show(Window owner, TextField targetText, ObservableList<ProcessedFileRecord> completedFileRecords)
     {
         Path targetDir = null;
-        final HoverDebouncer debouncer = new HoverDebouncer(120);
-
-        Dialog<Void> dialog = new Dialog<>();
-        dialog.setTitle("Batch Processing Summary");
-        dialog.setHeaderText("Detailed Processing Results");
-        dialog.initModality(Modality.NONE);
-
-        DialogPane dialogPane = dialog.getDialogPane();
-        dialogPane.getStylesheets().addAll(owner.getScene().getStylesheets());
-        dialogPane.getButtonTypes().add(ButtonType.CLOSE);
 
         if (!Utils.isBlank(targetText.getText()))
         {
@@ -101,11 +91,38 @@ final class SummaryDialogFactory
             }
         }
 
-        final TableView<ProcessedFileRecord> table = addSummaryTable(completedFileRecords);
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Batch Processing Summary");
+        dialog.setHeaderText("Detailed Processing Results");
+        dialog.initModality(Modality.NONE);
+
+        DialogPane dialogPane = dialog.getDialogPane();
+        dialogPane.getStylesheets().addAll(owner.getScene().getStylesheets());
+        dialogPane.getButtonTypes().add(ButtonType.CLOSE);
+
+        final HoverDebouncer debouncer = new HoverDebouncer(120);
+        final TableView<ProcessedFileRecord> table = addSummaryTable();
         final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialog.getDialogPane().getScene().getWindow(), targetDir);
 
+        table.setItems(completedFileRecords);
         attachListeners(table, targetDir, thumbnail, debouncer);
 
+        // Ensure newly appending rows pull the scrolling view downward automatically
+        completedFileRecords.addListener(new ListChangeListener<ProcessedFileRecord>()
+        {
+            @Override
+            public void onChanged(ListChangeListener.Change<? extends ProcessedFileRecord> change)
+            {
+                while (change.next())
+                {
+                    if (change.wasAdded() && !completedFileRecords.isEmpty())
+                    {
+                        table.scrollTo(completedFileRecords.size() - 1);
+                    }
+                }
+            }
+        });
+        
         // Cancel pending preview requests and release thumbnail resources upon dialog close
         dialog.setOnCloseRequest(new EventHandler<DialogEvent>()
         {
@@ -140,32 +157,14 @@ final class SummaryDialogFactory
                 table.requestLayout();
             }
         });
-
-        // Ensure newly appending rows pull the scrolling view downward automatically
-        completedFileRecords.addListener(new ListChangeListener<ProcessedFileRecord>()
-        {
-            @Override
-            public void onChanged(ListChangeListener.Change<? extends ProcessedFileRecord> change)
-            {
-                while (change.next())
-                {
-                    if (change.wasAdded() && !completedFileRecords.isEmpty())
-                    {
-                        table.scrollTo(completedFileRecords.size() - 1);
-                    }
-                }
-            }
-        });
     }
 
     /**
      * Prepares the {@link TableView} instance displaying the processing records.
      *
-     * @param completedFileRecords
-     *        the observable list of records backing the table view
      * @return a fully configured {@link TableView} instance
      */
-    private static TableView<ProcessedFileRecord> addSummaryTable(ObservableList<ProcessedFileRecord> completedFileRecords)
+    private static TableView<ProcessedFileRecord> addSummaryTable()
     {
         TableView<ProcessedFileRecord> table = new TableView<>();
         TableColumn<ProcessedFileRecord, Void> indexCol = new TableColumn<>("#");
@@ -278,7 +277,6 @@ final class SummaryDialogFactory
         table.getColumns().add(sourceCol);
         table.getColumns().add(targetCol);
         table.getColumns().add(sizeCol);
-        table.setItems(completedFileRecords);
 
         return table;
     }
