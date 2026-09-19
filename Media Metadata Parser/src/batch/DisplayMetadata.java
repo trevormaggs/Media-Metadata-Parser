@@ -17,6 +17,7 @@ import common.DetectedFormatResult;
 import common.ImageParserFactory;
 import common.Metadata;
 import common.PropertyBiConsumer;
+import common.Utils;
 import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
 import gui.CollectedMetadata;
@@ -31,6 +32,8 @@ import tif.DirectoryIFD;
 import tif.TifMetadataProvider;
 import tif.tagspecs.Taggable;
 import util.SystemInfo;
+import xmp.XmpDirectory;
+import xmp.XmpDirectory.XmpRecord;
 
 /**
  * Extracts and displays media metadata using a pure POJO {@link CollectedMetadata}.
@@ -165,9 +168,14 @@ public final class DisplayMetadata
 
                         if (meta.hasMetadata())
                         {
-                            appendMetadataText(meta, sb);
+                            appendTextEXIF(meta, sb);
                         }
 
+                        if (meta.hasXmpData() && meta instanceof TifMetadataProvider)
+                        {
+                            appendTextXMP(meta, sb);
+                        }
+                        
                         sb.append(System.lineSeparator());
 
                         /*
@@ -261,7 +269,7 @@ public final class DisplayMetadata
      * @param sb
      *        the buffer to append formatted metadata entries to
      */
-    private void appendMetadataText(Metadata<?> meta, StringBuilder sb)
+    private void appendTextEXIF(Metadata<?> meta, StringBuilder sb)
     {
         if (meta instanceof TifMetadataProvider)
         {
@@ -309,6 +317,17 @@ public final class DisplayMetadata
                     chunk.printProperties(consumer);
                 }
             }
+        }
+    }
+
+    private void appendTextXMP(Metadata<?> meta, StringBuilder sb)
+    {
+        XmpDirectory xml = ((TifMetadataProvider) meta).getXmpDirectory();
+
+        for (XmpRecord xmp : xml)
+        {
+            String s1 = String.format(Taggable.COLUMN_FORMAT, "[XMP-" + xmp.getPrefix() + "]", Utils.capitalize(xmp.getName()), xmp.getValue());
+            sb.append(s1);
         }
     }
 

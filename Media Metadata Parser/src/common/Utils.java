@@ -456,4 +456,17 @@ public final class Utils
 
         return "\"" + value.replace("\"", "\"\"") + "\"";
     }
+    
+    /**
+     * Capitalises the first letter of the specified word input.
+     * 
+     * @param subject
+     *        the word to be capitalised
+     * 
+     * @return updated word
+     */
+    public static String capitalize(final String subject)
+    {
+        return Character.toUpperCase(subject.charAt(0)) + subject.substring(1);
+    }
 }

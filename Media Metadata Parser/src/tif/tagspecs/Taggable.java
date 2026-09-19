@@ -6,7 +6,7 @@ import tif.TagValueTranslator;
 
 public interface Taggable
 {
-    String COLUMN_FORMAT = "%-15s%-32s: %s%n";
+    String COLUMN_FORMAT = "%-16s%-32s: %s%n";
     
     /**
      * @return the 16-bit numerical Tag ID (e.g., 0x0100 for ImageWidth)
