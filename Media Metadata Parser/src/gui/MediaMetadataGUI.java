@@ -213,23 +213,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     }
 
     /**
-     * Opens modal dialog window displaying structural metadata contents using the interactive
-     * TreeTableView inspector.
-     */
-    private void showMetadataInspectorTree()
-    {
-        MetadataViewerDialog dialog = new MetadataViewerDialog((Stage) rootPane.getScene().getWindow());
-
-        dialog.setMetadataRecords(extractedMetadata);
-        dialog.setMetadataText(flatMetadataText.toString());
-
-        flatMetadataText.setLength(0);
-        flatMetadataText.trimToSize();
-
-        dialog.show();
-    }
-
-    /**
      * Triggers non-destructive background metadata structure extraction task.
      */
     private void executeMetadataInspection()
@@ -366,6 +349,23 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         Thread worker = new Thread(workerTask);
         worker.setDaemon(true);
         worker.start();
+    }
+
+    /**
+     * Opens modal dialog window displaying structural metadata contents using the interactive
+     * TreeTableView inspector.
+     */
+    private void showMetadataInspectorTree()
+    {
+        MetadataViewerDialog dialog = new MetadataViewerDialog((Stage) rootPane.getScene().getWindow());
+
+        dialog.setMetadataRecords(extractedMetadata);
+        dialog.setMetadataText(flatMetadataText.toString());
+
+        flatMetadataText.setLength(0);
+        flatMetadataText.trimToSize();
+
+        dialog.show();
     }
 
     /**

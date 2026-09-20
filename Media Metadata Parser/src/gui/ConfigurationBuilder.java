@@ -14,7 +14,8 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.TextField;
 
 /**
- * Extracts and validates JavaFX UI form field inputs to construct a immutable {@link BatchConfiguration}.
+ * Extracts and validates JavaFX UI form field inputs to construct a immutable
+ * {@link BatchConfiguration}.
  */
 final class ConfigurationBuilder
 {
@@ -36,7 +37,8 @@ final class ConfigurationBuilder
      *
      * @return constructed batch configuration object
      * 
-     * @throws BatchErrorException if any input fields contain invalid or non-existent file path targets
+     * @throws BatchErrorException
+     *         if any input fields contain invalid or non-existent file path targets
      */
     BatchConfiguration build() throws BatchErrorException
     {
@@ -76,16 +78,17 @@ final class ConfigurationBuilder
                     parentDir = (Files.isDirectory(fpath) ? fpath : (fpath.getParent() == null ? fpath.getRoot() : fpath.getParent()));
                 }
             }
-            
+
             catch (InvalidPathException exc)
             {
                 // Fall back if tooltip path cannot be parsed
             }
         }
 
-        // Multi-file selection handling (comma-separated filenames)
         if (filename.contains(","))
         {
+            // Handles multiple comma-separated files and
+            // verifies they belong to the parent directory
             String[] parts = filename.split("\\s*,\\s*");
 
             if (parentDir == null)
@@ -103,7 +106,7 @@ final class ConfigurationBuilder
                             break;
                         }
                     }
-                    
+
                     catch (InvalidPathException exc)
                     {
                         // Pass through to inspect next token
@@ -129,23 +132,22 @@ final class ConfigurationBuilder
 
                         files[i] = fullPath.getFileName().toString();
                     }
-                    
+
                     catch (InvalidPathException exc)
                     {
                         throw new BatchErrorException("Invalid file path detected: " + parts[i]);
                     }
                 }
             }
-            
+
             else
             {
                 throw new BatchErrorException("Individual files were detected without an absolute parent directory.\n\nPlease specify absolute paths or use the file picker.");
             }
         }
-        
+
         else
         {
-            // Single folder or single file path resolution
             try
             {
                 Path fullPath;
@@ -153,16 +155,19 @@ final class ConfigurationBuilder
 
                 if (fpath.isAbsolute())
                 {
+                    // If filename is absolute, either directory or regular
                     fullPath = fpath.normalize();
                 }
-                
+
                 else if (parentDir != null)
                 {
+                    // Resolve relative file or folder path against the parent directory
                     fullPath = parentDir.resolve(fpath).normalize();
                 }
-                
+
                 else
                 {
+                    // Try to obtain absolute path from filename
                     fullPath = fpath.toAbsolutePath().normalize();
                 }
 
@@ -173,18 +178,18 @@ final class ConfigurationBuilder
 
                 if (Files.isDirectory(fullPath))
                 {
-                    files = null; // Target whole directory
                     parentDir = fullPath;
                 }
-                
+
                 else
                 {
                     Path parent = fullPath.getParent();
+
                     parentDir = (parent == null ? fullPath.getRoot() : parent);
-                    files = new String[]{ fullPath.getFileName().toString() };
+                    files = new String[]{fullPath.getFileName().toString()};
                 }
             }
-            
+
             catch (InvalidPathException exc)
             {
                 throw new BatchErrorException("The content is not a valid file path.\n\nPath: " + filename);

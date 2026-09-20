@@ -20,7 +20,7 @@ import javafx.scene.control.Tooltip;
  * The settings file is stored in the user's home directory and maintains the most used source and
  * target paths, together with a limited history of recent source entries.
  */
-final class PathHistoryStore
+final class PathHistoryStore2
 {
     private static final String CONFIG_FILE_NAME = "app_settings.properties";
     private static final String KEY_SOURCE_PATH = "last.source.path";
@@ -37,7 +37,7 @@ final class PathHistoryStore
      * @throws UnsupportedOperationException
      *         always thrown when an instance is created
      */
-    private PathHistoryStore()
+    private PathHistoryStore2()
     {
         throw new UnsupportedOperationException("Instantiation not allowed");
     }
@@ -111,12 +111,12 @@ final class PathHistoryStore
      */
     static void saveSettings(TextField sourceText, TextField targetText, boolean isDarkTheme) throws IOException
     {
-        Path parentPath = null;
+        Path sourceParentPath = null;
         Path history = getSettingsPath();
         Properties props = new Properties();
         String sourcePath = sourceText.getText().trim();
         String targetPath = targetText.getText().trim();
-        Tooltip parentTip = sourceText.getTooltip();
+        Tooltip sourceTooltip = sourceText.getTooltip();
 
         if (Files.exists(history))
         {
@@ -128,19 +128,19 @@ final class PathHistoryStore
 
         props.setProperty(KEY_DARK_THEME, String.valueOf(isDarkTheme));
 
-        if (parentTip != null)
+        if (sourceTooltip != null)
         {
-            String parentDir = parentTip.getText();
+            String tooltipText = sourceTooltip.getText();
 
-            if (parentDir != null && !parentDir.isEmpty())
+            if (tooltipText != null && !tooltipText.isEmpty())
             {
                 try
                 {
-                    Path fpath = Paths.get(parentDir);
+                    Path fpath = Paths.get(tooltipText);
 
                     if (fpath.isAbsolute())
                     {
-                        parentPath = (Files.isDirectory(fpath) ? fpath : (fpath.getParent() == null ? fpath.getRoot() : fpath.getParent()));
+                        sourceParentPath = (Files.isDirectory(fpath) ? fpath : (fpath.getParent() == null ? fpath.getRoot() : fpath.getParent()));
                     }
                 }
 
@@ -151,7 +151,7 @@ final class PathHistoryStore
             }
         }
 
-        if (parentPath == null && !sourcePath.isEmpty())
+        if (sourceParentPath == null && !sourcePath.isEmpty())
         {
             String[] parts = sourcePath.split("\\s*,\\s*");
 
@@ -164,7 +164,7 @@ final class PathHistoryStore
                     if (fpath.isAbsolute())
                     {
                         Path parent = fpath.getParent();
-                        parentPath = (Files.isDirectory(fpath) ? fpath : (parent == null ? fpath.getRoot() : parent));
+                        sourceParentPath = (Files.isDirectory(fpath) ? fpath : (parent == null ? fpath.getRoot() : parent));
                         break;
                     }
                 }
@@ -176,14 +176,14 @@ final class PathHistoryStore
             }
         }
 
-        if (parentPath == null)
+        if (sourceParentPath == null)
         {
             props.remove(KEY_SOURCE_PARENT_PATH);
         }
 
         else
         {
-            props.setProperty(KEY_SOURCE_PARENT_PATH, parentPath.toAbsolutePath().toString());
+            props.setProperty(KEY_SOURCE_PARENT_PATH, sourceParentPath.toAbsolutePath().toString());
         }
 
         if (targetPath.isEmpty())
@@ -204,26 +204,11 @@ final class PathHistoryStore
         else
         {
             String entry;
-            boolean pathMatched = false;
+            String parentStr = (sourceParentPath != null ? sourceParentPath.toAbsolutePath().toString() : "");
 
-            if (parentPath != null)
+            if (!parentStr.isEmpty() && !parentStr.equalsIgnoreCase(sourcePath))
             {
-                try
-                {
-                    Path fpath = Paths.get(sourcePath);
-                    pathMatched = Files.isSameFile(parentPath, fpath);
-                }
-
-                catch (IOException | InvalidPathException exc)
-                {
-                    pathMatched = parentPath.normalize().equals(Paths.get(sourcePath).normalize());
-                }
-            }
-
-            // Verify the parent path is not a regular file
-            if (!pathMatched && parentPath != null)
-            {
-                entry = String.format("%s|%s", parentPath.toAbsolutePath().toString(), sourcePath);
+                entry = String.format("%s|%s", parentStr, sourcePath);
             }
 
             else

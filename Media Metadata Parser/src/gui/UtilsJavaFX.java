@@ -332,17 +332,17 @@ final class UtilsJavaFX
             FileChooser chooser = new FileChooser();
             Path parentDir = Paths.get(System.getProperty("user.home"));
             TextField sourceText = UtilsJavaFX.getById(owner.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
-            Tooltip tip = sourceText.getTooltip();
+            Tooltip parentTip = sourceText.getTooltip();
 
-            if (tip != null && !Utils.isBlank(tip.getText()))
+            if (parentTip != null && !Utils.isBlank(parentTip.getText()))
             {
                 try
                 {
-                    Path fpath = Paths.get(tip.getText());
+                    Path fpath = Paths.get(parentTip.getText());
 
                     if (Files.exists(fpath))
                     {
-                        parentDir = Files.isDirectory(fpath) ? fpath : (fpath.getParent() != null ? fpath.getParent() : fpath.getRoot());
+                        parentDir = (Files.isDirectory(fpath) ? fpath : (fpath.getParent() != null ? fpath.getParent() : fpath.getRoot()));
                     }
                 }
 
@@ -372,10 +372,10 @@ final class UtilsJavaFX
 
                 Path filePath = files.get(0).toPath();
                 Path parent = filePath.getParent();
-                Path commonDir = (parent != null ? parent : (filePath.getRoot() != null ? filePath.getRoot() : filePath));
 
+                parentDir = (parent != null ? parent : (filePath.getRoot() != null ? filePath.getRoot() : filePath));
                 sourceText.setText(joiner.toString());
-                sourceText.setTooltip(new Tooltip(commonDir.toAbsolutePath().toString()));
+                sourceText.setTooltip(new Tooltip(parentDir.toAbsolutePath().toString()));
             }
         }
     }
