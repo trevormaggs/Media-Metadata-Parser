@@ -204,10 +204,11 @@ final class PathHistoryStore
         else
         {
             String entry;
+            String parentStr = (sourceParentPath != null ? sourceParentPath.toAbsolutePath().toString() : "");
 
-            if (sourceParentPath != null && sourcePath.contains(","))
+            if (!parentStr.isEmpty() && !parentStr.equalsIgnoreCase(sourcePath))
             {
-                entry = String.format("%s|%s", sourceParentPath.toAbsolutePath().toString(), sourcePath);
+                entry = String.format("%s|%s", parentStr, sourcePath);
             }
 
             else
@@ -291,7 +292,6 @@ final class PathHistoryStore
     }
 
     /**
-     *
      * Loads the last saved export directory from the application settings file.
      *
      * If the saved path is missing or does not identify an existing directory, the user's home
@@ -300,7 +300,6 @@ final class PathHistoryStore
      * @return the saved export directory, or the user's home directory if the saved directory is
      *         missing or invalid
      */
-
     static File loadExportDirectory()
     {
         Path settingsPath = getSettingsPath();
@@ -337,7 +336,6 @@ final class PathHistoryStore
     }
 
     /**
-     *
      * Persists the export directory path in the application settings.
      *
      * If the specified directory is {@code null} or does not exist as a directory, no changes are
@@ -428,7 +426,6 @@ final class PathHistoryStore
     }
 
     /**
-     *
      * Extracts the source display text from a stored history entry.
      *
      * @param rawEntry

@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.StringJoiner;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
+import common.Utils;
 import javafx.animation.PauseTransition;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -326,45 +327,56 @@ final class UtilsJavaFX
      */
     static void handleFileSelection(Window owner)
     {
-        if (owner == null || owner.getScene() == null)
+        if (owner != null && owner.getScene() != null)
         {
-            return;
-        }
+            FileChooser chooser = new FileChooser();
+            Path parentDir = Paths.get(System.getProperty("user.home"));
+            TextField sourceText = UtilsJavaFX.getById(owner.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
+            Tooltip tip = sourceText.getTooltip();
 
-        TextField sourceText = UtilsJavaFX.getById(owner.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
-        if (sourceText == null)
-        {
-            return;
-        }
-
-        String actualText = sourceText.getText().trim();
-        File sourceDir = new File(actualText.isEmpty() ? System.getProperty("user.home") : actualText);
-        FileChooser chooser = new FileChooser();
-
-        chooser.setTitle("Select Source Files");
-
-        if (sourceDir.isDirectory())
-        {
-            chooser.setInitialDirectory(sourceDir);
-        }
-
-        List<File> files = chooser.showOpenMultipleDialog(owner);
-
-        if (files != null && !files.isEmpty())
-        {
-            StringJoiner joiner = new StringJoiner(",");
-
-            for (File file : files)
+            if (tip != null && !Utils.isBlank(tip.getText()))
             {
-                joiner.add(file.getName());
+                try
+                {
+                    Path fpath = Paths.get(tip.getText());
+
+                    if (Files.exists(fpath))
+                    {
+                        parentDir = Files.isDirectory(fpath) ? fpath : (fpath.getParent() != null ? fpath.getParent() : fpath.getRoot());
+                    }
+                }
+
+                catch (InvalidPathException exc)
+                {
+                    // Fall back to user home directory if candidate string cannot be parsed
+                }
             }
 
-            String joined = joiner.toString();
-            Path parent = files.get(0).toPath().getParent();
-            Path commonDir = (parent == null ? files.get(0).toPath().getRoot() : parent);
+            chooser.setTitle("Select Source Files");
 
-            sourceText.setText(joined);
-            sourceText.setTooltip(new Tooltip(commonDir.toAbsolutePath().toString()));
+            if (parentDir != null && Files.isDirectory(parentDir))
+            {
+                chooser.setInitialDirectory(parentDir.toFile());
+            }
+
+            List<File> files = chooser.showOpenMultipleDialog(owner);
+
+            if (files != null && !files.isEmpty())
+            {
+                StringJoiner joiner = new StringJoiner(",");
+
+                for (File file : files)
+                {
+                    joiner.add(file.getName());
+                }
+
+                Path filePath = files.get(0).toPath();
+                Path parent = filePath.getParent();
+                Path commonDir = (parent != null ? parent : (filePath.getRoot() != null ? filePath.getRoot() : filePath));
+
+                sourceText.setText(joiner.toString());
+                sourceText.setTooltip(new Tooltip(commonDir.toAbsolutePath().toString()));
+            }
         }
     }
 
@@ -446,10 +458,9 @@ final class UtilsJavaFX
         int digitGroups = (int) (Math.log10(bytes) / Math.log10(1024));
 
         digitGroups = Math.min(digitGroups, units.length - 1);
-        
+
         return new DecimalFormat("#,##0.#").format(bytes / Math.pow(1024, digitGroups)) + " " + units[digitGroups];
     }
-
 
     /**
      * Diagnostic utility that prints registered ImageIO file extensions and reports available image

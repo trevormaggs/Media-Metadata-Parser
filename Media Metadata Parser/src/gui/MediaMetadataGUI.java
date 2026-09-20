@@ -27,7 +27,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Side;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.DatePicker;
@@ -68,8 +67,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         viewPane = new MainViewPane();
         flatMetadataText = new StringBuilder();
-        completedFileRecords = FXCollections.observableArrayList();
         extractedMetadata = FXCollections.observableArrayList();
+        completedFileRecords = FXCollections.observableArrayList();
     }
 
     /**
@@ -103,7 +102,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         primaryStage.show();
 
         configureDynamicNodes();
-        populateRecentHistoryMenu();
+        viewPane.sourceBtn.setUserData(createSourceContextMenu());
     }
 
     /**
@@ -115,7 +114,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
         TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
         CheckBox themeBox = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
-        
+
         if (workerTask != null && workerTask.isRunning())
         {
             workerTask.cancel(true);
@@ -211,6 +210,23 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         {
             Platform.exit();
         }
+    }
+
+    /**
+     * Opens modal dialog window displaying structural metadata contents using the interactive
+     * TreeTableView inspector.
+     */
+    private void showMetadataInspectorTree()
+    {
+        MetadataViewerDialog dialog = new MetadataViewerDialog((Stage) rootPane.getScene().getWindow());
+
+        dialog.setMetadataRecords(extractedMetadata);
+        dialog.setMetadataText(flatMetadataText.toString());
+
+        flatMetadataText.setLength(0);
+        flatMetadataText.trimToSize();
+
+        dialog.show();
     }
 
     /**
@@ -359,12 +375,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         final BatchConfiguration config;
         final ProgressBar progressBar = viewPane.progressBar;
-        final TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
         final Label progressLabel = (Label) progressBar.getUserData();
+        final TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
         logArea.clear();
-        completedFileRecords.clear();
         StatRecord.resetAll();
+        completedFileRecords.clear();
 
         try
         {
@@ -622,18 +638,55 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     }
 
     /**
-     * Builds and populates the recent paths context menu.
+     * Switches the active application UI theme by replacing the stylesheets applied to the scene
+     * containing the root pane.
+     *
+     * <p>
+     * The specified theme is loaded and applied to the application. If {@code themeFileName} is
+     * {@code null}, no change is made. If the specified theme cannot be found, the current theme
+     * remains unchanged and an error is reported.
+     * </p>
+     *
+     * @param themeFileName
+     *        the file name of the theme to apply (e.g., {@code "dark-theme.css"}), or {@code null}
+     *        to leave the current theme unchanged
      */
-    private void populateRecentHistoryMenu()
+    private void switchTheme(String themeFileName)
+    {
+        Scene scene = rootPane.getScene();
+
+        if (themeFileName != null)
+        {
+            URL resource = getClass().getResource("/gui/" + themeFileName);
+
+            if (resource != null)
+            {
+                scene.getStylesheets().clear();
+                scene.getStylesheets().add(resource.toExternalForm());
+            }
+
+            else
+            {
+                System.err.println("Theme stylesheet not found: /gui/" + themeFileName);
+            }
+        }
+    }
+
+    /**
+     * Constructs the source selection context menu containing fixed pick options and recent
+     * history.
+     *
+     * @return configured {@link ContextMenu} instance
+     */
+    private ContextMenu createSourceContextMenu()
     {
         final ContextMenu menu = new ContextMenu();
-        final Button sourceBtn = viewPane.sourceBtn;
-        final TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
-
         MenuItem selectFolder = new MenuItem("Select Folder...");
+        MenuItem selectFiles = new MenuItem("Select Specific Files...");
+        TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
+
         selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
 
-        MenuItem selectFiles = new MenuItem("Select Specific Files...");
         selectFiles.setOnAction(new EventHandler<ActionEvent>()
         {
             @Override
@@ -645,18 +698,26 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         menu.getItems().addAll(selectFolder, selectFiles, new SeparatorMenuItem());
 
+        populateRecentHistoryMenu(menu, sourceText);
+
+        return menu;
+    }
+
+    /**
+     * Reads recent source path history from storage and appends the entries to the menu.
+     *
+     * @param menu
+     *        the target {@link ContextMenu} instance
+     * @param sourceText
+     *        the source path {@link TextField} control
+     */
+    private void populateRecentHistoryMenu(ContextMenu menu, final TextField sourceText)
+    {
         try
         {
             String[] history = PathHistoryStore.loadRecentSourcePaths();
 
-            if (history.length == 0)
-            {
-                MenuItem blankItem = new MenuItem("No recent paths");
-                blankItem.setDisable(true);
-                menu.getItems().add(blankItem);
-            }
-
-            else
+            if (history.length > 0)
             {
                 for (String entry : history)
                 {
@@ -665,31 +726,31 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         continue;
                     }
 
-                    int pos = entry.indexOf('|');
+                    String fileHistory;
                     String parentHistory = null;
-                    String textHistory;
+                    int pos = entry.indexOf('|');
 
                     if (pos >= 0)
                     {
                         parentHistory = entry.substring(0, pos);
-                        textHistory = entry.substring(pos + 1);
+                        fileHistory = entry.substring(pos + 1);
                     }
 
                     else
                     {
-                        textHistory = entry;
+                        fileHistory = entry;
                     }
 
-                    final String targetText = textHistory;
+                    final String targetFile = fileHistory;
                     final String targetParent = parentHistory;
-                    MenuItem item = new MenuItem(textHistory);
+                    MenuItem item = new MenuItem(fileHistory);
 
                     item.setOnAction(new EventHandler<ActionEvent>()
                     {
                         @Override
                         public void handle(ActionEvent event)
                         {
-                            sourceText.setText(targetText);
+                            sourceText.setText(targetFile);
 
                             if (targetParent != null && !targetParent.isEmpty())
                             {
@@ -707,7 +768,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
             }
 
-            sourceBtn.setUserData(menu);
+            else
+            {
+                MenuItem blankItem = new MenuItem("No recent paths");
+                blankItem.setDisable(true);
+                menu.getItems().add(blankItem);
+            }
         }
 
         catch (BatchErrorException exc)
@@ -753,58 +819,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         });
 
         delay.play();
-    }
-
-    /**
-     * Opens modal dialog window displaying structural metadata contents using the interactive
-     * TreeTableView inspector.
-     */
-    private void showMetadataInspectorTree()
-    {
-        MetadataViewerDialog dialog = new MetadataViewerDialog((Stage) rootPane.getScene().getWindow());
-
-        dialog.setMetadataRecords(extractedMetadata);
-        dialog.setMetadataText(flatMetadataText.toString());
-
-        flatMetadataText.setLength(0);
-        flatMetadataText.trimToSize();
-
-        dialog.show();
-    }
-
-    /**
-     * Switches the active application UI theme by replacing the stylesheets applied to the scene
-     * containing the root pane.
-     *
-     * <p>
-     * The specified theme is loaded and applied to the application. If {@code themeFileName} is
-     * {@code null}, no change is made. If the specified theme cannot be found, the current theme
-     * remains unchanged and an error is reported.
-     * </p>
-     *
-     * @param themeFileName
-     *        the file name of the theme to apply (e.g., {@code "dark-theme.css"}), or {@code null}
-     *        to leave the current theme unchanged
-     */
-    private void switchTheme(String themeFileName)
-    {
-        Scene scene = rootPane.getScene();
-
-        if (themeFileName != null)
-        {
-            URL resource = getClass().getResource("/gui/" + themeFileName);
-
-            if (resource != null)
-            {
-                scene.getStylesheets().clear();
-                scene.getStylesheets().add(resource.toExternalForm());
-            }
-
-            else
-            {
-                System.err.println("Theme stylesheet not found: /gui/" + themeFileName);
-            }
-        }
     }
 
     /**

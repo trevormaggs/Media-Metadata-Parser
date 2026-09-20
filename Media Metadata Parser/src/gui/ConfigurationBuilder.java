@@ -13,15 +13,31 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.TextField;
 
+/**
+ * Extracts and validates JavaFX UI form field inputs to construct a immutable {@link BatchConfiguration}.
+ */
 final class ConfigurationBuilder
 {
     private final Parent root;
 
+    /**
+     * Constructs a builder instance bound to the specified root UI layout container.
+     *
+     * @param root
+     *        the parent container holding input controls
+     */
     ConfigurationBuilder(Parent root)
     {
         this.root = root;
     }
 
+    /**
+     * Reads form controls and returns a fully validated {@link BatchConfiguration}.
+     *
+     * @return constructed batch configuration object
+     * 
+     * @throws BatchErrorException if any input fields contain invalid or non-existent file path targets
+     */
     BatchConfiguration build() throws BatchErrorException
     {
         Path parentDir = null;
@@ -48,28 +64,29 @@ final class ConfigurationBuilder
             throw new BatchErrorException("No source directory or files specified.\n\nPlease select a source folder or specific files first.");
         }
 
-        // Multi-file selection handling
+        // Find parent directory from tooltip if available
+        if (sourceText.getTooltip() != null)
+        {
+            try
+            {
+                Path fpath = Paths.get(sourceText.getTooltip().getText());
+
+                if (fpath.isAbsolute())
+                {
+                    parentDir = (Files.isDirectory(fpath) ? fpath : (fpath.getParent() == null ? fpath.getRoot() : fpath.getParent()));
+                }
+            }
+            
+            catch (InvalidPathException exc)
+            {
+                // Fall back if tooltip path cannot be parsed
+            }
+        }
+
+        // Multi-file selection handling (comma-separated filenames)
         if (filename.contains(","))
         {
             String[] parts = filename.split("\\s*,\\s*");
-
-            if (sourceText.getTooltip() != null)
-            {
-                try
-                {
-                    Path fpath = Paths.get(sourceText.getTooltip().getText().trim());
-
-                    if (fpath.isAbsolute())
-                    {
-                        parentDir = Files.isDirectory(fpath) ? fpath : (fpath.getParent() == null ? fpath.getRoot() : fpath.getParent());
-                    }
-                }
-
-                catch (InvalidPathException exc)
-                {
-                    // Just pass through
-                }
-            }
 
             if (parentDir == null)
             {
@@ -82,15 +99,14 @@ final class ConfigurationBuilder
                         if (fpath.isAbsolute())
                         {
                             Path parent = fpath.getParent();
-
                             parentDir = (parent == null ? fpath.getRoot() : parent);
                             break;
                         }
                     }
-
+                    
                     catch (InvalidPathException exc)
                     {
-                        // Do nothing and try again next
+                        // Pass through to inspect next token
                     }
                 }
             }
@@ -105,41 +121,49 @@ final class ConfigurationBuilder
                     {
                         Path fpath = Paths.get(parts[i]);
                         Path fullPath = (fpath.isAbsolute() ? fpath : parentDir.resolve(fpath).normalize());
-                        Path parent = fullPath.getParent();
-                        Path effectiveParent = (parent == null ? fullPath.getRoot() : parent);
 
-                        if (!Files.isRegularFile(fullPath) || !parentDir.equals(effectiveParent))
+                        if (!Files.isRegularFile(fullPath) || !fullPath.startsWith(parentDir))
                         {
                             throw new BatchErrorException("One or more source files do not exist or come from a different directory:\n\n" + parts[i]);
                         }
 
                         files[i] = fullPath.getFileName().toString();
                     }
-
+                    
                     catch (InvalidPathException exc)
                     {
                         throw new BatchErrorException("Invalid file path detected: " + parts[i]);
                     }
                 }
             }
-
+            
             else
             {
                 throw new BatchErrorException("Individual files were detected without an absolute parent directory.\n\nPlease specify absolute paths or use the file picker.");
             }
         }
-
+        
         else
         {
+            // Single folder or single file path resolution
             try
             {
-                // Single folder or file path
+                Path fullPath;
                 Path fpath = Paths.get(filename);
-                Path fullPath = fpath.normalize();
 
-                if (!fpath.isAbsolute())
+                if (fpath.isAbsolute())
                 {
-                    throw new BatchErrorException("Unable to determine the location of the specified path. Specify its parent directory:\n\n" + filename);
+                    fullPath = fpath.normalize();
+                }
+                
+                else if (parentDir != null)
+                {
+                    fullPath = parentDir.resolve(fpath).normalize();
+                }
+                
+                else
+                {
+                    fullPath = fpath.toAbsolutePath().normalize();
                 }
 
                 if (Files.notExists(fullPath))
@@ -149,18 +173,18 @@ final class ConfigurationBuilder
 
                 if (Files.isDirectory(fullPath))
                 {
+                    files = null; // Target whole directory
                     parentDir = fullPath;
                 }
-
+                
                 else
                 {
                     Path parent = fullPath.getParent();
-
                     parentDir = (parent == null ? fullPath.getRoot() : parent);
-                    files = new String[]{fullPath.getFileName().toString()};
+                    files = new String[]{ fullPath.getFileName().toString() };
                 }
             }
-
+            
             catch (InvalidPathException exc)
             {
                 throw new BatchErrorException("The content is not a valid file path.\n\nPath: " + filename);

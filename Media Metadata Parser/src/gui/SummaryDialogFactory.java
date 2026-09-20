@@ -6,22 +6,49 @@ import java.io.IOException;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
+import java.util.function.Predicate;
 import common.Utils;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
-import javafx.collections.transformation.*; 
-import javafx.event.*;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
+import javafx.scene.Node;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.input.*;
-import javafx.scene.layout.*;
-import javafx.stage.*;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogEvent;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.SelectionMode;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Window;
 import javafx.util.Callback;
 
 /**
@@ -61,6 +88,7 @@ final class SummaryDialogFactory
     static void show(Window owner, TextField targetText, final ObservableList<ProcessedFileRecord> completedFileRecords)
     {
         Path targetDir = null;
+        TextField searchField = new TextField();
 
         if (!Utils.isBlank(targetText.getText()))
         {
@@ -75,7 +103,7 @@ final class SummaryDialogFactory
             }
         }
 
-        Dialog<Void> dialog = new Dialog<Void>();
+        Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Batch Processing Summary");
         dialog.setHeaderText("Detailed Processing Results");
         dialog.initModality(Modality.NONE);
@@ -87,12 +115,7 @@ final class SummaryDialogFactory
         final HoverDebouncer debouncer = new HoverDebouncer(120);
         final TableView<ProcessedFileRecord> table = addSummaryTable();
         final ImagePreviewPopup thumbnail = new ImagePreviewPopup(dialogPane.getScene().getWindow(), targetDir);
-
-        // Search field with filter functionality
-        TextField searchField = new TextField();
-        searchField.setPromptText("Filter by file name...");
-
-        final FilteredList<ProcessedFileRecord> filteredData = new FilteredList<ProcessedFileRecord>(completedFileRecords, new java.util.function.Predicate<ProcessedFileRecord>()
+        final FilteredList<ProcessedFileRecord> filteredData = new FilteredList<>(completedFileRecords, new Predicate<ProcessedFileRecord>()
         {
             @Override
             public boolean test(ProcessedFileRecord record)
@@ -100,35 +123,6 @@ final class SummaryDialogFactory
                 return true;
             }
         });
-
-        searchField.textProperty().addListener(new ChangeListener<String>()
-        {
-            @Override
-            public void changed(ObservableValue<? extends String> obs, String oldVal, final String newVal)
-            {
-                filteredData.setPredicate(new java.util.function.Predicate<ProcessedFileRecord>()
-                {
-                    @Override
-                    public boolean test(ProcessedFileRecord record)
-                    {
-                        if (Utils.isBlank(newVal))
-                        {
-                            return true;
-                        }
-
-                        String lowerFilter = newVal.trim().toLowerCase();
-                        boolean matchesSource = record.getSourceName() != null && record.getSourceName().toLowerCase().contains(lowerFilter);
-                        boolean matchesTarget = record.getTargetName() != null && record.getTargetName().toLowerCase().contains(lowerFilter);
-
-                        return matchesSource || matchesTarget;
-                    }
-                });
-            }
-        });
-
-        SortedList<ProcessedFileRecord> sortedData = new SortedList<ProcessedFileRecord>(filteredData);
-        sortedData.comparatorProperty().bind(table.comparatorProperty());
-        table.setItems(sortedData);
 
         attachListeners(table, targetDir, thumbnail, debouncer);
 
@@ -155,6 +149,7 @@ final class SummaryDialogFactory
             }
         });
 
+        // Cancel pending preview requests and release thumbnail resources upon dialog close
         dialog.setOnCloseRequest(new EventHandler<DialogEvent>()
         {
             @Override
@@ -175,8 +170,37 @@ final class SummaryDialogFactory
             }
         });
 
-        HBox statusBar = createStatusBar(table, completedFileRecords);
+        searchField.setPromptText("Filter by file name...");
+        searchField.textProperty().addListener(new ChangeListener<String>()
+        {
+            @Override
+            public void changed(ObservableValue<? extends String> obs, String oldVal, final String newVal)
+            {
+                filteredData.setPredicate(new Predicate<ProcessedFileRecord>()
+                {
+                    @Override
+                    public boolean test(ProcessedFileRecord record)
+                    {
+                        if (Utils.isBlank(newVal))
+                        {
+                            return true;
+                        }
 
+                        String lowerFilter = newVal.trim().toLowerCase();
+                        boolean matchesSource = record.getSourceName() != null && record.getSourceName().toLowerCase().contains(lowerFilter);
+                        boolean matchesTarget = record.getTargetName() != null && record.getTargetName().toLowerCase().contains(lowerFilter);
+
+                        return matchesSource || matchesTarget;
+                    }
+                });
+            }
+        });
+
+        SortedList<ProcessedFileRecord> sortedData = new SortedList<>(filteredData);
+        sortedData.comparatorProperty().bind(table.comparatorProperty());
+        table.setItems(sortedData);
+
+        HBox statusBar = createStatusBar(table, completedFileRecords);
         VBox topContainer = new VBox(5, searchField);
         topContainer.setPadding(new Insets(0, 0, 5, 0));
 
@@ -205,13 +229,14 @@ final class SummaryDialogFactory
      *
      * @return a fully configured {@link TableView} instance
      */
+    @SuppressWarnings("unchecked")
     private static TableView<ProcessedFileRecord> addSummaryTable()
     {
-        TableView<ProcessedFileRecord> table = new TableView<ProcessedFileRecord>();
-        TableColumn<ProcessedFileRecord, Void> indexCol = new TableColumn<ProcessedFileRecord, Void>("#");
-        TableColumn<ProcessedFileRecord, String> sourceCol = new TableColumn<ProcessedFileRecord, String>("Source File");
-        TableColumn<ProcessedFileRecord, String> targetCol = new TableColumn<ProcessedFileRecord, String>("Target File");
-        TableColumn<ProcessedFileRecord, Long> sizeCol = new TableColumn<ProcessedFileRecord, Long>("File Size");
+        TableView<ProcessedFileRecord> table = new TableView<>();
+        TableColumn<ProcessedFileRecord, Void> indexCol = new TableColumn<>("#");
+        TableColumn<ProcessedFileRecord, String> sourceCol = new TableColumn<>("Source File");
+        TableColumn<ProcessedFileRecord, String> targetCol = new TableColumn<>("Target File");
+        TableColumn<ProcessedFileRecord, Long> sizeCol = new TableColumn<>("File Size");
 
         // Fixed-width Row Index Column (#)
         indexCol.setMinWidth(35);
@@ -282,7 +307,7 @@ final class SummaryDialogFactory
             @Override
             public ObservableValue<Long> call(TableColumn.CellDataFeatures<ProcessedFileRecord, Long> cellData)
             {
-                return new ReadOnlyObjectWrapper<Long>(cellData.getValue().getFileSize());
+                return new ReadOnlyObjectWrapper<>(cellData.getValue().getFileSize());
             }
         });
 
@@ -314,10 +339,7 @@ final class SummaryDialogFactory
 
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-        table.getColumns().add(indexCol);
-        table.getColumns().add(sourceCol);
-        table.getColumns().add(targetCol);
-        table.getColumns().add(sizeCol);
+        table.getColumns().addAll(indexCol, sourceCol, targetCol, sizeCol);
 
         return table;
     }
@@ -335,15 +357,16 @@ final class SummaryDialogFactory
      * @param debouncer
      *        the {@link HoverDebouncer} for pacing image preview tasks
      */
-    private static void attachListeners(final TableView<ProcessedFileRecord> table, final Path targetDir, final ImagePreviewPopup thumbnail, final HoverDebouncer debouncer)
+    private static void attachListeners(TableView<ProcessedFileRecord> table, Path targetDir, ImagePreviewPopup thumbnail, HoverDebouncer debouncer)
     {
+        // Row factory handling hover preview popups, double-click open, and context menu
         table.setRowFactory(new Callback<TableView<ProcessedFileRecord>, TableRow<ProcessedFileRecord>>()
         {
             @Override
-            public TableRow<ProcessedFileRecord> call(TableView<ProcessedFileRecord> tv)
+            public TableRow<ProcessedFileRecord> call(TableView<ProcessedFileRecord> param)
             {
                 final ContextMenu contextMenu = new ContextMenu();
-                final TableRow<ProcessedFileRecord> row = new TableRow<ProcessedFileRecord>();
+                final TableRow<ProcessedFileRecord> row = new TableRow<>();
 
                 MenuItem openFolderItem = new MenuItem("Open Target Location");
                 MenuItem copyPathItem = new MenuItem("Copy Target Path(s)");
@@ -431,7 +454,6 @@ final class SummaryDialogFactory
                 });
 
                 copyCsvItem.setAccelerator(new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN));
-
                 contextMenu.getItems().addAll(openFolderItem, copyPathItem, copyNameItem, copyCsvItem);
 
                 row.emptyProperty().addListener(new ChangeListener<Boolean>()
@@ -439,7 +461,15 @@ final class SummaryDialogFactory
                     @Override
                     public void changed(ObservableValue<? extends Boolean> obs, Boolean wasEmpty, Boolean isEmpty)
                     {
-                        row.setContextMenu(isEmpty ? null : contextMenu);
+                        if (isEmpty)
+                        {
+                            row.setContextMenu(null);
+                        }
+
+                        else
+                        {
+                            row.setContextMenu(contextMenu);
+                        }
                     }
                 });
 
@@ -501,6 +531,7 @@ final class SummaryDialogFactory
                                             Window window = row.getScene().getWindow();
                                             double previewX = window.getX() + window.getWidth() + 10;
                                             double previewY = window.getY();
+
                                             thumbnail.showPreview(record, previewX, previewY);
                                         }
                                     });
@@ -524,6 +555,7 @@ final class SummaryDialogFactory
             }
         });
 
+        // Cancel and hide if cursor leaves the entire table area
         table.setOnMouseExited(new EventHandler<MouseEvent>()
         {
             @Override
@@ -534,6 +566,7 @@ final class SummaryDialogFactory
             }
         });
 
+        // Keyboard arrow navigation event handling with debouncing
         table.setOnKeyReleased(new EventHandler<KeyEvent>()
         {
             @Override
@@ -558,6 +591,7 @@ final class SummaryDialogFactory
                                         Window window = table.getScene().getWindow();
                                         double screenX = window.getX() + window.getWidth() + 10;
                                         double screenY = window.getY();
+
                                         thumbnail.showPreview(selectedRecord, screenX, screenY);
                                     }
                                 });
@@ -565,6 +599,7 @@ final class SummaryDialogFactory
                         });
                     }
                 }
+
                 else if (event.getCode() == KeyCode.ESCAPE)
                 {
                     debouncer.cancel();
@@ -573,6 +608,7 @@ final class SummaryDialogFactory
             }
         });
 
+        // SHORTCUT_DOWN handles Ctrl on Windows/Linux and Cmd on macOS
         table.setOnKeyPressed(new EventHandler<KeyEvent>()
         {
             @Override
@@ -582,6 +618,48 @@ final class SummaryDialogFactory
                 {
                     copySelectedRowsToCsv(table);
                     event.consume();
+                }
+            }
+        });
+
+        // Enable standard mouse drag multi-row selection
+        table.setOnMousePressed(new EventHandler<MouseEvent>()
+        {
+            @Override
+            public void handle(MouseEvent event)
+            {
+                if (event.isPrimaryButtonDown() && !event.isShiftDown() && !event.isShortcutDown())
+                {
+                    // Clear prior selections on a fresh click unless modifier keys are held
+                    table.getSelectionModel().clearSelection();
+                }
+            }
+        });
+
+        table.setOnMouseDragged(new EventHandler<MouseEvent>()
+        {
+            @Override
+            public void handle(MouseEvent event)
+            {
+                if (event.isPrimaryButtonDown())
+                {
+                    // Pick row under the current cursor position
+                    Node node = event.getPickResult().getIntersectedNode();
+
+                    while (node != null && !(node instanceof TableRow))
+                    {
+                        node = node.getParent();
+                    }
+
+                    if (node instanceof TableRow)
+                    {
+                        TableRow<?> row = (TableRow<?>) node;
+
+                        if (!row.isEmpty())
+                        {
+                            table.getSelectionModel().select(row.getIndex());
+                        }
+                    }
                 }
             }
         });
@@ -599,6 +677,7 @@ final class SummaryDialogFactory
         {
             ClipboardContent content = new ClipboardContent();
             content.putString(text);
+
             Clipboard.getSystemClipboard().setContent(content);
         }
     }
@@ -617,7 +696,6 @@ final class SummaryDialogFactory
         if (!selected.isEmpty())
         {
             StringBuilder sb = new StringBuilder();
-
             sb.append("Source File,Target File,File Size").append(System.lineSeparator());
 
             for (ProcessedFileRecord record : selected)
@@ -641,7 +719,7 @@ final class SummaryDialogFactory
      *        the backing list of processed file records
      * @return a configured status bar component
      */
-    private static HBox createStatusBar(final TableView<ProcessedFileRecord> table, final ObservableList<ProcessedFileRecord> completedFileRecords)
+    private static HBox createStatusBar(TableView<ProcessedFileRecord> table, ObservableList<ProcessedFileRecord> completedFileRecords)
     {
         final Label totalStatusLabel = new Label();
         final Label selectionStatusLabel = new Label();
@@ -722,6 +800,7 @@ final class SummaryDialogFactory
             }
         });
 
+        // Initial update pass
         updateTotalStatus.run();
         updateSelectionStatus.run();
 
