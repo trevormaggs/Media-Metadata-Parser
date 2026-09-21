@@ -102,7 +102,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         primaryStage.show();
 
         configureDynamicNodes();
-        viewPane.sourceBtn.setUserData(createSourceContextMenu());
+        createSourceContextMenu();
     }
 
     /**
@@ -209,6 +209,275 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         else if (source == viewPane.exitBtn)
         {
             Platform.exit();
+        }
+    }
+
+    /**
+     * Binds control events, property listeners, and state dependencies.
+     */
+    private void configureDynamicNodes()
+    {
+        final TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
+        final TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
+        final TextField prefixText = UtilsJavaFX.getById(rootPane, MainViewPane.PFXID, TextField.class);
+        final CheckBox embedDateTimeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.EMBID, CheckBox.class);
+        final DatePicker modifyDatePicker = UtilsJavaFX.getById(rootPane, MainViewPane.DTMID, DatePicker.class);
+        final CheckBox showMetadataCheck = UtilsJavaFX.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
+        final CheckBox themeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
+
+        themeCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
+        {
+            @Override
+            public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
+            {
+                switchTheme(newVal.booleanValue() ? "dark.css" : "light.css");
+            }
+        });
+
+        try
+        {
+            boolean isDark = PathHistoryStore.loadSettings(sourceText, targetText);
+
+            if (isDark)
+            {
+                themeCheck.setSelected(true);
+            }
+
+            else
+            {
+                switchTheme("light.css");
+            }
+        }
+
+        catch (IOException exc)
+        {
+            String errmsg = "Unable to load path history information from properties due to an error.\n\n" + exc.getMessage();
+            UtilsJavaFX.launchPopup(rootPane, "Configuration Error", errmsg, AlertType.ERROR);
+        }
+
+        // Primary mouse click opens folder picker menu directly
+        sourceText.setOnMouseClicked(new EventHandler<MouseEvent>()
+        {
+            @Override
+            public void handle(MouseEvent event)
+            {
+                if (event.getButton() == MouseButton.PRIMARY)
+                {
+                    viewPane.sourceBtn.fire();
+                }
+            }
+        });
+
+        // Auto-trim white spaces when focus leaves the path input
+        sourceText.focusedProperty().addListener(new ChangeListener<Boolean>()
+        {
+            @Override
+            public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
+            {
+                if (!newVal)
+                {
+                    sourceText.setText(sourceText.getText().trim());
+                }
+            }
+        });
+
+        // Custom path validation intercept for system clipboard paste events
+        sourceText.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>()
+        {
+            @Override
+            public void handle(KeyEvent event)
+            {
+                UtilsJavaFX.handleSourcePaste(rootPane.getScene().getWindow(), event, sourceText);
+            }
+        });
+
+        // Dynamic output filename target preview updates
+        InvalidationListener previewListener = new InvalidationListener()
+        {
+            @Override
+            public void invalidated(Observable observable)
+            {
+                viewPane.updatePreview(rootPane);
+            }
+        };
+
+        prefixText.disableProperty().bind(showMetadataCheck.selectedProperty());
+        modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
+
+        prefixText.textProperty().addListener(previewListener);
+        embedDateTimeCheck.selectedProperty().addListener(previewListener);
+        modifyDatePicker.valueProperty().addListener(previewListener);
+
+        // Adjust display button names according to execution mode toggle
+        showMetadataCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
+        {
+            @Override
+            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldVal, Boolean newVal)
+            {
+                boolean isMetadata = newVal;
+
+                viewPane.viewBtn.setText(isMetadata ? "List Metadata" : "View Summary");
+                viewPane.actionBtn.setText(isMetadata ? "Display Metadata" : "Run Batch Process");
+            }
+        });
+
+        // Disable summary output triggering until meaningful data structures are ready
+        BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(completedFileRecords);
+        BooleanBinding isMetadataEmpty = Bindings.isEmpty(extractedMetadata);
+        BooleanBinding isViewDisabled = Bindings.when(showMetadataCheck.selectedProperty()).then(isMetadataEmpty).otherwise(isBatchRecordsEmpty);
+
+        viewPane.viewBtn.disableProperty().bind(isViewDisabled);
+        viewPane.updatePreview(rootPane);
+
+        viewPane.sourceBtn.setOnAction(this);
+        viewPane.actionBtn.setOnAction(this);
+        viewPane.exitBtn.setOnAction(this);
+        viewPane.copyLogBtn.setOnAction(this);
+        viewPane.clearLogBtn.setOnAction(this);
+        viewPane.abortBtn.setOnAction(this);
+        viewPane.viewBtn.setOnAction(this);
+    }
+
+    /**
+     * Switches the active application UI theme by replacing the stylesheets applied to the scene
+     * containing the root pane.
+     *
+     * <p>
+     * The specified theme is loaded and applied to the application. If {@code themeFileName} is
+     * {@code null}, no change is made. If the specified theme cannot be found, the current theme
+     * remains unchanged and an error is reported.
+     * </p>
+     *
+     * @param themeFileName
+     *        the file name of the theme to apply (e.g., {@code "dark-theme.css"}), or {@code null}
+     *        to leave the current theme unchanged
+     */
+    private void switchTheme(String themeFileName)
+    {
+        Scene scene = rootPane.getScene();
+
+        if (themeFileName != null)
+        {
+            URL resource = getClass().getResource("/gui/" + themeFileName);
+
+            if (resource != null)
+            {
+                scene.getStylesheets().clear();
+                scene.getStylesheets().add(resource.toExternalForm());
+            }
+
+            else
+            {
+                System.err.println("Theme stylesheet not found: /gui/" + themeFileName);
+            }
+        }
+    }
+
+    /**
+     * Constructs the source selection context menu containing fixed pick options and recent
+     * history.
+     */
+    private void createSourceContextMenu()
+    {
+        final ContextMenu menu = new ContextMenu();
+        MenuItem selectFolder = new MenuItem("Select Folder...");
+        MenuItem selectFiles = new MenuItem("Select Specific Files...");
+        TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
+
+        selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
+
+        selectFiles.setOnAction(new EventHandler<ActionEvent>()
+        {
+            @Override
+            public void handle(ActionEvent event)
+            {
+                UtilsJavaFX.handleFileSelection(rootPane.getScene().getWindow());
+            }
+        });
+
+        menu.getItems().addAll(selectFolder, selectFiles, new SeparatorMenuItem());
+        viewPane.sourceBtn.setUserData(menu);
+        populateRecentHistoryMenu(menu, sourceText);
+    }
+
+    /**
+     * Reads recent source path history from storage and appends the entries to the menu.
+     *
+     * @param menu
+     *        the target {@link ContextMenu} instance
+     * @param sourceText
+     *        the source path {@link TextField} control
+     */
+    private void populateRecentHistoryMenu(ContextMenu menu, final TextField sourceText)
+    {
+        try
+        {
+            String[] history = PathHistoryStore.loadRecentSourcePaths();
+
+            if (history.length > 0)
+            {
+                for (String entry : history)
+                {
+                    if (entry == null || entry.isEmpty())
+                    {
+                        continue;
+                    }
+
+                    String fileHistory;
+                    String parentHistory = null;
+                    int pos = entry.indexOf('|');
+
+                    if (pos >= 0)
+                    {
+                        parentHistory = entry.substring(0, pos);
+                        fileHistory = entry.substring(pos + 1);
+                    }
+
+                    else
+                    {
+                        fileHistory = entry;
+                    }
+
+                    final String targetFile = fileHistory;
+                    final String targetParent = parentHistory;
+                    MenuItem item = new MenuItem(fileHistory);
+
+                    item.setOnAction(new EventHandler<ActionEvent>()
+                    {
+                        @Override
+                        public void handle(ActionEvent event)
+                        {
+                            sourceText.setText(targetFile);
+
+                            if (targetParent != null && !targetParent.isEmpty())
+                            {
+                                sourceText.setTooltip(new Tooltip(targetParent));
+                            }
+
+                            else
+                            {
+                                sourceText.setTooltip(null);
+                            }
+                        }
+                    });
+
+                    menu.getItems().add(item);
+                }
+            }
+
+            else
+            {
+                MenuItem blankItem = new MenuItem("No recent paths");
+                blankItem.setDisable(true);
+                menu.getItems().add(blankItem);
+            }
+        }
+
+        catch (BatchErrorException exc)
+        {
+            MenuItem blankItem = new MenuItem("Recent paths unknown");
+            blankItem.setDisable(true);
+            menu.getItems().add(blankItem);
         }
     }
 
@@ -509,279 +778,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         Thread worker = new Thread(workerTask);
         worker.setDaemon(true);
         worker.start();
-    }
-
-    /**
-     * Binds control events, property listeners, and state dependencies.
-     */
-    private void configureDynamicNodes()
-    {
-        final TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
-        final TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
-        final TextField prefixText = UtilsJavaFX.getById(rootPane, MainViewPane.PFXID, TextField.class);
-        final CheckBox embedDateTimeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.EMBID, CheckBox.class);
-        final DatePicker modifyDatePicker = UtilsJavaFX.getById(rootPane, MainViewPane.DTMID, DatePicker.class);
-        final CheckBox showMetadataCheck = UtilsJavaFX.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
-        final CheckBox themeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
-
-        themeCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
-        {
-            @Override
-            public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
-            {
-                switchTheme(newVal.booleanValue() ? "dark.css" : "light.css");
-            }
-        });
-
-        try
-        {
-            boolean isDark = PathHistoryStore.loadSettings(sourceText, targetText);
-
-            if (isDark)
-            {
-                themeCheck.setSelected(true);
-            }
-
-            else
-            {
-                switchTheme("light.css");
-            }
-        }
-
-        catch (IOException exc)
-        {
-            String errmsg = "Unable to load path history information from properties due to an error.\n\n" + exc.getMessage();
-            UtilsJavaFX.launchPopup(rootPane, "Configuration Error", errmsg, AlertType.ERROR);
-        }
-
-        // Primary mouse click opens folder picker menu directly
-        sourceText.setOnMouseClicked(new EventHandler<MouseEvent>()
-        {
-            @Override
-            public void handle(MouseEvent event)
-            {
-                if (event.getButton() == MouseButton.PRIMARY)
-                {
-                    viewPane.sourceBtn.fire();
-                }
-            }
-        });
-
-        // Auto-trim white spaces when focus leaves the path input
-        sourceText.focusedProperty().addListener(new ChangeListener<Boolean>()
-        {
-            @Override
-            public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
-            {
-                if (!newVal)
-                {
-                    sourceText.setText(sourceText.getText().trim());
-                }
-            }
-        });
-
-        // Custom path validation intercept for system clipboard paste events
-        sourceText.addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>()
-        {
-            @Override
-            public void handle(KeyEvent event)
-            {
-                UtilsJavaFX.handleSourcePaste(rootPane.getScene().getWindow(), event, sourceText);
-            }
-        });
-
-        // Dynamic output filename target preview updates
-        InvalidationListener previewListener = new InvalidationListener()
-        {
-            @Override
-            public void invalidated(Observable observable)
-            {
-                viewPane.updatePreview(rootPane);
-            }
-        };
-
-        prefixText.disableProperty().bind(showMetadataCheck.selectedProperty());
-        modifyDatePicker.disableProperty().bind(showMetadataCheck.selectedProperty());
-
-        prefixText.textProperty().addListener(previewListener);
-        embedDateTimeCheck.selectedProperty().addListener(previewListener);
-        modifyDatePicker.valueProperty().addListener(previewListener);
-
-        // Adjust display button names according to execution mode toggle
-        showMetadataCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
-        {
-            @Override
-            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldVal, Boolean newVal)
-            {
-                boolean isMetadata = newVal;
-
-                viewPane.viewBtn.setText(isMetadata ? "List Metadata" : "View Summary");
-                viewPane.actionBtn.setText(isMetadata ? "Display Metadata" : "Run Batch Process");
-            }
-        });
-
-        // Disable summary output triggering until meaningful data structures are ready
-        BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(completedFileRecords);
-        BooleanBinding isMetadataEmpty = Bindings.isEmpty(extractedMetadata);
-        BooleanBinding isViewDisabled = Bindings.when(showMetadataCheck.selectedProperty()).then(isMetadataEmpty).otherwise(isBatchRecordsEmpty);
-
-        viewPane.viewBtn.disableProperty().bind(isViewDisabled);
-        viewPane.updatePreview(rootPane);
-
-        viewPane.sourceBtn.setOnAction(this);
-        viewPane.actionBtn.setOnAction(this);
-        viewPane.exitBtn.setOnAction(this);
-        viewPane.copyLogBtn.setOnAction(this);
-        viewPane.clearLogBtn.setOnAction(this);
-        viewPane.abortBtn.setOnAction(this);
-        viewPane.viewBtn.setOnAction(this);
-    }
-
-    /**
-     * Switches the active application UI theme by replacing the stylesheets applied to the scene
-     * containing the root pane.
-     *
-     * <p>
-     * The specified theme is loaded and applied to the application. If {@code themeFileName} is
-     * {@code null}, no change is made. If the specified theme cannot be found, the current theme
-     * remains unchanged and an error is reported.
-     * </p>
-     *
-     * @param themeFileName
-     *        the file name of the theme to apply (e.g., {@code "dark-theme.css"}), or {@code null}
-     *        to leave the current theme unchanged
-     */
-    private void switchTheme(String themeFileName)
-    {
-        Scene scene = rootPane.getScene();
-
-        if (themeFileName != null)
-        {
-            URL resource = getClass().getResource("/gui/" + themeFileName);
-
-            if (resource != null)
-            {
-                scene.getStylesheets().clear();
-                scene.getStylesheets().add(resource.toExternalForm());
-            }
-
-            else
-            {
-                System.err.println("Theme stylesheet not found: /gui/" + themeFileName);
-            }
-        }
-    }
-
-    /**
-     * Constructs the source selection context menu containing fixed pick options and recent
-     * history.
-     *
-     * @return configured {@link ContextMenu} instance
-     */
-    private ContextMenu createSourceContextMenu()
-    {
-        final ContextMenu menu = new ContextMenu();
-        MenuItem selectFolder = new MenuItem("Select Folder...");
-        MenuItem selectFiles = new MenuItem("Select Specific Files...");
-        TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
-
-        selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
-
-        selectFiles.setOnAction(new EventHandler<ActionEvent>()
-        {
-            @Override
-            public void handle(ActionEvent event)
-            {
-                UtilsJavaFX.handleFileSelection(rootPane.getScene().getWindow());
-            }
-        });
-
-        menu.getItems().addAll(selectFolder, selectFiles, new SeparatorMenuItem());
-
-        populateRecentHistoryMenu(menu, sourceText);
-
-        return menu;
-    }
-
-    /**
-     * Reads recent source path history from storage and appends the entries to the menu.
-     *
-     * @param menu
-     *        the target {@link ContextMenu} instance
-     * @param sourceText
-     *        the source path {@link TextField} control
-     */
-    private void populateRecentHistoryMenu(ContextMenu menu, final TextField sourceText)
-    {
-        try
-        {
-            String[] history = PathHistoryStore.loadRecentSourcePaths();
-
-            if (history.length > 0)
-            {
-                for (String entry : history)
-                {
-                    if (entry == null || entry.isEmpty())
-                    {
-                        continue;
-                    }
-
-                    String fileHistory;
-                    String parentHistory = null;
-                    int pos = entry.indexOf('|');
-
-                    if (pos >= 0)
-                    {
-                        parentHistory = entry.substring(0, pos);
-                        fileHistory = entry.substring(pos + 1);
-                    }
-
-                    else
-                    {
-                        fileHistory = entry;
-                    }
-
-                    final String targetFile = fileHistory;
-                    final String targetParent = parentHistory;
-                    MenuItem item = new MenuItem(fileHistory);
-
-                    item.setOnAction(new EventHandler<ActionEvent>()
-                    {
-                        @Override
-                        public void handle(ActionEvent event)
-                        {
-                            sourceText.setText(targetFile);
-
-                            if (targetParent != null && !targetParent.isEmpty())
-                            {
-                                sourceText.setTooltip(new Tooltip(targetParent));
-                            }
-
-                            else
-                            {
-                                sourceText.setTooltip(null);
-                            }
-                        }
-                    });
-
-                    menu.getItems().add(item);
-                }
-            }
-
-            else
-            {
-                MenuItem blankItem = new MenuItem("No recent paths");
-                blankItem.setDisable(true);
-                menu.getItems().add(blankItem);
-            }
-        }
-
-        catch (BatchErrorException exc)
-        {
-            MenuItem blankItem = new MenuItem("Recent paths unknown");
-            blankItem.setDisable(true);
-            menu.getItems().add(blankItem);
-        }
     }
 
     /**
