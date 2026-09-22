@@ -8,8 +8,6 @@ import batch.BatchMetrics;
 import batch.BatchProcessEvent;
 import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
-import batch.MetadataInspectionEvent;
-import batch.MetadataReportGenerator;
 import common.PropertyBiConsumer;
 import javafx.concurrent.Task;
 import javafx.scene.control.ProgressBar;
@@ -28,7 +26,7 @@ import progressbar.JavaFXProgressAdapter;
  * @version 1.2
  * @since 5 May 2026
  */
-class BatchTask extends Task<BatchMetrics>
+class BatchTask2 extends Task<BatchMetrics>
 {
     private final BatchConfiguration config;
     private final TextArea logArea;
@@ -37,7 +35,7 @@ class BatchTask extends Task<BatchMetrics>
     private PropertyBiConsumer fileSummaryListener;
     private Consumer<Integer> fileScannedListener;
     private Consumer<Integer> fileProcessedListener;
-    private Consumer<String> metadataOutputListener;
+    private Consumer<String> metadataReceivedListener;
     private Consumer<CollectedMetadata> onRecordExtracted;
     private volatile MediaBatchProcessor processor;
 
@@ -54,7 +52,7 @@ class BatchTask extends Task<BatchMetrics>
      *        {@code true} to display metadata only, or {@code false} to perform standard batch
      *        processing
      */
-    BatchTask(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
+    BatchTask2(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
     {
         this.config = config;
         this.logArea = logArea;
@@ -110,20 +108,15 @@ class BatchTask extends Task<BatchMetrics>
     }
 
     /**
-     * Registers a bridge listener to receive formatted metadata text extracted during inspection.
-     * 
-     * <p>
-     * This callback acts as an adapter, bridging internal inspection events emitted by
-     * {@link MetadataReportGenerator} to external consumers (such as GUI text areas or loggers)
-     * that require string-formatted output.
-     * </p>
+     * Sets the listener to receive metadata information retrieved during metadata inspection by the
+     * {@link DisplayMetadata} class.
      *
      * @param listener
-     *        the text consumer callback to receive formatted metadata lines
+     *        the listener to receive the formatted metadata text
      */
     void setOnMetadataReceived(Consumer<String> listener)
     {
-        metadataOutputListener = listener;
+        metadataReceivedListener = listener;
     }
 
     /**
@@ -174,34 +167,28 @@ class BatchTask extends Task<BatchMetrics>
     {
         if (display)
         {
-            MetadataReportGenerator inspector = new MetadataReportGenerator(config);
+            DisplayMetadata display = new DisplayMetadata(config);
 
-            inspector.addProgressListener(attachProgressAdapter("Retrieving metadata"));
+            display.addProgressListener(attachProgressAdapter("Retrieving metadata"));
 
-            inspector.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
+            if (onRecordExtracted != null)
             {
-                /*
-                 * Acts as an event adapter that receives MetadataInspectionEvent
-                 * notifications from the inspector, converts them to formatted text,
-                 * and forwards them to the GUI listener.
-                 */
+                display.setOnRecordExtracted(onRecordExtracted);
+            }
+
+            display.setOnMetadataReceived(new Consumer<String>()
+            {
                 @Override
-                public void accept(final MetadataInspectionEvent event)
+                public void accept(final String text)
                 {
-                    if (metadataOutputListener != null)
+                    if (metadataReceivedListener != null)
                     {
-                        // Forward formatted text to the GUI listener
-                        metadataOutputListener.accept(event.toString());
+                        metadataReceivedListener.accept(text);
                     }
                 }
             });
 
-            if (onRecordExtracted != null)
-            {
-                inspector.setOnRecordExtracted(onRecordExtracted);
-            }
-
-            return inspector.execute();
+            return display.execute();
         }
 
         processor = new MediaBatchProcessor(config);

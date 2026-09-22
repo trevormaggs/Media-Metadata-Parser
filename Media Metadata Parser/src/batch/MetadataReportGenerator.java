@@ -39,8 +39,8 @@ import xmp.XmpDirectory;
 import xmp.XmpDirectory.XmpRecord;
 
 /**
- * Coordinates media metadata inspection pipelines and emits structured key-value property entries
- * via {@link MetadataInspectionEvent} notifications.
+ * Coordinates media metadata inspection and emits key-value property entries via
+ * {@link MetadataInspectionEvent} notifications.
  *
  * <p>
  * This class coordinates file discovery through a {@link MetadataScanner}, extracts standard file
@@ -49,8 +49,8 @@ import xmp.XmpDirectory.XmpRecord;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.3
- * @since 29 June 2026
+ * @version 1.4
+ * @since 23 September 2026
  */
 public final class MetadataReportGenerator
 {
@@ -68,8 +68,8 @@ public final class MetadataReportGenerator
     private Consumer<CollectedMetadata> recordExtractedListener;
 
     /**
-     * Creates an instance for inspecting and generating metadata records, configured via
-     * command-line parameters and filters.
+     * Creates an instance for inspecting and generating metadata records using the specified
+     * configuration.
      *
      * @param config
      *        the configuration containing validated source parameters and execution flags
@@ -98,8 +98,8 @@ public final class MetadataReportGenerator
     }
 
     /**
-     * Registers an event callback listener that receives structured metadata inspection events as
-     * each tag or attribute is extracted.
+     * Registers an event callback listener that receives metadata inspection events while each tag
+     * or attribute is extracted.
      * 
      * <p>
      * This method implements the Observer/Callback pattern, decoupling metadata extraction from
@@ -107,7 +107,7 @@ public final class MetadataReportGenerator
      * </p>
      *
      * @param listener
-     *        the callback consumer triggered when a {@link MetadataInspectionEvent} is emitted
+     *        the callback visitor triggered when a {@link MetadataInspectionEvent} is emitted
      */
     public void setOnMetadataInspected(Consumer<MetadataInspectionEvent> listener)
     {
@@ -115,10 +115,10 @@ public final class MetadataReportGenerator
     }
 
     /**
-     * Sets the callback listener that receives each fully parsed {@link CollectedMetadata} object.
+     * Sets the callback listener that receives each parsed {@link CollectedMetadata} object.
      *
      * @param listener
-     *        the consumer to process extracted metadata records
+     *        the callback visitor to process extracted metadata records
      */
     public void setOnRecordExtracted(Consumer<CollectedMetadata> listener)
     {
@@ -128,7 +128,7 @@ public final class MetadataReportGenerator
     /**
      * Executes the metadata extraction pipeline for all media records discovered by the scanner.
      *
-     * @return metrics containing total source files scanned and size
+     * @return metrics containing the total number of source files scanned and their total size
      */
     public BatchMetrics execute()
     {
@@ -181,10 +181,7 @@ public final class MetadataReportGenerator
 
                         emitMetadataEvent(new MetadataInspectionEvent(System.lineSeparator()));
 
-                        /*
-                         * Dispatches the output of metadata values
-                         * to the registered listener.
-                         */
+                        /* Dispatches the output of metadata values to the registered listener */
                         if (recordExtractedListener != null)
                         {
                             recordExtractedListener.accept(new CollectedMetadata(fpath, meta));
@@ -223,11 +220,12 @@ public final class MetadataReportGenerator
     }
 
     /**
-     * Inspects file system level attributes for the specified record and emits them
-     * under the {@code [System]} metadata group.
+     * Inspects file system level attributes for the specified record and emits them under the
+     * {@code [System]} metadata group.
      *
      * @param record
      *        the media record whose file system attributes are to be inspected
+     * 
      * @throws IOException
      *         if file system metadata cannot be accessed
      */
@@ -248,21 +246,20 @@ public final class MetadataReportGenerator
     }
 
     /**
-     * Extracts format-specific EXIF and chunk metadata properties from the provided metadata
-     * container
-     * and dispatches them as inspection events.
+     * Extracts format-specific TIFF, EXIF, and PNG metadata properties from the specified metadata
+     * container and dispatches them as inspection events.
      *
      * @param meta
-     *        the metadata container extracted from the parsed image file
+     *        the metadata container extracted from the image file
      * @param record
-     *        the media record currently being processed
+     *        the media record currently being inspected
      */
     private void extractMetadataEXIF(Metadata<?> meta, MediaRecord record)
     {
         if (meta instanceof TifMetadataProvider)
         {
             TifMetadataProvider tif = (TifMetadataProvider) meta;
-            processIfdDirectories(tif, record);
+            processDirectoriesIFD(tif, record);
         }
 
         else if (meta instanceof PngMetadataProvider)
@@ -296,7 +293,7 @@ public final class MetadataReportGenerator
 
                 if (exif.hasExifData())
                 {
-                    processIfdDirectories(exif, record);
+                    processDirectoriesIFD(exif, record);
                 }
             }
         }
@@ -311,7 +308,7 @@ public final class MetadataReportGenerator
      * @param record
      *        the media record associated with the IFD entries
      */
-    private void processIfdDirectories(Iterable<DirectoryIFD> directories, MediaRecord record)
+    private void processDirectoriesIFD(Iterable<DirectoryIFD> directories, MediaRecord record)
     {
         for (DirectoryIFD ifd : directories)
         {
@@ -337,8 +334,8 @@ public final class MetadataReportGenerator
     }
 
     /**
-     * Extracts XMP metadata records from the provided metadata container and emits them
-     * with prefixed namespace groups (e.g., {@code [XMP-dc]}).
+     * Extracts XMP metadata records from the specified metadata container and emits them with
+     * prefixed namespace groups, for example: {@code [XMP-dc]}.
      *
      * @param meta
      *        the metadata container holding XMP directory data
@@ -363,7 +360,7 @@ public final class MetadataReportGenerator
     }
 
     /**
-     * Safely dispatches an inspection event to the registered metadata listener.
+     * Dispatches an inspection event to the registered metadata listener.
      *
      * @param event
      *        the {@link MetadataInspectionEvent} containing extracted attribute details
@@ -378,7 +375,7 @@ public final class MetadataReportGenerator
     }
 
     /**
-     * Resets internal progress state across all registered listeners.
+     * Resets the progress state of all registered progress listeners.
      */
     private void resetListeners()
     {
@@ -405,7 +402,7 @@ public final class MetadataReportGenerator
      * Initialises the logging system and records the active configuration.
      *
      * @throws BatchErrorException
-     *         if the logging service cannot be established
+     *         if the log file cannot be created, deleted, or configured
      */
     private void startLogging() throws BatchErrorException
     {

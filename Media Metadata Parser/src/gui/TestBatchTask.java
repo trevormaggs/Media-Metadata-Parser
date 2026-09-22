@@ -6,7 +6,6 @@ import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchMetrics;
 import batch.BatchProcessEvent;
-import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import batch.MetadataInspectionEvent;
 import batch.MetadataReportGenerator;
@@ -25,10 +24,10 @@ import progressbar.JavaFXProgressAdapter;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
- * @since 5 May 2026
+ * @version 1.3
+ * @since 29 June 2026
  */
-class BatchTask extends Task<BatchMetrics>
+class TestBatchTask extends Task<BatchMetrics>
 {
     private final BatchConfiguration config;
     private final TextArea logArea;
@@ -54,7 +53,7 @@ class BatchTask extends Task<BatchMetrics>
      *        {@code true} to display metadata only, or {@code false} to perform standard batch
      *        processing
      */
-    BatchTask(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
+    TestBatchTask(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
     {
         this.config = config;
         this.logArea = logArea;
@@ -110,27 +109,26 @@ class BatchTask extends Task<BatchMetrics>
     }
 
     /**
-     * Registers a bridge listener to receive formatted metadata text extracted during inspection.
+     * Registers a listener to receive formatted metadata output text lines extracted during inspection.
      * 
      * <p>
-     * This callback acts as an adapter, bridging internal inspection events emitted by
-     * {@link MetadataReportGenerator} to external consumers (such as GUI text areas or loggers)
-     * that require string-formatted output.
+     * This listener receives string representations of {@link MetadataInspectionEvent} instances
+     * bridged from {@link MetadataReportGenerator} for display in GUI components or log text areas.
      * </p>
      *
      * @param listener
      *        the text consumer callback to receive formatted metadata lines
      */
-    void setOnMetadataReceived(Consumer<String> listener)
+    void setOnMetadataOutput(Consumer<String> listener)
     {
         metadataOutputListener = listener;
     }
 
     /**
-     * Registers a listener to capture populated CollectedMetadata POJOs.
+     * Registers a listener to capture populated {@link CollectedMetadata} POJOs.
      * 
      * @param listener
-     *        the listener to receive the updated CollectedMetadata object
+     *        the listener to receive the updated {@link CollectedMetadata} object
      */
     void setOnRecordExtracted(Consumer<CollectedMetadata> listener)
     {
@@ -159,9 +157,9 @@ class BatchTask extends Task<BatchMetrics>
      * Executes the batch operation on the background thread.
      *
      * <p>
-     * When metadata display is enabled, metadata is retrieved instead of executing a full batch.
-     * Otherwise, a {@link MediaBatchProcessor} is created and executed while progress is reported
-     * to associated JavaFX controls.
+     * When metadata display is enabled, metadata is retrieved via {@link MetadataReportGenerator} 
+     * instead of executing a full batch. Otherwise, a {@link MediaBatchProcessor} is created and 
+     * executed while progress is reported to associated JavaFX controls.
      * </p>
      *
      * @return the {@link BatchMetrics} produced by the batch operation
