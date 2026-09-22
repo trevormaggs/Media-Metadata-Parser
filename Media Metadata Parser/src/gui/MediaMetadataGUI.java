@@ -1,7 +1,6 @@
 package gui;
 
 import java.io.IOException;
-import java.net.URL;
 import java.util.function.Consumer;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
@@ -103,6 +102,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         configureDynamicNodes();
         createSourceContextMenu();
+        restoreSavedSettings();
     }
 
     /**
@@ -218,7 +218,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private void configureDynamicNodes()
     {
         final TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
-        final TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
         final TextField prefixText = UtilsJavaFX.getById(rootPane, MainViewPane.PFXID, TextField.class);
         final CheckBox embedDateTimeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.EMBID, CheckBox.class);
         final DatePicker modifyDatePicker = UtilsJavaFX.getById(rootPane, MainViewPane.DTMID, DatePicker.class);
@@ -230,30 +229,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
             {
-                switchTheme(newVal.booleanValue() ? "dark.css" : "light.css");
+                UtilsJavaFX.switchTheme(rootPane, newVal.booleanValue() ? "dark.css" : "light.css");
             }
         });
-
-        try
-        {
-            boolean isDark = PathHistoryStore.loadSettings(sourceText, targetText);
-
-            if (isDark)
-            {
-                themeCheck.setSelected(true);
-            }
-
-            else
-            {
-                switchTheme("light.css");
-            }
-        }
-
-        catch (IOException exc)
-        {
-            String errmsg = "Unable to load path history information from properties due to an error.\n\n" + exc.getMessage();
-            UtilsJavaFX.launchPopup(rootPane, "Configuration Error", errmsg, AlertType.ERROR);
-        }
 
         // Primary mouse click opens folder picker menu directly
         sourceText.setOnMouseClicked(new EventHandler<MouseEvent>()
@@ -336,41 +314,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.clearLogBtn.setOnAction(this);
         viewPane.abortBtn.setOnAction(this);
         viewPane.viewBtn.setOnAction(this);
-    }
-
-    /**
-     * Switches the active application UI theme by replacing the stylesheets applied to the scene
-     * containing the root pane.
-     *
-     * <p>
-     * The specified theme is loaded and applied to the application. If {@code themeFileName} is
-     * {@code null}, no change is made. If the specified theme cannot be found, the current theme
-     * remains unchanged and an error is reported.
-     * </p>
-     *
-     * @param themeFileName
-     *        the file name of the theme to apply (e.g., {@code "dark-theme.css"}), or {@code null}
-     *        to leave the current theme unchanged
-     */
-    private void switchTheme(String themeFileName)
-    {
-        Scene scene = rootPane.getScene();
-
-        if (themeFileName != null)
-        {
-            URL resource = getClass().getResource("/gui/" + themeFileName);
-
-            if (resource != null)
-            {
-                scene.getStylesheets().clear();
-                scene.getStylesheets().add(resource.toExternalForm());
-            }
-
-            else
-            {
-                System.err.println("Theme stylesheet not found: /gui/" + themeFileName);
-            }
-        }
     }
 
     /**
@@ -478,6 +421,38 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             MenuItem blankItem = new MenuItem("Recent paths unknown");
             blankItem.setDisable(true);
             menu.getItems().add(blankItem);
+        }
+    }
+
+    /**
+     * Restores user settings and path history from persistent storage.
+     */
+    private void restoreSavedSettings()
+    {
+        TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
+        TextField targetText = UtilsJavaFX.getById(rootPane, MainViewPane.TGTID, TextField.class);
+        CheckBox themeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
+
+        try
+        {
+            boolean isDark = PathHistoryStore.loadSettings(sourceText, targetText);
+
+            if (isDark)
+            {
+                themeCheck.setSelected(true);
+                UtilsJavaFX.switchTheme(rootPane, "dark.css");
+            }
+
+            else
+            {
+                UtilsJavaFX.switchTheme(rootPane, "light.css");
+            }
+        }
+
+        catch (IOException exc)
+        {
+            String errmsg = "Unable to load path history information from properties due to an error.\n\n" + exc.getMessage();
+            UtilsJavaFX.launchPopup(rootPane, "Configuration Error", errmsg, AlertType.ERROR);
         }
     }
 

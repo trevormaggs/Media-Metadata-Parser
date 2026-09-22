@@ -1,6 +1,7 @@
 package gui;
 
 import java.io.File;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -21,6 +22,7 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -33,6 +35,7 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.stage.FileChooser;
@@ -40,7 +43,12 @@ import javafx.stage.Window;
 import javafx.util.Duration;
 
 /**
- * Provides utility methods for JavaFX user interface operations, node traversal, and popup dialogs.
+ * Utility methods for JavaFX user interface operations, scene node traversal, styling, and popup
+ * dialog management.
+ *
+ * <p>
+ * This class is package-private and intended solely for internal GUI operations.
+ * </p>
  */
 final class UtilsJavaFX
 {
@@ -202,6 +210,42 @@ final class UtilsJavaFX
     }
 
     /**
+     * Switches the active application UI theme by replacing the stylesheets applied to the scene
+     * containing the root pane.
+     *
+     * <p>
+     * The specified theme is loaded and applied to the application. If {@code themeFileName} is
+     * {@code null}, no change is made. If the specified theme cannot be found, the current theme
+     * remains unchanged and an error is reported.
+     * </p>
+     *
+     * @param pane
+     *        the root container or UI element used to retrieve the current scene
+     * @param styleName
+     *        the file name of the theme to apply (e.g., {@code "dark-theme.css"}), or {@code null}
+     *        to leave the current theme unchanged
+     */
+    static void switchTheme(Pane pane, String styleName)
+    {
+        if (pane != null && styleName != null)
+        {
+            Scene scene = pane.getScene();
+            URL resource = UtilsJavaFX.class.getResource("/gui/" + styleName);
+
+            if (resource != null)
+            {
+                scene.getStylesheets().clear();
+                scene.getStylesheets().add(resource.toExternalForm());
+            }
+
+            else
+            {
+                System.err.println("Theme stylesheet not found: /gui/" + styleName);
+            }
+        }
+    }
+
+    /**
      * Processes paste hotkey shortcuts in the source location text field.
      *
      * @param owner
@@ -324,6 +368,8 @@ final class UtilsJavaFX
      *
      * @param owner
      *        the parent {@link Window} hosting the file chooser dialog
+     * @param sourceText
+     *        the text field component where the selected file paths will be set
      */
     static void handleFileSelection(Window owner)
     {
