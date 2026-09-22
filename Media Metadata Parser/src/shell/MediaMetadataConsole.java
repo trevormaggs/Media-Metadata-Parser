@@ -1,11 +1,13 @@
 package shell;
 
+import java.util.function.Consumer;
 import batch.BatchBuilder;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchMetrics;
-import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
+import batch.MetadataInspectionEvent;
+import batch.MetadataReportGenerator;
 import cli.CommandFlagParser;
 import cli.FlagType;
 import progressbar.ConsoleProgressBar;
@@ -97,8 +99,18 @@ public final class MediaMetadataConsole
         {
             if (config.isShowMetadata())
             {
-                DisplayMetadata display = new DisplayMetadata(config);
-                display.execute();
+                MetadataReportGenerator inspector = new MetadataReportGenerator(config);
+
+                inspector.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
+                {
+                    @Override
+                    public void accept(final MetadataInspectionEvent event)
+                    {
+                        System.out.print(event.toString());
+                    }
+                });
+
+                inspector.execute();
             }
 
             else
@@ -119,7 +131,7 @@ public final class MediaMetadataConsole
                     System.out.println("------------------------------------------------------");
                     System.out.printf("  Source Files Scanned : %d%n", metrics.getScanned());
                     System.out.printf("  Target Files Copied  : %d%n", metrics.getProcessed());
-                    System.out.printf("  Files Skipped        : %d%n", metrics.getFilesSkippedCount());                    
+                    System.out.printf("  Files Skipped        : %d%n", metrics.getFilesSkippedCount());
                     System.out.printf("  Total Size Copied    : %.2f MB (%,d bytes)%n", metrics.getTotalTargetSizeMB(), metrics.getTargetBytes());
                     System.out.println("------------------------------------------------------");
                 }

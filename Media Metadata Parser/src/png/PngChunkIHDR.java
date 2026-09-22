@@ -232,27 +232,26 @@ public class PngChunkIHDR extends PngChunk
     }
 
     /**
-     * Prints the structural image header fields of this chunk to the specified display target.
+     * Exports the metadata properties of this chunk to the specified property consumer.
      *
      * <p>
-     * <strong>Integration Note:</strong> This method is intended primarily for use by
-     * {@code PhotoshopManager}, which invokes it to collect and format chunk properties for display
-     * and reporting.
+     * <strong>Integration Note:</strong> This method is invoked during metadata inspection and
+     * reporting pipelines to extract structured key-value entries for display or logging targets.
      * </p>
      *
-     * @param display
-     *        the target that receives the formatted metadata properties
+     * @param consumer
+     *        the visitor callback that receives extracted property name/value entries
      */
     @Override
-    public void printProperties(PropertyBiConsumer display)
+    public void exportProperties(PropertyBiConsumer consumer)
     {
-        display.accept("Image Width", getWidth());
-        display.accept("Image Height", getHeight());
-        display.accept("Bit Depth", getBitDepth());
-        display.accept("Colour Type", translateColorType());
-        display.accept("Compression", translateCompressionMethod());
-        display.accept("Filter", translateFilterMethod());
-        display.accept("Interlace", translateInterlaceMethod());
+        consumer.accept("Image Width", getWidth());
+        consumer.accept("Image Height", getHeight());
+        consumer.accept("Bit Depth", getBitDepth());
+        consumer.accept("Colour Type", translateColorType());
+        consumer.accept("Compression", translateCompressionMethod());
+        consumer.accept("Filter", translateFilterMethod());
+        consumer.accept("Interlace", translateInterlaceMethod());
     }
 
     /**

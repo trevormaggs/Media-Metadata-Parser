@@ -56,11 +56,11 @@ public interface TextualChunk
      * corresponding uncompressed or decoded text content.
      * </p>
      *
-     * @param display
-     *        the target display destination for the printed metadata fields
+     * @param consumer
+     *        the visitor callback that receives extracted property name/value entries
      */
-    default void printProperties(PropertyBiConsumer display)
+    default void printProperties(PropertyBiConsumer consumer)
     {
-        display.accept(getFormattedKeyword(), getText());
+        consumer.accept(getFormattedKeyword(), getText());
     }
 }

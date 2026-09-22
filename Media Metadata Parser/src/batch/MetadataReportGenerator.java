@@ -23,60 +23,58 @@ import filesystem.FileInspector;
 import gui.CollectedMetadata;
 import logger.LogFactory;
 import png.ChunkType;
+import png.ChunkType.Category;
 import png.PngChunk;
 import png.PngDirectory;
 import png.PngMetadataProvider;
 import png.PngParser;
 import progressbar.ProgressListener;
 import tif.DirectoryIFD;
+import tif.TifMetadata;
 import tif.TifMetadataProvider;
+import tif.TifParser;
 import tif.tagspecs.Taggable;
 import util.SystemInfo;
 import xmp.XmpDirectory;
 import xmp.XmpDirectory.XmpRecord;
 
 /**
- * Extracts and displays media metadata using a pure POJO {@link CollectedMetadata}.
+ * Coordinates media metadata inspection pipelines and emits structured key-value property entries
+ * via {@link MetadataInspectionEvent} notifications.
  *
- * Utility class to print media metadata in a format emulating the output style of
- * {@code exiftool -G1 -a -s -u}.
- *
- * This class coordinates file discovery through a {@link MetadataScanner}, displays file system
- * attributes under the standard {@code [System]} group, and renders metadata from supported image
- * formats in a column-aligned view.
+ * <p>
+ * This class coordinates file discovery through a {@link MetadataScanner}, extracts standard file
+ * system attributes under the {@code [System]} group, and parses metadata from supported image
+ * formats (EXIF/TIFF, PNG, and XMP) for display or reporting targets.
+ * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.3
  * @since 29 June 2026
  */
-public final class DisplayMetadata
+public final class MetadataReportGenerator
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(DisplayMetadata.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(MetadataReportGenerator.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private static final EnumSet<ChunkType> DISPLAY_CHUNK_FILTER = EnumSet.of(
             ChunkType.IHDR, ChunkType.gAMA, ChunkType.sRGB, ChunkType.pHYs,
             ChunkType.tEXt, ChunkType.zTXt, ChunkType.iTXt, ChunkType.eXIf,
-            ChunkType.tIME);
-
-    // TODO: investigate whether it is worthwhile adding these
-    // 3 more chunks to display more information on metadata.
-    // ChunkType.iCCP, ChunkType.cHRM, ChunkType.sBIT);
+            ChunkType.tIME, ChunkType.iCCP, ChunkType.cHRM, ChunkType.sBIT);
 
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
     private final List<ProgressListener> progressListeners;
-    private Consumer<String> metadataReceivedListener;
+    private Consumer<MetadataInspectionEvent> metadataInspectedListener;
     private Consumer<CollectedMetadata> recordExtractedListener;
 
     /**
-     * Creates an instance for displaying metadata name/value attributes, similar to the output
-     * format produced by {@code exiftool -G1 -a -s -u}.
+     * Creates an instance for inspecting and generating metadata records, configured via
+     * command-line parameters and filters.
      *
      * @param config
-     *        the configuration containing the validated source parameters and filters supplied on
-     *        the command line
+     *        the configuration containing validated source parameters and execution flags
      */
-    public DisplayMetadata(BatchConfiguration config)
+    public MetadataReportGenerator(BatchConfiguration config)
     {
         this.config = config;
         this.progressListeners = new ArrayList<>();
@@ -100,18 +98,24 @@ public final class DisplayMetadata
     }
 
     /**
-     * Sets the callback listener that receives formatted text output as metadata is processed.
+     * Registers an event callback listener that receives structured metadata inspection events as
+     * each tag or attribute is extracted.
+     * 
+     * <p>
+     * This method implements the Observer/Callback pattern, decoupling metadata extraction from
+     * downstream targets, such as CLI loggers, GUI table models, or export writers.
+     * </p>
      *
      * @param listener
-     *        the string consumer to process raw text output
+     *        the callback consumer triggered when a {@link MetadataInspectionEvent} is emitted
      */
-    public void setOnMetadataReceived(Consumer<String> listener)
+    public void setOnMetadataInspected(Consumer<MetadataInspectionEvent> listener)
     {
-        metadataReceivedListener = listener;
+        metadataInspectedListener = listener;
     }
 
     /**
-     * Sets the callback listener that receives each parsed {@link CollectedMetadata}.
+     * Sets the callback listener that receives each fully parsed {@link CollectedMetadata} object.
      *
      * @param listener
      *        the consumer to process extracted metadata records
@@ -162,35 +166,20 @@ public final class DisplayMetadata
                         parser.readMetadata();
 
                         Metadata<?> meta = parser.getMetadata();
-                        StringBuilder sb = new StringBuilder().append("======== ").append(fpath).append(" ========");
 
-                        appendSystemMetadata(fpath, sb);
+                        formatSystemProperties(record);
 
                         if (meta.hasMetadata())
                         {
-                            appendTextEXIF(meta, sb);
+                            extractMetadataEXIF(meta, record);
                         }
 
-                        if (meta.hasXmpData() && meta instanceof TifMetadataProvider)
+                        if (meta.hasXmpData())
                         {
-                            appendTextXMP(meta, sb);
-                        }
-                        
-                        sb.append(System.lineSeparator());
-
-                        /*
-                         * Dispatches the output string to the registered listener
-                         * or standard output stream.
-                         */
-                        if (metadataReceivedListener != null)
-                        {
-                            metadataReceivedListener.accept(sb.toString());
+                            extractMetadataXMP(meta, record);
                         }
 
-                        else
-                        {
-                            System.out.print(sb.toString());
-                        }
+                        emitMetadataEvent(new MetadataInspectionEvent(System.lineSeparator()));
 
                         /*
                          * Dispatches the output of metadata values
@@ -223,8 +212,7 @@ public final class DisplayMetadata
 
         catch (Exception exc)
         {
-            // TODO: change to Logger as error or re-throw an exception?
-            System.err.println("Unable to initialise due to an error: " + exc.getMessage());
+            LOGGER.error("Unable to execute metadata inspection due to an error: " + exc.getMessage());
             return new BatchMetrics(0, 0, 0L);
         }
 
@@ -235,66 +223,46 @@ public final class DisplayMetadata
     }
 
     /**
-     * Appends file system attributes for the specified file to the provided string buffer.
-     * The attributes are grouped under the {@code [System]} heading.
+     * Inspects file system level attributes for the specified record and emits them
+     * under the {@code [System]} metadata group.
      *
-     * @param path
-     *        the file whose attributes are to be displayed
-     * @param sb
-     *        the buffer to append formatted attributes to
+     * @param record
+     *        the media record whose file system attributes are to be inspected
      * @throws IOException
-     *         if the file system attributes cannot be read
+     *         if file system metadata cannot be accessed
      */
-    private void appendSystemMetadata(Path path, StringBuilder sb) throws IOException
+    private void formatSystemProperties(MediaRecord record) throws IOException
     {
         String group = "[System]";
-        String fmt = Taggable.COLUMN_FORMAT;
-        AbstractFileNode node = FileInspector.inspect(path, true);
+        Path fpath = record.getPath();
+        AbstractFileNode node = FileInspector.inspect(fpath, true);
 
-        sb.append(System.lineSeparator());
-        sb.append(String.format(fmt, group, "FileName", node.getName()));
-        sb.append(String.format(fmt, group, "Directory", path.getParent() != null ? path.getParent().toString() : "."));
-        sb.append(String.format(fmt, group, "FileSize", (node.size() / 1024) + " KB"));
-        sb.append(String.format(fmt, group, "FileModifyDate", formatTimestamp(node.lastModifiedTime())));
-        sb.append(String.format(fmt, group, "FileAccessDate", formatTimestamp(node.lastAccessTime())));
-        sb.append(String.format(fmt, group, "FileCreateDate", formatTimestamp(node.creationTime())));
-        sb.append(String.format(fmt, group, "FilePermissions", node.getPermissionsString()));
+        emitMetadataEvent(new MetadataInspectionEvent(String.format("======== %s ========%n", fpath)));
+        emitMetadataEvent(new MetadataInspectionEvent(record, group, "FileName", node.getName()));
+        emitMetadataEvent(new MetadataInspectionEvent(record, group, "Directory", fpath.getParent() != null ? fpath.getParent().toString() : "."));
+        emitMetadataEvent(new MetadataInspectionEvent(record, group, "FileSize", (node.size() / 1024) + " KB"));
+        emitMetadataEvent(new MetadataInspectionEvent(record, group, "FileModifyDate", formatTimestamp(node.lastModifiedTime())));
+        emitMetadataEvent(new MetadataInspectionEvent(record, group, "FileAccessDate", formatTimestamp(node.lastAccessTime())));
+        emitMetadataEvent(new MetadataInspectionEvent(record, group, "FileCreateDate", formatTimestamp(node.creationTime())));
+        emitMetadataEvent(new MetadataInspectionEvent(record, group, "FilePermissions", node.getPermissionsString()));
     }
 
     /**
-     * Appends image format metadata (TIFF, PNG, etc.) to the provided string buffer.
+     * Extracts format-specific EXIF and chunk metadata properties from the provided metadata
+     * container
+     * and dispatches them as inspection events.
      *
      * @param meta
-     *        the metadata container to extract output strings from
-     * @param sb
-     *        the buffer to append formatted metadata entries to
+     *        the metadata container extracted from the parsed image file
+     * @param record
+     *        the media record currently being processed
      */
-    private void appendTextEXIF(Metadata<?> meta, StringBuilder sb)
+    private void extractMetadataEXIF(Metadata<?> meta, MediaRecord record)
     {
         if (meta instanceof TifMetadataProvider)
         {
             TifMetadataProvider tif = (TifMetadataProvider) meta;
-
-            for (DirectoryIFD ifd : tif)
-            {
-                String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
-
-                for (DirectoryIFD.EntryIFD entry : ifd)
-                {
-                    Taggable tag = entry.getTag();
-
-                    if (tag != null)
-                    {
-                        String name = tag.getDescription();
-                        String value = tag.translate(entry.getData());
-
-                        if (!value.isEmpty())
-                        {
-                            sb.append(String.format(Taggable.COLUMN_FORMAT, groupName, name, value));
-                        }
-                    }
-                }
-            }
+            processIfdDirectories(tif, record);
         }
 
         else if (meta instanceof PngMetadataProvider)
@@ -306,7 +274,8 @@ public final class DisplayMetadata
                 @Override
                 public void accept(String key, Object value)
                 {
-                    sb.append(String.format(Taggable.COLUMN_FORMAT, "[PNG]", key, String.valueOf(value)));
+                    MetadataInspectionEvent event = new MetadataInspectionEvent(record, "[PNG]", key, String.valueOf(value));
+                    emitMetadataEvent(event);
                 }
             };
 
@@ -317,17 +286,94 @@ public final class DisplayMetadata
                     chunk.exportProperties(consumer);
                 }
             }
+
+            PngDirectory dir = png.getDirectory(Category.MISC);
+            PngChunk chunk = (dir != null ? dir.getFirstChunk(ChunkType.eXIf) : null);
+
+            if (chunk != null)
+            {
+                TifMetadata exif = TifParser.parseTiffMetadataFromBytes(chunk.getPayloadArray());
+
+                if (exif.hasExifData())
+                {
+                    processIfdDirectories(exif, record);
+                }
+            }
         }
     }
 
-    private void appendTextXMP(Metadata<?> meta, StringBuilder sb)
+    /**
+     * Iterates through a collection of IFD directories and emits events for all valid metadata
+     * tags.
+     *
+     * @param directories
+     *        an iterable collection of IFD directories containing metadata tag entries
+     * @param record
+     *        the media record associated with the IFD entries
+     */
+    private void processIfdDirectories(Iterable<DirectoryIFD> directories, MediaRecord record)
     {
-        XmpDirectory xml = ((TifMetadataProvider) meta).getXmpDirectory();
-
-        for (XmpRecord xmp : xml)
+        for (DirectoryIFD ifd : directories)
         {
-            String s1 = String.format(Taggable.COLUMN_FORMAT, "[XMP-" + xmp.getPrefix() + "]", Utils.capitalize(xmp.getName()), xmp.getValue());
-            sb.append(s1);
+            String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
+
+            for (DirectoryIFD.EntryIFD entry : ifd)
+            {
+                Taggable tag = entry.getTag();
+
+                if (tag != null)
+                {
+                    String name = tag.getDescription();
+                    String value = tag.translate(entry.getData());
+
+                    if (!value.isEmpty())
+                    {
+                        MetadataInspectionEvent event = new MetadataInspectionEvent(record, groupName, name, value);
+                        emitMetadataEvent(event);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Extracts XMP metadata records from the provided metadata container and emits them
+     * with prefixed namespace groups (e.g., {@code [XMP-dc]}).
+     *
+     * @param meta
+     *        the metadata container holding XMP directory data
+     * @param record
+     *        the media record currently being processed
+     */
+    private void extractMetadataXMP(Metadata<?> meta, MediaRecord record)
+    {
+        if (meta instanceof TifMetadataProvider)
+        {
+            XmpDirectory xml = ((TifMetadataProvider) meta).getXmpDirectory();
+
+            if (xml != null)
+            {
+                for (XmpRecord xmp : xml)
+                {
+                    MetadataInspectionEvent event = new MetadataInspectionEvent(record, "[XMP-" + xmp.getPrefix() + "]", Utils.capitalize(xmp.getName()), xmp.getValue());
+                    emitMetadataEvent(event);
+                }
+            }
+        }
+    }
+
+    /**
+     * Safely dispatches an inspection event to the registered metadata listener.
+     *
+     * @param event
+     *        the {@link MetadataInspectionEvent} containing extracted attribute details
+     *        or structural delimiters to emit
+     */
+    private void emitMetadataEvent(MetadataInspectionEvent event)
+    {
+        if (metadataInspectedListener != null)
+        {
+            metadataInspectedListener.accept(event);
         }
     }
 
@@ -347,8 +393,8 @@ public final class DisplayMetadata
      *
      * @param millis
      *        the timestamp in milliseconds since the Unix epoch
-     * @return a string in the format
-     *         {@code yyyy:MM:dd HH:mm:ss±HH:mm}, using the system default time zone
+     * @return a string in the format {@code yyyy:MM:dd HH:mm:ss±HH:mm}, using the system default
+     *         time zone
      */
     private String formatTimestamp(long millis)
     {

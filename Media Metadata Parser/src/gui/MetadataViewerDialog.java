@@ -618,7 +618,7 @@ class MetadataViewerDialog extends Stage
                     {
                         for (PngChunk chunk : dir)
                         {
-                            chunk.printProperties(consumer);
+                            chunk.exportProperties(consumer);
                         }
                     }
 

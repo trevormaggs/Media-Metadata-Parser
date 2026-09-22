@@ -132,7 +132,7 @@ final class MetadataExporter
                     {
                         for (PngChunk chunk : dir)
                         {
-                            chunk.printProperties(consumer);
+                            chunk.exportProperties(consumer);
                         }
                     }
                 }
@@ -219,6 +219,7 @@ final class MetadataExporter
                             {
                                 pngProps.append(",\n");
                             }
+
                             pngProps.append("          \"").append(escapeJson(key)).append("\": \"").append(escapeJson(String.valueOf(value))).append("\"");
                         }
                     };
@@ -227,7 +228,7 @@ final class MetadataExporter
                     {
                         for (PngChunk chunk : dir)
                         {
-                            chunk.printProperties(consumer);
+                            chunk.exportProperties(consumer);
                         }
                     }
 

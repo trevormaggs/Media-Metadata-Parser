@@ -197,13 +197,18 @@ public class PngChunk
     }
 
     /**
-     * Prints the human-readable properties of this chunk to the provided consumer. Subclasses
-     * should override this method to expose their specific structural fields.
+     * Exports the metadata properties of this chunk using the Callback / Visitor pattern.
+     * 
+     * <p>
+     * Rather than returning raw collections or formatting strings directly, this method traverses
+     * the chunk's internal structural fields and invokes the provided {@link PropertyBiConsumer}
+     * callback for each key-value attribute pair.
+     * </p>
      *
      * @param consumer
-     *        the target consumer destination for the printed metadata fields
+     *        the visitor callback that receives extracted property name/value entries
      */
-    public void printProperties(PropertyBiConsumer consumer)
+    public void exportProperties(PropertyBiConsumer consumer)
     {
         ChunkType type = getType();
 
