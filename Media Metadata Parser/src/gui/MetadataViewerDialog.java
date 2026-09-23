@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.function.Consumer;
+import batch.MetadataInspectionEvent;
 import common.Metadata;
 import common.PropertyBiConsumer;
 import gui.MetadataExporter.SAVE_FORMAT;
@@ -65,7 +66,7 @@ class MetadataViewerDialog extends Stage
         final Button btnClose = new Button("Close");
         final RadioButton rbFlat = new RadioButton("Raw Flat Text");
         final RadioButton rbTree = new RadioButton("Structured Tree");
-        
+
         this.searchDebouncer = new HoverDebouncer(150);
 
         mapView = new WebView();
@@ -538,26 +539,32 @@ class MetadataViewerDialog extends Stage
     }
 
     /**
-     * Populates the metadata tree from the specified records and updates the available GPS
+     * Populates the metadata tree from the specified inspection events and updates the available
+     * GPS
      * locations.
      * 
-     * @param records
-     *        the extracted metadata records to display
+     * @param events
+     *        the extracted metadata inspection events to display
      */
-    void setMetadataRecords(List<CollectedMetadata> records)
+    void setMetadataEvents(List<MetadataInspectionEvent> events)
     {
-        CollectedMetadata[] mediaItems = records.toArray(new CollectedMetadata[0]);
         TreeItem<MetadataNode> rootNode = new TreeItem<>(new MetadataNode("Root", ""));
-        treeTableView.setUserData(mediaItems);
+
+        treeTableView.setUserData(events);
         gpsMapManager.reset();
         txtSearch.clear();
 
-        if (records != null)
+        if (events != null)
         {
-            for (CollectedMetadata item : mediaItems)
+            for (MetadataInspectionEvent event : events)
             {
-                Metadata<?> meta = item.getMetadata();
-                String fileName = item.getFileName() != null ? item.getFileName() : "Unknown File";
+                if (event == null || !event.hasMetadata())
+                {
+                    continue;
+                }
+
+                Metadata<?> meta = event.getMetadata();
+                String fileName = (event.getSourceName().isEmpty() ? "Unknown File" : event.getSourceName());
                 TreeItem<MetadataNode> fileNode = new TreeItem<>(new MetadataNode(fileName, ""));
 
                 fileNode.setExpanded(true);
@@ -676,11 +683,12 @@ class MetadataViewerDialog extends Stage
      * export format (JSON, CSV, or TXT), then launches a {@link FileChooser} pre-configured for
      * that format.
      */
+    @SuppressWarnings("unchecked")
     private void exportToFile()
     {
-        CollectedMetadata[] mediaItems = (CollectedMetadata[]) treeTableView.getUserData();
+        List<MetadataInspectionEvent> mediaItems = (List<MetadataInspectionEvent>) treeTableView.getUserData();
 
-        if (mediaItems == null || mediaItems.length == 0)
+        if (mediaItems == null || mediaItems.isEmpty())
         {
             UtilsJavaFX.launchPopup(this, "Export Warning", "No metadata records available to export.", AlertType.WARNING);
             return;

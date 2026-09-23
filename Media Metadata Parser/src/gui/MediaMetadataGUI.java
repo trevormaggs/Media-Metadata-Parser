@@ -6,6 +6,7 @@ import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchMetrics;
 import batch.BatchProcessEvent;
+import batch.MetadataInspectionEvent;
 import common.DigitalSignature;
 import common.PropertyBiConsumer;
 import javafx.animation.PauseTransition;
@@ -55,7 +56,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private BatchTask workerTask;
     private MainViewPane viewPane;
     private StringBuilder flatMetadataText;
-    private ObservableList<CollectedMetadata> extractedMetadata;
+    private ObservableList<MetadataInspectionEvent> inspectionEvents;
     private ObservableList<ProcessedFileRecord> completedFileRecords;
 
     /**
@@ -66,7 +67,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         viewPane = new MainViewPane();
         flatMetadataText = new StringBuilder();
-        extractedMetadata = FXCollections.observableArrayList();
+        inspectionEvents = FXCollections.observableArrayList();
         completedFileRecords = FXCollections.observableArrayList();
     }
 
@@ -224,6 +225,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final CheckBox showMetadataCheck = UtilsJavaFX.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
         final CheckBox themeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
 
+        // Toggle between dark and light theme
         themeCheck.selectedProperty().addListener(new ChangeListener<Boolean>()
         {
             @Override
@@ -301,7 +303,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         // Disable summary output triggering until meaningful data structures are ready
         BooleanBinding isBatchRecordsEmpty = Bindings.isEmpty(completedFileRecords);
-        BooleanBinding isMetadataEmpty = Bindings.isEmpty(extractedMetadata);
+        BooleanBinding isMetadataEmpty = Bindings.isEmpty(inspectionEvents);
         BooleanBinding isViewDisabled = Bindings.when(showMetadataCheck.selectedProperty()).then(isMetadataEmpty).otherwise(isBatchRecordsEmpty);
 
         viewPane.viewBtn.disableProperty().bind(isViewDisabled);
@@ -368,6 +370,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                     String fileHistory;
                     String parentHistory = null;
+
                     int pos = entry.indexOf('|');
 
                     if (pos >= 0)
@@ -468,7 +471,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         logArea.clear();
         StatRecord.resetAll();
-        extractedMetadata.clear();
+        inspectionEvents.clear();
         flatMetadataText.setLength(0);
 
         try
@@ -483,12 +486,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             return;
         }
 
-        workerTask = new BatchTask(config, logArea, progressBar, true);
+        workerTask = new BatchTask(config, progressBar, true);
 
         workerTask.setOnFileScanned(new Consumer<Integer>()
         {
             @Override
-            public void accept(Integer count)
+            public void accept(final Integer count)
             {
                 Platform.runLater(new Runnable()
                 {
@@ -501,37 +504,32 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Stream metadata text directly into Text Area while DisplayMetadata emits it
-        workerTask.setOnMetadataReceived(new Consumer<String>()
+        // Consolidated metadata event handling for flat text and structured tree processing
+        workerTask.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
         {
             @Override
-            public void accept(String text)
+            public void accept(final MetadataInspectionEvent event)
             {
-                flatMetadataText.append(text);
-            }
-        });
+                flatMetadataText.append(event.toString());
 
-        // Populate metadata directly into List
-        workerTask.setOnRecordExtracted(new Consumer<CollectedMetadata>()
-        {
-            @Override
-            public void accept(CollectedMetadata record)
-            {
-                Platform.runLater(new Runnable()
+                if (!event.isDelimiter())
                 {
-                    @Override
-                    public void run()
+                    Platform.runLater(new Runnable()
                     {
-                        extractedMetadata.add(record);
-                    }
-                });
+                        @Override
+                        public void run()
+                        {
+                            inspectionEvents.add(event);
+                        }
+                    });
+                }
             }
         });
 
         workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(WorkerStateEvent event)
+            public void handle(final WorkerStateEvent event)
             {
                 BatchMetrics stats = workerTask.getValue();
 
@@ -543,6 +541,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
                 }
 
+                logArea.appendText("\n[SUCCESS] Exif data retrieved successfully.\n");
+
                 showMetadataInspectorTree();
                 resetControlStates(progressLabel);
             }
@@ -551,26 +551,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnFailed(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(WorkerStateEvent event)
+            public void handle(final WorkerStateEvent event)
             {
-                String msg;
                 Throwable exc = workerTask.getException();
+                String msg = (exc != null && exc.getMessage() != null
+                        ? exc.getMessage()
+                        : "An unexpected error occurred during metadata extraction.");
 
-                if (exc != null && exc.getMessage() == null && exc.getCause() != null)
-                {
-                    exc = exc.getCause();
-                }
-
-                if (exc != null && exc.getMessage() != null && !exc.getMessage().trim().isEmpty())
-                {
-                    msg = exc.getMessage();
-                }
-
-                else
-                {
-                    msg = "An unexpected error occurred during metadata extraction.";
-                }
-
+                logArea.appendText("[ERROR] " + msg + "\n");
                 resetControlStates(progressLabel);
                 UtilsJavaFX.launchPopup(rootPane, "Metadata Extraction Error", msg, AlertType.ERROR);
             }
@@ -579,8 +567,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(WorkerStateEvent event)
+            public void handle(final WorkerStateEvent event)
             {
+                logArea.appendText("[WARNING] Batch process was cancelled.\n");
                 resetControlStates(progressLabel);
             }
         });
@@ -603,7 +592,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         MetadataViewerDialog dialog = new MetadataViewerDialog((Stage) rootPane.getScene().getWindow());
 
-        dialog.setMetadataRecords(extractedMetadata);
+        dialog.setMetadataEvents(inspectionEvents);
         dialog.setMetadataText(flatMetadataText.toString());
 
         flatMetadataText.setLength(0);
@@ -638,13 +627,13 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             return;
         }
 
-        workerTask = new BatchTask(config, logArea, progressBar, false);
+        workerTask = new BatchTask(config, progressBar, false);
 
         // Receive file execution output records for tabular summary reporting
         workerTask.setOnFileSummaryListener(new PropertyBiConsumer()
         {
             @Override
-            public void accept(String key, Object value)
+            public void accept(final String key, final Object value)
             {
                 if (value instanceof BatchProcessEvent)
                 {
@@ -672,7 +661,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnFileScanned(new Consumer<Integer>()
         {
             @Override
-            public void accept(Integer count)
+            public void accept(final Integer count)
             {
                 Platform.runLater(new Runnable()
                 {
@@ -689,7 +678,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnFileProcessed(new Consumer<Integer>()
         {
             @Override
-            public void accept(Integer count)
+            public void accept(final Integer count)
             {
                 Platform.runLater(new Runnable()
                 {
@@ -702,11 +691,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Update final metrics when processing completes
+        // Update final metrics
         workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(WorkerStateEvent event)
+            public void handle(final WorkerStateEvent event)
             {
                 BatchMetrics stats = workerTask.getValue();
 
@@ -718,6 +707,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
                 }
 
+                logArea.appendText("\n[SUCCESS] Batch processing complete.\n");
+
                 resetControlStates(progressLabel);
                 viewPane.viewBtn.fire();
             }
@@ -726,11 +717,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnFailed(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(WorkerStateEvent event)
+            public void handle(final WorkerStateEvent event)
             {
                 Throwable exc = workerTask.getException();
-                String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
+                String msg = (exc != null && exc.getMessage() != null) ? exc.getMessage() : "An unexpected error occurred during batch processing.";
 
+                logArea.appendText("[ERROR] " + msg + "\n");
                 resetControlStates(progressLabel);
                 UtilsJavaFX.launchPopup(rootPane, "Processing Error", msg, AlertType.ERROR);
             }
@@ -739,8 +731,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(WorkerStateEvent event)
+            public void handle(final WorkerStateEvent event)
             {
+                logArea.appendText("[WARNING] Batch process was cancelled.\n");
                 resetControlStates(progressLabel);
             }
         });

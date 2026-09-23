@@ -20,7 +20,6 @@ import common.PropertyBiConsumer;
 import common.Utils;
 import filesystem.AbstractFileNode;
 import filesystem.FileInspector;
-import gui.CollectedMetadata;
 import logger.LogFactory;
 import png.ChunkType;
 import png.ChunkType.Category;
@@ -52,9 +51,9 @@ import xmp.XmpDirectory.XmpRecord;
  * @version 1.4
  * @since 23 September 2026
  */
-public final class MetadataReportGenerator
+public final class MetadataReportInspector
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(MetadataReportGenerator.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(MetadataReportInspector.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private static final EnumSet<ChunkType> DISPLAY_CHUNK_FILTER = EnumSet.of(
             ChunkType.IHDR, ChunkType.gAMA, ChunkType.sRGB, ChunkType.pHYs,
@@ -65,7 +64,6 @@ public final class MetadataReportGenerator
     private final MetadataScanner scanner;
     private final List<ProgressListener> progressListeners;
     private Consumer<MetadataInspectionEvent> metadataInspectedListener;
-    private Consumer<CollectedMetadata> recordExtractedListener;
 
     /**
      * Creates an instance for inspecting and generating metadata records using the specified
@@ -74,7 +72,7 @@ public final class MetadataReportGenerator
      * @param config
      *        the configuration containing validated source parameters and execution flags
      */
-    public MetadataReportGenerator(BatchConfiguration config)
+    public MetadataReportInspector(BatchConfiguration config)
     {
         this.config = config;
         this.progressListeners = new ArrayList<>();
@@ -100,7 +98,7 @@ public final class MetadataReportGenerator
     /**
      * Registers an event callback listener that receives metadata inspection events while each tag
      * or attribute is extracted.
-     * 
+     *
      * <p>
      * This method implements the Observer/Callback pattern, decoupling metadata extraction from
      * downstream targets, such as CLI loggers, GUI table models, or export writers.
@@ -112,17 +110,6 @@ public final class MetadataReportGenerator
     public void setOnMetadataInspected(Consumer<MetadataInspectionEvent> listener)
     {
         metadataInspectedListener = listener;
-    }
-
-    /**
-     * Sets the callback listener that receives each parsed {@link CollectedMetadata} object.
-     *
-     * @param listener
-     *        the callback visitor to process extracted metadata records
-     */
-    public void setOnRecordExtracted(Consumer<CollectedMetadata> listener)
-    {
-        recordExtractedListener = listener;
     }
 
     /**
@@ -180,12 +167,7 @@ public final class MetadataReportGenerator
                         }
 
                         emitMetadataEvent(new MetadataInspectionEvent(System.lineSeparator()));
-
-                        /* Dispatches the output of metadata values to the registered listener */
-                        if (recordExtractedListener != null)
-                        {
-                            recordExtractedListener.accept(new CollectedMetadata(fpath, meta));
-                        }
+                        emitMetadataEvent(new MetadataInspectionEvent(record, meta));
                     }
 
                     /* Notify progress listeners based on overall loop count */
@@ -225,7 +207,7 @@ public final class MetadataReportGenerator
      *
      * @param record
      *        the media record whose file system attributes are to be inspected
-     * 
+     *
      * @throws IOException
      *         if file system metadata cannot be accessed
      */

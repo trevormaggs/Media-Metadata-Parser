@@ -1,19 +1,16 @@
 package gui;
 
 import java.util.function.Consumer;
-
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchMetrics;
 import batch.BatchProcessEvent;
-import batch.DisplayMetadata;
 import batch.MediaBatchProcessor;
 import batch.MetadataInspectionEvent;
-import batch.MetadataReportGenerator;
+import batch.MetadataReportInspector;
 import common.PropertyBiConsumer;
 import javafx.concurrent.Task;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.control.TextArea;
 import progressbar.JavaFXProgressAdapter;
 
 /**
@@ -21,24 +18,23 @@ import progressbar.JavaFXProgressAdapter;
  *
  * <p>
  * This task coordinates long-running batch operations while reporting progress and completion
- * status to the supplied user interface components without blocking the JavaFX Application Thread.
+ * status to the registered user interface components without blocking the JavaFX Application
+ * Thread.
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
- * @since 5 May 2026
+ * @version 1.3
+ * @since 29 June 2026
  */
 class BatchTask extends Task<BatchMetrics>
 {
     private final BatchConfiguration config;
-    private final TextArea logArea;
     private final ProgressBar progressBar;
     private final boolean display;
     private PropertyBiConsumer fileSummaryListener;
     private Consumer<Integer> fileScannedListener;
     private Consumer<Integer> fileProcessedListener;
-    private Consumer<String> metadataOutputListener;
-    private Consumer<CollectedMetadata> onRecordExtracted;
+    private Consumer<MetadataInspectionEvent> metadataInspectedListener;
     private volatile MediaBatchProcessor processor;
 
     /**
@@ -46,29 +42,25 @@ class BatchTask extends Task<BatchMetrics>
      *
      * @param config
      *        the validated batch configuration
-     * @param logArea
-     *        the destination for status messages
      * @param progressBar
      *        the progress bar to update during execution
      * @param displayMetadata
      *        {@code true} to display metadata only, or {@code false} to perform standard batch
      *        processing
      */
-    BatchTask(BatchConfiguration config, TextArea logArea, ProgressBar progressBar, boolean displayMetadata)
+    BatchTask(BatchConfiguration config, ProgressBar progressBar, boolean displayMetadata)
     {
         this.config = config;
-        this.logArea = logArea;
         this.progressBar = progressBar;
         this.display = displayMetadata;
     }
 
     /**
      * Sets the listener to be notified while files are scanned.
-     * 
+     *
      * <p>
      * The listener receives the current count of scanned files, allowing the processing statistics
-     * table view to be updated while the scan is in progress. The {@link StatRecord} class provides
-     * the observable property used by the table view.
+     * table view to be updated downstream while the scan is in progress.
      * </p>
      *
      * @param listener
@@ -81,11 +73,10 @@ class BatchTask extends Task<BatchMetrics>
 
     /**
      * Sets the listener to be notified while files are processed.
-     * 
+     *
      * <p>
      * The listener receives the current count of processed files, allowing the processing
-     * statistics table view to be updated while the processing is in progress. The
-     * {@link StatRecord} class provides the observable property used by the table view.
+     * statistics table view to be updated downstream while the processing is in progress.
      * </p>
      *
      * @param listener
@@ -100,7 +91,7 @@ class BatchTask extends Task<BatchMetrics>
      * Sets the listener to receive batch process events for updating file summary metrics. The
      * listener is notified after each file has been processed, allowing the summary statistics to
      * be updated progressively during batch processing.
-     * 
+     *
      * @param listener
      *        the listener to receive batch process event updates
      */
@@ -110,31 +101,20 @@ class BatchTask extends Task<BatchMetrics>
     }
 
     /**
-     * Registers a bridge listener to receive formatted metadata text extracted during inspection.
-     * 
+     * Registers a listener to receive formatted output text lines extracted during metadata
+     * inspection.
+     *
      * <p>
-     * This callback acts as an adapter, bridging internal inspection events emitted by
-     * {@link MetadataReportGenerator} to external consumers (such as GUI text areas or loggers)
-     * that require string-formatted output.
+     * This listener receives string representations of {@link MetadataInspectionEvent} instances
+     * bridged from {@link MetadataReportInspector} for display in GUI components.
      * </p>
      *
      * @param listener
      *        the text consumer callback to receive formatted metadata lines
      */
-    void setOnMetadataReceived(Consumer<String> listener)
+    void setOnMetadataInspected(Consumer<MetadataInspectionEvent> listener)
     {
-        metadataOutputListener = listener;
-    }
-
-    /**
-     * Registers a listener to capture populated CollectedMetadata POJOs.
-     * 
-     * @param listener
-     *        the listener to receive the updated CollectedMetadata object
-     */
-    void setOnRecordExtracted(Consumer<CollectedMetadata> listener)
-    {
-        this.onRecordExtracted = listener;
+        metadataInspectedListener = listener;
     }
 
     /**
@@ -159,9 +139,10 @@ class BatchTask extends Task<BatchMetrics>
      * Executes the batch operation on the background thread.
      *
      * <p>
-     * When metadata display is enabled, metadata is retrieved instead of executing a full batch.
-     * Otherwise, a {@link MediaBatchProcessor} is created and executed while progress is reported
-     * to associated JavaFX controls.
+     * When metadata inspection is enabled, metadata is retrieved via
+     * {@link MetadataReportInspector} instead of executing a full batch. Otherwise, a
+     * {@link MediaBatchProcessor} is created for execution. In both cases, progress is reported to
+     * associated JavaFX controls.
      * </p>
      *
      * @return the {@link BatchMetrics} produced by the batch operation
@@ -174,10 +155,9 @@ class BatchTask extends Task<BatchMetrics>
     {
         if (display)
         {
-            MetadataReportGenerator inspector = new MetadataReportGenerator(config);
+            MetadataReportInspector inspector = new MetadataReportInspector(config);
 
             inspector.addProgressListener(attachProgressAdapter("Retrieving metadata"));
-
             inspector.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
             {
                 /*
@@ -188,23 +168,18 @@ class BatchTask extends Task<BatchMetrics>
                 @Override
                 public void accept(final MetadataInspectionEvent event)
                 {
-                    if (metadataOutputListener != null)
+                    if (metadataInspectedListener != null)
                     {
-                        // Forward formatted text to the GUI listener
-                        metadataOutputListener.accept(event.toString());
+                        metadataInspectedListener.accept(event);
                     }
                 }
             });
-
-            if (onRecordExtracted != null)
-            {
-                inspector.setOnRecordExtracted(onRecordExtracted);
-            }
 
             return inspector.execute();
         }
 
         processor = new MediaBatchProcessor(config);
+        processor.addProgressListener(attachProgressAdapter("Processing batch"));
 
         if (fileSummaryListener != null)
         {
@@ -215,13 +190,12 @@ class BatchTask extends Task<BatchMetrics>
                 {
                     if (value instanceof BatchProcessEvent)
                     {
+                        // Receives and forwards BatchProcessEvent updates to the GUI listener
                         fileSummaryListener.accept(key, value);
                     }
                 }
             });
         }
-
-        processor.addProgressListener(attachProgressAdapter("Processing batch"));
 
         return processor.execute();
     }
@@ -230,8 +204,8 @@ class BatchTask extends Task<BatchMetrics>
      * Attaches a progress listener adapter for reporting scan and execution progress.
      *
      * @param actionLabel
-     *        the descriptive label for the active execution phase, such as "Processing batch"
-     *        or "Retrieving metadata"
+     *        the descriptive label for the active execution phase, such as "Processing batch" or
+     *        "Retrieving metadata"
      * @return the configured progress listener adapter
      */
     private JavaFXProgressAdapter attachProgressAdapter(String actionLabel)
@@ -350,18 +324,7 @@ class BatchTask extends Task<BatchMetrics>
     protected void succeeded()
     {
         super.succeeded();
-
         updateMessage("Batch completed");
-
-        if (display)
-        {
-            logArea.appendText("\n[SUCCESS] Exif data retrieved successfully.\n");
-        }
-
-        else
-        {
-            logArea.appendText("\n[SUCCESS] Batch processing complete.\n");
-        }
     }
 
     /**
@@ -376,21 +339,7 @@ class BatchTask extends Task<BatchMetrics>
     protected void failed()
     {
         super.failed();
-
         updateMessage("Process failed");
-
-        Throwable exc = getException();
-        String msg = (exc != null && exc.getMessage() != null ? exc.getMessage() : "An unknown error occurred.");
-
-        if (exc instanceof BatchErrorException)
-        {
-            logArea.appendText("[ERROR] " + msg + "\n");
-        }
-
-        else
-        {
-            logArea.appendText("[ERROR] Unexpected error: " + msg + "\n");
-        }
     }
 
     /**
@@ -404,9 +353,7 @@ class BatchTask extends Task<BatchMetrics>
     protected void cancelled()
     {
         super.cancelled();
-
         updateMessage("Process cancelled");
-        logArea.appendText("[WARNING] Batch process was cancelled.\n");
     }
 
     /**
@@ -420,7 +367,6 @@ class BatchTask extends Task<BatchMetrics>
     protected void done()
     {
         super.done();
-
         processor = null;
     }
 }

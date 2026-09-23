@@ -3,6 +3,8 @@ package gui;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.List;
+import batch.MetadataInspectionEvent;
 import common.Metadata;
 import common.PropertyBiConsumer;
 import javafx.scene.control.TextArea;
@@ -19,8 +21,6 @@ import tif.tagspecs.Taggable;
  */
 final class MetadataExporter
 {
-    // TODO: REVIEW AND IMPROVE
-
     private MetadataExporter()
     {
         // Prevent instantiation
@@ -45,13 +45,13 @@ final class MetadataExporter
      * @param targetFile
      *        the file destination chosen by the user
      * @param mediaItems
-     *        the array of media metadata items
+     *        the list of metadata inspection events
      * @param format
      *        "JSON", "CSV", or "TXT"
      * @throws IOException
      *         if file output fails
      */
-    static void export(File targetFile, CollectedMetadata[] mediaItems, SAVE_FORMAT format) throws IOException
+    static void export(File targetFile, List<MetadataInspectionEvent> mediaItems, SAVE_FORMAT format) throws IOException
     {
         String content;
 
@@ -76,16 +76,21 @@ final class MetadataExporter
         }
     }
 
-    private static String toCSV(CollectedMetadata[] mediaItems)
+    private static String toCSV(List<MetadataInspectionEvent> mediaItems)
     {
         StringBuilder csv = new StringBuilder("File Name,Group,Property,Value\n");
 
         if (mediaItems != null)
         {
-            for (CollectedMetadata record : mediaItems)
+            for (MetadataInspectionEvent event : mediaItems)
             {
-                Metadata<?> meta = record.getMetadata();
-                String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
+                if (event == null || !event.hasMetadata())
+                {
+                    continue;
+                }
+
+                Metadata<?> meta = event.getMetadata();
+                String fileName = (event.getSourceName().isEmpty() ? "Unknown File" : event.getSourceName());
 
                 if (meta instanceof TifMetadataProvider)
                 {
@@ -142,16 +147,30 @@ final class MetadataExporter
         return csv.toString();
     }
 
-    private static String toJSON(CollectedMetadata[] mediaItems)
+    private static String toJSON(List<MetadataInspectionEvent> mediaItems)
     {
         StringBuilder json = new StringBuilder("[\n");
 
         if (mediaItems != null)
         {
-            for (CollectedMetadata record : mediaItems)
+            boolean firstRecord = true;
+
+            for (MetadataInspectionEvent event : mediaItems)
             {
-                String fileName = record.getFileName() != null ? record.getFileName() : "Unknown File";
-                Metadata<?> meta = record.getMetadata();
+                if (event == null || !event.hasMetadata())
+                {
+                    continue;
+                }
+
+                if (!firstRecord)
+                {
+                    json.append(",\n");
+                }
+
+                firstRecord = false;
+
+                Metadata<?> meta = event.getMetadata();
+                String fileName = (event.getSourceName().isEmpty() ? "Unknown File" : event.getSourceName());
 
                 json.append("  {\n");
                 json.append("    \"fileName\": \"").append(escapeJson(fileName)).append("\",\n");
@@ -240,10 +259,13 @@ final class MetadataExporter
                     json.append("        }\n");
                     json.append("      }\n");
                 }
+
+                json.append("    ]\n");
+                json.append("  }");
             }
         }
 
-        json.append("]");
+        json.append("\n]");
 
         return json.toString();
     }

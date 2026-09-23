@@ -1,15 +1,17 @@
 package batch;
 
 import java.util.Objects;
+import common.Metadata;
 import tif.tagspecs.Taggable;
 
 /**
- * Immutable domain event representing an inspected metadata property, tag entry, XMP record, or
- * structural output delimiter extracted from a media file.
+ * Immutable domain event representing an inspected metadata property, tag entry, XMP record,
+ * raw parsed {@link Metadata} container object, or structural output delimiter extracted from a
+ * media file.
  *
  * @author Trevor Maggs
- * @version 1.1
- * @since 13 August 2026
+ * @version 1.2
+ * @since 23 September 2026
  */
 public final class MetadataInspectionEvent
 {
@@ -17,13 +19,14 @@ public final class MetadataInspectionEvent
     private final String groupName;
     private final String propertyName;
     private final Object propertyValue;
+    private final Metadata<?> metadata;
 
     /**
      * Creates a metadata inspection event representing a raw structural delimiter or line-formatted
      * header without associated media property attributes.
      *
      * @param line
-     *        the raw string content or line delimiter to emit
+     *        the raw string content or line-formatted header to emit
      */
     public MetadataInspectionEvent(String line)
     {
@@ -31,6 +34,7 @@ public final class MetadataInspectionEvent
         this.groupName = "";
         this.propertyName = "";
         this.propertyValue = (line != null ? line : "");
+        this.metadata = null;
     }
 
     /**
@@ -53,6 +57,25 @@ public final class MetadataInspectionEvent
         this.groupName = (group != null ? group : "");
         this.propertyName = (name != null ? name : "");
         this.propertyValue = (value != null ? value : "");
+        this.metadata = null;
+    }
+
+    /**
+     * Creates a metadata inspection event wrapping a complete parsed {@link Metadata} container
+     * associated with the inspected media record.
+     *
+     * @param record
+     *        the source media record being inspected
+     * @param metadata
+     *        the parsed metadata tree container object
+     */
+    public MetadataInspectionEvent(MediaRecord record, Metadata<?> metadata)
+    {
+        this.record = Objects.requireNonNull(record, "Record cannot be null");
+        this.groupName = "";
+        this.propertyName = "";
+        this.propertyValue = "";
+        this.metadata = Objects.requireNonNull(metadata, "Metadata cannot be null");
     }
 
     /**
@@ -106,9 +129,9 @@ public final class MetadataInspectionEvent
     }
 
     /**
-     * Returns the formatted metadata tag or property value string.
+     * Returns the metadata tag or property value as a string.
      *
-     * @return the property value as a string
+     * @return the property value converted to a string
      */
     public String getPropertyValue()
     {
@@ -116,10 +139,30 @@ public final class MetadataInspectionEvent
     }
 
     /**
-     * Indicates whether this event represents a structural line delimiter or formatted header
-     * rather than a key-value metadata property tuple.
+     * Returns the parsed {@link Metadata} container object if present.
      *
-     * @return {@code true} if this event is a raw text delimiter, otherwise {@code false}
+     * @return the metadata container object, or {@code null} if not a container event
+     */
+    public Metadata<?> getMetadata()
+    {
+        return metadata;
+    }
+
+    /**
+     * Indicates whether this event carries a parsed {@link Metadata} container object.
+     *
+     * @return {@code true} if a metadata container object is available, otherwise {@code false}
+     */
+    public boolean hasMetadata()
+    {
+        return metadata != null;
+    }
+
+    /**
+     * Indicates whether this event represents a structural line delimiter or formatted header
+     * rather than a key-value metadata property tuple or metadata container.
+     *
+     * @return {@code true} if this event represents structural text, otherwise {@code false}
      */
     public boolean isDelimiter()
     {
@@ -129,6 +172,19 @@ public final class MetadataInspectionEvent
     @Override
     public String toString()
     {
-        return (record == null ? propertyValue.toString() : String.format(Taggable.COLUMN_FORMAT, groupName, propertyName, propertyValue.toString()));
+        if (record == null)
+        {
+            return propertyValue.toString();
+        }
+
+        else if (hasMetadata())
+        {
+            return getSourceName() + " [Metadata Object]";
+        }
+
+        else
+        {
+            return String.format(Taggable.COLUMN_FORMAT, groupName, propertyName, propertyValue.toString());
+        }
     }
 }
