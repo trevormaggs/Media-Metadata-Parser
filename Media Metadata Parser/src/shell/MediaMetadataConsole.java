@@ -7,7 +7,7 @@ import batch.BatchErrorException;
 import batch.BatchMetrics;
 import batch.MediaBatchProcessor;
 import batch.MetadataInspectionEvent;
-import batch.MetadataReportInspector;
+import batch.MetadataInspector;
 import cli.CommandFlagParser;
 import cli.FlagType;
 import progressbar.ConsoleProgressBar;
@@ -99,7 +99,7 @@ public final class MediaMetadataConsole
         {
             if (config.isShowMetadata())
             {
-                MetadataReportInspector inspector = new MetadataReportInspector(config);
+                MetadataInspector inspector = new MetadataInspector(config);
 
                 inspector.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
                 {

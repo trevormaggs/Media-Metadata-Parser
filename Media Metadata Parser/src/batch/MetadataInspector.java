@@ -51,9 +51,9 @@ import xmp.XmpDirectory.XmpRecord;
  * @version 1.4
  * @since 23 September 2026
  */
-public final class MetadataReportInspector
+public final class MetadataInspector
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(MetadataReportInspector.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(MetadataInspector.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private static final EnumSet<ChunkType> DISPLAY_CHUNK_FILTER = EnumSet.of(
             ChunkType.IHDR, ChunkType.gAMA, ChunkType.sRGB, ChunkType.pHYs,
@@ -72,7 +72,7 @@ public final class MetadataReportInspector
      * @param config
      *        the configuration containing validated source parameters and execution flags
      */
-    public MetadataReportInspector(BatchConfiguration config)
+    public MetadataInspector(BatchConfiguration config)
     {
         this.config = config;
         this.progressListeners = new ArrayList<>();
@@ -138,6 +138,7 @@ public final class MetadataReportInspector
                     Path fpath = record.getPath();
                     DetectedFormatResult result = ImageParserFactory.inspect(fpath);
 
+                    formatSystemProperties(record);
                     totalBytes += record.getFileSize();
 
                     if (result.hasParser())
@@ -151,10 +152,7 @@ public final class MetadataReportInspector
                         }
 
                         parser.readMetadata();
-
                         Metadata<?> meta = parser.getMetadata();
-
-                        formatSystemProperties(record);
 
                         if (meta.hasMetadata())
                         {
@@ -166,9 +164,10 @@ public final class MetadataReportInspector
                             extractMetadataXMP(meta, record);
                         }
 
-                        emitMetadataEvent(new MetadataInspectionEvent(System.lineSeparator()));
                         emitMetadataEvent(new MetadataInspectionEvent(record, meta));
                     }
+
+                    emitMetadataEvent(new MetadataInspectionEvent(System.lineSeparator()));
 
                     /* Notify progress listeners based on overall loop count */
                     for (ProgressListener listener : progressListeners)
@@ -326,9 +325,9 @@ public final class MetadataReportInspector
      */
     private void extractMetadataXMP(Metadata<?> meta, MediaRecord record)
     {
-        if (meta instanceof TifMetadataProvider)
+        if (meta instanceof PngMetadataProvider)
         {
-            XmpDirectory xml = ((TifMetadataProvider) meta).getXmpDirectory();
+            XmpDirectory xml = ((PngMetadataProvider) meta).getXmpDirectory();
 
             if (xml != null)
             {

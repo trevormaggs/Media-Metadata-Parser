@@ -7,7 +7,7 @@ import batch.BatchMetrics;
 import batch.BatchProcessEvent;
 import batch.MediaBatchProcessor;
 import batch.MetadataInspectionEvent;
-import batch.MetadataReportInspector;
+import batch.MetadataInspector;
 import common.PropertyBiConsumer;
 import javafx.concurrent.Task;
 import javafx.scene.control.ProgressBar;
@@ -106,7 +106,7 @@ class BatchTask extends Task<BatchMetrics>
      *
      * <p>
      * This listener receives string representations of {@link MetadataInspectionEvent} instances
-     * bridged from {@link MetadataReportInspector} for display in GUI components.
+     * bridged from {@link MetadataInspector} for display in GUI components.
      * </p>
      *
      * @param listener
@@ -140,7 +140,7 @@ class BatchTask extends Task<BatchMetrics>
      *
      * <p>
      * When metadata inspection is enabled, metadata is retrieved via
-     * {@link MetadataReportInspector} instead of executing a full batch. Otherwise, a
+     * {@link MetadataInspector} instead of executing a full batch. Otherwise, a
      * {@link MediaBatchProcessor} is created for execution. In both cases, progress is reported to
      * associated JavaFX controls.
      * </p>
@@ -155,7 +155,7 @@ class BatchTask extends Task<BatchMetrics>
     {
         if (display)
         {
-            MetadataReportInspector inspector = new MetadataReportInspector(config);
+            MetadataInspector inspector = new MetadataInspector(config);
 
             inspector.addProgressListener(attachProgressAdapter("Retrieving metadata"));
             inspector.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
