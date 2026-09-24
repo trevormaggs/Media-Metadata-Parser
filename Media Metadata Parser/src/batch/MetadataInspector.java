@@ -325,17 +325,29 @@ public final class MetadataInspector
      */
     private void extractMetadataXMP(Metadata<?> meta, MediaRecord record)
     {
-        if (meta instanceof PngMetadataProvider)
-        {
-            XmpDirectory xml = ((PngMetadataProvider) meta).getXmpDirectory();
+        XmpDirectory xml = null;
 
-            if (xml != null)
+        if (meta instanceof TifMetadataProvider)
+        {
+            xml = ((TifMetadataProvider) meta).getXmpDirectory();
+        }
+
+        else if (meta instanceof PngMetadataProvider)
+        {
+            xml = ((PngMetadataProvider) meta).getXmpDirectory();
+        }
+
+        if (xml != null)
+        {
+            for (XmpRecord xmp : xml)
             {
-                for (XmpRecord xmp : xml)
-                {
-                    MetadataInspectionEvent event = new MetadataInspectionEvent(record, "[XMP-" + xmp.getPrefix() + "]", Utils.capitalize(xmp.getName()), xmp.getValue());
-                    emitMetadataEvent(event);
-                }
+                MetadataInspectionEvent event = new MetadataInspectionEvent(
+                        record,
+                        "[XMP-" + xmp.getPrefix() + "]",
+                        Utils.capitalize(xmp.getName()),
+                        xmp.getValue());
+
+                emitMetadataEvent(event);
             }
         }
     }
