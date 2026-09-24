@@ -172,19 +172,18 @@ public final class MetadataInspectionEvent
     @Override
     public String toString()
     {
-        if (record == null)
+        if (isDelimiter() || groupName.isEmpty())
         {
             return propertyValue.toString();
         }
 
-        else if (hasMetadata())
+        String displayGroup = groupName;
+
+        if (displayGroup.length() > 15)
         {
-            return getSourceName() + " [Metadata Object]";
+            displayGroup = displayGroup.substring(0, 9) + "...]";
         }
 
-        else
-        {
-            return String.format(Taggable.COLUMN_FORMAT, groupName, propertyName, propertyValue.toString());
-        }
+        return String.format(Taggable.COLUMN_FORMAT, displayGroup, propertyName, propertyValue.toString());
     }
 }

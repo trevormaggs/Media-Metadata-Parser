@@ -17,14 +17,39 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ChoiceBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Hyperlink;
+import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.RadioButton;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Toggle;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeTableCell;
+import javafx.scene.control.TreeTableColumn;
 import javafx.scene.control.TreeTableColumn.CellDataFeatures;
-import javafx.scene.control.*;
+import javafx.scene.control.TreeTableRow;
+import javafx.scene.control.TreeTableView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.*;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
-import javafx.stage.*;
+import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import javafx.util.Callback;
 import png.PngChunk;
 import png.PngDirectory;
@@ -54,7 +79,7 @@ class MetadataViewerDialog extends Stage
 
     /**
      * Constructs a new metadata viewer dialog owned by the specified stage.
-     * 
+     *
      * @param owner
      *        the parent {@link Stage} for this modal dialog
      */
@@ -417,7 +442,7 @@ class MetadataViewerDialog extends Stage
 
     /**
      * Copies the provided text string into the system clipboard.
-     * 
+     *
      * @param text
      *        the text content to copy
      */
@@ -434,7 +459,7 @@ class MetadataViewerDialog extends Stage
     /**
      * Filters the metadata tree using the specified search query. Matching nodes and their parent
      * branches are retained. The complete tree is restored when the query is empty.
-     * 
+     *
      * @param query
      *        the search query to apply to metadata names and values
      */
@@ -460,7 +485,7 @@ class MetadataViewerDialog extends Stage
     /**
      * Recursively builds a filtered copy of the metadata tree, retaining nodes that match the query
      * or contain matching descendants. Structural pointer tags are excluded from direct matches.
-     * 
+     *
      * @param current
      *        the current tree item to evaluate
      * @param query
@@ -510,7 +535,7 @@ class MetadataViewerDialog extends Stage
     /**
      * Traverses the tree hierarchy from the specified item to determine the associated root file
      * name.
-     * 
+     *
      * @param item
      *        the tree item whose associated file name is required
      * @return the associated root file name, or {@code null} if it cannot be determined
@@ -528,73 +553,94 @@ class MetadataViewerDialog extends Stage
     }
 
     /**
-     * Sets the raw metadata output displayed in the flat text view.
-     * 
-     * @param rawOutput
-     *        the raw metadata text to display
-     */
-    void setMetadataText(String rawOutput)
-    {
-        flatTextArea.setText(rawOutput == null ? "" : rawOutput);
-    }
-
-    /**
      * Populates the metadata tree from the specified inspection events and updates the available
      * GPS
      * locations.
-     * 
+     *
      * @param events
      *        the extracted metadata inspection events to display
      */
     void setMetadataEvents(List<MetadataInspectionEvent> events)
     {
         TreeItem<MetadataNode> rootNode = new TreeItem<>(new MetadataNode("Root", ""));
+        MetadataInspectionEvent[] mediaItems = events.toArray(new MetadataInspectionEvent[0]);
 
-        treeTableView.setUserData(events);
-        gpsMapManager.reset();
         txtSearch.clear();
+        gpsMapManager.reset();
+        treeTableView.setUserData(mediaItems);
 
         if (events != null)
         {
             for (MetadataInspectionEvent event : events)
             {
-                if (event == null || !event.hasMetadata())
+                flatTextArea.appendText(event.toString());
+
+                if (event != null && event.hasMetadata())
                 {
-                    continue;
-                }
 
-                Metadata<?> meta = event.getMetadata();
-                String fileName = (event.getSourceName().isEmpty() ? "Unknown File" : event.getSourceName());
-                TreeItem<MetadataNode> fileNode = new TreeItem<>(new MetadataNode(fileName, ""));
+                    Metadata<?> meta = event.getMetadata();
+                    String fileName = (event.getSourceName().isEmpty() ? "Unknown File" : event.getSourceName());
+                    TreeItem<MetadataNode> fileNode = new TreeItem<>(new MetadataNode(fileName, ""));
 
-                fileNode.setExpanded(true);
+                    fileNode.setExpanded(true);
 
-                if (meta instanceof TifMetadataProvider)
-                {
-                    TifMetadataProvider tif = (TifMetadataProvider) meta;
-
-                    for (DirectoryIFD ifd : tif)
+                    if (meta instanceof TifMetadataProvider)
                     {
-                        gpsMapManager.addLocationGPS(fileName, ifd);
+                        TifMetadataProvider tif = (TifMetadataProvider) meta;
 
-                        String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
-                        TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode(groupName, ""));
+                        for (DirectoryIFD ifd : tif)
+                        {
+                            gpsMapManager.addLocationGPS(fileName, ifd);
+
+                            String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
+                            TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode(groupName, ""));
+
+                            groupNode.setExpanded(true);
+
+                            for (DirectoryIFD.EntryIFD entry : ifd)
+                            {
+                                Taggable tag = entry.getTag();
+
+                                if (tag != null)
+                                {
+                                    String value = tag.translate(entry.getData());
+
+                                    if (!value.isEmpty())
+                                    {
+                                        TreeItem<MetadataNode> valueNode = new TreeItem<>(new MetadataNode(tag.getDescription(), value));
+                                        groupNode.getChildren().add(valueNode);
+                                    }
+                                }
+                            }
+
+                            if (!groupNode.getChildren().isEmpty())
+                            {
+                                fileNode.getChildren().add(groupNode);
+                            }
+                        }
+                    }
+
+                    else if (meta instanceof PngMetadataProvider)
+                    {
+                        PngMetadataProvider png = (PngMetadataProvider) meta;
+                        final TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode("[PNG]", ""));
 
                         groupNode.setExpanded(true);
 
-                        for (DirectoryIFD.EntryIFD entry : ifd)
+                        PropertyBiConsumer consumer = new PropertyBiConsumer()
                         {
-                            Taggable tag = entry.getTag();
-
-                            if (tag != null)
+                            @Override
+                            public void accept(String key, Object value)
                             {
-                                String value = tag.translate(entry.getData());
+                                groupNode.getChildren().add(new TreeItem<>(new MetadataNode(key, String.valueOf(value))));
+                            }
+                        };
 
-                                if (!value.isEmpty())
-                                {
-                                    TreeItem<MetadataNode> valueNode = new TreeItem<>(new MetadataNode(tag.getDescription(), value));
-                                    groupNode.getChildren().add(valueNode);
-                                }
+                        for (PngDirectory dir : png)
+                        {
+                            for (PngChunk chunk : dir)
+                            {
+                                chunk.exportProperties(consumer);
                             }
                         }
 
@@ -603,40 +649,14 @@ class MetadataViewerDialog extends Stage
                             fileNode.getChildren().add(groupNode);
                         }
                     }
+
+                    rootNode.getChildren().add(fileNode);
                 }
-
-                else if (meta instanceof PngMetadataProvider)
-                {
-                    PngMetadataProvider png = (PngMetadataProvider) meta;
-                    final TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode("[PNG]", ""));
-
-                    groupNode.setExpanded(true);
-
-                    PropertyBiConsumer consumer = new PropertyBiConsumer()
-                    {
-                        @Override
-                        public void accept(String key, Object value)
-                        {
-                            groupNode.getChildren().add(new TreeItem<>(new MetadataNode(key, String.valueOf(value))));
-                        }
-                    };
-
-                    for (PngDirectory dir : png)
-                    {
-                        for (PngChunk chunk : dir)
-                        {
-                            chunk.exportProperties(consumer);
-                        }
-                    }
-
-                    if (!groupNode.getChildren().isEmpty())
-                    {
-                        fileNode.getChildren().add(groupNode);
-                    }
-                }
-
-                rootNode.getChildren().add(fileNode);
             }
+
+            // Scroll up to top after updating
+            flatTextArea.deselect();
+            flatTextArea.positionCaret(0);
         }
 
         List<String> gpsFiles = gpsMapManager.update();
@@ -656,7 +676,7 @@ class MetadataViewerDialog extends Stage
     /**
      * Recursively updates the expanded state of the specified tree item and its descendants without
      * changing the expanded state of the hidden root item.
-     * 
+     *
      * @param item
      *        the tree item whose descendants are to be updated
      * @param expanded
@@ -683,12 +703,11 @@ class MetadataViewerDialog extends Stage
      * export format (JSON, CSV, or TXT), then launches a {@link FileChooser} pre-configured for
      * that format.
      */
-    @SuppressWarnings("unchecked")
     private void exportToFile()
     {
-        List<MetadataInspectionEvent> mediaItems = (List<MetadataInspectionEvent>) treeTableView.getUserData();
+        MetadataInspectionEvent[] mediaItems = (MetadataInspectionEvent[]) treeTableView.getUserData();
 
-        if (mediaItems == null || mediaItems.isEmpty())
+        if (mediaItems == null || mediaItems.length == 0)
         {
             UtilsJavaFX.launchPopup(this, "Export Warning", "No metadata records available to export.", AlertType.WARNING);
             return;
@@ -809,7 +828,7 @@ class MetadataViewerDialog extends Stage
 
         /**
          * Constructs a new {@code MetadataNode} with the specified name and value.
-         * 
+         *
          * @param name
          *        the metadata item name
          * @param value
@@ -823,7 +842,7 @@ class MetadataViewerDialog extends Stage
 
         /**
          * Returns the name of this metadata node.
-         * 
+         *
          * @return the metadata node name
          */
         String getName()
@@ -833,7 +852,7 @@ class MetadataViewerDialog extends Stage
 
         /**
          * Returns the value of this metadata node.
-         * 
+         *
          * @return the metadata node value
          */
         String getValue()

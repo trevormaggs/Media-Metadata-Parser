@@ -3,7 +3,6 @@ package gui;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.List;
 import batch.MetadataInspectionEvent;
 import common.Metadata;
 import common.PropertyBiConsumer;
@@ -45,13 +44,14 @@ final class MetadataExporter
      * @param targetFile
      *        the file destination chosen by the user
      * @param mediaItems
-     *        the list of metadata inspection events
+     *        an array of metadata inspection events
      * @param format
      *        "JSON", "CSV", or "TXT"
+     * 
      * @throws IOException
      *         if file output fails
      */
-    static void export(File targetFile, List<MetadataInspectionEvent> mediaItems, SAVE_FORMAT format) throws IOException
+    static void export(File targetFile, MetadataInspectionEvent[] mediaItems, SAVE_FORMAT format) throws IOException
     {
         String content;
 
@@ -76,7 +76,7 @@ final class MetadataExporter
         }
     }
 
-    private static String toCSV(List<MetadataInspectionEvent> mediaItems)
+    private static String toCSV(MetadataInspectionEvent[] mediaItems)
     {
         StringBuilder csv = new StringBuilder("File Name,Group,Property,Value\n");
 
@@ -147,7 +147,7 @@ final class MetadataExporter
         return csv.toString();
     }
 
-    private static String toJSON(List<MetadataInspectionEvent> mediaItems)
+    private static String toJSON(MetadataInspectionEvent[] mediaItems)
     {
         StringBuilder json = new StringBuilder("[\n");
 

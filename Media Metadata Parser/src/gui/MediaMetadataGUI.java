@@ -55,7 +55,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private GridPane rootPane;
     private BatchTask workerTask;
     private MainViewPane viewPane;
-    private StringBuilder flatMetadataText;
     private ObservableList<MetadataInspectionEvent> inspectionEvents;
     private ObservableList<ProcessedFileRecord> completedFileRecords;
 
@@ -66,7 +65,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     public void init()
     {
         viewPane = new MainViewPane();
-        flatMetadataText = new StringBuilder();
         inspectionEvents = FXCollections.observableArrayList();
         completedFileRecords = FXCollections.observableArrayList();
     }
@@ -472,7 +470,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         logArea.clear();
         StatRecord.resetAll();
         inspectionEvents.clear();
-        flatMetadataText.setLength(0);
 
         try
         {
@@ -504,25 +501,20 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Consolidated metadata event handling for flat text and structured tree processing
+        // Handle metadata event for structured tree processing and indirectly flat text
         workerTask.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
         {
             @Override
             public void accept(final MetadataInspectionEvent event)
             {
-                flatMetadataText.append(event.toString());
-
-                if (!event.isDelimiter())
+                Platform.runLater(new Runnable()
                 {
-                    Platform.runLater(new Runnable()
+                    @Override
+                    public void run()
                     {
-                        @Override
-                        public void run()
-                        {
-                            inspectionEvents.add(event);
-                        }
-                    });
-                }
+                        inspectionEvents.add(event);
+                    }
+                });
             }
         });
 
@@ -593,11 +585,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         MetadataViewerDialog dialog = new MetadataViewerDialog((Stage) rootPane.getScene().getWindow());
 
         dialog.setMetadataEvents(inspectionEvents);
-        dialog.setMetadataText(flatMetadataText.toString());
-
-        flatMetadataText.setLength(0);
-        flatMetadataText.trimToSize();
-
         dialog.show();
     }
 

@@ -190,7 +190,7 @@ class BatchTask extends Task<BatchMetrics>
                 {
                     if (value instanceof BatchProcessEvent)
                     {
-                        // Receives and forwards BatchProcessEvent updates to the GUI listener
+                        // Receives and then forwards BatchProcessEvent updates to the GUI listener
                         fileSummaryListener.accept(key, value);
                     }
                 }
