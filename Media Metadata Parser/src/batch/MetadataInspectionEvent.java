@@ -181,8 +181,10 @@ public final class MetadataInspectionEvent
 
         if (displayGroup.length() > 15)
         {
-            displayGroup = displayGroup.substring(0, 9) + "...]";
+            displayGroup = displayGroup.substring(0, 9) + "...";
         }
+
+        displayGroup = "[" + displayGroup + "]";
 
         return String.format(Taggable.COLUMN_FORMAT, displayGroup, propertyName, propertyValue.toString());
     }

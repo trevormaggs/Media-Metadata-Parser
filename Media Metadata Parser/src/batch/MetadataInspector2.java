@@ -51,9 +51,9 @@ import xmp.XmpDirectory.XmpRecord;
  * @version 1.4
  * @since 23 September 2026
  */
-public final class MetadataInspector
+public final class MetadataInspector2
 {
-    private static final LogFactory LOGGER = LogFactory.getLogger(MetadataInspector.class);
+    private static final LogFactory LOGGER = LogFactory.getLogger(MetadataInspector2.class);
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ssXXX");
     private static final EnumSet<ChunkType> DISPLAY_CHUNK_FILTER = EnumSet.of(
             ChunkType.IHDR, ChunkType.gAMA, ChunkType.sRGB, ChunkType.pHYs,
@@ -72,7 +72,7 @@ public final class MetadataInspector
      * @param config
      *        the configuration containing validated source parameters and execution flags
      */
-    public MetadataInspector(BatchConfiguration config)
+    public MetadataInspector2(BatchConfiguration config)
     {
         this.config = config;
         this.progressListeners = new ArrayList<>();
@@ -212,7 +212,7 @@ public final class MetadataInspector
      */
     private void formatSystemProperties(MediaRecord record) throws IOException
     {
-        String group = "System";
+        String group = "[System]";
         Path fpath = record.getPath();
         AbstractFileNode node = FileInspector.inspect(fpath, true);
 
@@ -252,7 +252,7 @@ public final class MetadataInspector
                 @Override
                 public void accept(String key, Object value)
                 {
-                    MetadataInspectionEvent event = new MetadataInspectionEvent(record, "PNG", key, String.valueOf(value));
+                    MetadataInspectionEvent event = new MetadataInspectionEvent(record, "[PNG]", key, String.valueOf(value));
                     emitMetadataEvent(event);
                 }
             };
@@ -309,7 +309,7 @@ public final class MetadataInspector
             {
                 MetadataInspectionEvent event = new MetadataInspectionEvent(
                         record,
-                        "XMP-" + xmp.getPrefix(),
+                        "[XMP-" + xmp.getPrefix() + "]",
                         Utils.capitalize(xmp.getName()),
                         xmp.getValue());
 
@@ -331,7 +331,7 @@ public final class MetadataInspector
     {
         for (DirectoryIFD ifd : directories)
         {
-            String groupName = ifd.getDirectoryType().getDescription();
+            String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
 
             for (DirectoryIFD.EntryIFD entry : ifd)
             {

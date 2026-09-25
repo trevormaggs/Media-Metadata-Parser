@@ -534,7 +534,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
 
                 logArea.appendText("\n[SUCCESS] Exif data retrieved successfully.\n");
-
                 showMetadataInspectorTree();
                 resetControlStates(progressLabel);
             }
