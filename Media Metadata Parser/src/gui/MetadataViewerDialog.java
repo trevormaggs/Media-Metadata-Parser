@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.function.Consumer;
 import batch.MetadataInspectionEvent;
-import common.Metadata;
-import common.PropertyBiConsumer;
 import gui.MetadataExporter.SAVE_FORMAT;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.value.ChangeListener;
@@ -51,12 +49,8 @@ import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Callback;
-import png.PngChunk;
-import png.PngDirectory;
-import png.PngMetadataProvider;
 import tif.DirectoryIFD;
 import tif.TifMetadataProvider;
-import tif.tagspecs.Taggable;
 import util.SystemInfo;
 
 /**
@@ -91,11 +85,11 @@ class MetadataViewerDialog extends Stage
         final Button btnClose = new Button("Close");
         final RadioButton rbFlat = new RadioButton("Raw Flat Text");
         final RadioButton rbTree = new RadioButton("Structured Tree");
-
         this.searchDebouncer = new HoverDebouncer(150);
 
         mapView = new WebView();
         cbGpsFiles = new ComboBox<>();
+        gpsMapManager = new ViewManagerGPS(mapView);
 
         txtSearch = new TextField();
         txtSearch.setPromptText("Search tags or values...");
@@ -142,9 +136,6 @@ class MetadataViewerDialog extends Stage
                 }
             }
         });
-
-        // Delegate UI integration and events to ViewManagerGPS
-        gpsMapManager = new ViewManagerGPS(mapView);
 
         initOwner(owner);
         initModality(Modality.WINDOW_MODAL);
@@ -431,7 +422,6 @@ class MetadataViewerDialog extends Stage
         VBox.setVgrow(containerStack, Priority.ALWAYS);
         Scene scene = new Scene(rootLayout, 850, 550);
 
-        // Copy main stylesheet to this dialog stage
         if (owner != null && owner.getScene() != null)
         {
             scene.getStylesheets().addAll(owner.getScene().getStylesheets());
@@ -441,19 +431,98 @@ class MetadataViewerDialog extends Stage
     }
 
     /**
-     * Copies the provided text string into the system clipboard.
+     * Populates the metadata tree from the specified inspection events and updates the available
+     * GPS locations.
      *
-     * @param text
-     *        the text content to copy
+     * @param events
+     *        the extracted metadata inspection events to display
      */
-    private static void copyToClipboard(String text)
+    void setMetadataEvents(List<MetadataInspectionEvent> events)
     {
-        if (text != null && !text.trim().isEmpty())
+        TreeItem<MetadataNode> fileNode = null;
+        TreeItem<MetadataNode> rootNode = new TreeItem<>(new MetadataNode("Root", ""));
+
+        txtSearch.clear();
+        gpsMapManager.reset();
+
+        for (MetadataInspectionEvent event : events)
         {
-            ClipboardContent content = new ClipboardContent();
-            content.putString(text);
-            Clipboard.getSystemClipboard().setContent(content);
+            flatTextArea.appendText(event.toString());
+
+            // Extract DirectoryIFD if stored directly on event
+            if (event.hasMetadata() && event.getMetadata() instanceof TifMetadataProvider)
+            {
+                TifMetadataProvider tif = (TifMetadataProvider) event.getMetadata();
+                String fileName = event.getSourceName().isEmpty() ? "Unknown File" : event.getSourceName();
+
+                for (DirectoryIFD ifd : tif)
+                {
+                    gpsMapManager.addLocationGPS(fileName, ifd);
+                }
+            }
+
+            if (event.containsProperty())
+            {
+                if (fileNode == null || !fileNode.getValue().getName().equals(event.getSourceName()))
+                {
+                    fileNode = new TreeItem<>(new MetadataNode(event.getSourceName(), ""));
+                    fileNode.setExpanded(true);
+                    rootNode.getChildren().add(fileNode);
+                }
+
+                if (event.getGroupName().isEmpty() || event.getPropertyValue().isEmpty())
+                {
+                    continue;
+                }
+
+                TreeItem<MetadataNode> groupNode = getGroupNode(fileNode, event.getGroupName());
+                groupNode.getChildren().add(new TreeItem<>(new MetadataNode(event.getPropertyName(), event.getPropertyValue())));
+            }
         }
+
+        flatTextArea.deselect();
+        flatTextArea.positionCaret(0);
+
+        // Refresh UI dropdown state for GPS selection
+        List<String> gpsFiles = gpsMapManager.update();
+        cbGpsFiles.getItems().setAll(gpsFiles);
+
+        if (!gpsFiles.isEmpty())
+        {
+            cbGpsFiles.getSelectionModel().selectFirst();
+        }
+
+        masterRootNode = rootNode;
+        treeTableView.setRoot(rootNode);
+        rbMap.setDisable(!gpsMapManager.hasDataGPS());
+        treeTableView.setUserData(events.toArray(new MetadataInspectionEvent[0]));
+    }
+
+    /**
+     * Finds an existing group node under the current file node or creates a new one.
+     *
+     * @param fileNode
+     *        the parent file node
+     * @param groupName
+     *        the raw group identifier, such as "System", "IFD0", "PNG", "XMP-dc"
+     * @return the existing or newly created group node
+     */
+    private TreeItem<MetadataNode> getGroupNode(TreeItem<MetadataNode> fileNode, String groupName)
+    {
+        String displayGroup = "[" + groupName + "]";
+
+        for (TreeItem<MetadataNode> child : fileNode.getChildren())
+        {
+            if (child.getValue().getName().equals(displayGroup))
+            {
+                return child;
+            }
+        }
+
+        TreeItem<MetadataNode> newGroupNode = new TreeItem<>(new MetadataNode(displayGroup, ""));
+        newGroupNode.setExpanded(true);
+        fileNode.getChildren().add(newGroupNode);
+        return newGroupNode;
     }
 
     /**
@@ -533,6 +602,22 @@ class MetadataViewerDialog extends Stage
     }
 
     /**
+     * Copies the provided text string into the system clipboard.
+     *
+     * @param text
+     *        the text content to copy
+     */
+    private static void copyToClipboard(String text)
+    {
+        if (text != null && !text.trim().isEmpty())
+        {
+            ClipboardContent content = new ClipboardContent();
+            content.putString(text);
+            Clipboard.getSystemClipboard().setContent(content);
+        }
+    }
+
+    /**
      * Traverses the tree hierarchy from the specified item to determine the associated root file
      * name.
      *
@@ -550,209 +635,6 @@ class MetadataViewerDialog extends Stage
         }
 
         return (node != null && node.getValue() != null) ? node.getValue().getName() : null;
-    }
-
-    /**
-     * Populates the metadata tree from the specified inspection events and updates the available
-     * GPS locations.
-     *
-     * @param events
-     *        the extracted metadata inspection events to display
-     */
-    void setMetadataEvents(List<MetadataInspectionEvent> events)
-    {
-        TreeItem<MetadataNode> fileNode = null;
-        TreeItem<MetadataNode> rootNode = new TreeItem<>(new MetadataNode("Root", ""));
-
-        txtSearch.clear();
-        gpsMapManager.reset();
-
-        for (MetadataInspectionEvent event : events)
-        {
-            flatTextArea.appendText(event.toString());
-
-            // Extract DirectoryIFD if stored directly on event
-            if (event.hasMetadata() && event.getMetadata() instanceof TifMetadataProvider)
-            {
-                TifMetadataProvider tif = (TifMetadataProvider) event.getMetadata();
-                String fileName = event.getSourceName().isEmpty() ? "Unknown File" : event.getSourceName();
-
-                for (DirectoryIFD ifd : tif)
-                {
-                    gpsMapManager.addLocationGPS(fileName, ifd);
-                }
-            }
-
-            if (!event.isDelimiter() && !event.getSourceName().isEmpty())
-            {
-                if (fileNode == null || !fileNode.getValue().getName().equals(event.getSourceName()))
-                {
-                    fileNode = new TreeItem<>(new MetadataNode(event.getSourceName(), ""));
-                    fileNode.setExpanded(true);
-                    rootNode.getChildren().add(fileNode);
-                }
-
-                if (event.getGroupName().isEmpty() || event.getPropertyValue().isEmpty())
-                {
-                    continue;
-                }
-
-                TreeItem<MetadataNode> groupNode = getGroupNode(fileNode, event.getGroupName());
-                groupNode.getChildren().add(new TreeItem<>(new MetadataNode(event.getPropertyName(), event.getPropertyValue())));
-            }
-        }
-
-        flatTextArea.deselect();
-        flatTextArea.positionCaret(0);
-
-        // Refresh UI dropdown state for GPS selection
-        List<String> gpsFiles = gpsMapManager.update();
-        cbGpsFiles.getItems().setAll(gpsFiles);
-
-        if (!gpsFiles.isEmpty())
-        {
-            cbGpsFiles.getSelectionModel().selectFirst();
-        }
-
-        masterRootNode = rootNode;
-        treeTableView.setRoot(rootNode);
-        rbMap.setDisable(!gpsMapManager.hasDataGPS());
-        treeTableView.setUserData(events.toArray(new MetadataInspectionEvent[0]));
-    }
-
-    /**
-     * Finds an existing group node under the current file node or creates a new one.
-     *
-     * @param fileNode
-     *        the parent file node
-     * @param groupName
-     *        the raw group identifier, such as "System", "IFD0", "PNG", "XMP-dc"
-     * @return the existing or newly created group node
-     */
-    private TreeItem<MetadataNode> getGroupNode(TreeItem<MetadataNode> fileNode, String groupName)
-    {
-        String displayGroup = "[" + groupName + "]";
-
-        for (TreeItem<MetadataNode> child : fileNode.getChildren())
-        {
-            if (child.getValue().getName().equals(displayGroup))
-            {
-                return child;
-            }
-        }
-
-        TreeItem<MetadataNode> newGroupNode = new TreeItem<>(new MetadataNode(displayGroup, ""));
-        newGroupNode.setExpanded(true);
-        fileNode.getChildren().add(newGroupNode);
-        return newGroupNode;
-    }
-
-    void setMetadataEventsOld(List<MetadataInspectionEvent> events)
-    {
-        TreeItem<MetadataNode> rootNode = new TreeItem<>(new MetadataNode("Root", ""));
-
-        txtSearch.clear();
-        gpsMapManager.reset();
-        treeTableView.setUserData(events.toArray(new MetadataInspectionEvent[0]));
-
-        for (MetadataInspectionEvent event : events)
-        {
-            flatTextArea.appendText(event.toString());
-
-            if (event.hasMetadata())
-            {
-                Metadata<?> meta = event.getMetadata();
-                String fileName = (event.getSourceName().isEmpty() ? "Unknown File" : event.getSourceName());
-                TreeItem<MetadataNode> fileNode = new TreeItem<>(new MetadataNode(fileName, ""));
-
-                fileNode.setExpanded(true);
-
-                if (meta instanceof TifMetadataProvider)
-                {
-                    TifMetadataProvider tif = (TifMetadataProvider) meta;
-
-                    for (DirectoryIFD ifd : tif)
-                    {
-                        gpsMapManager.addLocationGPS(fileName, ifd);
-
-                        String groupName = "[" + ifd.getDirectoryType().getDescription() + "]";
-                        TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode(groupName, ""));
-
-                        groupNode.setExpanded(true);
-
-                        for (DirectoryIFD.EntryIFD entry : ifd)
-                        {
-                            Taggable tag = entry.getTag();
-
-                            if (tag != null)
-                            {
-                                String value = tag.translate(entry.getData());
-
-                                if (!value.isEmpty())
-                                {
-                                    TreeItem<MetadataNode> valueNode = new TreeItem<>(new MetadataNode(tag.getDescription(), value));
-                                    groupNode.getChildren().add(valueNode);
-                                }
-                            }
-                        }
-
-                        if (!groupNode.getChildren().isEmpty())
-                        {
-                            fileNode.getChildren().add(groupNode);
-                        }
-                    }
-                }
-
-                else if (meta instanceof PngMetadataProvider)
-                {
-                    PngMetadataProvider png = (PngMetadataProvider) meta;
-                    final TreeItem<MetadataNode> groupNode = new TreeItem<>(new MetadataNode("[PNG]", ""));
-
-                    groupNode.setExpanded(true);
-
-                    PropertyBiConsumer consumer = new PropertyBiConsumer()
-                    {
-                        @Override
-                        public void accept(String key, Object value)
-                        {
-                            groupNode.getChildren().add(new TreeItem<>(new MetadataNode(key, String.valueOf(value))));
-                        }
-                    };
-
-                    for (PngDirectory dir : png)
-                    {
-                        for (PngChunk chunk : dir)
-                        {
-                            chunk.exportProperties(consumer);
-                        }
-                    }
-
-                    if (!groupNode.getChildren().isEmpty())
-                    {
-                        fileNode.getChildren().add(groupNode);
-                    }
-                }
-
-                rootNode.getChildren().add(fileNode);
-            }
-        }
-
-        // Scroll up to top after updating
-        flatTextArea.deselect();
-        flatTextArea.positionCaret(0);
-
-        List<String> gpsFiles = gpsMapManager.update();
-
-        cbGpsFiles.getItems().setAll(gpsFiles);
-
-        if (!gpsFiles.isEmpty())
-        {
-            cbGpsFiles.getSelectionModel().selectFirst();
-        }
-
-        rbMap.setDisable(!gpsMapManager.hasDataGPS());
-        treeTableView.setRoot(rootNode);
-        masterRootNode = rootNode;
     }
 
     /**

@@ -159,33 +159,33 @@ public final class MetadataInspectionEvent
     }
 
     /**
-     * Indicates whether this event represents a structural line delimiter or formatted header
-     * rather than a key-value metadata property tuple or metadata container.
+     * Indicates whether this event carries an extracted metadata property or tag entry.
      *
-     * @return {@code true} if this event represents structural text, otherwise {@code false}
+     * @return {@code true} if this event contains a property name and value, otherwise
+     *         {@code false}
      */
-    public boolean isDelimiter()
+    public boolean containsProperty()
     {
-        return record == null;
+        return (record != null && !propertyName.isEmpty());
     }
 
     @Override
     public String toString()
     {
-        if (isDelimiter() || groupName.isEmpty())
+        if (containsProperty())
         {
-            return propertyValue.toString();
+            String displayGroup = groupName;
+
+            if (displayGroup.length() > 15)
+            {
+                displayGroup = displayGroup.substring(0, 9) + "...";
+            }
+
+            displayGroup = "[" + displayGroup + "]";
+
+            return String.format(Taggable.COLUMN_FORMAT, displayGroup, propertyName, propertyValue.toString());
         }
 
-        String displayGroup = groupName;
-
-        if (displayGroup.length() > 15)
-        {
-            displayGroup = displayGroup.substring(0, 9) + "...";
-        }
-
-        displayGroup = "[" + displayGroup + "]";
-
-        return String.format(Taggable.COLUMN_FORMAT, displayGroup, propertyName, propertyValue.toString());
+        return propertyValue.toString();
     }
 }
