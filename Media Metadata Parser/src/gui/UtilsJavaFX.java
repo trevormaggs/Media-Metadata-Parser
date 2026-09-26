@@ -277,9 +277,9 @@ final class UtilsJavaFX
                     {
                         try
                         {
-                            Path fpath = Paths.get(token).toAbsolutePath();
+                            Path fpath = Paths.get(token);
 
-                            if (Files.isRegularFile(fpath))
+                            if (fpath.isAbsolute() && Files.isRegularFile(fpath))
                             {
                                 parentDir = fpath.getParent();
                                 break;
@@ -292,35 +292,44 @@ final class UtilsJavaFX
                         }
                     }
 
-                    boolean valid = (parentDir != null);
+                    boolean hasParent = (parentDir != null);
+                    StringBuilder sb = new StringBuilder();
 
-                    if (valid)
+                    if (hasParent)
                     {
-                        for (String token : parts)
+                        for (int i = 0; i < parts.length; i++)
                         {
                             try
                             {
-                                Path fpath = parentDir.resolve(token);
+                                Path tokenPath = Paths.get(parts[i]);
+                                Path fpath = (tokenPath.isAbsolute() ? tokenPath : parentDir.resolve(tokenPath));
 
                                 if (!Files.isRegularFile(fpath) || !parentDir.equals(fpath.getParent()))
                                 {
-                                    valid = false;
+                                    hasParent = false;
                                     break;
                                 }
+
+                                if (i > 0)
+                                {
+                                    sb.append(",");
+                                }
+
+                                sb.append(fpath.getFileName().toString());
                             }
 
                             catch (InvalidPathException exc)
                             {
-                                valid = false;
+                                hasParent = false;
                                 break;
                             }
                         }
                     }
 
-                    if (valid)
+                    if (hasParent)
                     {
-                        sourceText.setText(pastedText);
-                        sourceText.setTooltip(new Tooltip(pastedText));
+                        sourceText.setText(sb.toString());
+                        sourceText.setTooltip(new Tooltip(parentDir.toString()));
                     }
 
                     else
@@ -339,8 +348,14 @@ final class UtilsJavaFX
 
                         if (Files.exists(fpath))
                         {
+                            Path parent = Files.isDirectory(fpath) ? fpath : (fpath.getParent() == null ? fpath.getRoot() : fpath.getParent());
+
                             sourceText.setText(pastedText);
-                            sourceText.setTooltip(new Tooltip(pastedText));
+
+                            if (parent != null)
+                            {
+                                sourceText.setTooltip(new Tooltip(parent.toAbsolutePath().toString()));
+                            }
                         }
 
                         else
