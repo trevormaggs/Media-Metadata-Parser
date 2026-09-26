@@ -55,6 +55,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     private GridPane rootPane;
     private BatchTask workerTask;
     private MainViewPane viewPane;
+    private PauseTransition progressResetDelay;
     private ObservableList<MetadataInspectionEvent> inspectionEvents;
     private ObservableList<ProcessedFileRecord> completedFileRecords;
 
@@ -467,6 +468,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final Label progressLabel = (Label) progressBar.getUserData();
         final TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
+        if (progressResetDelay != null)
+        {
+            progressResetDelay.stop();
+        }
+
         logArea.clear();
         StatRecord.resetAll();
         inspectionEvents.clear();
@@ -597,6 +603,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final Label progressLabel = (Label) progressBar.getUserData();
         final TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
 
+        if (progressResetDelay != null)
+        {
+            progressResetDelay.stop();
+        }
+
         logArea.clear();
         StatRecord.resetAll();
         completedFileRecords.clear();
@@ -616,7 +627,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask = new BatchTask(config, progressBar, false);
 
         // Receive file execution output records for tabular summary reporting
-        workerTask.setOnFileSummaryListener(new PropertyBiConsumer()
+        workerTask.setOnBatchSummaryListener(new PropertyBiConsumer()
         {
             @Override
             public void accept(final String key, final Object value)
@@ -750,9 +761,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.abortBtn.setDisable(true);
         viewPane.copyLogBtn.setDisable(false);
 
-        PauseTransition delay = new PauseTransition(Duration.seconds(3));
+        progressResetDelay = new PauseTransition(Duration.seconds(3));
 
-        delay.setOnFinished(new EventHandler<ActionEvent>()
+        progressResetDelay.setOnFinished(new EventHandler<ActionEvent>()
         {
             @Override
             public void handle(ActionEvent event)
@@ -768,7 +779,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        delay.play();
+        progressResetDelay.play();
     }
 
     /**

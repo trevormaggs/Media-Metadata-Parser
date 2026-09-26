@@ -31,7 +31,7 @@ class BatchTask extends Task<BatchMetrics>
     private final BatchConfiguration config;
     private final ProgressBar progressBar;
     private final boolean display;
-    private PropertyBiConsumer fileSummaryListener;
+    private PropertyBiConsumer batchSummaryListener;
     private Consumer<Integer> fileScannedListener;
     private Consumer<Integer> fileProcessedListener;
     private Consumer<MetadataInspectionEvent> metadataInspectedListener;
@@ -95,9 +95,10 @@ class BatchTask extends Task<BatchMetrics>
      * @param listener
      *        the listener to receive batch process event updates
      */
-    void setOnFileSummaryListener(PropertyBiConsumer listener)
+
+    void setOnBatchSummaryListener(PropertyBiConsumer listener)
     {
-        fileSummaryListener = listener;
+        batchSummaryListener = listener;
     }
 
     /**
@@ -158,12 +159,13 @@ class BatchTask extends Task<BatchMetrics>
             MetadataInspector inspector = new MetadataInspector(config);
 
             inspector.addProgressListener(attachProgressAdapter("Retrieving metadata"));
+
             inspector.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
             {
                 /*
                  * Acts as an event adapter that receives MetadataInspectionEvent
-                 * notifications from the inspector, converts them to formatted text,
-                 * and forwards them to the GUI listener.
+                 * notifications from the inspector, and then forwards them to the
+                 * GUI listener.
                  */
                 @Override
                 public void accept(final MetadataInspectionEvent event)
@@ -181,7 +183,7 @@ class BatchTask extends Task<BatchMetrics>
         processor = new MediaBatchProcessor(config);
         processor.addProgressListener(attachProgressAdapter("Processing batch"));
 
-        if (fileSummaryListener != null)
+        if (batchSummaryListener != null)
         {
             processor.setSummaryListener(new PropertyBiConsumer()
             {
@@ -191,7 +193,7 @@ class BatchTask extends Task<BatchMetrics>
                     if (value instanceof BatchProcessEvent)
                     {
                         // Receives and then forwards BatchProcessEvent updates to the GUI listener
-                        fileSummaryListener.accept(key, value);
+                        batchSummaryListener.accept(key, value);
                     }
                 }
             });
@@ -217,30 +219,7 @@ class BatchTask extends Task<BatchMetrics>
             @Override
             public void onProgressUpdate(int current)
             {
-                if (!isCancelled())
-                {
-                    super.onProgressUpdate(current);
-
-                    if (scanMode)
-                    {
-                        updateMessage(String.format("Scanning files (%d found)...", current));
-
-                        if (fileScannedListener != null)
-                        {
-                            fileScannedListener.accept(current);
-                        }
-                    }
-
-                    else
-                    {
-                        updateMessage(String.format("%s (%d files)...", actionLabel, current));
-
-                        if (fileProcessedListener != null)
-                        {
-                            fileProcessedListener.accept(current);
-                        }
-                    }
-                }
+                onProgressUpdate(current, 0);
             }
 
             @Override

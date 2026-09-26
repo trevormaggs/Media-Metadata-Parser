@@ -14,10 +14,10 @@ import javafx.scene.control.DatePicker;
 import javafx.scene.control.TextField;
 
 /**
- * Extracts and validates JavaFX UI form field inputs to construct an immutable
+ * Extracts and validates JavaFX UI form field inputs to construct a immutable
  * {@link BatchConfiguration}.
  */
-final class ConfigurationBuilder
+final class ConfigurationBuilder2
 {
     private final Parent root;
 
@@ -27,7 +27,7 @@ final class ConfigurationBuilder
      * @param root
      *        the parent container holding input controls
      */
-    ConfigurationBuilder(Parent root)
+    ConfigurationBuilder2(Parent root)
     {
         this.root = root;
     }
@@ -58,7 +58,6 @@ final class ConfigurationBuilder
         CheckBox debug = UtilsJavaFX.getById(root, MainViewPane.DBGID, CheckBox.class);
         CheckBox trace = UtilsJavaFX.getById(root, MainViewPane.TRCID, CheckBox.class);
 
-        boolean isDirectPath = false;
         String filename = sourceText.getText().trim();
         LocalDate dateValue = (modifyDatePicker != null ? modifyDatePicker.getValue() : null);
 
@@ -86,109 +85,114 @@ final class ConfigurationBuilder
             }
         }
 
-        try
+        if (filename.contains(","))
         {
-            Path directPath = Paths.get(filename);
+            // Handles multiple comma-separated files and
+            // verifies they belong to the parent directory
+            String[] parts = filename.split("\\s*,\\s*");
 
-            if (parentDir != null && !directPath.isAbsolute())
+            if (parentDir == null)
             {
-                directPath = parentDir.resolve(directPath).normalize();
-            }
-
-            else
-            {
-                directPath = directPath.toAbsolutePath().normalize();
-            }
-
-            if (Files.exists(directPath))
-            {
-                isDirectPath = true;
-
-                if (Files.isDirectory(directPath))
+                for (String token : parts)
                 {
-                    parentDir = directPath;
-                }
-
-                else
-                {
-                    Path parent = directPath.getParent();
-                    parentDir = (parent == null ? directPath.getRoot() : parent);
-                    files = new String[]{directPath.getFileName().toString()};
-                }
-            }
-        }
-
-        catch (InvalidPathException exc)
-        {
-            // String isn't a valid single path; proceed to comma check
-        }
-
-        if (!isDirectPath)
-        {
-            if (filename.contains(","))
-            {
-                // Handles multiple comma-separated files and
-                // verifies they belong to the parent directory
-                String[] parts = filename.split("\\s*,\\s*");
-
-                if (parentDir == null)
-                {
-                    for (String token : parts)
+                    try
                     {
-                        try
-                        {
-                            Path fpath = Paths.get(token);
+                        Path fpath = Paths.get(token);
 
-                            if (fpath.isAbsolute())
-                            {
-                                Path parent = fpath.getParent();
-                                parentDir = (parent == null ? fpath.getRoot() : parent);
-                                break;
-                            }
-                        }
-
-                        catch (InvalidPathException exc)
+                        if (fpath.isAbsolute())
                         {
-                            // Pass through to inspect next token
+                            Path parent = fpath.getParent();
+                            parentDir = (parent == null ? fpath.getRoot() : parent);
+                            break;
                         }
                     }
-                }
 
-                if (parentDir != null)
-                {
-                    files = new String[parts.length];
-
-                    for (int i = 0; i < parts.length; i++)
+                    catch (InvalidPathException exc)
                     {
-                        try
-                        {
-                            Path fpath = Paths.get(parts[i]);
-                            Path fullPath = (fpath.isAbsolute() ? fpath : parentDir.resolve(fpath).normalize());
-
-                            if (!Files.isRegularFile(fullPath) || !fullPath.startsWith(parentDir))
-                            {
-                                throw new BatchErrorException("One or more source files do not exist or come from a different directory:\n\n" + parts[i]);
-                            }
-
-                            files[i] = fullPath.getFileName().toString();
-                        }
-
-                        catch (InvalidPathException exc)
-                        {
-                            throw new BatchErrorException("Invalid file path detected: " + parts[i]);
-                        }
+                        // Pass through to inspect next token
                     }
                 }
+            }
 
-                else
+            if (parentDir != null)
+            {
+                files = new String[parts.length];
+
+                for (int i = 0; i < parts.length; i++)
                 {
-                    throw new BatchErrorException("Individual files were detected without an absolute parent directory.\n\nPlease specify absolute paths or use the file picker.");
+                    try
+                    {
+                        Path fpath = Paths.get(parts[i]);
+                        Path fullPath = (fpath.isAbsolute() ? fpath : parentDir.resolve(fpath).normalize());
+
+                        if (!Files.isRegularFile(fullPath) || !fullPath.startsWith(parentDir))
+                        {
+                            throw new BatchErrorException("One or more source files do not exist or come from a different directory:\n\n" + parts[i]);
+                        }
+
+                        files[i] = fullPath.getFileName().toString();
+                    }
+
+                    catch (InvalidPathException exc)
+                    {
+                        throw new BatchErrorException("Invalid file path detected: " + parts[i]);
+                    }
                 }
             }
 
             else
             {
-                throw new BatchErrorException("The specified path does not exist:\n\n" + filename);
+                throw new BatchErrorException("Individual files were detected without an absolute parent directory.\n\nPlease specify absolute paths or use the file picker.");
+            }
+        }
+
+        else
+        {
+            try
+            {
+                Path fullPath;
+                Path fpath = Paths.get(filename);
+
+                if (fpath.isAbsolute())
+                {
+                    // If filename is absolute, either directory or regular
+                    fullPath = fpath.normalize();
+                }
+
+                else if (parentDir != null)
+                {
+                    // Resolve relative file or folder path against the parent directory
+                    fullPath = parentDir.resolve(fpath).normalize();
+                }
+
+                else
+                {
+                    // Try to obtain absolute path from filename
+                    fullPath = fpath.toAbsolutePath().normalize();
+                }
+
+                if (Files.notExists(fullPath))
+                {
+                    throw new BatchErrorException("The specified path does not exist:\n\n" + filename);
+                }
+
+                if (Files.isDirectory(fullPath))
+                {
+                    parentDir = fullPath;
+                }
+
+                else
+                {
+                    Path parent = fullPath.getParent();
+
+                    parentDir = (parent == null ? fullPath.getRoot() : parent);
+                    files = new String[]{fullPath.getFileName().toString()};
+                }
+            }
+
+            catch (InvalidPathException exc)
+            {
+                throw new BatchErrorException("The content is not a valid file path.\n\nPath: " + filename);
             }
         }
 
