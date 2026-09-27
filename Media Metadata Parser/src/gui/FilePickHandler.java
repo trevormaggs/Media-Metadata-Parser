@@ -122,7 +122,7 @@ class FilePickHandler implements EventHandler<ActionEvent>
 
             if (!currentPath.isEmpty())
             {
-                String[] parts = currentPath.split("\\s*,\\s*");
+                String[] parts = currentPath.split("\\s*" + UtilsJavaFX.MULTIFILE_DELIMITER + "\\s*");
 
                 for (String token : parts)
                 {

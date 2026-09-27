@@ -64,6 +64,7 @@ final class ConfigurationBuilder
                     parentDir = (Files.isDirectory(fpath) ? fpath : (fpath.getParent() == null ? fpath.getRoot() : fpath.getParent()));
                 }
             }
+
             catch (InvalidPathException exc)
             {
                 // Fall back if tooltip path cannot be parsed
@@ -114,10 +115,10 @@ final class ConfigurationBuilder
             }
         }
 
-        // Branch 2: Path doesn't exist directly, but contains commas (multi-file)
-        else if (filename.contains(","))
+        // Branch 2: Multiple files specified
+        else if (filename.contains(UtilsJavaFX.MULTIFILE_DELIMITER))
         {
-            String[] parts = filename.split("\\s*,\\s*");
+            String[] parts = filename.split("\\s*" + UtilsJavaFX.MULTIFILE_DELIMITER + "\\s*");
 
             if (parentDir == null)
             {
@@ -173,7 +174,8 @@ final class ConfigurationBuilder
                 throw new BatchErrorException("Individual files were detected without an absolute parent directory.\n\nPlease specify absolute paths or use the file picker.");
             }
         }
-        // Branch 3: Single path does not exist on disk and contains no commas
+
+        // Branch 3: Single path does not exist on disk
         else
         {
             throw new BatchErrorException("The specified path does not exist:\n\n" + filename);

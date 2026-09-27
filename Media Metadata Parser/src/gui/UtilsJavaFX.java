@@ -43,15 +43,17 @@ import javafx.stage.Window;
 import javafx.util.Duration;
 
 /**
- * Utility methods for JavaFX user interface operations, scene node traversal, styling, and popup
- * dialog management.
+ * Provides utility methods for JavaFX user interface operations used throughout the internal GUI.
  *
  * <p>
  * This class is package-private and intended solely for internal GUI operations.
  * </p>
  */
+
 final class UtilsJavaFX
 {
+    static final String MULTIFILE_DELIMITER = ";";
+
     private UtilsJavaFX()
     {
         // Private constructor to prevent instantiation
@@ -267,11 +269,11 @@ final class UtilsJavaFX
             {
                 String pastedText = clipboard.getString().trim();
 
-                if (pastedText.contains(","))
+                if (pastedText.contains(MULTIFILE_DELIMITER))
                 {
-                    // Validate a comma-separated list of file names
+                    // Validate a multi-file list
                     Path parentDir = null;
-                    String[] parts = pastedText.split("\\s*,\\s*");
+                    String[] parts = pastedText.split("\\s*" + MULTIFILE_DELIMITER + "\\s*");
 
                     for (String token : parts)
                     {
@@ -312,7 +314,7 @@ final class UtilsJavaFX
 
                                 if (i > 0)
                                 {
-                                    sb.append(",");
+                                    sb.append(MULTIFILE_DELIMITER);
                                 }
 
                                 sb.append(fpath.getFileName().toString());
@@ -378,13 +380,11 @@ final class UtilsJavaFX
     }
 
     /**
-     * Prompts a file open selection dialog to capture explicit media files and sets the
-     * formatted file list into the source path input component.
+     * Prompts a file open selection dialog to capture explicit media files and sets the formatted
+     * file-name list into the source path input component.
      *
      * @param owner
      *        the parent {@link Window} hosting the file chooser dialog
-     * @param sourceText
-     *        the text field component where the selected file paths will be set
      */
     static void handleFileSelection(Window owner)
     {
@@ -393,13 +393,13 @@ final class UtilsJavaFX
             FileChooser chooser = new FileChooser();
             Path parentDir = Paths.get(System.getProperty("user.home"));
             TextField sourceText = UtilsJavaFX.getById(owner.getScene().getRoot(), MainViewPane.SRCID, TextField.class);
-            Tooltip parentTip = sourceText.getTooltip();
+            Tooltip parentToolTip = sourceText.getTooltip();
 
-            if (parentTip != null && !Utils.isBlank(parentTip.getText()))
+            if (parentToolTip != null && !Utils.isBlank(parentToolTip.getText()))
             {
                 try
                 {
-                    Path fpath = Paths.get(parentTip.getText());
+                    Path fpath = Paths.get(parentToolTip.getText());
 
                     if (Files.exists(fpath))
                     {
@@ -424,7 +424,7 @@ final class UtilsJavaFX
 
             if (files != null && !files.isEmpty())
             {
-                StringJoiner joiner = new StringJoiner(",");
+                StringJoiner joiner = new StringJoiner(MULTIFILE_DELIMITER);
 
                 for (File file : files)
                 {
@@ -491,9 +491,9 @@ final class UtilsJavaFX
             return false;
         }
 
-        String lower = name.toLowerCase();
+        String gps = name.toLowerCase();
 
-        return lower.contains("latitude") || lower.contains("longitude");
+        return gps.contains("latitude") || gps.contains("longitude");
     }
 
     /**
