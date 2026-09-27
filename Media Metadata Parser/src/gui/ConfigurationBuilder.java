@@ -30,6 +30,7 @@ final class ConfigurationBuilder
     {
         Path parentDir = null;
         String[] files = null;
+        Path directPath = null;
         BatchBuilder builder = new BatchBuilder();
 
         TextField sourceText = UtilsJavaFX.getById(root, MainViewPane.SRCID, TextField.class);
@@ -52,7 +53,7 @@ final class ConfigurationBuilder
             throw new BatchErrorException("No source directory or files specified.\n\nPlease select a source folder or specific files first.");
         }
 
-        // Find parent directory from tooltip if available
+        // Resolve the source directory from the tooltip if available
         if (sourceText.getTooltip() != null)
         {
             try
@@ -71,11 +72,9 @@ final class ConfigurationBuilder
             }
         }
 
-        // Attempt single file/directory resolution first
-        Path directPath = null;
-
         try
         {
+            // Attempt single file/directory resolution first
             Path fpath = Paths.get(filename);
 
             if (fpath.isAbsolute())
@@ -96,10 +95,10 @@ final class ConfigurationBuilder
 
         catch (InvalidPathException exc)
         {
-            // Invalid path string; directPath remains null
+            // directPath remains null
         }
 
-        // Branch 1: Single direct file or directory exists on disk
+        // First check to see if a single file or directory exists on disk
         if (directPath != null && Files.exists(directPath))
         {
             if (Files.isDirectory(directPath))
@@ -115,7 +114,7 @@ final class ConfigurationBuilder
             }
         }
 
-        // Branch 2: Multiple files specified
+        // Second check to see if multiple files are found
         else if (filename.contains(UtilsJavaFX.MULTIFILE_DELIMITER))
         {
             String[] parts = filename.split("\\s*" + UtilsJavaFX.MULTIFILE_DELIMITER + "\\s*");
@@ -156,7 +155,7 @@ final class ConfigurationBuilder
 
                         if (!Files.isRegularFile(fullPath) || !fullPath.startsWith(parentDir))
                         {
-                            throw new BatchErrorException("One or more source files do not exist or come from a different directory:\n\n" + parts[i]);
+                            throw new BatchErrorException("One or more source files are either not regular files or are in a different directory:\n\n" + parts[i]);
                         }
 
                         files[i] = fullPath.getFileName().toString();
@@ -175,9 +174,9 @@ final class ConfigurationBuilder
             }
         }
 
-        // Branch 3: Single path does not exist on disk
         else
         {
+            // Final check throws an exception if no valid path or file set was found
             throw new BatchErrorException("The specified path does not exist:\n\n" + filename);
         }
 
