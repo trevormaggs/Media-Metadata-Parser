@@ -489,7 +489,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             return;
         }
 
-        workerTask = new BatchTask(config, progressBar, true);
+        // 1. Pass null for ProgressBar inside BatchTask/Adapter constructor
+        workerTask = new BatchTask(config, true);
 
         workerTask.setOnFileScanned(new Consumer<Integer>()
         {
@@ -507,7 +508,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             }
         });
 
-        // Handle metadata event for structured tree processing and indirectly flat text
         workerTask.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
         {
             @Override
@@ -568,17 +568,34 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             {
                 logArea.appendText("[WARNING] Batch process was cancelled.\n");
                 resetControlStates(progressLabel);
+
+                Platform.runLater(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        progressBar.progressProperty().unbind();
+
+                        if (progressLabel != null)
+                        {
+                            progressLabel.textProperty().unbind();
+                            progressLabel.setText("Cancelled");
+                        }
+
+                        progressBar.setProgress(0.0);
+                    }
+                });
             }
         });
 
         viewPane.actionBtn.setDisable(true);
         viewPane.abortBtn.setDisable(false);
         viewPane.copyLogBtn.setDisable(true);
-        progressLabel.textProperty().bind(workerTask.messageProperty());
 
-        Thread worker = new Thread(workerTask);
-        worker.setDaemon(true);
-        worker.start();
+        progressLabel.textProperty().bind(workerTask.messageProperty());
+        progressBar.progressProperty().bind(workerTask.progressProperty());
+
+        BatchProgressDialog.show(rootPane.getScene().getWindow(), "Retrieving Metadata", workerTask);
     }
 
     /**
@@ -616,7 +633,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         {
             config = new ConfigurationBuilder(rootPane).build();
         }
-
         catch (BatchErrorException exc)
         {
             progressLabel.setText("Configuration error");
@@ -624,7 +640,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             return;
         }
 
-        workerTask = new BatchTask(config, progressBar, false);
+        workerTask = new BatchTask(config, false);
 
         // Receive file execution output records for tabular summary reporting
         workerTask.setOnBatchSummaryListener(new PropertyBiConsumer()
@@ -732,6 +748,23 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             {
                 logArea.appendText("[WARNING] Batch process was cancelled.\n");
                 resetControlStates(progressLabel);
+
+                Platform.runLater(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        progressBar.progressProperty().unbind();
+
+                        if (progressLabel != null)
+                        {
+                            progressLabel.textProperty().unbind();
+                            progressLabel.setText("Cancelled");
+                        }
+
+                        progressBar.setProgress(0.0);
+                    }
+                });
             }
         });
 
@@ -739,10 +772,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.abortBtn.setDisable(false);
         viewPane.copyLogBtn.setDisable(true);
         progressLabel.textProperty().bind(workerTask.messageProperty());
+        progressBar.progressProperty().bind(workerTask.progressProperty());
 
-        Thread worker = new Thread(workerTask);
-        worker.setDaemon(true);
-        worker.start();
+        BatchProgressDialog.show(rootPane.getScene().getWindow(), "Processing Batch", workerTask);
     }
 
     /**
@@ -755,11 +787,29 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         final ProgressBar progressBar = viewPane.progressBar;
 
+        // 1. Immediately unbind to prevent lingering workerTask updates from polluting the UI
+        if (progressLabel != null)
+        {
+            progressLabel.textProperty().unbind();
+        }
+        progressBar.progressProperty().unbind();
+
         workerTask = null;
         viewPane.actionBtn.setDisable(false);
-        viewPane.actionBtn.getScene().getRoot().requestFocus();
+
+        if (viewPane.actionBtn.getScene() != null && viewPane.actionBtn.getScene().getRoot() != null)
+        {
+            viewPane.actionBtn.getScene().getRoot().requestFocus();
+        }
+
         viewPane.abortBtn.setDisable(true);
         viewPane.copyLogBtn.setDisable(false);
+
+        // 2. Delay clearing text and resetting progress display without keeping active bindings
+        if (progressResetDelay != null)
+        {
+            progressResetDelay.stop();
+        }
 
         progressResetDelay = new PauseTransition(Duration.seconds(3));
 
@@ -770,11 +820,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             {
                 if (progressLabel != null)
                 {
-                    progressLabel.textProperty().unbind();
                     progressLabel.setText("");
                 }
 
-                progressBar.progressProperty().unbind();
                 progressBar.setProgress(0.0);
             }
         });

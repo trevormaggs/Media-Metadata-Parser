@@ -10,7 +10,6 @@ import batch.MetadataInspectionEvent;
 import batch.MetadataInspector;
 import common.PropertyBiConsumer;
 import javafx.concurrent.Task;
-import javafx.scene.control.ProgressBar;
 import progressbar.JavaFXProgressAdapter;
 
 /**
@@ -29,7 +28,6 @@ import progressbar.JavaFXProgressAdapter;
 class BatchTask extends Task<BatchMetrics>
 {
     private final BatchConfiguration config;
-    private final ProgressBar progressBar;
     private final boolean display;
     private PropertyBiConsumer batchSummaryListener;
     private Consumer<Integer> fileScannedListener;
@@ -42,16 +40,13 @@ class BatchTask extends Task<BatchMetrics>
      *
      * @param config
      *        the validated batch configuration
-     * @param progressBar
-     *        the progress bar to update during execution
      * @param displayMetadata
      *        {@code true} to display metadata only, or {@code false} to perform standard batch
      *        processing
      */
-    BatchTask(BatchConfiguration config, ProgressBar progressBar, boolean displayMetadata)
+    BatchTask(BatchConfiguration config, boolean displayMetadata)
     {
         this.config = config;
-        this.progressBar = progressBar;
         this.display = displayMetadata;
     }
 
@@ -212,7 +207,8 @@ class BatchTask extends Task<BatchMetrics>
      */
     private JavaFXProgressAdapter attachProgressAdapter(String actionLabel)
     {
-        return new JavaFXProgressAdapter(progressBar)
+        // Pass null so JavaFXProgressAdapter doesn't modify progress control directly
+        return new JavaFXProgressAdapter(null)
         {
             private boolean scanMode = true;
 
@@ -227,7 +223,17 @@ class BatchTask extends Task<BatchMetrics>
             {
                 if (!isCancelled())
                 {
-                    super.onProgressUpdate(current, total);
+                    // Makes sure Task.updateProgress is updated so task.progressProperty() fires as
+                    // it should
+                    if (total > 0)
+                    {
+                        updateProgress(current, total);
+                    }
+
+                    else
+                    {
+                        updateProgress(-1, 1);
+                    }
 
                     if (scanMode)
                     {
@@ -286,7 +292,7 @@ class BatchTask extends Task<BatchMetrics>
             {
                 if (!isCancelled())
                 {
-                    super.reset();
+                    updateProgress(0, 1);
                 }
             }
         };
