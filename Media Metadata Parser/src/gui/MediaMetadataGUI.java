@@ -489,13 +489,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             return;
         }
 
-        // 1. Pass null for ProgressBar inside BatchTask/Adapter constructor
         workerTask = new BatchTask(config, true);
 
         workerTask.setOnFileScanned(new Consumer<Integer>()
         {
             @Override
-            public void accept(final Integer count)
+            public void accept(Integer count)
             {
                 Platform.runLater(new Runnable()
                 {
@@ -511,7 +510,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
         {
             @Override
-            public void accept(final MetadataInspectionEvent event)
+            public void accept(MetadataInspectionEvent event)
             {
                 Platform.runLater(new Runnable()
                 {
@@ -527,7 +526,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(final WorkerStateEvent event)
+            public void handle(WorkerStateEvent event)
             {
                 BatchMetrics stats = workerTask.getValue();
 
@@ -548,7 +547,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnFailed(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(final WorkerStateEvent event)
+            public void handle(WorkerStateEvent event)
             {
                 Throwable exc = workerTask.getException();
                 String msg = (exc != null && exc.getMessage() != null
@@ -564,7 +563,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(final WorkerStateEvent event)
+            public void handle(WorkerStateEvent event)
             {
                 logArea.appendText("[WARNING] Batch process was cancelled.\n");
                 resetControlStates(progressLabel);
@@ -633,6 +632,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         {
             config = new ConfigurationBuilder(rootPane).build();
         }
+
         catch (BatchErrorException exc)
         {
             progressLabel.setText("Configuration error");
@@ -646,7 +646,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnBatchSummaryListener(new PropertyBiConsumer()
         {
             @Override
-            public void accept(final String key, final Object value)
+            public void accept(String key, Object value)
             {
                 if (value instanceof BatchProcessEvent)
                 {
@@ -674,7 +674,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnFileScanned(new Consumer<Integer>()
         {
             @Override
-            public void accept(final Integer count)
+            public void accept(Integer count)
             {
                 Platform.runLater(new Runnable()
                 {
@@ -691,7 +691,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnFileProcessed(new Consumer<Integer>()
         {
             @Override
-            public void accept(final Integer count)
+            public void accept(Integer count)
             {
                 Platform.runLater(new Runnable()
                 {
@@ -708,7 +708,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnSucceeded(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(final WorkerStateEvent event)
+            public void handle(WorkerStateEvent event)
             {
                 BatchMetrics stats = workerTask.getValue();
 
@@ -730,7 +730,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnFailed(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(final WorkerStateEvent event)
+            public void handle(WorkerStateEvent event)
             {
                 Throwable exc = workerTask.getException();
                 String msg = (exc != null && exc.getMessage() != null) ? exc.getMessage() : "An unexpected error occurred during batch processing.";
@@ -744,7 +744,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask.setOnCancelled(new EventHandler<WorkerStateEvent>()
         {
             @Override
-            public void handle(final WorkerStateEvent event)
+            public void handle(WorkerStateEvent event)
             {
                 logArea.appendText("[WARNING] Batch process was cancelled.\n");
                 resetControlStates(progressLabel);
@@ -787,11 +787,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         final ProgressBar progressBar = viewPane.progressBar;
 
-        // 1. Immediately unbind to prevent lingering workerTask updates from polluting the UI
-        if (progressLabel != null)
-        {
-            progressLabel.textProperty().unbind();
-        }
+        // Promptly unbind to prevent lingering workerTask updates from polluting the UI
+        progressLabel.textProperty().unbind();
         progressBar.progressProperty().unbind();
 
         workerTask = null;
@@ -805,7 +802,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.abortBtn.setDisable(true);
         viewPane.copyLogBtn.setDisable(false);
 
-        // 2. Delay clearing text and resetting progress display without keeping active bindings
+        // Delay clearing text and resetting progress display without keeping active bindings
         if (progressResetDelay != null)
         {
             progressResetDelay.stop();

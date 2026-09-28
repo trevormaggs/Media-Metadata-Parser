@@ -2,7 +2,6 @@ package gui;
 
 import java.util.function.Consumer;
 import batch.BatchConfiguration;
-import batch.BatchErrorException;
 import batch.BatchMetrics;
 import batch.BatchProcessEvent;
 import batch.MediaBatchProcessor;
@@ -10,7 +9,7 @@ import batch.MetadataInspectionEvent;
 import batch.MetadataInspector;
 import common.PropertyBiConsumer;
 import javafx.concurrent.Task;
-import progressbar.JavaFXProgressAdapter;
+import progressbar.ProgressListener;
 
 /**
  * Executes batch media processing or metadata extraction on a background thread.
@@ -55,7 +54,7 @@ class BatchTask extends Task<BatchMetrics>
      *
      * <p>
      * The listener receives the current count of scanned files, allowing the processing statistics
-     * table view to be updated downstream while the scan is in progress.
+     * view to be updated downstream while the scan is in progress.
      * </p>
      *
      * @param listener
@@ -71,7 +70,7 @@ class BatchTask extends Task<BatchMetrics>
      *
      * <p>
      * The listener receives the current count of processed files, allowing the processing
-     * statistics table view to be updated downstream while the processing is in progress.
+     * statistics view to be updated downstream while the processing is in progress.
      * </p>
      *
      * @param listener
@@ -83,30 +82,32 @@ class BatchTask extends Task<BatchMetrics>
     }
 
     /**
-     * Sets the listener to receive batch process events for updating file summary metrics. The
-     * listener is notified after each file has been processed, allowing the summary statistics to
-     * be updated progressively during batch processing.
+     * Sets the listener to receive batch process events for updating file summary metrics.
+     *
+     * <p>
+     * Batch process events received from the {@link MediaBatchProcessor} are forwarded to the
+     * registered listener as processing progresses.
+     * </p>
      *
      * @param listener
      *        the listener to receive batch process event updates
      */
-
     void setOnBatchSummaryListener(PropertyBiConsumer listener)
     {
         batchSummaryListener = listener;
     }
 
     /**
-     * Registers a listener to receive formatted output text lines extracted during metadata
-     * inspection.
+     * Registers a listener to receive notifications generated during metadata inspection.
      *
      * <p>
-     * This listener receives string representations of {@link MetadataInspectionEvent} instances
-     * bridged from {@link MetadataInspector} for display in GUI components.
+     * The listener receives each {@link MetadataInspectionEvent} produced by the
+     * {@link MetadataInspector} and forwards it for display or further processing by GUI
+     * components.
      * </p>
      *
      * @param listener
-     *        the text consumer callback to receive formatted metadata lines
+     *        the listener to receive metadata inspection events
      */
     void setOnMetadataInspected(Consumer<MetadataInspectionEvent> listener)
     {
@@ -114,11 +115,11 @@ class BatchTask extends Task<BatchMetrics>
     }
 
     /**
-     * Cancels the task and signals the underlying batch processor to abort execution.
+     * Cancels the task and requests cancellation of the underlying batch processor.
      *
      * @param interrupt
      *        {@code true} to interrupt the thread executing the task, otherwise {@code false}
-     * @return {@code true} if the task was cancelled
+     * @return {@code true} if the task was successfully cancelled
      */
     @Override
     public boolean cancel(boolean interrupt)
@@ -135,13 +136,12 @@ class BatchTask extends Task<BatchMetrics>
      * Executes the batch operation on the background thread.
      *
      * <p>
-     * When metadata inspection is enabled, metadata is retrieved via
-     * {@link MetadataInspector} instead of executing a full batch. Otherwise, a
-     * {@link MediaBatchProcessor} is created for execution. In both cases, progress is reported to
-     * associated JavaFX controls.
+     * When metadata inspection is selected, metadata is retrieved via {@link MetadataInspector}
+     * instead. Otherwise, a {@link MediaBatchProcessor} is created for execution. In both cases,
+     * progress is reported to associated JavaFX controls.
      * </p>
      *
-     * @return the {@link BatchMetrics} produced by the batch operation
+     * @return the {@link BatchMetrics} produced by the associated operation
      *
      * @throws Exception
      *         if an unrecoverable error occurs during processing
@@ -153,7 +153,7 @@ class BatchTask extends Task<BatchMetrics>
         {
             MetadataInspector inspector = new MetadataInspector(config);
 
-            inspector.addProgressListener(attachProgressAdapter("Retrieving metadata"));
+            inspector.addProgressListener(createProgressListener("Retrieving metadata"));
 
             inspector.setOnMetadataInspected(new Consumer<MetadataInspectionEvent>()
             {
@@ -176,7 +176,7 @@ class BatchTask extends Task<BatchMetrics>
         }
 
         processor = new MediaBatchProcessor(config);
-        processor.addProgressListener(attachProgressAdapter("Processing batch"));
+        processor.addProgressListener(createProgressListener("Processing batch"));
 
         if (batchSummaryListener != null)
         {
@@ -187,7 +187,7 @@ class BatchTask extends Task<BatchMetrics>
                 {
                     if (value instanceof BatchProcessEvent)
                     {
-                        // Receives and then forwards BatchProcessEvent updates to the GUI listener
+                        // Forward BatchProcessEvent updates to the GUI listener.
                         batchSummaryListener.accept(key, value);
                     }
                 }
@@ -198,33 +198,28 @@ class BatchTask extends Task<BatchMetrics>
     }
 
     /**
-     * Attaches a progress listener adapter for reporting scan and execution progress.
+     * Creates a progress listener for reporting scan and execution progress.
      *
      * @param actionLabel
      *        the descriptive label for the active execution phase, such as "Processing batch" or
      *        "Retrieving metadata"
-     * @return the configured progress listener adapter
+     * @return the configured progress listener
      */
-    private JavaFXProgressAdapter attachProgressAdapter(String actionLabel)
+    private ProgressListener createProgressListener(String actionLabel)
     {
-        // Pass null so JavaFXProgressAdapter doesn't modify progress control directly
-        return new JavaFXProgressAdapter(null)
+        return new ProgressListener()
         {
             private boolean scanMode = true;
-
-            @Override
-            public void onProgressUpdate(int current)
-            {
-                onProgressUpdate(current, 0);
-            }
 
             @Override
             public void onProgressUpdate(int current, int total)
             {
                 if (!isCancelled())
                 {
-                    // Makes sure Task.updateProgress is updated so task.progressProperty() fires as
-                    // it should
+                    /*
+                     * Make sure Task.updateProgress is updated so
+                     * task.progressProperty() fires as it should.
+                     */
                     if (total > 0)
                     {
                         updateProgress(current, total);
@@ -302,7 +297,7 @@ class BatchTask extends Task<BatchMetrics>
      * Handles successful completion of the background task.
      *
      * <p>
-     * Updates the task status message and records a success message in the log area.
+     * Updates the task message to indicate that the batch operation has completed successfully.
      * </p>
      */
     @Override
@@ -316,8 +311,8 @@ class BatchTask extends Task<BatchMetrics>
      * Handles failure of the background task.
      *
      * <p>
-     * Records the exception message in the log area and distinguishes expected
-     * {@link BatchErrorException} failures from unexpected errors.
+     * Updates the task message to indicate that the batch operation failed. The exception that
+     * caused the failure remains available through the task's exception state.
      * </p>
      */
     @Override
@@ -331,7 +326,7 @@ class BatchTask extends Task<BatchMetrics>
      * Handles cancellation of the background task.
      *
      * <p>
-     * Updates the task status message and records a cancellation warning in the log area.
+     * Updates the task message to indicate that the batch operation was cancelled.
      * </p>
      */
     @Override

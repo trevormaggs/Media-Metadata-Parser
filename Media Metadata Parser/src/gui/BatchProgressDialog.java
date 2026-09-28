@@ -2,6 +2,7 @@ package gui;
 
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.concurrent.Worker;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -19,10 +20,9 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.Window;
 import javafx.stage.WindowEvent;
-import javafx.concurrent.Worker;
 
 /**
- * Modal progress dialog displaying an overlaid percentage counter with dynamic color inversion.
+ * Modal progress dialog displaying an overlaid percentage counter.
  */
 final class BatchProgressDialog
 {
@@ -32,16 +32,16 @@ final class BatchProgressDialog
     }
 
     /**
-     * Displays a modal progress dialog bound to the executing {@link BatchTask}.
+     * Displays a modal progress dialog bound to the specified {@link BatchTask}.
      *
      * @param owner
      *        the parent window owning this modal dialog
      * @param title
      *        the window title for the dialog
      * @param task
-     *        the active background {@link BatchTask}
+     *        the task whose progress and status are displayed
      */
-    static void show(Window owner, String title, final BatchTask task)
+    static void show(Window owner, String title, BatchTask task)
     {
         final Stage dialog = new Stage();
         final Label percentLabel = new Label("0%");
@@ -57,6 +57,7 @@ final class BatchProgressDialog
 
         // Bindings
         statusLabel.textProperty().bind(task.messageProperty());
+
         percentLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: white;");
         percentLabel.setBlendMode(BlendMode.DIFFERENCE);
 
@@ -72,26 +73,29 @@ final class BatchProgressDialog
                 if (newValue != null && newValue.doubleValue() >= 0.0 && newValue.doubleValue() <= 1.0)
                 {
                     int percent = (int) Math.round(newValue.doubleValue() * 100);
+
                     percentLabel.setText(percent + "%");
                 }
+
                 else
                 {
                     percentLabel.setText("");
                 }
             }
         };
+
         task.progressProperty().addListener(progressChangeListener);
 
-        // Centralized cleanup to prevent dangling bindings or memory leaks
-        final Runnable cleanupAndClose = new Runnable()
+        final Runnable closeProgressTask = new Runnable()
         {
             @Override
             public void run()
             {
                 task.progressProperty().removeListener(progressChangeListener);
+
                 statusLabel.textProperty().unbind();
                 progressBar.progressProperty().unbind();
-                
+
                 if (dialog.isShowing())
                 {
                     dialog.close();
@@ -99,14 +103,13 @@ final class BatchProgressDialog
             }
         };
 
-        // Abort & Close Actions
         abortButton.setOnAction(new EventHandler<ActionEvent>()
         {
             @Override
             public void handle(ActionEvent event)
             {
                 task.cancel(true);
-                cleanupAndClose.run();
+                closeProgressTask.run();
             }
         });
 
@@ -116,19 +119,19 @@ final class BatchProgressDialog
             public void handle(WindowEvent event)
             {
                 task.cancel(true);
-                cleanupAndClose.run();
+                closeProgressTask.run();
             }
         });
 
-        // Close dialog automatically when the task transitions out of the RUNNING state
+        // Close dialog automatically when the task stops running.
         task.runningProperty().addListener(new ChangeListener<Boolean>()
         {
             @Override
-            public void changed(ObservableValue<? extends Boolean> obs, Boolean wasRunning, Boolean isRunning)
+            public void changed(ObservableValue<? extends Boolean> observable, Boolean wasRunning, Boolean isRunning)
             {
                 if (wasRunning && !isRunning)
                 {
-                    cleanupAndClose.run();
+                    closeProgressTask.run();
                 }
             }
         });
@@ -136,12 +139,14 @@ final class BatchProgressDialog
         // Layout construction
         StackPane progressOverlayPane = new StackPane();
         progressOverlayPane.getChildren().addAll(progressBar, percentLabel);
+
         StackPane.setAlignment(percentLabel, Pos.CENTER);
 
         HBox buttonBox = new HBox(abortButton);
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
 
         VBox root = new VBox(12, statusLabel, progressOverlayPane, buttonBox);
+
         root.setPadding(new Insets(16));
         root.setPrefWidth(400);
 
@@ -154,14 +159,14 @@ final class BatchProgressDialog
 
         dialog.setScene(dialogScene);
 
-        // Safely start worker thread if task is ready
+        dialog.show();
+
         if (task.getState() == Worker.State.READY)
         {
             Thread backgroundThread = new Thread(task, "BatchTask-Worker-Thread");
+
             backgroundThread.setDaemon(true);
             backgroundThread.start();
         }
-
-        dialog.show();
     }
 }
