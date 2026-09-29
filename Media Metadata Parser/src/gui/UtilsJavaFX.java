@@ -24,10 +24,12 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
-import javafx.scene.control.Alert.AlertType;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
@@ -48,6 +50,7 @@ import javafx.util.Duration;
  * <p>
  * This class is package-private and intended solely for internal GUI operations.
  * </p>
+ * 1
  */
 
 final class UtilsJavaFX
@@ -549,5 +552,37 @@ final class UtilsJavaFX
             ImageReader reader = webpReaders.next();
             System.out.println("WebP Reader Class: " + reader.getClass().getName());
         }
+    }
+
+    /**
+     * Creates a standardised 16x16 icon graphic for UI containers.
+     *
+     * @param iconPath
+     *        the classpath resource path to the image asset
+     * @return an {@link ImageView} displaying the icon, or {@code null} if the resource is missing
+     */
+    public static ImageView createPaneIcon(String iconPath)
+    {
+        String cleanPath = iconPath.startsWith("/") ? iconPath.substring(1) : iconPath;
+        URL url = UtilsJavaFX.class.getClassLoader().getResource(cleanPath);
+
+        if (url == null)
+        {
+            url = UtilsJavaFX.class.getResource("/" + cleanPath);
+        }
+
+        if (url == null)
+        {
+            System.err.println("Icon resource missing on classpath: " + iconPath);
+            return null;
+        }
+
+        ImageView imageView = new ImageView(new Image(url.toExternalForm()));
+
+        imageView.setFitWidth(24);
+        imageView.setFitHeight(24);
+        imageView.setPreserveRatio(true);
+
+        return imageView;
     }
 }

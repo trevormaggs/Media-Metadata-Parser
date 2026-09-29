@@ -48,6 +48,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
+import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Callback;
 
@@ -111,6 +112,12 @@ final class SummaryDialogFactory
         DialogPane dialogPane = dialog.getDialogPane();
         dialogPane.getStylesheets().addAll(owner.getScene().getStylesheets());
         dialogPane.getButtonTypes().add(ButtonType.CLOSE);
+        
+        if (owner instanceof Stage)
+        {
+            Stage dialogStage = (Stage) dialog.getDialogPane().getScene().getWindow();
+            dialogStage.getIcons().addAll(((Stage) owner).getIcons());
+        }
 
         final HoverDebouncer debouncer = new HoverDebouncer(120);
         final TableView<ProcessedFileRecord> table = addSummaryTable();

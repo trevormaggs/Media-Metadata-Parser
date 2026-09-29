@@ -24,7 +24,7 @@ import progressbar.ProgressListener;
  * @version 1.3
  * @since 29 June 2026
  */
-class BatchTask extends Task<BatchMetrics>
+final class BatchTask extends Task<BatchMetrics>
 {
     private final BatchConfiguration config;
     private final boolean display;
@@ -47,6 +47,8 @@ class BatchTask extends Task<BatchMetrics>
     {
         this.config = config;
         this.display = displayMetadata;
+
+        updateMessage("Initialising...");
     }
 
     /**
@@ -163,7 +165,7 @@ class BatchTask extends Task<BatchMetrics>
                  * GUI listener.
                  */
                 @Override
-                public void accept(final MetadataInspectionEvent event)
+                public void accept(MetadataInspectionEvent event)
                 {
                     if (metadataInspectedListener != null)
                     {

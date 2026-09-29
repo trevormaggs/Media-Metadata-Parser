@@ -45,12 +45,11 @@ final class MainViewPane
     static final String DBGID = "dbgId";
     static final String TRCID = "trcId";
     static final String THMID = "thmId";
-    
+
     final ProgressBar progressBar;
     final Button sourceBtn;
     final Button actionBtn;
     final Button copyLogBtn;
-    final Button abortBtn;
     final Button viewBtn;
     final Button clearLogBtn;
     final Button exitBtn;
@@ -67,7 +66,6 @@ final class MainViewPane
         this.clearLogBtn = new Button();
         this.copyLogBtn = new Button();
         this.exitBtn = new Button();
-        this.abortBtn = new Button();
         this.viewBtn = new Button();
     }
 
@@ -354,8 +352,7 @@ final class MainViewPane
     }
 
     /**
-     * Builds the action section containing the batch execution, progress, log-copy, and abort
-     * controls.
+     * Builds the action section containing the batch execution, progress, and log-copy controls.
      *
      * @param pane
      *        the container to which the action section is added
@@ -364,8 +361,8 @@ final class MainViewPane
     {
         actionBtn.setText("Run Batch Process");
 
-        progressBar.setPrefWidth(180);
-        progressBar.setMaxWidth(180);
+        progressBar.setPrefWidth(220);
+        progressBar.setMaxWidth(220);
 
         Label progressLabel = new Label("");
         progressLabel.getStyleClass().add("progress-label");
@@ -376,10 +373,9 @@ final class MainViewPane
         progressBox.setAlignment(Pos.TOP_LEFT);
 
         copyLogBtn.setText("Copy Log");
-        abortBtn.setDisable(true);
-        abortBtn.setText("Abort");
-
-        HBox buttonBox = new HBox(12, actionBtn, progressBox, UtilsJavaFX.fillRow(), copyLogBtn, abortBtn);
+        clearLogBtn.setText("Clear Log");
+        
+        HBox buttonBox = new HBox(12, actionBtn, progressBox, UtilsJavaFX.fillRow(), copyLogBtn, clearLogBtn);
         buttonBox.setAlignment(Pos.TOP_LEFT);
         buttonBox.setPadding(new Insets(10));
 
@@ -403,11 +399,9 @@ final class MainViewPane
     {
         viewBtn.setText("View Summary...");
         viewBtn.prefHeightProperty().bind(actionBtn.heightProperty());
-
-        clearLogBtn.setText("Clear Log");
         exitBtn.setText("Exit");
 
-        HBox controlLayout = new HBox(10, viewBtn, clearLogBtn, UtilsJavaFX.fillRow(), exitBtn);
+        HBox controlLayout = new HBox(10, viewBtn, UtilsJavaFX.fillRow(), exitBtn);
         controlLayout.setPadding(new Insets(5, 0, 0, 0));
 
         GridPane.setHgrow(controlLayout, Priority.ALWAYS);

@@ -1,34 +1,29 @@
 package gui;
 
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.concurrent.Worker;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
+import javafx.beans.value.*;
+import javafx.event.*;
+import javafx.geometry.*;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ProgressBar;
+import javafx.scene.control.*;
 import javafx.scene.effect.BlendMode;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
-import javafx.stage.Window;
-import javafx.stage.WindowEvent;
+import javafx.scene.layout.*;
+import javafx.stage.*;
+import javafx.concurrent.Worker;
 
 /**
  * Modal progress dialog displaying an overlaid percentage counter.
  */
-final class BatchProgressDialog
+final class TaskProgressDialog
 {
-    private BatchProgressDialog()
+    /**
+     * Prevents instantiation of this utility class.
+     *
+     * @throws UnsupportedOperationException
+     *         always thrown when an instance is created
+     */
+    private TaskProgressDialog()
     {
-        // Utility class
+        throw new UnsupportedOperationException("Instantiation not allowed");
     }
 
     /**
@@ -45,16 +40,21 @@ final class BatchProgressDialog
     {
         final Stage dialog = new Stage();
         final Label percentLabel = new Label("0%");
-        final Label statusLabel = new Label("Initializing...");
+        final Label statusLabel = new Label("");
         final Button abortButton = new Button("Abort");
         final ProgressBar progressBar = new ProgressBar();
 
         dialog.initOwner(owner);
         dialog.initModality(Modality.WINDOW_MODAL);
-        dialog.initStyle(StageStyle.UTILITY);
+        dialog.initStyle(StageStyle.DECORATED);
         dialog.setTitle(title);
         dialog.setResizable(false);
 
+        if (owner instanceof Stage)
+        {
+            dialog.getIcons().addAll(((Stage) owner).getIcons());
+        }
+        
         // Bindings
         statusLabel.textProperty().bind(task.messageProperty());
 

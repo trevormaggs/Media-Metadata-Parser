@@ -87,6 +87,12 @@ class MetadataViewerDialog extends Stage
         final RadioButton rbTree = new RadioButton("Structured Tree");
         this.searchDebouncer = new HoverDebouncer(150);
 
+        if (owner != null && !owner.getIcons().isEmpty())
+        {
+            getIcons().addAll(owner.getIcons());
+            initOwner(owner);
+        }
+
         mapView = new WebView();
         cbGpsFiles = new ComboBox<>();
         gpsMapManager = new ViewManagerGPS(mapView);

@@ -37,7 +37,6 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
-import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -51,7 +50,7 @@ import javafx.util.Duration;
  * Provides the JavaFX graphical user interface for configuring and running batch media metadata
  * processing operations.
  */
-public class MediaMetadataGUI extends Application implements EventHandler<ActionEvent>
+public class MediaMetadataGUI2 extends Application implements EventHandler<ActionEvent>
 {
     private GridPane rootPane;
     private BatchTask workerTask;
@@ -79,41 +78,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      */
     @Override
     public void start(Stage primaryStage)
-    {
-        RowConstraints fixedRow = new RowConstraints();
-        fixedRow.setVgrow(Priority.NEVER);
-
-        RowConstraints fillRow = new RowConstraints();
-        fillRow.setVgrow(Priority.ALWAYS);
-
-        rootPane = new GridPane();
-        rootPane.setHgap(10);
-        rootPane.setVgap(10);
-        rootPane.requestFocus();
-        rootPane.setPadding(new Insets(15));
-        rootPane.getRowConstraints().addAll(fixedRow, fixedRow, fillRow, fixedRow, fixedRow);
-
-        viewPane.buildLayout(rootPane);
-
-        Scene scene = new Scene(rootPane, 620, 650);
-
-        ImageView icon = UtilsJavaFX.createPaneIcon("/icons/lens.png");
-
-        if (icon != null && icon.getImage() != null)
-        {
-            primaryStage.getIcons().add(icon    .getImage());
-        }
-
-        primaryStage.setTitle("Image Metadata Structure Viewer");
-        primaryStage.setScene(scene);
-        primaryStage.show();
-
-        configureDynamicNodes();
-        createSourceContextMenu();
-        restoreSavedSettings();
-    }
-
-    public void start2(Stage primaryStage)
     {
         RowConstraints fixedRow = new RowConstraints();
         fixedRow.setVgrow(Priority.NEVER);
@@ -206,6 +170,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         else if (source == viewPane.copyLogBtn)
         {
             UtilsJavaFX.doFlashCopyTextArea((TextArea) viewPane.clearLogBtn.getUserData());
+        }
+
+        else if (source == viewPane.abortBtn)
+        {
+            if (workerTask != null)
+            {
+                workerTask.cancel(true);
+            }
         }
 
         else if (source == viewPane.viewBtn)
@@ -341,6 +313,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.exitBtn.setOnAction(this);
         viewPane.copyLogBtn.setOnAction(this);
         viewPane.clearLogBtn.setOnAction(this);
+        viewPane.abortBtn.setOnAction(this);
         viewPane.viewBtn.setOnAction(this);
     }
 
@@ -614,6 +587,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         });
 
         viewPane.actionBtn.setDisable(true);
+        viewPane.abortBtn.setDisable(false);
         viewPane.copyLogBtn.setDisable(true);
 
         progressLabel.textProperty().bind(workerTask.messageProperty());
@@ -794,6 +768,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         });
 
         viewPane.actionBtn.setDisable(true);
+        viewPane.abortBtn.setDisable(false);
         viewPane.copyLogBtn.setDisable(true);
         progressLabel.textProperty().bind(workerTask.messageProperty());
         progressBar.progressProperty().bind(workerTask.progressProperty());
@@ -804,11 +779,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     /**
      * Restores main interactive controls from active execution state.
      *
-     * <p>
-     * Promptly unbinds UI properties to prevent lingering task updates from distorting
-     * the GUI, followed by a 3-second delay before progress display controls are cleared.
-     * </p>
-     *
      * @param progressLabel
      *        progress status display text label
      */
@@ -816,6 +786,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
     {
         final ProgressBar progressBar = viewPane.progressBar;
 
+        // Promptly unbind to prevent lingering workerTask updates from polluting the UI
         progressLabel.textProperty().unbind();
         progressBar.progressProperty().unbind();
 
@@ -827,8 +798,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             viewPane.actionBtn.getScene().getRoot().requestFocus();
         }
 
+        viewPane.abortBtn.setDisable(true);
         viewPane.copyLogBtn.setDisable(false);
 
+        // Delay clearing text and resetting progress display without keeping active bindings
         if (progressResetDelay != null)
         {
             progressResetDelay.stop();
