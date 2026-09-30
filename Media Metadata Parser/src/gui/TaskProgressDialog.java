@@ -6,6 +6,7 @@ import javafx.geometry.*;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.effect.BlendMode;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.stage.*;
 import javafx.concurrent.Worker;
@@ -50,11 +51,13 @@ final class TaskProgressDialog
         dialog.setTitle(title);
         dialog.setResizable(false);
 
-        if (owner instanceof Stage)
+        ImageView icon = UtilsJavaFX.createIcon("process.png");
+
+        if (icon != null && icon.getImage() != null)
         {
-            dialog.getIcons().addAll(((Stage) owner).getIcons());
+            dialog.getIcons().add(icon.getImage());
         }
-        
+
         // Bindings
         statusLabel.textProperty().bind(task.messageProperty());
 

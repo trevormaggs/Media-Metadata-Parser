@@ -555,32 +555,30 @@ final class UtilsJavaFX
     }
 
     /**
-     * Creates a standardised 16x16 icon graphic for UI containers.
+     * Creates a standardised 24x24 {@link ImageView} for a UI icon.
      *
-     * @param iconPath
-     *        the classpath resource path to the image asset
+     * @param iconName
+     *        the name of the icon resource in the {@code /icons/} classpath directory
      * @return an {@link ImageView} displaying the icon, or {@code null} if the resource is missing
      */
-    public static ImageView createPaneIcon(String iconPath)
+    public static ImageView createIcon(String iconName)
     {
-        String cleanPath = iconPath.startsWith("/") ? iconPath.substring(1) : iconPath;
-        URL url = UtilsJavaFX.class.getClassLoader().getResource(cleanPath);
+        return createIcon(iconName, 24);
+    }
+
+    public static ImageView createIcon(String iconName, double size)
+    {
+        URL url = UtilsJavaFX.class.getResource("/icons/" + iconName);
 
         if (url == null)
         {
-            url = UtilsJavaFX.class.getResource("/" + cleanPath);
-        }
-
-        if (url == null)
-        {
-            System.err.println("Icon resource missing on classpath: " + iconPath);
+            System.err.println("Icon resource missing on classpath: /icons/" + iconName);
             return null;
         }
 
         ImageView imageView = new ImageView(new Image(url.toExternalForm()));
-
-        imageView.setFitWidth(24);
-        imageView.setFitHeight(24);
+        imageView.setFitWidth(size);
+        imageView.setFitHeight(size);
         imageView.setPreserveRatio(true);
 
         return imageView;

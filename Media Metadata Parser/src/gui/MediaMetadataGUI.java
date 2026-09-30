@@ -8,7 +8,6 @@ import batch.BatchMetrics;
 import batch.BatchProcessEvent;
 import batch.MetadataInspectionEvent;
 import common.DigitalSignature;
-import common.PropertyBiConsumer;
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -97,40 +96,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         Scene scene = new Scene(rootPane, 620, 650);
 
-        ImageView icon = UtilsJavaFX.createPaneIcon("/icons/lens.png");
+        ImageView icon = UtilsJavaFX.createIcon("lens.png");
 
         if (icon != null && icon.getImage() != null)
         {
-            primaryStage.getIcons().add(icon    .getImage());
+            primaryStage.getIcons().add(icon.getImage());
         }
-
-        primaryStage.setTitle("Image Metadata Structure Viewer");
-        primaryStage.setScene(scene);
-        primaryStage.show();
-
-        configureDynamicNodes();
-        createSourceContextMenu();
-        restoreSavedSettings();
-    }
-
-    public void start2(Stage primaryStage)
-    {
-        RowConstraints fixedRow = new RowConstraints();
-        fixedRow.setVgrow(Priority.NEVER);
-
-        RowConstraints fillRow = new RowConstraints();
-        fillRow.setVgrow(Priority.ALWAYS);
-
-        rootPane = new GridPane();
-        rootPane.setHgap(10);
-        rootPane.setVgap(10);
-        rootPane.requestFocus();
-        rootPane.setPadding(new Insets(15));
-        rootPane.getRowConstraints().addAll(fixedRow, fixedRow, fillRow, fixedRow, fixedRow);
-
-        viewPane.buildLayout(rootPane);
-
-        Scene scene = new Scene(rootPane, 620, 650);
 
         primaryStage.setTitle("Image Metadata Structure Viewer");
         primaryStage.setScene(scene);
@@ -566,7 +537,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                 logArea.appendText("\n[SUCCESS] Exif data retrieved successfully.\n");
                 showMetadataInspectorTree();
-                resetControlStates(progressLabel);
+                resetControlStates();
             }
         });
 
@@ -581,7 +552,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         : "An unexpected error occurred during metadata extraction.");
 
                 logArea.appendText("[ERROR] " + msg + "\n");
-                resetControlStates(progressLabel);
+                resetControlStates();
                 UtilsJavaFX.launchPopup(rootPane, "Metadata Extraction Error", msg, AlertType.ERROR);
             }
         });
@@ -592,7 +563,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             public void handle(WorkerStateEvent event)
             {
                 logArea.appendText("[WARNING] Batch process was cancelled.\n");
-                resetControlStates(progressLabel);
+                resetControlStates();
 
                 Platform.runLater(new Runnable()
                 {
@@ -668,30 +639,25 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         workerTask = new BatchTask(config, false);
 
         // Receive file execution output records for tabular summary reporting
-        workerTask.setOnBatchSummaryListener(new PropertyBiConsumer()
+        workerTask.setOnBatchSummaryListener(new Consumer<BatchProcessEvent>()
         {
             @Override
-            public void accept(String key, Object value)
+            public void accept(BatchProcessEvent event)
             {
-                if (value instanceof BatchProcessEvent)
+                final String source = event.getSourceName();
+                final String target = event.getTargetName();
+                final DigitalSignature magic = event.getDigitalSignature();
+                final String status = event.isSuccess() ? "Completed" : "Failed";
+                final long size = event.getTargetSize();
+
+                Platform.runLater(new Runnable()
                 {
-                    BatchProcessEvent event = (BatchProcessEvent) value;
-
-                    final String source = event.getSourceName();
-                    final String target = event.getTargetName();
-                    final DigitalSignature magic = event.getDigitalSignature();
-                    final String status = event.isSuccess() ? "Completed" : "Failed";
-                    final long size = event.getTargetSize();
-
-                    Platform.runLater(new Runnable()
+                    @Override
+                    public void run()
                     {
-                        @Override
-                        public void run()
-                        {
-                            completedFileRecords.add(new ProcessedFileRecord(source, target, magic, status, size));
-                        }
-                    });
-                }
+                        completedFileRecords.add(new ProcessedFileRecord(source, target, magic, status, size));
+                    }
+                });
             }
         });
 
@@ -747,7 +713,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                 logArea.appendText("\n[SUCCESS] Batch processing complete.\n");
 
-                resetControlStates(progressLabel);
+                resetControlStates();
                 viewPane.viewBtn.fire();
             }
         });
@@ -761,7 +727,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 String msg = (exc != null && exc.getMessage() != null) ? exc.getMessage() : "An unexpected error occurred during batch processing.";
 
                 logArea.appendText("[ERROR] " + msg + "\n");
-                resetControlStates(progressLabel);
+                resetControlStates();
                 UtilsJavaFX.launchPopup(rootPane, "Processing Error", msg, AlertType.ERROR);
             }
         });
@@ -772,7 +738,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             public void handle(WorkerStateEvent event)
             {
                 logArea.appendText("[WARNING] Batch process was cancelled.\n");
-                resetControlStates(progressLabel);
+                resetControlStates();
 
                 Platform.runLater(new Runnable()
                 {
@@ -808,13 +774,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
      * Promptly unbinds UI properties to prevent lingering task updates from distorting
      * the GUI, followed by a 3-second delay before progress display controls are cleared.
      * </p>
-     *
-     * @param progressLabel
-     *        progress status display text label
      */
-    private void resetControlStates(Label progressLabel)
+    private void resetControlStates()
     {
         final ProgressBar progressBar = viewPane.progressBar;
+        final Label progressLabel = (Label) progressBar.getUserData();
 
         progressLabel.textProperty().unbind();
         progressBar.progressProperty().unbind();

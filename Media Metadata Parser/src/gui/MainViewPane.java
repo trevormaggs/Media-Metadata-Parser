@@ -213,6 +213,7 @@ final class MainViewPane
         contentPane.getChildren().addAll(sourceHbox, targetHbox, prefixHbox, modifyDateHbox, previewHbox);
 
         TitledPane titledPane = new TitledPane("Input Options", contentPane);
+        titledPane.setGraphic(UtilsJavaFX.createIcon("plugin.png", 16));
         titledPane.setCollapsible(false);
         titledPane.setMaxWidth(Double.MAX_VALUE);
         titledPane.setFocusTraversable(false);
@@ -272,7 +273,8 @@ final class MainViewPane
         checkBoxPane.setPadding(new Insets(10, 5, 10, 5));
 
         TitledPane optionsTitledPane = new TitledPane();
-        optionsTitledPane.setText("Processing Options");
+        optionsTitledPane.setGraphic(UtilsJavaFX.createIcon("settings.png", 16));
+        optionsTitledPane.setText("Processing Settings");
         optionsTitledPane.setContent(checkBoxPane);
         optionsTitledPane.setCollapsible(false);
         optionsTitledPane.setFocusTraversable(false);
@@ -338,6 +340,7 @@ final class MainViewPane
 
         VBox logContent = new VBox(logArea);
         TitledPane titledPane = new TitledPane("Execution Log", logContent);
+        titledPane.setGraphic(UtilsJavaFX.createIcon("log.png", 16));
         titledPane.setCollapsible(false);
         titledPane.setMaxWidth(Double.MAX_VALUE);
         titledPane.setFocusTraversable(false);
@@ -380,6 +383,7 @@ final class MainViewPane
         buttonBox.setPadding(new Insets(10));
 
         TitledPane titledPane = new TitledPane("Actions", buttonBox);
+        titledPane.setGraphic(UtilsJavaFX.createIcon("process.png", 16));
         titledPane.setCollapsible(false);
         titledPane.setMaxWidth(Double.MAX_VALUE);
         titledPane.setFocusTraversable(false);

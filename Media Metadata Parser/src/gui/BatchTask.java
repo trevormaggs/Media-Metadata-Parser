@@ -7,7 +7,6 @@ import batch.BatchProcessEvent;
 import batch.MediaBatchProcessor;
 import batch.MetadataInspectionEvent;
 import batch.MetadataInspector;
-import common.PropertyBiConsumer;
 import javafx.concurrent.Task;
 import progressbar.ProgressListener;
 
@@ -28,7 +27,7 @@ final class BatchTask extends Task<BatchMetrics>
 {
     private final BatchConfiguration config;
     private final boolean display;
-    private PropertyBiConsumer batchSummaryListener;
+    private Consumer<BatchProcessEvent> batchSummaryListener;
     private Consumer<Integer> fileScannedListener;
     private Consumer<Integer> fileProcessedListener;
     private Consumer<MetadataInspectionEvent> metadataInspectedListener;
@@ -94,7 +93,7 @@ final class BatchTask extends Task<BatchMetrics>
      * @param listener
      *        the listener to receive batch process event updates
      */
-    void setOnBatchSummaryListener(PropertyBiConsumer listener)
+    void setOnBatchSummaryListener(Consumer<BatchProcessEvent> listener)
     {
         batchSummaryListener = listener;
     }
@@ -182,17 +181,15 @@ final class BatchTask extends Task<BatchMetrics>
 
         if (batchSummaryListener != null)
         {
-            processor.setSummaryListener(new PropertyBiConsumer()
+            processor.setSummaryListener(new Consumer<BatchProcessEvent>()
             {
                 @Override
-                public void accept(String key, Object value)
+                public void accept(BatchProcessEvent event)
                 {
-                    if (value instanceof BatchProcessEvent)
-                    {
-                        // Forward BatchProcessEvent updates to the GUI listener.
-                        batchSummaryListener.accept(key, value);
-                    }
+                    // Forward BatchProcessEvent updates to the GUI listener.
+                    batchSummaryListener.accept(event);
                 }
+
             });
         }
 

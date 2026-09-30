@@ -15,8 +15,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import common.DigitalSignature;
-import common.PropertyBiConsumer;
 import heif.HeifDatePatcher;
 import jpg.JpgDatePatcher;
 import logger.LogFactory;
@@ -57,7 +57,7 @@ public final class MediaBatchProcessor
     private final List<ProgressListener> listeners;
     private final MetadataScanner scanner;
     private final BatchConfiguration config;
-    private PropertyBiConsumer summaryListener;
+    private Consumer<BatchProcessEvent> summaryListener;
     public static final String DEFAULT_IMAGE_PREFIX = "image";
     public static final String DEFAULT_SOURCE_DIRECTORY = ".";
     public static final String DEFAULT_TARGET_DIRECTORY = "IMAGEDIR";
@@ -100,7 +100,7 @@ public final class MediaBatchProcessor
      * @param listener
      *        the listener to receive batch process event updates
      */
-    public void setSummaryListener(PropertyBiConsumer listener)
+    public void setSummaryListener(Consumer<BatchProcessEvent> listener)
     {
         summaryListener = listener;
     }
@@ -190,7 +190,7 @@ public final class MediaBatchProcessor
 
                     if (summaryListener != null)
                     {
-                        summaryListener.accept(BatchEventType.FILE_PROCESSED.getKey(), new BatchProcessEvent(record, targetName, targetSize));
+                        summaryListener.accept(new BatchProcessEvent(record, targetName, targetSize));
                     }
 
                     /* Notify progress listeners based on overall loop count */

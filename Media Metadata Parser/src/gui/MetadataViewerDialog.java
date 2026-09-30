@@ -34,6 +34,7 @@ import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeTableCell;
 import javafx.scene.control.TreeTableColumn;
 import javafx.scene.control.TreeTableColumn.CellDataFeatures;
+import javafx.scene.image.ImageView;
 import javafx.scene.control.TreeTableRow;
 import javafx.scene.control.TreeTableView;
 import javafx.scene.input.Clipboard;
@@ -85,12 +86,14 @@ class MetadataViewerDialog extends Stage
         final Button btnClose = new Button("Close");
         final RadioButton rbFlat = new RadioButton("Raw Flat Text");
         final RadioButton rbTree = new RadioButton("Structured Tree");
+
         this.searchDebouncer = new HoverDebouncer(150);
 
-        if (owner != null && !owner.getIcons().isEmpty())
+        ImageView icon = UtilsJavaFX.createIcon("camera.png");
+
+        if (icon != null && icon.getImage() != null)
         {
-            getIcons().addAll(owner.getIcons());
-            initOwner(owner);
+            getIcons().add(icon.getImage());
         }
 
         mapView = new WebView();
