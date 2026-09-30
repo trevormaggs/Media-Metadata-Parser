@@ -28,6 +28,7 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
@@ -555,7 +556,7 @@ final class UtilsJavaFX
     }
 
     /**
-     * Creates a standardised 24x24 {@link ImageView} for a UI icon.
+     * Creates a default 24x24 {@link ImageView} for a UI icon.
      *
      * @param iconName
      *        the name of the icon resource in the {@code /icons/} classpath directory
@@ -563,10 +564,35 @@ final class UtilsJavaFX
      */
     public static ImageView createIcon(String iconName)
     {
-        return createIcon(iconName, 24);
+        return createIcon(iconName, 24, false);
     }
 
+    /**
+     * Creates a sized {@link ImageView} for a UI icon.
+     *
+     * @param iconName
+     *        the name of the icon resource in the {@code /icons/} classpath directory
+     * @param size
+     *        the target width and height in pixels
+     * @return an {@link ImageView} displaying the icon, or {@code null} if the resource is missing
+     */
     public static ImageView createIcon(String iconName, double size)
+    {
+        return createIcon(iconName, size, false);
+    }
+
+    /**
+     * Creates a sized {@link ImageView} for a UI icon with optional dark theme contrast adjustment.
+     *
+     * @param iconName
+     *        the name of the icon resource in the {@code /icons/} classpath directory
+     * @param size
+     *        the target width and height in pixels
+     * @param isDark
+     *        {@code true} to shift dark PNG pixels to white for dark themes
+     * @return an {@link ImageView} displaying the icon, or {@code null} if the resource is missing
+     */
+    public static ImageView createIcon(String iconName, double size, boolean isDark)
     {
         URL url = UtilsJavaFX.class.getResource("/icons/" + iconName);
 
@@ -580,6 +606,13 @@ final class UtilsJavaFX
         imageView.setFitWidth(size);
         imageView.setFitHeight(size);
         imageView.setPreserveRatio(true);
+
+        if (isDark)
+        {
+            ColorAdjust lighten = new ColorAdjust();
+            lighten.setBrightness(1.0); // Inverts black/dark PNG lines to pure white
+            imageView.setEffect(lighten);
+        }
 
         return imageView;
     }

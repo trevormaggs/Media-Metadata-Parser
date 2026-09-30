@@ -204,3 +204,8 @@
 {
   -fx-background-color: #0078D7;
 }
+
+/* Enhances dark PNG visibility against dark backgrounds */
+.themed-icon {
+    -fx-effect: dropshadow(three-pass-box, rgba(255, 255, 255, 0.7), 4, 0.5, 0, 0);
+}

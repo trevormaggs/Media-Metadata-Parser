@@ -326,6 +326,20 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         MenuItem selectFiles = new MenuItem("Select Specific Files...");
         TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
 
+        ImageView folderIcon = UtilsJavaFX.createIcon("folder.png", 16);
+
+        if (folderIcon != null)
+        {
+            selectFolder.setGraphic(folderIcon);
+        }
+
+        ImageView fileIcon = UtilsJavaFX.createIcon("files.png", 16);
+
+        if (fileIcon != null)
+        {
+            selectFiles.setGraphic(fileIcon);
+        }
+
         selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
 
         selectFiles.setOnAction(new EventHandler<ActionEvent>()

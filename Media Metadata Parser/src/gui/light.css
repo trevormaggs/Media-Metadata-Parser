@@ -201,3 +201,8 @@
   -fx-border-color: #E0E0E0;
   -fx-border-width: 0 0 1px 0;
 }
+
+.themed-icon
+{
+  -fx-effect: null;
+}
