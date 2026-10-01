@@ -1,7 +1,213 @@
+    private void addLogPane(GridPane pane)
+    {
+        final TextFlow logFlow = new TextFlow();
+        final ScrollPane scrollPane = new ScrollPane(logFlow);
+
+        logFlow.setPadding(new Insets(6));
+        logFlow.setMaxWidth(Double.MAX_VALUE);
+
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        scrollPane.getStyleClass().add("log-scroll-pane");
+        scrollPane.setMaxWidth(Double.MAX_VALUE);
+        scrollPane.setMaxHeight(Double.MAX_VALUE);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+
+        // Auto-scroll to bottom whenever a new log entry node is appended
+        logFlow.getChildren().addListener(new ListChangeListener<Node>()
+        {
+            @Override
+            public void onChanged(Change<? extends Node> change)
+            {
+                scrollPane.setVvalue(1.0);
+            }
+        });
+
+        VBox logContent = new VBox(scrollPane);
+
+        executionLogPane.setText("Execution Log");
+        executionLogPane.setContent(logContent);
+        executionLogPane.setCollapsible(false);
+        executionLogPane.setMaxWidth(Double.MAX_VALUE);
+        executionLogPane.setFocusTraversable(false);
+
+        // Store the TextFlow container reference in clearLogBtn for clear & copy actions
+        clearLogBtn.setUserData(logFlow);
+        GridPane.setHgrow(executionLogPane, Priority.ALWAYS);
+        GridPane.setVgrow(executionLogPane, Priority.ALWAYS);
+
+        pane.add(executionLogPane, 0, 2);
+
+        LogFactory.addLogListener(new JavaFXLogListener(logFlow));
+    }
+	
+	
+	
+  /**
+     * Appends a styled log line to the specified {@link TextFlow} container on the JavaFX
+     * Application Thread using CSS classes based on the logging {@link Level}.
+     *
+     * @param logFlow
+     *        the target {@link TextFlow} container
+     * @param level
+     *        the logging severity level
+     * @param message
+     *        the message text to append
+     */
+    static void appendLogLine(final TextFlow logFlow, final Level level, final String message)
+    {
+        if (logFlow == null || message == null)
+        {
+            return;
+        }
+
+        final Text textNode = new Text(message.endsWith("\n") ? message : message + "\n");
+        
+        textNode.getStyleClass().add("log-text");
+
+        if (Level.SEVERE.equals(level))
+        {
+            textNode.getStyleClass().add("log-error");
+        }
+        
+        else if (Level.WARNING.equals(level))
+        {
+            textNode.getStyleClass().add("log-warn");
+        }
+        
+        else if (Level.FINE.equals(level) || Level.FINER.equals(level) || Level.FINEST.equals(level))
+        {
+            textNode.getStyleClass().add("log-success");
+        }
+        
+        else
+        {
+            textNode.getStyleClass().add("log-info");
+        }
+
+        Platform.runLater(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                logFlow.getChildren().add(textNode);
+            }
+        });
+    }
+
+    /**
+     * Extracts text content from a {@link TextFlow} and copies it to the system clipboard.
+     *
+     * @param logFlow
+     *        the target {@link TextFlow} container
+     */
+    static void doFlashCopyTextFlow(final TextFlow logFlow)
+    {
+        if (logFlow == null || logFlow.getChildren().isEmpty())
+        {
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        for (Node node : logFlow.getChildren())
+        {
+            if (node instanceof Text)
+            {
+                sb.append(((Text) node).getText());
+            }
+        }
+
+        if (sb.length() > 0)
+        {
+            ClipboardContent content = new ClipboardContent();
+            content.putString(sb.toString());
+            Clipboard.getSystemClipboard().setContent(content);
+        }
+    }
+
+
+package gui;
+
+import java.util.Objects;
+import java.util.logging.Level;
+import javafx.application.Platform;
+import javafx.scene.text.TextFlow;
+import logger.LogListener;
+
+/**
+ * A {@link LogListener} implementation that displays log messages in a JavaFX {@link TextFlow}
+ * container with severity-based style formatting.
+ *
+ * <p>
+ * Log messages are appended on the JavaFX Application Thread using
+ * {@link Platform#runLater(Runnable)} to ensure thread-safe updates to the user interface.
+ * </p>
+ *
+ * @author Trevor Maggs
+ * @version 1.1
+ * @since 4 August 2026
+ */
+public class JavaFXLogListenerTextFlow implements LogListener
+{
+    private final TextFlow logFlow;
+
+    /**
+     * Creates a new listener that writes log messages to the specified TextFlow container.
+     *
+     * @param logFlow
+     *        the target {@link TextFlow} used to display styled log messages
+     * @throws NullPointerException
+     *         if {@code logFlow} is {@code null}
+     */
+    public JavaFXLogListenerTextFlow(TextFlow logFlow)
+    {
+        this.logFlow = Objects.requireNonNull(logFlow, "TextFlow is undefined");
+    }
+
+    /**
+     * Appends a log message to the TextFlow with appropriate severity styling based on logging level.
+     *
+     * @param level
+     *        the logging level
+     * @param message
+     *        the formatted log message
+     */
+    @Override
+    public void onLog(final Level level, final String message)
+    {
+        if (message == null)
+        {
+            return;
+        }
+
+        UtilsJavaFX.appendLogLine(logFlow, level, message);
+    }
+
+    /**
+     * Clears all log messages from the TextFlow container.
+     */
+    @Override
+    public void reset()
+    {
+        Platform.runLater(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                logFlow.getChildren().clear();
+            }
+        });
+    }
+}
+
+
+
 package gui;
 
 import java.io.IOException;
 import java.util.function.Consumer;
+import java.util.logging.Level;
 import batch.BatchConfiguration;
 import batch.BatchErrorException;
 import batch.BatchMetrics;
@@ -33,7 +239,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.SeparatorMenuItem;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.ImageView;
@@ -43,6 +248,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.RowConstraints;
+import javafx.scene.text.TextFlow;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -50,7 +256,7 @@ import javafx.util.Duration;
  * Provides the JavaFX graphical user interface for configuring and running batch media metadata
  * processing operations.
  */
-public class MediaMetadataGUI extends Application implements EventHandler<ActionEvent>
+public class MediaMetadataGUITextFlow extends Application implements EventHandler<ActionEvent>
 {
     private GridPane rootPane;
     private BatchTask workerTask;
@@ -176,7 +382,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.copyLogBtn)
         {
-            UtilsJavaFX.doFlashCopyTextArea((TextArea) viewPane.clearLogBtn.getUserData());
+            TextFlow logFlow = (TextFlow) viewPane.clearLogBtn.getUserData();
+            UtilsJavaFX.doFlashCopyTextFlow(logFlow);
         }
 
         else if (source == viewPane.viewBtn)
@@ -197,11 +404,11 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.clearLogBtn)
         {
-            TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
+            TextFlow logFlow = (TextFlow) viewPane.clearLogBtn.getUserData();
 
-            if (logArea != null)
+            if (logFlow != null)
             {
-                logArea.clear();
+                logFlow.getChildren().clear();
             }
         }
 
@@ -233,7 +440,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                 UtilsJavaFX.switchTheme(rootPane, isDark ? "dark.css" : "light.css");
                 viewPane.applyThemeIcons(isDark);
-                createSourceContextMenu(isDark);
             }
         });
 
@@ -319,35 +525,25 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         viewPane.viewBtn.setOnAction(this);
     }
 
+    /**
+     * Constructs the source selection context menu containing fixed pick options and recent
+     * history.
+     */
     private void createSourceContextMenu()
-    {
-        CheckBox themeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
-        createSourceContextMenu(themeCheck.isSelected());
-    }
-
-    /**
-     * Constructs the source selection context menu containing fixed pick options and recent
-     * history.
-     */
-    /**
-     * Constructs the source selection context menu containing fixed pick options and recent
-     * history.
-     */
-    private void createSourceContextMenu(boolean isDark)
     {
         final ContextMenu menu = new ContextMenu();
         MenuItem selectFolder = new MenuItem("Select Folder...");
         MenuItem selectFiles = new MenuItem("Select Specific Files...");
         TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
 
-        ImageView folderIcon = UtilsJavaFX.createIcon("folder.png", 16, isDark);
+        ImageView folderIcon = UtilsJavaFX.createIcon("folder.png", 16);
 
         if (folderIcon != null)
         {
             selectFolder.setGraphic(folderIcon);
         }
 
-        ImageView fileIcon = UtilsJavaFX.createIcon("files.png", 16, isDark);
+        ImageView fileIcon = UtilsJavaFX.createIcon("files.png", 16);
 
         if (fileIcon != null)
         {
@@ -491,14 +687,18 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final BatchConfiguration config;
         final ProgressBar progressBar = viewPane.progressBar;
         final Label progressLabel = (Label) progressBar.getUserData();
-        final TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
-
+        final TextFlow logFlow = (TextFlow) viewPane.clearLogBtn.getUserData();
+        
+        if (logFlow != null)
+        {
+            logFlow.getChildren().clear();
+        }
+        
         if (progressResetDelay != null)
         {
             progressResetDelay.stop();
         }
 
-        logArea.clear();
         StatRecord.resetAll();
         inspectionEvents.clear();
 
@@ -563,7 +763,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
                 }
 
-                logArea.appendText("\n[SUCCESS] Exif data retrieved successfully.\n");
+                UtilsJavaFX.appendLogLine(logFlow, Level.FINE, "[SUCCESS] Exif data retrieved successfully.");
                 showMetadataInspectorTree();
                 resetControlStates();
             }
@@ -579,7 +779,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         ? exc.getMessage()
                         : "An unexpected error occurred during metadata extraction.");
 
-                logArea.appendText("[ERROR] " + msg + "\n");
+                UtilsJavaFX.appendLogLine(logFlow, Level.SEVERE, "[ERROR] " + msg);
                 resetControlStates();
                 UtilsJavaFX.launchPopup(rootPane, "Metadata Extraction Error", msg, AlertType.ERROR);
             }
@@ -590,7 +790,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void handle(WorkerStateEvent event)
             {
-                logArea.appendText("[WARNING] Batch process was cancelled.\n");
+                UtilsJavaFX.appendLogLine(logFlow, Level.WARNING, "[WARNING] Batch process was cancelled.");
                 resetControlStates();
 
                 Platform.runLater(new Runnable()
@@ -641,14 +841,18 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final BatchConfiguration config;
         final ProgressBar progressBar = viewPane.progressBar;
         final Label progressLabel = (Label) progressBar.getUserData();
-        final TextArea logArea = (TextArea) viewPane.clearLogBtn.getUserData();
+        final TextFlow logFlow = (TextFlow) viewPane.clearLogBtn.getUserData();
+        
+        if (logFlow != null)
+        {
+            logFlow.getChildren().clear();
+        }
 
         if (progressResetDelay != null)
         {
             progressResetDelay.stop();
         }
 
-        logArea.clear();
         StatRecord.resetAll();
         completedFileRecords.clear();
 
@@ -739,7 +943,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
                 }
 
-                logArea.appendText("\n[SUCCESS] Batch processing complete.\n");
+                UtilsJavaFX.appendLogLine(logFlow, Level.FINE, "[SUCCESS] Batch processing complete.");
 
                 resetControlStates();
                 viewPane.viewBtn.fire();
@@ -754,7 +958,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 Throwable exc = workerTask.getException();
                 String msg = (exc != null && exc.getMessage() != null) ? exc.getMessage() : "An unexpected error occurred during batch processing.";
 
-                logArea.appendText("[ERROR] " + msg + "\n");
+                UtilsJavaFX.appendLogLine(logFlow, Level.SEVERE, "[ERROR] " + msg);
                 resetControlStates();
                 UtilsJavaFX.launchPopup(rootPane, "Processing Error", msg, AlertType.ERROR);
             }
@@ -765,7 +969,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void handle(WorkerStateEvent event)
             {
-                logArea.appendText("[WARNING] Batch process was cancelled.\n");
+                UtilsJavaFX.appendLogLine(logFlow, Level.WARNING, "[WARNING] Batch process was cancelled.");
                 resetControlStates();
 
                 Platform.runLater(new Runnable()
@@ -856,3 +1060,72 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         launch(args);
     }
 }
+
+
+	
+	
+	
+dark.css
+
+
+/* Execution Log Styles */
+.log-scroll-pane {
+    -fx-background-color: #1e1e1e;
+    -fx-border-color: #333333;
+    -fx-border-radius: 3px;
+}
+
+.log-text {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 12px;
+}
+
+.log-info {
+    -fx-fill: #dcdcdc;
+}
+
+.log-warn {
+    -fx-fill: #e5c07b;
+}
+
+.log-error {
+    -fx-fill: #f44747;
+    -fx-font-weight: bold;
+}
+
+.log-success {
+    -fx-fill: #89d185;
+}
+
+
+light.css
+
+/* Execution Log Styles */
+.log-scroll-pane {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #cccccc;
+    -fx-border-radius: 3px;
+}
+
+.log-text {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 12px;
+}
+
+.log-info {
+    -fx-fill: #222222;
+}
+
+.log-warn {
+    -fx-fill: #b58900;
+}
+
+.log-error {
+    -fx-fill: #d32f2f;
+    -fx-font-weight: bold;
+}
+
+.log-success {
+    -fx-fill: #2e7d32;
+}
+	

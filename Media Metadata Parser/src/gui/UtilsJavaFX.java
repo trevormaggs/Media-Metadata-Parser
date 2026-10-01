@@ -7,14 +7,10 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
-import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.StringJoiner;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
 import common.Utils;
 import javafx.animation.PauseTransition;
 import javafx.collections.ObservableList;
@@ -46,12 +42,11 @@ import javafx.stage.Window;
 import javafx.util.Duration;
 
 /**
- * Provides utility methods for JavaFX user interface operations used throughout the internal GUI.
+ * Provides utility methods for JavaFX user-interface operations used throughout the application.
  *
  * <p>
  * This class is package-private and intended solely for internal GUI operations.
  * </p>
- * 1
  */
 
 final class UtilsJavaFX
@@ -236,6 +231,12 @@ final class UtilsJavaFX
         if (pane != null && styleName != null)
         {
             Scene scene = pane.getScene();
+
+            if (scene == null)
+            {
+                return;
+            }
+
             URL resource = UtilsJavaFX.class.getResource("/gui/" + styleName);
 
             if (resource != null)
@@ -504,17 +505,17 @@ final class UtilsJavaFX
      * Formats a byte count as a human-readable file size using binary units.
      *
      * <p>
-     * Values are expressed using units of B, KB, MB, or GB, where each unit represents 1024 of the
-     * previous unit. Values less than or equal to zero are formatted as {@code "0 B"}.
+     * Values are expressed using units of B, KB, MB, GB, or TB, where each unit represents 1024 of
+     * the previous unit.
      * </p>
      *
      * @param bytes
      *        the file size in bytes
      * @return the formatted file size using a single decimal place
      */
-    static String formatFileSize(Long bytes)
+    static String formatFileSize(long bytes)
     {
-        if (bytes == null || bytes <= 0)
+        if (bytes <= 0)
         {
             return "0 B";
         }
@@ -528,35 +529,7 @@ final class UtilsJavaFX
     }
 
     /**
-     * Diagnostic utility that prints registered ImageIO file extensions and reports available image
-     * reader implementations for TIFF and WebP formats to standard output.
-     */
-    static void verifyImageIOSupport()
-    {
-        // Check registered file extensions
-        String[] suffixes = ImageIO.getReaderFileSuffixes();
-
-        System.out.println("Registered Suffixes: " + Arrays.toString(suffixes));
-
-        Iterator<ImageReader> tiffReaders = ImageIO.getImageReadersByFormatName("TIFF");
-
-        while (tiffReaders.hasNext())
-        {
-            ImageReader reader = tiffReaders.next();
-            System.out.println("TIFF Reader Class: " + reader.getClass().getName());
-        }
-
-        Iterator<ImageReader> webpReaders = ImageIO.getImageReadersByFormatName("WebP");
-
-        while (webpReaders.hasNext())
-        {
-            ImageReader reader = webpReaders.next();
-            System.out.println("WebP Reader Class: " + reader.getClass().getName());
-        }
-    }
-
-    /**
-     * Creates a default 24x24 {@link ImageView} for a UI icon.
+     * Creates a default icon {@link ImageView} sized to fit within 24x24 pixels.
      *
      * @param iconName
      *        the name of the icon resource in the {@code /icons/} classpath directory
@@ -602,8 +575,13 @@ final class UtilsJavaFX
             return null;
         }
 
+        if (size <= 0)
+        {
+            throw new IllegalArgumentException("Icon size must be greater than zero");
+        }
+
         ImageView imageView = new ImageView(new Image(url.toExternalForm()));
-        
+
         imageView.setFitWidth(size);
         imageView.setFitHeight(size);
         imageView.setPreserveRatio(true);
@@ -611,7 +589,7 @@ final class UtilsJavaFX
         if (isDark)
         {
             ColorAdjust lighten = new ColorAdjust();
-            lighten.setBrightness(1.0); // Inverts black/dark PNG lines to pure white
+            lighten.setBrightness(1.0);
             imageView.setEffect(lighten);
         }
 

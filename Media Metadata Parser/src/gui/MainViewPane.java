@@ -53,11 +53,10 @@ final class MainViewPane
     final Button viewBtn;
     final Button clearLogBtn;
     final Button exitBtn;
-
-    TitledPane inputOptionsPane;
-    TitledPane processingOptionsPane;
-    TitledPane executionLogPane;
-    TitledPane actionsPane;
+    final TitledPane inputOptionsPane;
+    final TitledPane processingOptionsPane;
+    final TitledPane executionLogPane;
+    final TitledPane actionsPane;
 
     private Label previewLabel;
 
@@ -73,6 +72,10 @@ final class MainViewPane
         this.copyLogBtn = new Button();
         this.exitBtn = new Button();
         this.viewBtn = new Button();
+        this.inputOptionsPane = new TitledPane();
+        this.processingOptionsPane = new TitledPane();
+        this.executionLogPane = new TitledPane();
+        this.actionsPane = new TitledPane();
     }
 
     /**
@@ -98,25 +101,10 @@ final class MainViewPane
      */
     void applyThemeIcons(boolean isDark)
     {
-        if (inputOptionsPane != null)
-        {
-            inputOptionsPane.setGraphic(UtilsJavaFX.createIcon("plugin.png", 16, isDark));
-        }
-
-        if (processingOptionsPane != null)
-        {
-            processingOptionsPane.setGraphic(UtilsJavaFX.createIcon("settings.png", 16, isDark));
-        }
-
-        if (executionLogPane != null)
-        {
-            executionLogPane.setGraphic(UtilsJavaFX.createIcon("log.png", 16, isDark));
-        }
-
-        if (actionsPane != null)
-        {
-            actionsPane.setGraphic(UtilsJavaFX.createIcon("process.png", 16, isDark));
-        }
+        inputOptionsPane.setGraphic(UtilsJavaFX.createIcon("plugin.png", 16, isDark));
+        processingOptionsPane.setGraphic(UtilsJavaFX.createIcon("settings.png", 16, isDark));
+        executionLogPane.setGraphic(UtilsJavaFX.createIcon("log.png", 16, isDark));
+        actionsPane.setGraphic(UtilsJavaFX.createIcon("process.png", 16, isDark));
     }
 
     /**
@@ -247,7 +235,8 @@ final class MainViewPane
         contentPane.setPadding(new Insets(10));
         contentPane.getChildren().addAll(sourceHbox, targetHbox, prefixHbox, modifyDateHbox, previewHbox);
 
-        inputOptionsPane = new TitledPane("Input Options", contentPane);
+        inputOptionsPane.setText("Input Options");
+        inputOptionsPane.setContent(contentPane);
         inputOptionsPane.setCollapsible(false);
         inputOptionsPane.setMaxWidth(Double.MAX_VALUE);
         inputOptionsPane.setFocusTraversable(false);
@@ -306,7 +295,6 @@ final class MainViewPane
         HBox checkBoxPane = new HBox(15, leftCol, rightCol);
         checkBoxPane.setPadding(new Insets(10, 5, 10, 5));
 
-        processingOptionsPane = new TitledPane();
         processingOptionsPane.setText("Processing Settings");
         processingOptionsPane.setContent(checkBoxPane);
         processingOptionsPane.setCollapsible(false);
@@ -360,6 +348,12 @@ final class MainViewPane
      * @param pane
      *        the container to which the execution log section is added
      */
+    /**
+     * Builds the execution log section using a scrollable TextFlow for severity coloring.
+     *
+     * @param pane
+     *        the container to which the execution log section is added
+     */
     private void addLogPane(GridPane pane)
     {
         TextArea logArea = new TextArea();
@@ -372,7 +366,9 @@ final class MainViewPane
         VBox.setVgrow(logArea, Priority.ALWAYS);
 
         VBox logContent = new VBox(logArea);
-        executionLogPane = new TitledPane("Execution Log", logContent);
+
+        executionLogPane.setText("Execution Log");
+        executionLogPane.setContent(logContent);
         executionLogPane.setCollapsible(false);
         executionLogPane.setMaxWidth(Double.MAX_VALUE);
         executionLogPane.setFocusTraversable(false);
@@ -414,7 +410,8 @@ final class MainViewPane
         buttonBox.setAlignment(Pos.TOP_LEFT);
         buttonBox.setPadding(new Insets(10));
 
-        actionsPane = new TitledPane("Actions", buttonBox);
+        actionsPane.setText("Actions");
+        actionsPane.setContent(buttonBox);
         actionsPane.setCollapsible(false);
         actionsPane.setMaxWidth(Double.MAX_VALUE);
         actionsPane.setFocusTraversable(false);
