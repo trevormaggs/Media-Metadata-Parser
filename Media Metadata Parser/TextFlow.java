@@ -1,11 +1,16 @@
+/**
+     * Builds the execution log section using a scrollable TextFlow for severity coloring.
+     *
+     * @param pane
+     *        the container to which the execution log section is added
+     */
     private void addLogPane(GridPane pane)
     {
         final TextFlow logFlow = new TextFlow();
-        final ScrollPane scrollPane = new ScrollPane(logFlow);
-
         logFlow.setPadding(new Insets(6));
         logFlow.setMaxWidth(Double.MAX_VALUE);
 
+        final ScrollPane scrollPane = new ScrollPane(logFlow);
         scrollPane.setFitToWidth(true);
         scrollPane.setFitToHeight(true);
         scrollPane.getStyleClass().add("log-scroll-pane");
@@ -40,10 +45,9 @@
 
         LogFactory.addLogListener(new JavaFXLogListener(logFlow));
     }
-	
-	
-	
-  /**
+    
+
+    /**
      * Appends a styled log line to the specified {@link TextFlow} container on the JavaFX
      * Application Thread using CSS classes based on the logging {@link Level}.
      *
@@ -62,24 +66,20 @@
         }
 
         final Text textNode = new Text(message.endsWith("\n") ? message : message + "\n");
-        
         textNode.getStyleClass().add("log-text");
 
         if (Level.SEVERE.equals(level))
         {
             textNode.getStyleClass().add("log-error");
         }
-        
-        else if (Level.WARNING.equals(level))
+        else if (Level.WARNING.equals(level))     
         {
             textNode.getStyleClass().add("log-warn");
         }
-        
         else if (Level.FINE.equals(level) || Level.FINER.equals(level) || Level.FINEST.equals(level))
         {
             textNode.getStyleClass().add("log-success");
         }
-        
         else
         {
             textNode.getStyleClass().add("log-info");
@@ -125,7 +125,8 @@
             Clipboard.getSystemClipboard().setContent(content);
         }
     }
-
+    
+    
 
 package gui;
 
@@ -1128,4 +1129,3 @@ light.css
 .log-success {
     -fx-fill: #2e7d32;
 }
-	
