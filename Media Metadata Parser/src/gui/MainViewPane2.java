@@ -31,7 +31,7 @@ import logger.LogFactory;
  * public API.
  * </p>
  */
-final class MainViewPane
+final class MainViewPane2
 {
     static final String SRCID = "srcId";
     static final String TGTID = "tgtId";
@@ -53,18 +53,12 @@ final class MainViewPane
     final Button viewBtn;
     final Button clearLogBtn;
     final Button exitBtn;
-
-    TitledPane inputOptionsPane;
-    TitledPane processingOptionsPane;
-    TitledPane executionLogPane;
-    TitledPane actionsPane;
-
     private Label previewLabel;
 
     /**
      * Creates the view controls used by the main interface.
      */
-    MainViewPane()
+    MainViewPane2()
     {
         this.progressBar = new ProgressBar(0.0);
         this.sourceBtn = new Button();
@@ -88,35 +82,6 @@ final class MainViewPane
         addLogPane(pane);
         addControlPane(pane);
         addBottomPane(pane);
-    }
-
-    /**
-     * Updates the graphic icons across all titled panes based on the active theme.
-     *
-     * @param isDark
-     *        {@code true} if dark mode is active to apply white contrast filters
-     */
-    void applyThemeIcons(boolean isDark)
-    {
-        if (inputOptionsPane != null)
-        {
-            inputOptionsPane.setGraphic(UtilsJavaFX.createIcon("plugin.png", 16, isDark));
-        }
-
-        if (processingOptionsPane != null)
-        {
-            processingOptionsPane.setGraphic(UtilsJavaFX.createIcon("settings.png", 16, isDark));
-        }
-
-        if (executionLogPane != null)
-        {
-            executionLogPane.setGraphic(UtilsJavaFX.createIcon("log.png", 16, isDark));
-        }
-
-        if (actionsPane != null)
-        {
-            actionsPane.setGraphic(UtilsJavaFX.createIcon("process.png", 16, isDark));
-        }
     }
 
     /**
@@ -247,13 +212,14 @@ final class MainViewPane
         contentPane.setPadding(new Insets(10));
         contentPane.getChildren().addAll(sourceHbox, targetHbox, prefixHbox, modifyDateHbox, previewHbox);
 
-        inputOptionsPane = new TitledPane("Input Options", contentPane);
-        inputOptionsPane.setCollapsible(false);
-        inputOptionsPane.setMaxWidth(Double.MAX_VALUE);
-        inputOptionsPane.setFocusTraversable(false);
-        GridPane.setHgrow(inputOptionsPane, Priority.ALWAYS);
+        TitledPane titledPane = new TitledPane("Input Options", contentPane);
+        titledPane.setGraphic(UtilsJavaFX.createIcon("plugin.png", 16));
+        titledPane.setCollapsible(false);
+        titledPane.setMaxWidth(Double.MAX_VALUE);
+        titledPane.setFocusTraversable(false);
+        GridPane.setHgrow(titledPane, Priority.ALWAYS);
 
-        pane.add(inputOptionsPane, 0, 0);
+        pane.add(titledPane, 0, 0);
     }
 
     /**
@@ -306,19 +272,20 @@ final class MainViewPane
         HBox checkBoxPane = new HBox(15, leftCol, rightCol);
         checkBoxPane.setPadding(new Insets(10, 5, 10, 5));
 
-        processingOptionsPane = new TitledPane();
-        processingOptionsPane.setText("Processing Settings");
-        processingOptionsPane.setContent(checkBoxPane);
-        processingOptionsPane.setCollapsible(false);
-        processingOptionsPane.setFocusTraversable(false);
-        processingOptionsPane.setMaxWidth(Double.MAX_VALUE);
-        processingOptionsPane.setMaxHeight(Double.MAX_VALUE);
+        TitledPane optionsTitledPane = new TitledPane();
+        optionsTitledPane.setGraphic(UtilsJavaFX.createIcon("settings.png", 16));
+        optionsTitledPane.setText("Processing Settings");
+        optionsTitledPane.setContent(checkBoxPane);
+        optionsTitledPane.setCollapsible(false);
+        optionsTitledPane.setFocusTraversable(false);
+        optionsTitledPane.setMaxWidth(Double.MAX_VALUE);
+        optionsTitledPane.setMaxHeight(Double.MAX_VALUE);
 
         TableView<StatRecord> statsTable = new TableView<>();
         statsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         statsTable.setFocusTraversable(false);
         statsTable.setFixedCellSize(24.0);
-        statsTable.prefHeightProperty().bind(processingOptionsPane.heightProperty());
+        statsTable.prefHeightProperty().bind(optionsTitledPane.heightProperty());
 
         TableColumn<StatRecord, String> metricCol = new TableColumn<>("Metric");
         metricCol.getStyleClass().add("metric-column");
@@ -345,11 +312,11 @@ final class MainViewPane
         statsTable.getColumns().add(valueCol);
         statsTable.getItems().addAll(StatRecord.SOURCE_FILES, StatRecord.TARGET_FILES, StatRecord.FILES_SKIPPED, StatRecord.TOTAL_SIZE);
 
-        HBox middleRow = new HBox(15, processingOptionsPane, statsTable);
+        HBox middleRow = new HBox(15, optionsTitledPane, statsTable);
         GridPane.setHgrow(middleRow, Priority.ALWAYS);
 
-        processingOptionsPane.prefWidthProperty().bind(middleRow.widthProperty().subtract(15).divide(2));
-        statsTable.prefWidthProperty().bind(processingOptionsPane.prefWidthProperty());
+        optionsTitledPane.prefWidthProperty().bind(middleRow.widthProperty().subtract(15).divide(2));
+        statsTable.prefWidthProperty().bind(optionsTitledPane.prefWidthProperty());
 
         pane.add(middleRow, 0, 1);
     }
@@ -372,16 +339,17 @@ final class MainViewPane
         VBox.setVgrow(logArea, Priority.ALWAYS);
 
         VBox logContent = new VBox(logArea);
-        executionLogPane = new TitledPane("Execution Log", logContent);
-        executionLogPane.setCollapsible(false);
-        executionLogPane.setMaxWidth(Double.MAX_VALUE);
-        executionLogPane.setFocusTraversable(false);
+        TitledPane titledPane = new TitledPane("Execution Log", logContent);
+        titledPane.setGraphic(UtilsJavaFX.createIcon("log.png", 16));
+        titledPane.setCollapsible(false);
+        titledPane.setMaxWidth(Double.MAX_VALUE);
+        titledPane.setFocusTraversable(false);
 
         clearLogBtn.setUserData(logArea);
-        GridPane.setHgrow(executionLogPane, Priority.ALWAYS);
-        GridPane.setVgrow(executionLogPane, Priority.ALWAYS);
+        GridPane.setHgrow(titledPane, Priority.ALWAYS);
+        GridPane.setVgrow(titledPane, Priority.ALWAYS);
 
-        pane.add(executionLogPane, 0, 2);
+        pane.add(titledPane, 0, 2);
 
         LogFactory.addLogListener(new JavaFXLogListener(logArea));
     }
@@ -409,19 +377,20 @@ final class MainViewPane
 
         copyLogBtn.setText("Copy Log");
         clearLogBtn.setText("Clear Log");
-
+        
         HBox buttonBox = new HBox(12, actionBtn, progressBox, UtilsJavaFX.fillRow(), copyLogBtn, clearLogBtn);
         buttonBox.setAlignment(Pos.TOP_LEFT);
         buttonBox.setPadding(new Insets(10));
 
-        actionsPane = new TitledPane("Actions", buttonBox);
-        actionsPane.setCollapsible(false);
-        actionsPane.setMaxWidth(Double.MAX_VALUE);
-        actionsPane.setFocusTraversable(false);
+        TitledPane titledPane = new TitledPane("Actions", buttonBox);
+        titledPane.setGraphic(UtilsJavaFX.createIcon("process.png", 16));
+        titledPane.setCollapsible(false);
+        titledPane.setMaxWidth(Double.MAX_VALUE);
+        titledPane.setFocusTraversable(false);
 
-        GridPane.setHgrow(actionsPane, Priority.ALWAYS);
+        GridPane.setHgrow(titledPane, Priority.ALWAYS);
 
-        pane.add(actionsPane, 0, 3);
+        pane.add(titledPane, 0, 3);
     }
 
     /**

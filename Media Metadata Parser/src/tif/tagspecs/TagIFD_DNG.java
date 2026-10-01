@@ -290,6 +290,7 @@ public enum TagIFD_DNG implements Taggable
         if (val instanceof Number)
         {
             int space = ((Number) val).intValue();
+            
             switch (space)
             {
                 case 1:
@@ -311,6 +312,7 @@ public enum TagIFD_DNG implements Taggable
                     return "Unknown (" + space + ")";
             }
         }
+        
         return Taggable.super.translate(val);
     }
 
@@ -326,6 +328,7 @@ public enum TagIFD_DNG implements Taggable
         if (val instanceof Number)
         {
             int policy = ((Number) val).intValue();
+            
             switch (policy)
             {
                 case 0:
@@ -341,6 +344,7 @@ public enum TagIFD_DNG implements Taggable
                     return "Unknown (" + policy + ")";
             }
         }
+        
         return Taggable.super.translate(val);
     }
 
@@ -361,6 +365,7 @@ public enum TagIFD_DNG implements Taggable
         if (val instanceof Number)
         {
             int encoding = ((Number) val).intValue();
+            
             switch (encoding)
             {
                 case 0:
@@ -373,6 +378,7 @@ public enum TagIFD_DNG implements Taggable
                     return "Unknown (" + encoding + ")";
             }
         }
+        
         return Taggable.super.translate(val);
     }
 
@@ -389,6 +395,7 @@ public enum TagIFD_DNG implements Taggable
         if (val instanceof Number)
         {
             int ref = ((Number) val).intValue();
+            
             switch (ref)
             {
                 case 0:
@@ -401,6 +408,7 @@ public enum TagIFD_DNG implements Taggable
                     return "Unknown (" + ref + ")";
             }
         }
+        
         return Taggable.super.translate(val);
     }
 
@@ -417,6 +425,7 @@ public enum TagIFD_DNG implements Taggable
         if (val instanceof Number)
         {
             int depthFmt = ((Number) val).intValue();
+
             switch (depthFmt)
             {
                 case 0:
@@ -432,6 +441,7 @@ public enum TagIFD_DNG implements Taggable
                     return "Unknown (" + depthFmt + ")";
             }
         }
+        
         return Taggable.super.translate(val);
     }
 
@@ -448,6 +458,7 @@ public enum TagIFD_DNG implements Taggable
         if (val instanceof Number)
         {
             int measureType = ((Number) val).intValue();
+            
             switch (measureType)
             {
                 case 0:
@@ -460,6 +471,7 @@ public enum TagIFD_DNG implements Taggable
                     return "Unknown (" + measureType + ")";
             }
         }
+        
         return Taggable.super.translate(val);
     }
 
@@ -476,6 +488,7 @@ public enum TagIFD_DNG implements Taggable
         if (val instanceof Number)
         {
             int depthUnits = ((Number) val).intValue();
+            
             switch (depthUnits)
             {
                 case 0:
@@ -485,6 +498,7 @@ public enum TagIFD_DNG implements Taggable
                     return "Unknown (" + depthUnits + ")";
             }
         }
+        
         return Taggable.super.translate(val);
     }
 }

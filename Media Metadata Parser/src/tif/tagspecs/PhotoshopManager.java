@@ -254,6 +254,7 @@ public final class PhotoshopManager
                 double frequency = reader.readInteger() * Fixed_Point_Multiplier;
                 short freqUnit = reader.readShort();
                 double angle = reader.readInteger() * Fixed_Point_Multiplier;
+                
                 reader.readShort(); // Skip angle unit
 
                 int shapeId = reader.readShort();
@@ -318,6 +319,7 @@ public final class PhotoshopManager
                 if (length > 0 && reader.getCurrentPosition() + length <= endPosition)
                 {
                     String name = new String(reader.readBytes(length), StandardCharsets.US_ASCII).trim();
+                    
                     display.accept("Alpha Channel #" + index++, name.isEmpty() ? "Untitled" : name);
                 }
 
@@ -499,6 +501,7 @@ public final class PhotoshopManager
             {
                 byte[] stringBytes = reader.readBytes(stringLength);
                 String slicesGroupName = new String(stringBytes, StandardCharsets.UTF_16BE).trim();
+                
                 display.accept("Slices Group Name", slicesGroupName.isEmpty() ? "None" : slicesGroupName);
             }
 
@@ -663,6 +666,7 @@ public final class PhotoshopManager
         {
             short version = reader.readShort();
             boolean centerCropMarks = (reader.readByte() == 1);
+            
             reader.readByte(); // Skip the 1-byte padding field
 
             /*
@@ -755,11 +759,14 @@ public final class PhotoshopManager
                 {
                     double location = reader.readInteger() * Fixed_Point_Multiplier;
                     byte direction = reader.readByte();
+                    
                     reader.readBytes(3); // Skip the 3 trailing alignment bytes
 
                     String dirString = (direction == 0) ? "Vertical" : "Horizontal";
+                    
                     display.accept(String.format(Locale.ROOT, "Manual Guide #%d", i), String.format(Locale.ROOT, "%s at %.2f px", dirString, location));
                 }
+                
                 else
                 {
                     break;

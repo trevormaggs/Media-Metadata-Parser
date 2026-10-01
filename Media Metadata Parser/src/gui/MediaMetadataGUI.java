@@ -229,7 +229,10 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             @Override
             public void changed(ObservableValue<? extends Boolean> obs, Boolean oldVal, Boolean newVal)
             {
-                UtilsJavaFX.switchTheme(rootPane, newVal.booleanValue() ? "dark.css" : "light.css");
+                boolean isDark = newVal.booleanValue();
+
+                UtilsJavaFX.switchTheme(rootPane, isDark ? "dark.css" : "light.css");
+                viewPane.applyThemeIcons(isDark);
             }
         });
 
@@ -453,12 +456,12 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             if (isDark)
             {
                 themeCheck.setSelected(true);
-                UtilsJavaFX.switchTheme(rootPane, "dark.css");
             }
 
             else
             {
                 UtilsJavaFX.switchTheme(rootPane, "light.css");
+                viewPane.applyThemeIcons(false);
             }
         }
 

@@ -603,6 +603,7 @@ final class UtilsJavaFX
         }
 
         ImageView imageView = new ImageView(new Image(url.toExternalForm()));
+        
         imageView.setFitWidth(size);
         imageView.setFitHeight(size);
         imageView.setPreserveRatio(true);
