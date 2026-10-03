@@ -597,61 +597,72 @@ final class UtilsJavaFX
 
         return imageView;
     }
-    
-    
-    static void doFlashCopyTextFlow(final TextFlow logFlow)
+
+    /**
+     * Copies the text content of a {@link TextFlow} container to the system clipboard and provides
+     * visual feedback by flashing the background color.
+     *
+     * @param logFlow
+     *        the target {@link TextFlow} container to copy from
+     * @param isDark
+     *        {@code true} if dark theme is active, {@code false} for light theme
+     */
+    static void doFlashCopyTextFlow(TextFlow logFlow, boolean isDark)
     {
-        if (logFlow == null || logFlow.getChildren().isEmpty())
+        if (logFlow != null && !logFlow.getChildren().isEmpty())
         {
-            return;
-        }
+            StringBuilder sb = new StringBuilder();
+            final String originalStyle = logFlow.getStyle();
+            final String flashColor = isDark ? "#a8e6cf" : "#a8e6cf";
 
-        StringBuilder sb = new StringBuilder();
-
-        for (Node node : logFlow.getChildren())
-        {
-            if (node instanceof Text)
+            for (Node node : logFlow.getChildren())
             {
-                sb.append(((Text) node).getText());
-            }
-        }
-
-        if (sb.length() > 0)
-        {
-            ClipboardContent content = new ClipboardContent();
-            content.putString(sb.toString());
-            Clipboard.getSystemClipboard().setContent(content);
-
-            // Determine flash background color based on current scene/pane theme
-            boolean isDark = false;
-            if (logFlow.getScene() != null && logFlow.getScene().getStylesheets() != null)
-            {
-                for (String sheet : logFlow.getScene().getStylesheets())
+                if (node instanceof Text)
                 {
-                    if (sheet.contains("dark.css"))
+                    sb.append(((Text) node).getText());
+                }
+            }
+
+            if (sb.length() > 0)
+            {
+                ClipboardContent content = new ClipboardContent();
+                
+                content.putString(sb.toString());
+                Clipboard.getSystemClipboard().setContent(content);
+
+                // Flash background and force text color to dark for high contrast
+                logFlow.setStyle(originalStyle + " -fx-background-color: " + flashColor + ";");
+
+                for (Node node : logFlow.getChildren())
+                {
+                    if (node instanceof Text)
                     {
-                        isDark = true;
-                        break;
+                        node.setStyle("-fx-fill: #000000 !important;");
                     }
                 }
-            }
 
-            final String flashColor = isDark ? "#2d5a44" : "#a8e6cf";
-            final String originalStyle = logFlow.getStyle();
-            logFlow.setStyle(originalStyle + " -fx-background-color: " + flashColor + ";");
+                PauseTransition flash = new PauseTransition(Duration.millis(550));
 
-            PauseTransition flash = new PauseTransition(Duration.millis(550));
-
-            flash.setOnFinished(new EventHandler<ActionEvent>()
-            {
-                @Override
-                public void handle(ActionEvent event)
+                flash.setOnFinished(new EventHandler<ActionEvent>()
                 {
-                    logFlow.setStyle(originalStyle);
-                }
-            });
+                    @Override
+                    public void handle(ActionEvent event)
+                    {
+                        logFlow.setStyle(originalStyle);
 
-            flash.play();
+                        for (Node node : logFlow.getChildren())
+                        {
+                            if (node instanceof Text)
+                            {
+                                // Restores previous CSS class styling
+                                node.setStyle("");
+                            }
+                        }
+                    }
+                });
+
+                flash.play();
+            }
         }
     }
 }

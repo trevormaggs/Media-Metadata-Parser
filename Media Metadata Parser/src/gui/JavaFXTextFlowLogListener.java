@@ -33,7 +33,7 @@ public class JavaFXTextFlowLogListener implements LogListener
      * @throws NullPointerException
      *         if {@code logFlow} is {@code null}
      */
-    public JavaFXTextFlowLogListener(final TextFlow logFlow)
+    public JavaFXTextFlowLogListener(TextFlow logFlow)
     {
         this.logFlow = Objects.requireNonNull(logFlow, "TextFlow is undefined");
     }
@@ -48,7 +48,7 @@ public class JavaFXTextFlowLogListener implements LogListener
      *        the formatted log message
      */
     @Override
-    public void onLog(final Level level, final String message)
+    public void onLog(Level level, String message)
     {
         if (message != null)
         {
