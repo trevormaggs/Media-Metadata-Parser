@@ -4,25 +4,22 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import batch.MediaBatchProcessor;
 import javafx.beans.value.ObservableValue;
-import javafx.collections.ListChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.TextFlow;
 import javafx.util.Callback;
 import logger.LogFactory;
 
@@ -34,7 +31,7 @@ import logger.LogFactory;
  * public API.
  * </p>
  */
-final class MainViewPane
+final class MainViewPane2
 {
     static final String SRCID = "srcId";
     static final String TGTID = "tgtId";
@@ -66,7 +63,7 @@ final class MainViewPane
     /**
      * Creates the view controls used by the main interface.
      */
-    MainViewPane()
+    MainViewPane2()
     {
         this.progressBar = new ProgressBar(0.0);
         this.sourceBtn = new Button();
@@ -359,41 +356,30 @@ final class MainViewPane
      */
     private void addLogPane(GridPane pane)
     {
-        final TextFlow logFlow = new TextFlow();
-        final ScrollPane scrollPane = new ScrollPane(logFlow);
+        TextArea logArea = new TextArea();
+        logArea.setEditable(false);
+        logArea.setFocusTraversable(false);
+        logArea.getStyleClass().add("log-area");
+        logArea.setPromptText("Console output...");
+        logArea.setMaxWidth(Double.MAX_VALUE);
+        logArea.setMaxHeight(Double.MAX_VALUE);
+        VBox.setVgrow(logArea, Priority.ALWAYS);
 
-        logFlow.setPadding(new Insets(6));
-        logFlow.setMaxWidth(Double.MAX_VALUE);
-        clearLogBtn.setUserData(logFlow);
-
-        scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(true);
-        scrollPane.getStyleClass().add("log-scroll-pane");
-        scrollPane.setMaxWidth(Double.MAX_VALUE);
-        scrollPane.setMaxHeight(Double.MAX_VALUE);
-        VBox.setVgrow(scrollPane, Priority.ALWAYS);
-
-        // Auto-scroll to bottom whenever a new log entry node is appended'
-        logFlow.getChildren().addListener(new ListChangeListener<Node>()
-        {
-            @Override
-            public void onChanged(Change<? extends Node> change)
-            {
-                scrollPane.setVvalue(1.0);
-            }
-        });
+        VBox logContent = new VBox(logArea);
 
         executionLogPane.setText("Execution Log");
-        executionLogPane.setContent(new VBox(scrollPane));
+        executionLogPane.setContent(logContent);
         executionLogPane.setCollapsible(false);
         executionLogPane.setMaxWidth(Double.MAX_VALUE);
         executionLogPane.setFocusTraversable(false);
 
+        clearLogBtn.setUserData(logArea);
         GridPane.setHgrow(executionLogPane, Priority.ALWAYS);
         GridPane.setVgrow(executionLogPane, Priority.ALWAYS);
 
         pane.add(executionLogPane, 0, 2);
-        LogFactory.addLogListener(new JavaFXTextFlowLogListener(logFlow));
+
+        LogFactory.addLogListener(new JavaFXLogListener(logArea));
     }
 
     /**

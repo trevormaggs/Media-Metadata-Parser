@@ -201,3 +201,40 @@
   -fx-border-color: #E0E0E0;
   -fx-border-width: 0 0 1px 0;
 }
+
+/* Execution Log Styles */
+.log-scroll-pane {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #cccccc;
+    -fx-border-radius: 3px;
+}
+
+.log-text {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 12px;
+}
+
+.log-info {
+    -fx-fill: #222222;
+}
+
+.log-warn {
+    -fx-fill: #b58900;
+}
+
+.log-error {
+    -fx-fill: #d32f2f;
+    -fx-font-weight: bold;
+}
+
+.log-success {
+    -fx-fill: #2e7d32;
+}
+
+.log-debug {
+    -fx-fill: #0184bc;
+}
+
+.log-trace {
+    -fx-fill: #a020f0;
+}

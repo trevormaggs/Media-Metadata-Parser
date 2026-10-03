@@ -37,6 +37,8 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 import javafx.util.Duration;
@@ -594,5 +596,62 @@ final class UtilsJavaFX
         }
 
         return imageView;
+    }
+    
+    
+    static void doFlashCopyTextFlow(final TextFlow logFlow)
+    {
+        if (logFlow == null || logFlow.getChildren().isEmpty())
+        {
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        for (Node node : logFlow.getChildren())
+        {
+            if (node instanceof Text)
+            {
+                sb.append(((Text) node).getText());
+            }
+        }
+
+        if (sb.length() > 0)
+        {
+            ClipboardContent content = new ClipboardContent();
+            content.putString(sb.toString());
+            Clipboard.getSystemClipboard().setContent(content);
+
+            // Determine flash background color based on current scene/pane theme
+            boolean isDark = false;
+            if (logFlow.getScene() != null && logFlow.getScene().getStylesheets() != null)
+            {
+                for (String sheet : logFlow.getScene().getStylesheets())
+                {
+                    if (sheet.contains("dark.css"))
+                    {
+                        isDark = true;
+                        break;
+                    }
+                }
+            }
+
+            final String flashColor = isDark ? "#2d5a44" : "#a8e6cf";
+            final String originalStyle = logFlow.getStyle();
+            logFlow.setStyle(originalStyle + " -fx-background-color: " + flashColor + ";");
+
+            PauseTransition flash = new PauseTransition(Duration.millis(550));
+
+            flash.setOnFinished(new EventHandler<ActionEvent>()
+            {
+                @Override
+                public void handle(ActionEvent event)
+                {
+                    logFlow.setStyle(originalStyle);
+                }
+            });
+
+            flash.play();
+        }
     }
 }
