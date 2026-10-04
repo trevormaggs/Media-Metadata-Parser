@@ -178,7 +178,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         {
             CheckBox showMetadata = UtilsJavaFX.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
 
-            UtilsJavaFX.doFlashCopyTextFlow((TextFlow) viewPane.clearLogBtn.getUserData(), showMetadata.isSelected());
+            UtilsJavaFX.doFlashCopyTextFlow((TextFlow) viewPane.logFlow, showMetadata.isSelected());
         }
 
         else if (source == viewPane.viewBtn)
@@ -199,7 +199,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.clearLogBtn)
         {
-            TextFlow logFlow = (TextFlow) viewPane.clearLogBtn.getUserData();
+            TextFlow logFlow = viewPane.logFlow;
 
             if (logFlow != null)
             {
@@ -493,18 +493,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final BatchConfiguration config;
         final ProgressBar progressBar = viewPane.progressBar;
         final Label progressLabel = (Label) progressBar.getUserData();
-        final TextFlow logFlow = (TextFlow) viewPane.clearLogBtn.getUserData();
+        final TextFlow logFlow = viewPane.logFlow;
 
         if (progressResetDelay != null)
         {
             progressResetDelay.stop();
         }
 
-        if (logFlow != null)
-        {
-            logFlow.getChildren().clear();
-        }
-
+        logFlow.getChildren().clear();
         StatRecord.resetAll();
         inspectionEvents.clear();
 
@@ -569,7 +565,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                     StatRecord.TOTAL_SIZE.setValue(String.format("%.2f MB", stats.getTotalTargetSizeMB()));
                 }
 
-                UtilsJavaFX.appendLogLine(logFlow, "[SUCCESS] Exif data retrieved successfully", "log-debug");                
+                UtilsJavaFX.writeToTextFlow(logFlow, "[SUCCESS] Exif data retrieved successfully", "log-success");
                 showMetadataInspectorTree();
                 resetControlStates();
             }
@@ -586,7 +582,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                         : "An unexpected error occurred during metadata extraction.");
 
                 resetControlStates();
-                UtilsJavaFX.appendLogLine(logFlow, "[ERROR] " + msg, "log-debug");
+                UtilsJavaFX.writeToTextFlow(logFlow, "[ERROR] " + msg, "log-success");
                 UtilsJavaFX.launchPopup(rootPane, "Metadata Extraction Error", msg, AlertType.ERROR);
             }
         });
@@ -597,7 +593,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             public void handle(WorkerStateEvent event)
             {
                 resetControlStates();
-                UtilsJavaFX.appendLogLine(logFlow, "[WARNING] Batch process was cancelled", "log-debug");
+                UtilsJavaFX.writeToTextFlow(logFlow, "[WARNING] Batch process was cancelled", "log-success");
 
                 Platform.runLater(new Runnable()
                 {
@@ -646,18 +642,14 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final BatchConfiguration config;
         final ProgressBar progressBar = viewPane.progressBar;
         final Label progressLabel = (Label) progressBar.getUserData();
-        final TextFlow logFlow = (TextFlow) viewPane.clearLogBtn.getUserData();
+        final TextFlow logFlow = viewPane.logFlow;
 
         if (progressResetDelay != null)
         {
             progressResetDelay.stop();
         }
 
-        if (logFlow != null)
-        {
-            logFlow.getChildren().clear();
-        }
-
+        logFlow.getChildren().clear();
         StatRecord.resetAll();
         completedFileRecords.clear();
 
@@ -749,7 +741,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 }
 
                 resetControlStates();
-                UtilsJavaFX.appendLogLine(logFlow, "[SUCCESS] Batch processing complete", "log-debug");
+                UtilsJavaFX.writeToTextFlow(logFlow, "[SUCCESS] Batch processing complete", "log-success");
                 viewPane.viewBtn.fire();
             }
         });
@@ -763,7 +755,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 String msg = (exc != null && exc.getMessage() != null) ? exc.getMessage() : "An unexpected error occurred during batch processing.";
 
                 resetControlStates();
-                UtilsJavaFX.appendLogLine(logFlow, "[ERROR] " + msg, "log-debug");
+                UtilsJavaFX.writeToTextFlow(logFlow, "[ERROR] " + msg, "log-success");
                 UtilsJavaFX.launchPopup(rootPane, "Processing Error", msg, AlertType.ERROR);
             }
         });
@@ -774,7 +766,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             public void handle(WorkerStateEvent event)
             {
                 resetControlStates();
-                UtilsJavaFX.appendLogLine(logFlow, "[WARNING] Batch process was cancelled", "log-debug");
+                UtilsJavaFX.writeToTextFlow(logFlow, "[WARNING] Batch process was cancelled", "log-success");
 
                 Platform.runLater(new Runnable()
                 {
@@ -816,10 +808,9 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         final ProgressBar progressBar = viewPane.progressBar;
         final Label progressLabel = (Label) progressBar.getUserData();
 
+        workerTask = null;
         progressLabel.textProperty().unbind();
         progressBar.progressProperty().unbind();
-
-        workerTask = null;
         viewPane.actionBtn.setDisable(false);
 
         if (viewPane.actionBtn.getScene() != null && viewPane.actionBtn.getScene().getRoot() != null)

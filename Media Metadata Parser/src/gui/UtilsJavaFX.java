@@ -678,7 +678,7 @@ final class UtilsJavaFX
      * @param styleClass
      *        the CSS class name to apply, for example: "log-success", "log-error", "log-warn"
      */
-    static void appendLogLine(final TextFlow targetFlow, String message, String styleClass)
+    static void writeToTextFlow(final TextFlow targetFlow, String message, String styleClass)
     {
         if (targetFlow != null && message != null)
         {

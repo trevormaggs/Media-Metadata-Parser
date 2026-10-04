@@ -60,6 +60,7 @@ final class MainViewPane
     final TitledPane processingOptionsPane;
     final TitledPane executionLogPane;
     final TitledPane actionsPane;
+    final TextFlow logFlow;
 
     private Label previewLabel;
 
@@ -79,6 +80,7 @@ final class MainViewPane
         this.processingOptionsPane = new TitledPane();
         this.executionLogPane = new TitledPane();
         this.actionsPane = new TitledPane();
+        this.logFlow = new TextFlow();
     }
 
     /**
@@ -353,12 +355,10 @@ final class MainViewPane
      */
     private void addLogPane(GridPane pane)
     {
-        final TextFlow logFlow = new TextFlow();
         final ScrollPane scrollPane = new ScrollPane(logFlow);
 
         logFlow.setPadding(new Insets(6));
         logFlow.setMaxWidth(Double.MAX_VALUE);
-        clearLogBtn.setUserData(logFlow);
 
         scrollPane.setFitToWidth(true);
         scrollPane.setFitToHeight(true);
@@ -387,7 +387,7 @@ final class MainViewPane
         GridPane.setVgrow(executionLogPane, Priority.ALWAYS);
 
         pane.add(executionLogPane, 0, 2);
-        LogFactory.addLogListener(new JavaFXTextFlowLogListener(logFlow));
+        LogFactory.addLogListener(new JavaFXLogListener(logFlow));
     }
 
     /**

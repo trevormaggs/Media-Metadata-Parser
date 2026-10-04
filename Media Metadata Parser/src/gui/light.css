@@ -1,5 +1,4 @@
-/* Base Root Application Styling */
-.root
+/* Base Root Application Styling */ .root
 {
   -fx-base: #F4F4F4;
   -fx-background: #F4F4F4;
@@ -12,8 +11,10 @@
   -fx-text-inner-color: #333333;
 }
 
-/* Container Panels & TitledPanes */
-.pane, .grid-pane, .vbox, .hbox
+/* Container Panels & TitledPanes */ .pane,
+.grid-pane,
+.vbox,
+.hbox
 {
   -fx-background-color: #F4F4F4;
 }
@@ -41,8 +42,9 @@
   -fx-border-color: #D0D0D0;
 }
 
-/* Inputs & Labels */
-.text-field, .text-area, .date-picker
+/* Inputs & Labels */ .text-field,
+.text-area,
+.date-picker
 {
   -fx-background-color: #FFFFFF;
   -fx-text-fill: #333333;
@@ -67,8 +69,7 @@
   -fx-border-color: #0078D7 !important;
 }
 
-/* Table View Styling */
-.table-view
+/* Table View Styling */ .table-view
 {
   -fx-background-color: #FFFFFF;
   -fx-border-color: #D0D0D0;
@@ -79,7 +80,8 @@
   -fx-background-color: #E6E6E6;
 }
 
-.table-view .column-header, .table-view .filler
+.table-view .column-header,
+.table-view .filler
 {
   -fx-background-color: #E6E6E6;
   -fx-border-color: #D0D0D0;
@@ -103,8 +105,7 @@
   -fx-text-fill: #555555;
 }
 
-/* Table Row Interactions */
-.table-row-cell:hover
+/* Table Row Interactions */ .table-row-cell:hover
 {
   -fx-background-color: #F0F4F8;
 }
@@ -120,8 +121,7 @@
   -fx-text-fill: #FFFFFF;
 }
 
-/* Table Scrollbar Light Styling */
-.table-view .scroll-bar:vertical,
+/* Table Scrollbar Light Styling */ .table-view .scroll-bar:vertical,
 .table-view .scroll-bar:horizontal,
 .table-view .virtual-flow .scroll-bar
 {
@@ -151,8 +151,7 @@
   -fx-background-color: #F4F4F4 !important;
 }
 
-/* Buttons & Checkboxes */
-.button
+/* Buttons & Checkboxes */ .button
 {
   -fx-background-color: #E1E1E1;
   -fx-text-fill: #333333;
@@ -191,8 +190,7 @@
   -fx-text-fill: #555555;
 }
 
-/* Dialog Header Label */
-.export-header-label
+/* Dialog Header Label */ .export-header-label
 {
   -fx-font-weight: bold;
   -fx-text-fill: #555555;
@@ -202,39 +200,46 @@
   -fx-border-width: 0 0 1px 0;
 }
 
-/* Execution Log Styles */
-.log-scroll-pane {
-    -fx-background-color: #ffffff;
-    -fx-border-color: #cccccc;
-    -fx-border-radius: 3px;
+/* Execution Log Styles */ .log-scroll-pane
+{
+  -fx-background-color: #ffffff;
+  -fx-border-color: #cccccc;
+  -fx-border-radius: 3px;
 }
 
-.log-text {
-    -fx-font-family: "Consolas", "Courier New", monospace;
-    -fx-font-size: 12px;
+.log-text
+{
+  -fx-font-family: "Consolas", "Courier New", monospace;
+  -fx-font-size: 12px;
 }
 
-.log-info {
-    -fx-fill: #222222;
+.log-info
+{
+  -fx-fill: #222222;
 }
 
-.log-warn {
-    -fx-fill: #b58900;
+.log-warn
+{
+  -fx-fill: #b58900;
 }
 
-.log-error {
-    -fx-fill: #d32f2f;
-    -fx-font-weight: bold;
+.log-error
+{
+  -fx-fill: #d32f2f;
+  -fx-font-weight: bold;
 }
 
-.log-success {
-    -fx-fill: #2e7d32;
+.log-success
+{
+  -fx-fill: #2e7d32;
 }
 
-.log-debug {
-    -fx-fill: #0184bc;
+.log-debug
+{
+  -fx-fill: #0184bc;
 }
 
-.log-trace {
-    -fx-fill: #a020f0;
+.log-trace
+{
+  -fx-fill: #a020f0;
 }
