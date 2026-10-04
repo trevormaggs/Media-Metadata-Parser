@@ -346,12 +346,6 @@ final class MainViewPane
     }
 
     /**
-     * Builds the execution log section and registers its log listener.
-     *
-     * @param pane
-     *        the container to which the execution log section is added
-     */
-    /**
      * Builds the execution log section using a scrollable TextFlow for severity coloring.
      *
      * @param pane

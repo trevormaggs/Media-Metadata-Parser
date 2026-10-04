@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.StringJoiner;
 import common.Utils;
 import javafx.animation.PauseTransition;
+import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -626,7 +627,7 @@ final class UtilsJavaFX
             if (sb.length() > 0)
             {
                 ClipboardContent content = new ClipboardContent();
-                
+
                 content.putString(sb.toString());
                 Clipboard.getSystemClipboard().setContent(content);
 
@@ -663,6 +664,42 @@ final class UtilsJavaFX
 
                 flash.play();
             }
+        }
+    }
+
+    /**
+     * Appends a custom log line with a specific CSS style class directly to a target TextFlow
+     * container.
+     *
+     * @param targetFlow
+     *        the target TextFlow container
+     * @param message
+     *        the message text to append
+     * @param styleClass
+     *        the CSS class name to apply, for example: "log-success", "log-error", "log-warn"
+     */
+    static void appendLogLine(final TextFlow targetFlow, String message, String styleClass)
+    {
+        if (targetFlow != null && message != null)
+        {
+            final String formattedMessage = message.endsWith("\n") ? message : message + "\n";
+            final Text textNode = new Text(formattedMessage);
+
+            textNode.getStyleClass().add("log-text");
+
+            if (styleClass != null && !styleClass.trim().isEmpty())
+            {
+                textNode.getStyleClass().add(styleClass.trim());
+            }
+
+            Platform.runLater(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    targetFlow.getChildren().add(textNode);
+                }
+            });
         }
     }
 }

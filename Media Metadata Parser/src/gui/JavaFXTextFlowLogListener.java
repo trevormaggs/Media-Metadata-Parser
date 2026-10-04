@@ -9,7 +9,7 @@ import logger.LogListener;
 
 /**
  * A {@link LogListener} implementation that displays log messages in a JavaFX {@link TextFlow}
- * container with severity-based style formatting.
+ * container with severity-based style formatting and direct message injection support.
  *
  * <p>
  * Log messages are appended on the JavaFX Application Thread using
@@ -17,7 +17,7 @@ import logger.LogListener;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.1
+ * @version 1.2
  * @since 4 August 2026
  */
 public class JavaFXTextFlowLogListener implements LogListener
@@ -33,7 +33,7 @@ public class JavaFXTextFlowLogListener implements LogListener
      * @throws NullPointerException
      *         if {@code logFlow} is {@code null}
      */
-    public JavaFXTextFlowLogListener(TextFlow logFlow)
+    public JavaFXTextFlowLogListener(final TextFlow logFlow)
     {
         this.logFlow = Objects.requireNonNull(logFlow, "TextFlow is undefined");
     }
@@ -52,7 +52,7 @@ public class JavaFXTextFlowLogListener implements LogListener
     {
         if (message != null)
         {
-            final Text textNode = new Text(message.endsWith("\n") ? message : message + "\n");
+            final Text textNode = new Text(message);
 
             textNode.getStyleClass().add("log-text");
 
@@ -114,51 +114,5 @@ public class JavaFXTextFlowLogListener implements LogListener
                 logFlow.getChildren().clear();
             }
         });
-    }
-
-    /**
-     * Appends a custom log line with a specific CSS style class directly to this listener's TextFlow container.
-     *
-     * @param message
-     *        the message text to append
-     * @param styleClass
-     *        the CSS class name to apply (e.g., "log-success", "log-error", "log-warn")
-     */
-    void appendLogLine(final String message, final String styleClass)
-    {
-        appendLogLine(this.logFlow, message, styleClass);
-    }
-
-    /**
-     * Appends a custom log line with a specific CSS style class directly to a target TextFlow container.
-     *
-     * @param targetFlow
-     *        the target TextFlow container
-     * @param message
-     *        the message text to append
-     * @param styleClass
-     *        the CSS class name to apply (e.g., "log-success", "log-error", "log-warn")
-     */
-    static void appendLogLine(final TextFlow targetFlow, final String message, final String styleClass)
-    {
-        if (targetFlow != null && message != null)
-        {
-            final Text textNode = new Text(message.endsWith("\n") ? message : message + "\n");
-            textNode.getStyleClass().add("log-text");
-
-            if (styleClass != null && !styleClass.isEmpty())
-            {
-                textNode.getStyleClass().add(styleClass);
-            }
-
-            Platform.runLater(new Runnable()
-            {
-                @Override
-                public void run()
-                {
-                    targetFlow.getChildren().add(textNode);
-                }
-            });
-        }
     }
 }
