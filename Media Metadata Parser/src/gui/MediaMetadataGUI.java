@@ -176,9 +176,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         else if (source == viewPane.copyLogBtn)
         {
-            CheckBox showMetadata = UtilsJavaFX.getById(rootPane, MainViewPane.SHWID, CheckBox.class);
-
-            UtilsJavaFX.doFlashCopyTextFlow((TextFlow) viewPane.logFlow, showMetadata.isSelected());
+            UtilsJavaFX.copyTextFlowToClipboard(viewPane.logFlow);
         }
 
         else if (source == viewPane.viewBtn)
@@ -206,11 +204,6 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
                 logFlow.getChildren().clear();
             }
         }
-
-        else if (source == viewPane.exitBtn)
-        {
-            Platform.exit();
-        }
     }
 
     /**
@@ -235,7 +228,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
                 UtilsJavaFX.switchTheme(rootPane, isDark ? "dark.css" : "light.css");
                 viewPane.applyThemeIcons(isDark);
-                createSourceContextMenu(isDark);
+                createSourceContextMenu();
             }
         });
 
@@ -315,61 +308,56 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
 
         viewPane.sourceBtn.setOnAction(this);
         viewPane.actionBtn.setOnAction(this);
-        viewPane.exitBtn.setOnAction(this);
         viewPane.copyLogBtn.setOnAction(this);
         viewPane.clearLogBtn.setOnAction(this);
         viewPane.viewBtn.setOnAction(this);
     }
 
+    /**
+     * Constructs or updates the source selection context menu with theme-appropriate graphics and
+     * recent history.
+     *
+     */
     private void createSourceContextMenu()
     {
+        ContextMenu menu;
+        Object node = viewPane.sourceBtn.getUserData();
+
+        if (!(node instanceof ContextMenu))
+        {
+            menu = new ContextMenu();
+            MenuItem selectFolder = new MenuItem("Select Folder...");
+            MenuItem selectFiles = new MenuItem("Select Specific Files...");
+            TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
+
+            selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
+            selectFiles.setOnAction(event -> UtilsJavaFX.handleFileSelection(rootPane.getScene().getWindow()));
+
+            menu.getItems().addAll(selectFolder, selectFiles, new SeparatorMenuItem());
+            viewPane.sourceBtn.setUserData(menu);
+            populateRecentHistoryMenu(menu, sourceText);
+        }
+
+        else
+        {
+            menu = (ContextMenu) node;
+        }
+
+        MenuItem selectFolder = menu.getItems().get(0); // light.css
+        MenuItem selectFiles = menu.getItems().get(1); // dark.css
         CheckBox themeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
-        createSourceContextMenu(themeCheck.isSelected());
-    }
-
-    /**
-     * Constructs the source selection context menu containing fixed pick options and recent
-     * history.
-     */
-    /**
-     * Constructs the source selection context menu containing fixed pick options and recent
-     * history.
-     */
-    private void createSourceContextMenu(boolean isDark)
-    {
-        final ContextMenu menu = new ContextMenu();
-        MenuItem selectFolder = new MenuItem("Select Folder...");
-        MenuItem selectFiles = new MenuItem("Select Specific Files...");
-        TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
-
-        ImageView folderIcon = UtilsJavaFX.createIcon("folder.png", 16, isDark);
+        ImageView folderIcon = UtilsJavaFX.createIcon("folder.png", 16, themeCheck.isSelected());
+        ImageView fileIcon = UtilsJavaFX.createIcon("files.png", 16, themeCheck.isSelected());
 
         if (folderIcon != null)
         {
             selectFolder.setGraphic(folderIcon);
         }
 
-        ImageView fileIcon = UtilsJavaFX.createIcon("files.png", 16, isDark);
-
         if (fileIcon != null)
         {
             selectFiles.setGraphic(fileIcon);
         }
-
-        selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
-
-        selectFiles.setOnAction(new EventHandler<ActionEvent>()
-        {
-            @Override
-            public void handle(ActionEvent event)
-            {
-                UtilsJavaFX.handleFileSelection(rootPane.getScene().getWindow());
-            }
-        });
-
-        menu.getItems().addAll(selectFolder, selectFiles, new SeparatorMenuItem());
-        viewPane.sourceBtn.setUserData(menu);
-        populateRecentHistoryMenu(menu, sourceText);
     }
 
     /**

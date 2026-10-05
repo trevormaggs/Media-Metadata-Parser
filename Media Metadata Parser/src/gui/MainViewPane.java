@@ -3,8 +3,11 @@ package gui;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import batch.MediaBatchProcessor;
+import javafx.application.Platform;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -36,6 +39,11 @@ import logger.LogFactory;
  */
 final class MainViewPane
 {
+    private final TitledPane inputOptionsPane;
+    private final TitledPane processingOptionsPane;
+    private final TitledPane executionLogPane;
+    private final TitledPane actionsPane;
+
     static final String SRCID = "srcId";
     static final String TGTID = "tgtId";
     static final String PFXID = "pfxId";
@@ -55,11 +63,6 @@ final class MainViewPane
     final Button copyLogBtn;
     final Button viewBtn;
     final Button clearLogBtn;
-    final Button exitBtn;
-    final TitledPane inputOptionsPane;
-    final TitledPane processingOptionsPane;
-    final TitledPane executionLogPane;
-    final TitledPane actionsPane;
     final TextFlow logFlow;
 
     private Label previewLabel;
@@ -74,7 +77,6 @@ final class MainViewPane
         this.actionBtn = new Button();
         this.clearLogBtn = new Button();
         this.copyLogBtn = new Button();
-        this.exitBtn = new Button();
         this.viewBtn = new Button();
         this.inputOptionsPane = new TitledPane();
         this.processingOptionsPane = new TitledPane();
@@ -348,7 +350,7 @@ final class MainViewPane
     }
 
     /**
-     * Builds the execution log section using a scrollable TextFlow for severity coloring.
+     * Builds the execution log section using a scrollable TextFlow for severity colouring.
      *
      * @param pane
      *        the container to which the execution log section is added
@@ -367,7 +369,7 @@ final class MainViewPane
         scrollPane.setMaxHeight(Double.MAX_VALUE);
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
-        // Auto-scroll to bottom whenever a new log entry node is appended'
+        // Auto-scroll to bottom whenever a new log entry node is appended
         logFlow.getChildren().addListener(new ListChangeListener<Node>()
         {
             @Override
@@ -437,9 +439,16 @@ final class MainViewPane
      */
     private void addBottomPane(GridPane pane)
     {
-        viewBtn.setText("View Summary...");
-        viewBtn.prefHeightProperty().bind(actionBtn.heightProperty());
-        exitBtn.setText("Exit");
+        Button exitBtn = new Button("Exit");
+
+        exitBtn.setOnAction(new EventHandler<ActionEvent>()
+        {
+            @Override
+            public void handle(ActionEvent event)
+            {
+                Platform.exit();
+            }
+        });
 
         HBox controlLayout = new HBox(10, viewBtn, UtilsJavaFX.fillRow(), exitBtn);
         controlLayout.setPadding(new Insets(5, 0, 0, 0));
@@ -447,5 +456,8 @@ final class MainViewPane
         GridPane.setHgrow(controlLayout, Priority.ALWAYS);
 
         pane.add(controlLayout, 0, 4);
+
+        viewBtn.setText("View Summary...");
+        viewBtn.prefHeightProperty().bind(actionBtn.heightProperty());
     }
 }

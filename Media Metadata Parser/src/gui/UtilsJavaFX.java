@@ -600,21 +600,19 @@ final class UtilsJavaFX
     }
 
     /**
-     * Copies the text content of a {@link TextFlow} container to the system clipboard and provides
-     * visual feedback by flashing the background color.
+     * Copies the text content of a {@link TextFlow} to the system clipboard and provides visual
+     * feedback by temporarily flashing the background and text colours.
      *
      * @param logFlow
-     *        the target {@link TextFlow} container to copy from
-     * @param isDark
-     *        {@code true} if dark theme is active, {@code false} for light theme
+     *        the {@link TextFlow} containing the text to copy
      */
-    static void doFlashCopyTextFlow(TextFlow logFlow, boolean isDark)
+    static void copyTextFlowToClipboard(TextFlow logFlow)
     {
         if (logFlow != null && !logFlow.getChildren().isEmpty())
         {
             StringBuilder sb = new StringBuilder();
+            final String flashColor = "#a8e6cf";
             final String originalStyle = logFlow.getStyle();
-            final String flashColor = isDark ? "#a8e6cf" : "#a8e6cf";
 
             for (Node node : logFlow.getChildren())
             {
@@ -631,14 +629,13 @@ final class UtilsJavaFX
                 content.putString(sb.toString());
                 Clipboard.getSystemClipboard().setContent(content);
 
-                // Flash background and force text color to dark for high contrast
                 logFlow.setStyle(originalStyle + " -fx-background-color: " + flashColor + ";");
 
                 for (Node node : logFlow.getChildren())
                 {
                     if (node instanceof Text)
                     {
-                        node.setStyle("-fx-fill: #000000 !important;");
+                        node.setStyle("-fx-fill: #000000");
                     }
                 }
 
@@ -668,16 +665,18 @@ final class UtilsJavaFX
     }
 
     /**
-     * Appends a custom log line with a specific CSS style class directly to a target TextFlow
-     * container.
+     * Appends a message as a styled {@link Text} node to the specified {@link TextFlow}. The
+     * message is terminated with a newline if it does not already end with one.
      *
      * @param targetFlow
-     *        the target TextFlow container
+     *        the {@link TextFlow} to which the message is appended
      * @param message
      *        the message text to append
      * @param styleClass
-     *        the CSS class name to apply, for example: "log-success", "log-error", "log-warn"
+     *        the optional CSS class name to apply, for example {@code "log-success"},
+     *        {@code "log-error"}, or {@code "log-warn"}
      */
+
     static void writeToTextFlow(final TextFlow targetFlow, String message, String styleClass)
     {
         if (targetFlow != null && message != null)

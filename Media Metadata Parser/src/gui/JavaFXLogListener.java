@@ -17,7 +17,7 @@ import logger.LogListener;
  * </p>
  *
  * @author Trevor Maggs
- * @version 1.2
+ * @version 1.3
  * @since 4 August 2026
  */
 public class JavaFXLogListener implements LogListener
@@ -54,9 +54,9 @@ public class JavaFXLogListener implements LogListener
         {
             final Text textNode = new Text(message);
 
-            if (Level.SEVERE.equals(level))
+            if (Level.CONFIG.equals(level))
             {
-                textNode.getStyleClass().add("log-error");
+                textNode.getStyleClass().add("log-debug");
             }
 
             else if (Level.WARNING.equals(level))
@@ -64,12 +64,12 @@ public class JavaFXLogListener implements LogListener
                 textNode.getStyleClass().add("log-warn");
             }
 
-            else if (Level.CONFIG.equals(level))
+            else if (Level.SEVERE.equals(level))
             {
-                textNode.getStyleClass().add("log-debug");
+                textNode.getStyleClass().add("log-error");
             }
 
-            else if (Level.FINE.equals(level) || Level.FINER.equals(level) || Level.FINEST.equals(level))
+            else if (level.intValue() <= Level.FINE.intValue())
             {
                 textNode.getStyleClass().add("log-trace");
             }
@@ -79,14 +79,24 @@ public class JavaFXLogListener implements LogListener
                 textNode.getStyleClass().add("log-info");
             }
 
-            Platform.runLater(new Runnable()
+            Runnable appendTask = new Runnable()
             {
                 @Override
                 public void run()
                 {
                     logFlow.getChildren().add(textNode);
                 }
-            });
+            };
+
+            if (Platform.isFxApplicationThread())
+            {
+                appendTask.run();
+            }
+
+            else
+            {
+                Platform.runLater(appendTask);
+            }
         }
     }
 
@@ -96,13 +106,23 @@ public class JavaFXLogListener implements LogListener
     @Override
     public void reset()
     {
-        Platform.runLater(new Runnable()
+        Runnable clearTask = new Runnable()
         {
             @Override
             public void run()
             {
                 logFlow.getChildren().clear();
             }
-        });
+        };
+
+        if (Platform.isFxApplicationThread())
+        {
+            clearTask.run();
+        }
+
+        else
+        {
+            Platform.runLater(clearTask);
+        }
     }
 }
