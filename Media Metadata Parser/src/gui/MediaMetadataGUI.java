@@ -199,10 +199,7 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
         {
             TextFlow logFlow = viewPane.logFlow;
 
-            if (logFlow != null)
-            {
-                logFlow.getChildren().clear();
-            }
+            logFlow.getChildren().clear();
         }
     }
 
@@ -331,7 +328,15 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             TextField sourceText = UtilsJavaFX.getById(rootPane, MainViewPane.SRCID, TextField.class);
 
             selectFolder.setOnAction(new FilePickHandler(sourceText, "Select Source Directory"));
-            selectFiles.setOnAction(event -> UtilsJavaFX.handleFileSelection(rootPane.getScene().getWindow()));
+
+            selectFiles.setOnAction(new EventHandler<ActionEvent>()
+            {
+                @Override
+                public void handle(ActionEvent event)
+                {
+                    UtilsJavaFX.handleFileSelection(rootPane.getScene().getWindow());
+                }
+            });
 
             menu.getItems().addAll(selectFolder, selectFiles, new SeparatorMenuItem());
             viewPane.sourceBtn.setUserData(menu);
@@ -343,8 +348,8 @@ public class MediaMetadataGUI extends Application implements EventHandler<Action
             menu = (ContextMenu) node;
         }
 
-        MenuItem selectFolder = menu.getItems().get(0); // light.css
-        MenuItem selectFiles = menu.getItems().get(1); // dark.css
+        MenuItem selectFolder = menu.getItems().get(0);
+        MenuItem selectFiles = menu.getItems().get(1);
         CheckBox themeCheck = UtilsJavaFX.getById(rootPane, MainViewPane.THMID, CheckBox.class);
         ImageView folderIcon = UtilsJavaFX.createIcon("folder.png", 16, themeCheck.isSelected());
         ImageView fileIcon = UtilsJavaFX.createIcon("files.png", 16, themeCheck.isSelected());
