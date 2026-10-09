@@ -1,0 +1,7 @@
+INFO:09/10/2026 10.35.42:   MetadataInspector loaded
+INFO:09/10/2026 10.35.42:   Source: E:\ImageBatchDir
+INFO:09/10/2026 10.35.43:   No matching PNG metadata chunks found in file [E:\ImageBatchDir\pool7.jpg]
+WARN:09/10/2026 10.35.43:   File [pool7.jpg] contains [PNG] data, but has a [.jpg] extension
+INFO:09/10/2026 10.35.43:   No matching PNG metadata chunks found in file [E:\ImageBatchDir\aow_group.png]
+INFO:09/10/2026 10.35.45:   No matching PNG metadata chunks found in file [E:\ImageBatchDir\pool7.jpg]
+WARN:09/10/2026 10.35.45:   File [pool7.jpg] contains [PNG] data, but has a [.jpg] extension
