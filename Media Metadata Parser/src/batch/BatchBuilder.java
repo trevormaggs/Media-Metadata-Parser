@@ -2,6 +2,7 @@ package batch;
 
 import java.nio.file.Paths;
 import java.time.ZonedDateTime;
+import common.Utils;
 
 /**
  * <p>
@@ -67,7 +68,7 @@ public final class BatchBuilder
      */
     public BatchBuilder source(String s)
     {
-        if (s != null && !s.trim().isEmpty())
+        if (s != null && !Utils.isBlank(s))
         {
             bd_sourceDir = s.trim();
         }
@@ -84,7 +85,7 @@ public final class BatchBuilder
      */
     public BatchBuilder target(String t)
     {
-        if (t != null && !t.trim().isEmpty())
+        if (t != null && !Utils.isBlank(t))
         {
             bd_target = t.trim();
         }

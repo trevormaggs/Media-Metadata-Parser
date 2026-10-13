@@ -478,21 +478,21 @@ public class IFDHandler implements ImageHandler
         long count = entry.getCount();
         byte[] raw = entry.getByteArray();
 
-        if (tag != TagIFD_Pointer.IFD_SUBIFD_POINTER)
+        if (count <= 0)
         {
-            LOGGER.warn(String.format("Non-SubIFD Pointer tag [%s] detected. Skipping further navigation", tag));
-            retOffset = new long[0];
-        }
-
-        else if (count <= 0)
-        {
-            LOGGER.warn(String.format("SubIFDs pointer has invalid count [%d]", count));
+            LOGGER.warn(String.format("Pointer has invalid count [%d]", count));
             retOffset = new long[0];
         }
 
         else if (count == 1)
         {
             retOffset = new long[]{entry.getOffset()};
+        }
+
+        else if (tag != TagIFD_Pointer.IFD_SUBIFD_POINTER)
+        {
+            LOGGER.warn(String.format("Non-SubIFD Pointer tag [%s] detected with multiple counts [%d]. Skipping further navigation", tag, count));
+            retOffset = new long[0];
         }
 
         else if (raw == null || raw.length < 4)
