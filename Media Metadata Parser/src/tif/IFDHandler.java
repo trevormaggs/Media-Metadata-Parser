@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -454,17 +453,17 @@ public class IFDHandler implements ImageHandler
     }
 
     /**
-     * Builds an array of branched out offsets referenced by a SubIFD pointer entry.
+     * Extracts the branched out offsets referenced by a SubIFD pointer entry.
      *
      * <p>
      * According to the TIFF and DNG specifications, a {@code SubIFDs} pointer can reference either
-     * a single child directory or an array of child directory offsets. This method transparently
-     * decodes data in both layouts.
+     * a single child directory or an array of child directory offsets. This method handles both
+     * layouts.
      * </p>
      *
      * <p>
-     * If the payload is truncated or corrupted, any successfully decoded offsets are preserved with
-     * this condition logged.
+     * If the payload is truncated or corrupted, any successfully decoded offsets are preserved, and
+     * a warning is logged.
      * </p>
      *
      * @param entry
@@ -474,93 +473,52 @@ public class IFDHandler implements ImageHandler
      */
     private long[] resolvePointerOffsets(EntryIFD entry)
     {
-        long[] offsets;
+        long[] retOffset;
         Taggable tag = entry.getTag();
+        long count = entry.getCount();
+        byte[] raw = entry.getByteArray();
 
-        if (entry.getCount() == 1)
+        if (tag != TagIFD_Pointer.IFD_SUBIFD_POINTER)
         {
-            offsets = new long[]{entry.getOffset()};
+            LOGGER.warn(String.format("Non-SubIFD Pointer tag [%s] detected. Skipping further navigation", tag));
+            retOffset = new long[0];
         }
 
-        else if (tag == TagIFD_Pointer.IFD_SUBIFD_POINTER)
+        else if (count <= 0)
         {
-            byte[] raw = entry.getByteArray();
+            LOGGER.warn(String.format("SubIFDs pointer has invalid count [%d]", count));
+            retOffset = new long[0];
+        }
 
-            if (raw == null || raw.length == 0)
-            {
-                LOGGER.error(String.format("SubIFDs pointer array (Count: %d) contains no readable offset data", entry.getCount()));
-                return new long[0];
-            }
+        else if (count == 1)
+        {
+            retOffset = new long[]{entry.getOffset()};
+        }
 
-            offsets = new long[(int) entry.getCount()];
-
-            for (int i = 0; i < entry.getCount(); i++)
-            {
-                int pos = i * 4;
-
-                if (pos + 4 > raw.length)
-                {
-                    offsets = Arrays.copyOf(offsets, i);
-                    LOGGER.warn(String.format("SubIFDs payload truncation detected. Read %d of %d pointers", i, entry.getCount()));
-                    break;
-                }
-
-                offsets[i] = ByteValueConverter.toUnsignedInteger(raw, pos, getTifByteOrder());
-            }
+        else if (raw == null || raw.length < 4)
+        {
+            LOGGER.error(String.format("SubIFDs pointer array count [%d] contains no readable offset data", count));
+            retOffset = new long[0];
         }
 
         else
         {
-            LOGGER.warn(String.format("Non-SubIFD Pointer tag [%s] has invalid count %d. Skipping further navigation to prevent corruption", tag, entry.getCount()));
-            return new long[0];
-        }
+            // Limit the number of offsets to the available payload.
+            int safeCount = (int) Math.min(count, raw.length / 4L);
 
-        return offsets;
-    }
-
-    // Testing
-    private long[] resolvePointerOffsets2(EntryIFD entry)
-    {
-        long[] offsets;
-        Taggable tag = entry.getTag();
-
-        if (entry.getCount() == 1)
-        {
-            offsets = new long[]{entry.getOffset()};
-        }
-
-        else if (tag == TagIFD_Pointer.IFD_SUBIFD_POINTER)
-        {
-            byte[] raw = entry.getByteArray();
-
-            if (raw == null || raw.length < 4)
+            if (safeCount != count)
             {
-                LOGGER.error(String.format("SubIFDs pointer array (Count: %d) contains no readable offset data", entry.getCount()));
-                return new long[0];
+                LOGGER.warn(String.format("SubIFD count tag specified %d offsets, but payload size only accommodates %d offsets", count, safeCount));
             }
 
-            // Cap count safely to prevent negative array size or allocation overflows
-            int safeCount = (int) Math.min(Math.max(0, entry.getCount()), raw.length / 4);
-
-            if (safeCount != entry.getCount())
-            {
-                LOGGER.warn(String.format("SubIFD count tag specified %d offsets, but payload size only accommodates %d offsets", entry.getCount(), safeCount));
-            }
-
-            offsets = new long[safeCount];
+            retOffset = new long[safeCount];
 
             for (int i = 0; i < safeCount; i++)
             {
-                offsets[i] = ByteValueConverter.toUnsignedInteger(raw, i * 4, getTifByteOrder());
+                retOffset[i] = ByteValueConverter.toUnsignedInteger(raw, i * 4, getTifByteOrder());
             }
         }
-        
-        else
-        {
-            LOGGER.warn(String.format("Non-SubIFD Pointer tag [%s] has invalid count %d. Skipping further navigation to prevent corruption", tag, entry.getCount()));
-            return new long[0];
-        }
 
-        return offsets;
+        return retOffset;
     }
 }

@@ -16,8 +16,8 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import common.AbstractImageParser;
-import common.DetectedFormatResult;
 import common.ImageParserFactory;
+import common.ImageParserFactory.DetectedFormatResult;
 import common.Metadata;
 import progressbar.ProgressListener;
 

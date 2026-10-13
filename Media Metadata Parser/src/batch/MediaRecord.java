@@ -154,6 +154,16 @@ public final class MediaRecord
     }
 
     /**
+     * Checks if the media file's digital signature matches the expected DNG standard.
+     * 
+     * @return true if TIFF, otherwise false
+     */
+    public boolean isDNG()
+    {
+        return mediaFormat == DigitalSignature.DNG;
+    }
+
+    /**
      * Checks if the media file's digital signature matches the expected HEIC standard.
      *
      * @return true if HEIC, otherwise false

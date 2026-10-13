@@ -17,24 +17,23 @@ import java.util.EnumSet;
  */
 public enum DigitalSignature
 {
-    JPG("jpg", new int[][]{{0xFF, 0xD8}}),
+    JPG("jpg", new int[][]{{0xFF, 0xD8, 0xFF}}),
     PNG("png", new int[][]{{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}}),
-    TIF("tif", new int[][]{{0x4D, 0x4D}, {0x49, 0x49}}),
-    DNG("dng", new int[][]{{0x4D, 0x4D}, {0x49, 0x49}}), // Evaluated after TIF
-
-    /*
-     * RIFF containers are identifiable by the RIFF header, followed by a four-byte type using a
-     * wildcard value that will match anything between 0x00 and 0xFF.
-     */
+    TIF("tif", new int[][]{{0x4D, 0x4D}, {0x49, 0x49}}), // Check for Motorola then Intel
+                                                         // endian-ness
+    DNG("dng", new int[0][]), // TIFF and DNG share signatures. DNG is identified by its DNGVersion
+                              // TIF tag
     WEBP("webp", new int[][]{{0x52, 0x49, 0x46, 0x46, -1, -1, -1, -1, 0x57, 0x45, 0x42, 0x50}}),
     AVI("avi", new int[][]{{0x52, 0x49, 0x46, 0x46, -1, -1, -1, -1, 0x41, 0x56, 0x49, 0x20}}),
-
     HEIF("heic", new int[][]{{0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63}}),
     MOV("mov", new int[][]{{0x66, 0x74, 0x79, 0x70, 0x71, 0x74}, {0x6D, 0x6F, 0x6F, 0x76}}),
-    MP4("mp4", new int[][]{{0x66, 0x74, 0x79, 0x70}}), // Generic ftyp box fallback
-    UNKNOWN("", new int[][]{{0x00, 0x00}});
+    MP4("mp4", new int[][]{{0x66, 0x74, 0x79, 0x70}}),
+    UNKNOWN("", new int[0][]);
 
-    /** Sentinel value representing a wildcard byte that matches any value (0x00 to 0xFF). */
+    /**
+     * Sentinel value representing a wildcard byte that matches any value (0x00 to 0xFF). This is
+     * necessary for correctly identifying RIFF containers.
+     */
     private static final int WILDCARD = -1;
     private static final int MAX_MAGIC_LENGTH;
     private static final EnumSet<DigitalSignature> VIDEO_FORMATS = EnumSet.of(AVI, MOV, MP4);
@@ -46,7 +45,7 @@ public enum DigitalSignature
     {
         int max = 0;
 
-        /* Determine the longest magic number sequence (for buffer sizing) */
+        /* Find the longest magic number sequence needed for buffer sizing */
         for (DigitalSignature sig : KNOWN_FORMATS)
         {
             for (int[] magic : sig.magicNumbers)
@@ -85,24 +84,34 @@ public enum DigitalSignature
     }
 
     /**
-     * Returns a byte array of magic numbers for the specified pattern index.
+     * Returns a byte array of the primary (first) magic numbers for this format.
+     *
+     * @return an array of bytes containing the magic numbers
+     */
+    public byte[] getFirstMagicNumberBytes()
+    {
+        return magicNumbers.length == 0 ? new byte[0] : getMagicNumberBytes(0);
+    }
+
+    /**
+     * Returns a byte array containing the magic-number pattern at the specified index.
      *
      * <p>
-     * Note: Wildcard values (-1) are returned as the byte value 0xFF. The wildcard semantics are
-     * not preserved in the returned array.
+     * Wildcard values ({@code -1}) are converted to bytes with the bit pattern {@code 0xFF}.
      * </p>
      *
      * @param index
-     *        the index of the magic number pattern array to retrieve
-     * @return an array of bytes containing the magic numbers
-     * @throws IllegalArgumentException
+     *        the index of the magic-number pattern to retrieve
+     * @return a byte array containing the magic-number pattern
+     * 
+     * @throws IndexOutOfBoundsException
      *         if the index is out of bounds
      */
     public byte[] getMagicNumberBytes(int index)
     {
         if (index < 0 || index >= magicNumbers.length)
         {
-            throw new IllegalArgumentException("Index [" + index + "] is out of bounds for magicNumbers array");
+            throw new IndexOutOfBoundsException("Index [" + index + "] is out of bounds for magicNumbers array");
         }
 
         int[] intArray = magicNumbers[index];
@@ -176,7 +185,7 @@ public enum DigitalSignature
             {
                 for (int[] magic : sig.magicNumbers)
                 {
-                    if (containsMagicNumbers(buffer, magic))
+                    if (containsMagicNumbers(buffer, totalRead, magic))
                     {
                         return sig;
                     }
@@ -192,26 +201,32 @@ public enum DigitalSignature
      * elements equal to {@link #WILDCARD} ({@code -1}) match any byte value.
      *
      * @param fileHeader
-     *        the initial bytes of the file buffer
+     *        the buffer containing the initial bytes of the file
+     * @param bytesRead
+     *        the number of actual bytes that have been read into the buffer
      * @param magic
      *        the magic number sequence to search for, including wildcards
-     * @return {@code true} if the magic number pattern exists anywhere in the header buffer
+     * @return {@code true} if the magic number pattern occurs within the bytes read, otherwise
+     *         {@code false}
      */
-    private static boolean containsMagicNumbers(byte[] fileHeader, int[] magic)
+    private static boolean containsMagicNumbers(byte[] fileHeader, int bytesRead, int[] magic)
     {
-        OUTER:
-        for (int i = 0; i <= fileHeader.length - magic.length; i++)
+        if (magic.length <= bytesRead)
         {
-            for (int j = 0; j < magic.length; j++)
+            OUTER:
+            for (int i = 0; i <= bytesRead - magic.length; i++)
             {
-                if (magic[j] != WILDCARD && (fileHeader[i + j] & 0xFF) != magic[j])
+                for (int j = 0; j < magic.length; j++)
                 {
-                    continue OUTER;
+                    if (magic[j] != WILDCARD && (fileHeader[i + j] & 0xFF) != magic[j])
+                    {
+                        continue OUTER;
+                    }
                 }
-            }
 
-            // Sub-array sequence matched
-            return true;
+                // Sub-array sequence matched
+                return true;
+            }
         }
 
         return false;

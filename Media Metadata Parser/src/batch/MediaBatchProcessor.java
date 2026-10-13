@@ -343,7 +343,7 @@ public final class MediaBatchProcessor
                 else if (config.isForceDateChange())
                 {
                     // TODO: May need to add one for DNG
-                    if (record.isTIF())
+                    if (record.isTIF() || record.isDNG())
                     {
                         TiffDatePatcher.patchAllDates(targetPath, effectiveTime, true);
                     }
