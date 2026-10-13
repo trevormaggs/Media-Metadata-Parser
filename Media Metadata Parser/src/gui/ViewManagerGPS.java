@@ -14,7 +14,7 @@ import tif.tagspecs.TagIFD_GPS;
  * Manages Leaflet map rendering for {@link MetadataViewerDialog} and delegates GPS coordinate
  * parsing to the static methods in {@link GpsDataManager}.
  */
-public class ViewManagerGPS
+final class ViewManagerGPS
 {
     private final WebView mapView;
     private final Map<String, GpsLocation> locationMap;
@@ -25,7 +25,7 @@ public class ViewManagerGPS
      * @param mapView
      *        the JavaFX {@link WebView} used to render Leaflet map instances
      */
-    public ViewManagerGPS(WebView mapView)
+    ViewManagerGPS(WebView mapView)
     {
         this.mapView = mapView;
         this.locationMap = new LinkedHashMap<>();
@@ -34,7 +34,7 @@ public class ViewManagerGPS
     /**
      * Clears all cached GPS locations from the internal lookup map.
      */
-    public void reset()
+    void reset()
     {
         locationMap.clear();
     }
@@ -48,7 +48,7 @@ public class ViewManagerGPS
      * @param ifd
      *        the target {@link DirectoryIFD} containing potential GPS metadata tags
      */
-    public void addLocationGPS(String fileName, DirectoryIFD ifd)
+    void addLocationGPS(String fileName, DirectoryIFD ifd)
     {
         if (ifd != null && fileName != null && !locationMap.containsKey(fileName))
         {
@@ -82,7 +82,7 @@ public class ViewManagerGPS
      *
      * @return a list of file names with valid GPS locations
      */
-    public List<String> update()
+    List<String> update()
     {
         List<String> fileNames = new ArrayList<>(locationMap.keySet());
 
@@ -99,7 +99,7 @@ public class ViewManagerGPS
      *
      * @return {@code true} if at least one valid GPS location is registered
      */
-    public boolean hasDataGPS()
+    boolean hasDataGPS()
     {
         return !locationMap.isEmpty();
     }
@@ -110,7 +110,7 @@ public class ViewManagerGPS
      * @param fileName
      *        the key matching a registered GPS location
      */
-    public void renderMap(String fileName)
+    void renderMap(String fileName)
     {
         GpsLocation loc = locationMap.get(fileName);
 

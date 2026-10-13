@@ -558,29 +558,36 @@ final class UtilsJavaFX
     }
 
     /**
-     * Creates a sized {@link ImageView} for a UI icon with optional dark theme contrast adjustment.
-     *
+     * Creates a sized {@link ImageView} for a UI icon, with optional brightness adjustment for
+     * improved contrast in dark themes.
+     * 
      * @param iconName
-     *        the name of the icon resource in the {@code /icons/} classpath directory
+     *        the name of the icon resource within the {@code /gui/icons} classpath directory
      * @param size
      *        the target width and height in pixels
      * @param isDark
-     *        {@code true} to shift dark PNG pixels to white for dark themes
-     * @return an {@link ImageView} displaying the icon, or {@code null} if the resource is missing
+     *        {@code true} to brighten the icon for display against a dark background
+     * 
+     * @return an {@link ImageView} displaying the icon, or {@code null} if the resource cannot be
+     *         found
+     * 
+     * @throws IllegalArgumentException
+     *         if {@code size} is less than or equal to zero
      */
     public static ImageView createIcon(String iconName, double size, boolean isDark)
     {
-        URL url = UtilsJavaFX.class.getResource("/icons/" + iconName);
-
-        if (url == null)
-        {
-            System.err.println("Icon resource missing on classpath: /icons/" + iconName);
-            return null;
-        }
-
         if (size <= 0)
         {
             throw new IllegalArgumentException("Icon size must be greater than zero");
+        }
+
+        String iconPath = "/gui/icons/" + iconName;
+        URL url = UtilsJavaFX.class.getResource(iconPath);
+
+        if (url == null)
+        {
+            System.err.println("Icon resource missing on classpath [" + iconPath + "]");
+            return null;
         }
 
         ImageView imageView = new ImageView(new Image(url.toExternalForm()));
@@ -591,6 +598,7 @@ final class UtilsJavaFX
 
         if (isDark)
         {
+            // Brighten the icon to improve contrast against a dark background.
             ColorAdjust lighten = new ColorAdjust();
             lighten.setBrightness(1.0);
             imageView.setEffect(lighten);

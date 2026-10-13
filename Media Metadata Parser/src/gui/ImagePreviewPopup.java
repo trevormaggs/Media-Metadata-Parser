@@ -45,7 +45,7 @@ import javafx.stage.*;
  * @version 1.3
  * @since 7 September 2026
  */
-public class ImagePreviewPopup
+final class ImagePreviewPopup
 {
     private static final int MAX_CACHE_SIZE = 50;
     private final Path targetDir;
@@ -65,7 +65,7 @@ public class ImagePreviewPopup
      * @param targetDir
      *        the base {@link Path} used to resolve relative paths, or {@code null}
      */
-    public ImagePreviewPopup(Window owner, Path targetDir)
+    ImagePreviewPopup(Window owner, Path targetDir)
     {
         popupStage = new Stage();
         popupStage.initStyle(StageStyle.TRANSPARENT);
@@ -163,7 +163,7 @@ public class ImagePreviewPopup
      * previous location are no longer retained.
      * </p>
      */
-    public void clearCache()
+    void clearCache()
     {
         thumbnailCache.clear();
         imageView.setImage(null);
@@ -177,7 +177,7 @@ public class ImagePreviewPopup
      * Call this when the application is shutting down.
      * </p>
      */
-    public void dispose()
+    void dispose()
     {
         hide();
         imageLoaderExecutor.shutdownNow();
@@ -191,7 +191,7 @@ public class ImagePreviewPopup
      * The image remains available in the thumbnail cache for future previews.
      * </p>
      */
-    public void hide()
+    void hide()
     {
         if (currentThreadTask != null && !currentThreadTask.isDone())
         {
@@ -221,7 +221,7 @@ public class ImagePreviewPopup
      * @param screenY
      *        the vertical cursor position on screen
      */
-    public void showPreview(ProcessedFileRecord record, double screenX, double screenY)
+    void showPreview(ProcessedFileRecord record, double screenX, double screenY)
     {
         if (record == null || record.getTargetPath() == null)
         {

@@ -20,7 +20,7 @@ import logger.LogListener;
  * @version 1.3
  * @since 4 August 2026
  */
-public class JavaFXLogListener implements LogListener
+final class JavaFXLogListener implements LogListener
 {
     private final TextFlow logFlow;
 
@@ -33,7 +33,7 @@ public class JavaFXLogListener implements LogListener
      * @throws NullPointerException
      *         if {@code logFlow} is {@code null}
      */
-    public JavaFXLogListener(final TextFlow logFlow)
+    JavaFXLogListener(final TextFlow logFlow)
     {
         this.logFlow = Objects.requireNonNull(logFlow, "TextFlow is undefined");
     }
