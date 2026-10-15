@@ -508,7 +508,7 @@ public class IFDHandler implements ImageHandler
 
             if (safeCount != count)
             {
-                LOGGER.warn(String.format("SubIFD count tag specified %d offsets, but payload size only accommodates %d offsets", count, safeCount));
+                LOGGER.warn(String.format("SubIFD count tag specified [%d] offsets, but payload size only accommodates [%d] offsets", count, safeCount));
             }
 
             retOffset = new long[safeCount];
