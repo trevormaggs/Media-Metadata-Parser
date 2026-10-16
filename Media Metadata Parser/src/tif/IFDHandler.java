@@ -453,23 +453,22 @@ public class IFDHandler implements ImageHandler
     }
 
     /**
-     * Extracts the branched out offsets referenced by a SubIFD pointer entry.
+     * Extracts the child IFD offsets referenced by a SubIFD directory pointer entry.
      *
      * <p>
-     * According to the TIFF and DNG specifications, a {@code SubIFDs} pointer can reference either
-     * a single child directory or an array of child directory offsets. This method handles both
-     * layouts.
+     * According to the TIFF Technical Note 1, "TIFF Trees", for the {@code SubIFDs} tag, a count of
+     * one stores the child IFD offset directly in the entry's value/offset field. A count greater
+     * than one stores an offset to an array of child IFD offsets. This method handles both layouts.
      * </p>
      *
      * <p>
-     * If the payload is truncated or corrupted, any successfully decoded offsets are preserved, and
-     * a warning is logged.
+     * Invalid counts and unreadable or incomplete offset arrays are logged and handled without
+     * attempting to decode remaining offsets.
      * </p>
      *
      * @param entry
-     *        the {@link EntryIFD} containing the SubIFD pointer
-     * @return an array of absolute file offsets identifying the start of each SubIFD, or an empty
-     *         array if no valid offsets can be extracted
+     *        the {@link EntryIFD} containing the directory pointer
+     * @return an array of child IFD file offsets, or an empty array if no offsets can be extracted
      */
     private long[] resolvePointerOffsets(EntryIFD entry)
     {
