@@ -116,7 +116,7 @@ public final class MediaMetadataConsole
             else
             {
                 processor = new MediaBatchProcessor(config);
-                processor.addProgressListener(new ConsoleProgressBar());
+                //processor.addProgressListener(new ConsoleProgressBar());
                 BatchMetrics metrics = processor.execute();
 
                 if (processor.isCancelled())

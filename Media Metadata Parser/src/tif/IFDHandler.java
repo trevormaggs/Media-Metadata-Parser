@@ -22,7 +22,7 @@ import tif.tagspecs.Taggable;
 
 /**
  * This handler performs the heavy lifting of parsing TIFF-based metadata structures (Standard TIFF,
- * EXIF in JPEGs, and DNG) by interpreting Image File Directories (IFDs).
+ * EXIF in JPEGs and DNG) by interpreting Image File Directories (IFDs).
  *
  * <p>
  * It performs a deep recursive traversal of the IFD chain, following pointers to sub-directories
@@ -45,7 +45,7 @@ public class IFDHandler implements ImageHandler
     private static final int TIFF_STANDARD_VERSION = 42;
     private static final int TIFF_BIG_VERSION = 43;
     public static final int ENTRY_MAX_VALUE_LENGTH = 4;
-    private final List<DirectoryIFD> directoryList = new ArrayList<>();
+    private final List<DirectoryIFD> directoryList;
     private final BinaryInput reader;
     private boolean isTiffBig;
     private boolean isDngFormat;
@@ -59,6 +59,7 @@ public class IFDHandler implements ImageHandler
     private IFDHandler(BinaryInput reader)
     {
         this.reader = Objects.requireNonNull(reader, "Binary input reader cannot be null");
+        this.directoryList = new ArrayList<>();
     }
 
     /**
@@ -106,9 +107,9 @@ public class IFDHandler implements ImageHandler
      * Executes the parsing logic, performing a deep scan and populating the directory list.
      *
      * <p>
-     * It validates the header and traverses the IFD chain. In specific cases, for example: JPEGs
-     * where the thumbnail IFD1 appears before the primary IFD0, the handler re-orders the results
-     * to ensure the primary image metadata is consistently at index 0.
+     * It validates the header and traverses the IFD chain. In specific cases, where JPEG's
+     * thumbnail IFD1 precedes the primary IFD0, the handler re-orders the results to ensure
+     * the primary image metadata is consistently at index 0.
      * </p>
      *
      * <p>
@@ -138,11 +139,13 @@ public class IFDHandler implements ImageHandler
                     DirectoryIFD first = directoryList.get(0);
                     DirectoryIFD second = directoryList.get(1);
 
-                    // Handle thumbnail swapping logic safely when multiple directories exist
                     if (first.getDirectoryType().isMainChain() && second.getDirectoryType().isMainChain())
                     {
-                        boolean hasThumbnailTag = first.hasTag(TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT)
-                                || first.hasTag(TagIFD_Baseline.IFD_NEW_SUBFILE_TYPE);
+                        /*
+                         * Sometimes, IFD1 structure marked as IFD0 comes before the real IFD0
+                         * structure, therefore both need to be swapped for consistency.
+                         */
+                        boolean hasThumbnailTag = first.hasTag(TagIFD_Baseline.IFD_JPEG_INTERCHANGE_FORMAT) || first.hasTag(TagIFD_Baseline.IFD_NEW_SUBFILE_TYPE);
 
                         if (hasThumbnailTag && first.getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
                         {
@@ -155,7 +158,7 @@ public class IFDHandler implements ImageHandler
                     }
                 }
 
-                // Primary Image Directory (IFD0) must exist at index 0
+                /* At all times, primary Image Directory (IFD0) must exist at index 0 */
                 if (!directoryList.isEmpty() && directoryList.get(0).getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
                 {
                     return true;
@@ -175,8 +178,8 @@ public class IFDHandler implements ImageHandler
             LOGGER.error("Low-level I/O error or premature EOF encountered while parsing IFD structural bytes", exc);
         }
 
-        directoryList.clear();
         isDngFormat = false;
+        directoryList.clear();
 
         return false;
     }
@@ -201,7 +204,7 @@ public class IFDHandler implements ImageHandler
     }
 
     /**
-     * Returns the list of IFD directories that were successfully parsed.
+     * Returns the list of successfully parsed IFD directories.
      *
      * @return an unmodifiable {@link List} of all parsed {@link DirectoryIFD} structures
      */
@@ -241,7 +244,7 @@ public class IFDHandler implements ImageHandler
     }
 
     /**
-     * Identifies byte order, TIFF version, and returns the initial IFD offset.
+     * Captures byte order, TIFF version, and returns the initial IFD offset.
      *
      * <p>
      * <strong>Requirement:</strong> The stream must be positioned at the TIFF magic bytes. Any
@@ -337,7 +340,6 @@ public class IFDHandler implements ImageHandler
         /* Process all 12-byte entries in this IFD sequentially */
         for (int i = 0; i < entryCount; i++)
         {
-            byte[] data;
             int tagID = reader.readUnsignedShort();
             Taggable tagEnum = TagRegistry.resolve(tagID, dirType);
             TifFieldType fieldType = TifFieldType.getTiffType(reader.readUnsignedShort());
@@ -368,18 +370,13 @@ public class IFDHandler implements ImageHandler
                     continue;
                 }
 
-                data = reader.peek(valueOrOffset, (int) totalBytes);
-            }
-
-            else
-            {
-                data = valueBytes;
+                valueBytes = reader.peek(valueOrOffset, (int) totalBytes);
             }
 
             /* Make sure the tag ID is known and defined in TIF Specification 6.0 */
             if (TifFieldType.dataTypeinRange(fieldType.getDataType()))
             {
-                ifd.add(new EntryIFD(tagEnum, fieldType, count, valueOrOffset, data, getTifByteOrder()));
+                ifd.add(new EntryIFD(tagEnum, fieldType, count, valueOrOffset, valueBytes, getTifByteOrder()));
             }
         }
 

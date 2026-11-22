@@ -32,6 +32,9 @@ import tif.DirectoryIFD;
 import tif.TifMetadata;
 import tif.TifMetadataProvider;
 import tif.TifParser;
+import tif.tagspecs.MakerNoteDispatcher;
+import tif.tagspecs.TagIFD_Baseline;
+import tif.tagspecs.TagIFD_Exif;
 import tif.tagspecs.Taggable;
 import util.SystemInfo;
 import xmp.XmpDirectory;
@@ -59,7 +62,6 @@ public final class MetadataInspector
             ChunkType.IHDR, ChunkType.gAMA, ChunkType.sRGB, ChunkType.pHYs,
             ChunkType.tEXt, ChunkType.zTXt, ChunkType.iTXt, ChunkType.eXIf,
             ChunkType.tIME, ChunkType.iCCP, ChunkType.cHRM, ChunkType.sBIT);
-
     private final BatchConfiguration config;
     private final MetadataScanner scanner;
     private final List<ProgressListener> progressListeners;
@@ -333,6 +335,8 @@ public final class MetadataInspector
         {
             String groupName = ifd.getDirectoryType().getDescription();
 
+            System.out.printf("LOOK: %s\n", groupName);
+
             for (DirectoryIFD.EntryIFD entry : ifd)
             {
                 Taggable tag = entry.getTag();
@@ -431,5 +435,88 @@ public final class MetadataInspector
         {
             throw new BatchErrorException(exc);
         }
+    }
+
+    /**
+     * Iterates through a collection of IFD directories and emits events for all valid metadata
+     * tags, including routing and unpacking manufacturer-specific MakerNotes when emulating full
+     * extraction.
+     *
+     * @param directories
+     *        an iterable collection of IFD directories containing metadata tag entries
+     * @param record
+     *        the media record associated with the IFD entries
+     */
+    private void processDirectoriesIFD2(Iterable<DirectoryIFD> directories, MediaRecord record)
+    {
+        // 1. Resolve the camera Make from IFD0 for vendor dispatching
+        String cameraMake = resolveCameraMake(directories);
+
+        for (DirectoryIFD ifd : directories)
+        {
+            for (DirectoryIFD.EntryIFD entry : ifd)
+            {
+                Taggable tag = entry.getTag();
+
+                if (tag != null)
+                {
+                    int tagID = tag.getNumberID();
+                    String name = tag.getDescription();
+
+                    if (tagID == TagIFD_Exif.EXIF_MAKER_NOTE.getNumberID() && ifd.getDirectoryType() == tif.DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY)
+                    {
+                        byte[] makerNoteBytes = entry.getByteArray();
+
+                        if (makerNoteBytes != null && makerNoteBytes.length > 0)
+                        {
+                            // 3. Dispatch raw bytes to the manufacturer-specific parser
+                            List<tif.tagspecs.MakerNoteDispatcher.ParsedMakerNoteEntry> decodedNotes = MakerNoteDispatcher.parse(cameraMake, makerNoteBytes);
+
+                            if (decodedNotes != null && !decodedNotes.isEmpty())
+                            {
+                                for (MakerNoteDispatcher.ParsedMakerNoteEntry note : decodedNotes)
+                                {
+                                    MetadataInspectionEvent event = new MetadataInspectionEvent(record, note.getGroupName(), note.getPropertyName(), note.getPropertyValue());
+                                    emitMetadataEvent(event);
+                                }
+
+                                continue;
+                            }
+                        }
+                    }
+
+                    String value = tag.translate(entry.getData());
+
+                    if (!value.isEmpty())
+                    {
+                        MetadataInspectionEvent event = new MetadataInspectionEvent(record, ifd.getDirectoryType().getDescription(), name, value);
+                        emitMetadataEvent(event);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Helper utility to locate IFD0 and extract the camera Make string for MakerNote routing.
+     */
+    private String resolveCameraMake(Iterable<DirectoryIFD> directories)
+    {
+        for (DirectoryIFD ifd : directories)
+        {
+            if (ifd.getDirectoryType() == tif.DirectoryIdentifier.IFD_DIRECTORY_IFD0)
+            {
+                for (DirectoryIFD.EntryIFD entry : ifd)
+                {
+                    if (entry.getTag() != null && entry.getTag().getNumberID() == TagIFD_Baseline.IFD_MAKE.getNumberID())
+                    {
+                        String make = entry.getTag().translate(entry.getData());
+                        return (make != null ? make.trim() : "");
+                    }
+                }
+            }
+        }
+        
+        return "";
     }
 }
