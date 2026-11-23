@@ -29,10 +29,12 @@ import png.PngMetadataProvider;
 import png.PngParser;
 import progressbar.ProgressListener;
 import tif.DirectoryIFD;
+import tif.DirectoryIFD.EntryIFD;
+import tif.DirectoryIdentifier;
 import tif.TifMetadata;
 import tif.TifMetadataProvider;
 import tif.TifParser;
-import tif.tagspecs.MakerNoteDispatcher;
+import tif.tagspecs.MakerNoteRegistry;
 import tif.tagspecs.TagIFD_Baseline;
 import tif.tagspecs.TagIFD_Exif;
 import tif.tagspecs.Taggable;
@@ -335,9 +337,7 @@ public final class MetadataInspector
         {
             String groupName = ifd.getDirectoryType().getDescription();
 
-            System.out.printf("LOOK: %s\n", groupName);
-
-            for (DirectoryIFD.EntryIFD entry : ifd)
+            for (EntryIFD entry : ifd)
             {
                 Taggable tag = entry.getTag();
 
@@ -348,6 +348,62 @@ public final class MetadataInspector
 
                     if (!value.isEmpty())
                     {
+                        MetadataInspectionEvent event = new MetadataInspectionEvent(record, groupName, name, value);
+                        emitMetadataEvent(event);
+                    }
+                }
+            }
+        }
+    }
+
+    private void processDirectoriesIFD2(TifMetadataProvider tif, MediaRecord record)
+    {
+        String cameraMake = "";
+
+        for (DirectoryIFD ifd : tif)
+        {
+            DirectoryIdentifier dirType = ifd.getDirectoryType();
+
+            for (EntryIFD entry : ifd)
+            {
+                Taggable tag = entry.getTag();
+
+                if (tag != null)
+                {
+                    // 1. Capture camera make from IFD0
+                    if (dirType == DirectoryIdentifier.IFD_DIRECTORY_IFD0 && tag == TagIFD_Baseline.IFD_MAKE)
+                    {
+                        EntryIFD makeEntry = ifd.getTagEntry(TagIFD_Baseline.IFD_MAKE);
+                        
+                        if (makeEntry != null && makeEntry.getData() != null)
+                        {
+                            cameraMake = makeEntry.getData().toString();
+                        }
+                    }
+
+                    // 2. Delegate MakerNote processing polymorphically
+                    else if (dirType == DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY && tag == TagIFD_Exif.EXIF_MAKER_NOTE)
+                    {
+                        List<MetadataInspectionEvent> makerEvents = MakerNoteRegistry.process(cameraMake, entry, record);
+                        
+                        if (makerEvents != null)
+                        {
+                            for (MetadataInspectionEvent event : makerEvents)
+                            {
+                                emitMetadataEvent(event);
+                            }
+                        }
+                        
+                        continue;
+                    }
+
+                    // 3. Standard tag processing for everything else
+                    String name = tag.getDescription();
+                    String value = tag.translate(entry.getData());
+
+                    if (!value.isEmpty())
+                    {
+                        String groupName = ifd.getDirectoryType().getDescription();
                         MetadataInspectionEvent event = new MetadataInspectionEvent(record, groupName, name, value);
                         emitMetadataEvent(event);
                     }
@@ -435,88 +491,5 @@ public final class MetadataInspector
         {
             throw new BatchErrorException(exc);
         }
-    }
-
-    /**
-     * Iterates through a collection of IFD directories and emits events for all valid metadata
-     * tags, including routing and unpacking manufacturer-specific MakerNotes when emulating full
-     * extraction.
-     *
-     * @param directories
-     *        an iterable collection of IFD directories containing metadata tag entries
-     * @param record
-     *        the media record associated with the IFD entries
-     */
-    private void processDirectoriesIFD2(Iterable<DirectoryIFD> directories, MediaRecord record)
-    {
-        // 1. Resolve the camera Make from IFD0 for vendor dispatching
-        String cameraMake = resolveCameraMake(directories);
-
-        for (DirectoryIFD ifd : directories)
-        {
-            for (DirectoryIFD.EntryIFD entry : ifd)
-            {
-                Taggable tag = entry.getTag();
-
-                if (tag != null)
-                {
-                    int tagID = tag.getNumberID();
-                    String name = tag.getDescription();
-
-                    if (tagID == TagIFD_Exif.EXIF_MAKER_NOTE.getNumberID() && ifd.getDirectoryType() == tif.DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY)
-                    {
-                        byte[] makerNoteBytes = entry.getByteArray();
-
-                        if (makerNoteBytes != null && makerNoteBytes.length > 0)
-                        {
-                            // 3. Dispatch raw bytes to the manufacturer-specific parser
-                            List<tif.tagspecs.MakerNoteDispatcher.ParsedMakerNoteEntry> decodedNotes = MakerNoteDispatcher.parse(cameraMake, makerNoteBytes);
-
-                            if (decodedNotes != null && !decodedNotes.isEmpty())
-                            {
-                                for (MakerNoteDispatcher.ParsedMakerNoteEntry note : decodedNotes)
-                                {
-                                    MetadataInspectionEvent event = new MetadataInspectionEvent(record, note.getGroupName(), note.getPropertyName(), note.getPropertyValue());
-                                    emitMetadataEvent(event);
-                                }
-
-                                continue;
-                            }
-                        }
-                    }
-
-                    String value = tag.translate(entry.getData());
-
-                    if (!value.isEmpty())
-                    {
-                        MetadataInspectionEvent event = new MetadataInspectionEvent(record, ifd.getDirectoryType().getDescription(), name, value);
-                        emitMetadataEvent(event);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Helper utility to locate IFD0 and extract the camera Make string for MakerNote routing.
-     */
-    private String resolveCameraMake(Iterable<DirectoryIFD> directories)
-    {
-        for (DirectoryIFD ifd : directories)
-        {
-            if (ifd.getDirectoryType() == tif.DirectoryIdentifier.IFD_DIRECTORY_IFD0)
-            {
-                for (DirectoryIFD.EntryIFD entry : ifd)
-                {
-                    if (entry.getTag() != null && entry.getTag().getNumberID() == TagIFD_Baseline.IFD_MAKE.getNumberID())
-                    {
-                        String make = entry.getTag().translate(entry.getData());
-                        return (make != null ? make.trim() : "");
-                    }
-                }
-            }
-        }
-        
-        return "";
     }
 }

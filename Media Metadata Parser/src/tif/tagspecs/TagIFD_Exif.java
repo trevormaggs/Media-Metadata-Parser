@@ -943,13 +943,13 @@ public enum TagIFD_Exif implements Taggable
 
     /**
      * Translates the EXIF LensSpecification tag into a human-readable lens description.
-     * *
+     * 
      * <p>
      * The value is expected to contain four {@link RationalNumber} elements representing the
      * minimum and maximum focal lengths followed by the minimum F-numbers (maximum apertures)
      * at those focal lengths.
      * </p>
-     * *
+     * 
      * <p>
      * Examples: {@code 24-70mm f/2.8}, {@code 18-55mm f/3.5-5.6}, {@code 50mm f/1.4}
      * </p>
