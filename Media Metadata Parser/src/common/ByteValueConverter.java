@@ -769,6 +769,12 @@ public final class ByteValueConverter
 
         return result;
     }
+    
+    @Deprecated
+    public static RationalNumber[] toRationalArray(byte[] data, ByteOrder order, RationalNumber.DataType type)
+    {
+        return toRationalArray(data, 0, order, type);
+    }
 
     /**
      * Converts a byte array into an array of {@link RationalNumber} objects, interpreting each
@@ -1216,12 +1222,6 @@ public final class ByteValueConverter
         }
 
         return result.toArray(new String[0]);
-    }
-
-    @Deprecated
-    public static RationalNumber[] toRationalArray(byte[] data, ByteOrder order, RationalNumber.DataType type)
-    {
-        return toRationalArray(data, 0, order, type);
     }
 
     // TODO: Maybe add public static long[] toUnsignedIntegerArray(byte[] data, int offset,

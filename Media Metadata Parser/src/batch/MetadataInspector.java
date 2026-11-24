@@ -331,7 +331,7 @@ public final class MetadataInspector
      * @param record
      *        the media record associated with the IFD entries
      */
-    private void processDirectoriesIFD(Iterable<DirectoryIFD> directories, MediaRecord record)
+    private void processDirectoriesIFD2(Iterable<DirectoryIFD> directories, MediaRecord record)
     {
         for (DirectoryIFD ifd : directories)
         {
@@ -356,9 +356,24 @@ public final class MetadataInspector
         }
     }
 
-    private void processDirectoriesIFD2(TifMetadataProvider tif, MediaRecord record)
+    private void processDirectoriesIFD(TifMetadataProvider tif, MediaRecord record)
     {
         String cameraMake = "";
+
+        for (DirectoryIFD ifd : tif)
+        {
+            if (ifd.getDirectoryType() == DirectoryIdentifier.IFD_DIRECTORY_IFD0)
+            {
+                EntryIFD makeEntry = ifd.getTagEntry(TagIFD_Baseline.IFD_MAKE);
+
+                if (makeEntry != null && makeEntry.getData() != null)
+                {
+                    cameraMake = makeEntry.getData().toString().trim();
+                }
+
+                break;
+            }
+        }
 
         for (DirectoryIFD ifd : tif)
         {
@@ -370,22 +385,12 @@ public final class MetadataInspector
 
                 if (tag != null)
                 {
-                    // 1. Capture camera make from IFD0
-                    if (dirType == DirectoryIdentifier.IFD_DIRECTORY_IFD0 && tag == TagIFD_Baseline.IFD_MAKE)
-                    {
-                        EntryIFD makeEntry = ifd.getTagEntry(TagIFD_Baseline.IFD_MAKE);
-                        
-                        if (makeEntry != null && makeEntry.getData() != null)
-                        {
-                            cameraMake = makeEntry.getData().toString();
-                        }
-                    }
-
-                    // 2. Delegate MakerNote processing polymorphically
-                    else if (dirType == DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY && tag == TagIFD_Exif.EXIF_MAKER_NOTE)
+                    // Delegate MakerNote processing polymorphically with cameraMake already
+                    // populated
+                    if (dirType == DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY && tag == TagIFD_Exif.EXIF_MAKER_NOTE)
                     {
                         List<MetadataInspectionEvent> makerEvents = MakerNoteRegistry.process(cameraMake, entry, record);
-                        
+
                         if (makerEvents != null)
                         {
                             for (MetadataInspectionEvent event : makerEvents)
@@ -393,11 +398,10 @@ public final class MetadataInspector
                                 emitMetadataEvent(event);
                             }
                         }
-                        
+
                         continue;
                     }
 
-                    // 3. Standard tag processing for everything else
                     String name = tag.getDescription();
                     String value = tag.translate(entry.getData());
 
