@@ -98,8 +98,7 @@ public class RationalNumber extends Number
      */
     public RationalNumber(int num, int div, DataType type)
     {
-        this(type == DataType.UNSIGNED ? (num & 0xFFFFFFFFL) : num,
-                type == DataType.UNSIGNED ? (div & 0xFFFFFFFFL) : div, type, true);
+        this(type == DataType.UNSIGNED ? (num & 0xFFFFFFFFL) : num, type == DataType.UNSIGNED ? (div & 0xFFFFFFFFL) : div, type, true);
     }
 
     /**

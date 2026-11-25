@@ -14,9 +14,9 @@ import common.binary.ByteArrayReader;
 import tif.DirectoryIFD.EntryIFD;
 import tif.IFDHandler;
 import tif.TifFieldType;
-import tif.CameraVendor;
+import tif.CameraMarkerNote;
 
-public class AppleMakerNoteTest extends CameraVendor
+public class AppleMakerNoteTest extends CameraMarkerNote
 {
     private static final byte[] APPLE_IOS_IDENTIFIER = "Apple iOS\0".getBytes(StandardCharsets.UTF_8);
     private static final int PREAMBLE_LENGTH = 12; // 10 bytes signature + 2 bytes version/padding

@@ -6,15 +6,15 @@ import java.util.List;
 import batch.MediaRecord;
 import batch.MetadataInspectionEvent;
 import tif.DirectoryIFD.EntryIFD;
-import tif.CameraVendor;
+import tif.CameraMarkerNote;
 
 public final class MakerNoteRegistry
 {
-    private static final List<CameraVendor> VENDOR_PARSERS;
+    private static final List<CameraMarkerNote> VENDOR_PARSERS;
 
     static
     {
-        List<CameraVendor> parsers = new ArrayList<>();
+        List<CameraMarkerNote> parsers = new ArrayList<>();
         
         // Clean polymorphic instantiation
         parsers.add(new AppleMakerNote());
@@ -34,7 +34,7 @@ public final class MakerNoteRegistry
             return Collections.emptyList();
         }
 
-        for (CameraVendor parser : VENDOR_PARSERS)
+        for (CameraMarkerNote parser : VENDOR_PARSERS)
         {
             if (parser.supportsMake(cameraMake))
             {

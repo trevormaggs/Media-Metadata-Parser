@@ -12,9 +12,11 @@ import common.ByteValueConverter;
 import common.binary.ByteArrayReader;
 import tif.DirectoryIFD.EntryIFD;
 import tif.TifFieldType;
-import tif.CameraVendor;
+import tif.CameraMarkerNote;
+import tif.IFDHandler;
+import tif.RationalNumber;
 
-public class AppleMakerNote extends CameraVendor
+public class AppleMakerNote extends CameraMarkerNote
 {
     private static final byte[] APPLE_IOS_IDENTIFIER = "Apple iOS\0".getBytes(StandardCharsets.UTF_8);
     private static final int PREAMBLE_LENGTH = 12; // 10 bytes signature + 2 bytes version/padding
@@ -90,9 +92,8 @@ public class AppleMakerNote extends CameraVendor
             return Collections.emptyList();
         }
 
-        try (ByteArrayReader reader = new ByteArrayReader(rawBytes))
+        try (ByteArrayReader reader = new ByteArrayReader(rawBytes, ByteOrder.BIG_ENDIAN))
         {
-            reader.setByteOrder(ByteOrder.BIG_ENDIAN);
             reader.seek(headerLength);
 
             int entryCount = reader.readUnsignedShort();
@@ -108,8 +109,41 @@ public class AppleMakerNote extends CameraVendor
                     long count = reader.readUnsignedInteger();
                     byte[] valueBytes = reader.readBytes(4);
                     long valueOrOffset = ByteValueConverter.toUnsignedInteger(valueBytes, reader.getByteOrder());
-                    // String tagName = lookupTagName(tagId);
+                    long totalBytes = count * fieldType.getFieldSize();
+                    String tagName = lookupTagName(tagId);
 
+                    if (tagName == null)
+                    {
+                        // System.out.format("Apple_0x%04X%n", tagId);
+
+                        continue;
+                    }
+
+                    byte[] block = translateTagValue(reader, rawBytes, fieldType, totalBytes, valueOrOffset);
+
+                    if (fieldType == TifFieldType.TYPE_ASCII)
+                    {
+                        str = new String(ByteValueConverter.readNullTerminatedString(block, 0, StandardCharsets.UTF_8));
+                        System.out.printf("0x%03X\t%s =\t\t%s\n", tagId, tagName, str);
+                    }
+
+                    else if (fieldType == TifFieldType.TYPE_RATIONAL_S)
+                    {
+                        StringBuilder sb = new StringBuilder();
+                        RationalNumber[] arr = ByteValueConverter.toRationalArray(block, reader.getByteOrder(), RationalNumber.DataType.SIGNED);
+
+                        for (int j = 0; j < arr.length; j++)
+                        {
+                            if (j > 0)
+                            {
+                                sb.append(", "); 
+                            }
+                            
+                            sb.append(arr[j].toString());
+                        }
+                        
+                        System.out.printf("LOOK: %s     \n", sb);
+                    }
                 }
             }
         }
@@ -120,5 +154,154 @@ public class AppleMakerNote extends CameraVendor
         }
 
         return events;
+    }
+
+    private byte[] translateTagValue(ByteArrayReader reader, byte[] rawBytes, TifFieldType fieldType, long totalBytes, long valueOrOffset)
+    {
+        /*
+         * If totalBytes is within the first 4 bytes, the data
+         * is stored inline inside the valueOrOffset field.
+         */
+        if (totalBytes <= IFDHandler.ENTRY_MAX_VALUE_LENGTH)
+        {
+            return rawBytes;
+        }
+
+        /*
+         * In this case, valueOrOffset is an absolute offset relative
+         * to 0x00 ("Apple iOS\0") outside the current 12 byte block.
+         */
+        if (valueOrOffset >= 0 && (valueOrOffset + totalBytes) <= rawBytes.length)
+        {
+            byte[] block = reader.peek(valueOrOffset, (int) totalBytes);
+
+            return block;
+        }
+
+        return new byte[0];
+    }
+
+    private String lookupTagName(int tagId)
+    {
+        switch (tagId)
+        {
+            case 0x0001:
+                return "MakerNoteVersion";
+
+            case 0x0002:
+                return "AEMatrix";
+
+            case 0x0003:
+                return "RunTime";
+
+            case 0x0004:
+                return "AEStable";
+
+            case 0x0005:
+                return "AETarget";
+
+            case 0x0006:
+                return "AEAverage";
+
+            case 0x0007:
+                return "AFStable";
+
+            case 0x0008:
+                return "AccelerationVector";
+
+            case 0x000A:
+                return "HDRImageType";
+
+            case 0x000B:
+                return "BurstUUID";
+
+            case 0x000C:
+                return "FocusDistanceRange";
+
+            case 0x000F:
+                return "OISMode";
+
+            case 0x0011:
+                return "ContentIdentifier";
+
+            case 0x0014:
+                return "ImageCaptureType";
+
+            case 0x0015:
+                return "ImageUniqueID";
+
+            case 0x0017:
+                return "LivePhotoVideoIndex";
+
+            case 0x0019:
+                return "ImageProcessingFlags";
+
+            case 0x001A:
+                return "QualityHint";
+
+            case 0x001D:
+                return "LuminanceNoiseAmplitude";
+
+            case 0x001F:
+                return "PhotosAppFeatureFlags";
+
+            case 0x0020:
+                return "ImageCaptureRequestID";
+
+            case 0x0021:
+                return "HDRHeadroom";
+
+            case 0x0023:
+                return "AFPerformance";
+
+            case 0x0025:
+                return "SceneFlags";
+
+            case 0x0026:
+                return "SignalToNoiseRatioType";
+
+            case 0x0027:
+                return "SignalToNoiseRatio";
+
+            case 0x002B:
+                return "PhotoIdentifier";
+
+            case 0x002D:
+                return "ColorTemperature";
+
+            case 0x002E:
+                return "CameraType";
+
+            case 0x002F:
+                return "FocusPosition";
+
+            case 0x0030:
+                return "HDRGain";
+
+            case 0x0038:
+                return "AFMeasuredDepth";
+
+            case 0x003D:
+                return "AFConfidence";
+
+            case 0x003E:
+                return "ColorCorrectionMatrix";
+
+            case 0x003F:
+                return "GreenGhostMitigationStatus";
+
+            case 0x0040:
+                return "SemanticStyle";
+
+            case 0x0041:
+                return "SemanticStyleRenderingVer";
+
+            case 0x0042:
+                return "SemanticStylePreset";
+
+            default:
+                // return String.format("Apple_0x%04X", tagId);
+                return null;
+        }
     }
 }

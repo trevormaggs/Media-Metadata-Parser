@@ -49,14 +49,14 @@ public class ByteConverterBenchmark
         }
         long durationOriginalScalar = System.nanoTime() - startOriginalScalar;
 
-        long startBB際のScalar = System.nanoTime();
+        long startBBScalar = System.nanoTime();
         int dummy2 = 0;
         for (int i = 0; i < BENCHMARK_ITERATIONS; i++)
         {
             int offset = (i % 600);
             dummy2 += ByteValueConverterBB.toInteger(data, offset, order);
         }
-        long durationBBScalar = System.nanoTime() - startBB際のScalar;
+        long durationBBScalar = System.nanoTime() - startBBScalar;
 
         // ==========================================
         // TEST 2: Array Parsing (toIntegerArray)

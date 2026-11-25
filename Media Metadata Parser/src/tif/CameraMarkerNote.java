@@ -5,7 +5,7 @@ import batch.MediaRecord;
 import batch.MetadataInspectionEvent;
 import tif.DirectoryIFD.EntryIFD;
 
-public abstract class CameraVendor
+public abstract class CameraMarkerNote
 {
     /**
      * Determines whether this parser supports the given camera make string.
