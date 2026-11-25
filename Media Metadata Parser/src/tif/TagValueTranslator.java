@@ -856,8 +856,7 @@ public final class TagValueTranslator
                      */
                     double value = r.doubleValue();
                     double reciprocal = (value > 0.0 ? 1.0 / value : 0.0);
-                    boolean flip = (value > 0.0 && value < 1.0
-                            && Math.abs(reciprocal - Math.rint(reciprocal)) < 0.0001);
+                    boolean flip = (value > 0.0 && value < 1.0 && Math.abs(reciprocal - Math.rint(reciprocal)) < 0.0001);
 
                     if (flip)
                     {
