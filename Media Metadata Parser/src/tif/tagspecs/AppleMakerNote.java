@@ -11,12 +11,10 @@ import batch.MetadataInspectionEvent;
 import common.ByteValueConverter;
 import common.binary.ByteArrayReader;
 import tif.DirectoryIFD.EntryIFD;
-import tif.IFDHandler;
-import tif.RationalNumber;
 import tif.TifFieldType;
-import tif.VendorMakerNote;
+import tif.CameraVendor;
 
-public class AppleMakerNote extends VendorMakerNote
+public class AppleMakerNote extends CameraVendor
 {
     private static final byte[] APPLE_IOS_IDENTIFIER = "Apple iOS\0".getBytes(StandardCharsets.UTF_8);
     private static final int PREAMBLE_LENGTH = 12; // 10 bytes signature + 2 bytes version/padding
@@ -27,10 +25,58 @@ public class AppleMakerNote extends VendorMakerNote
         return (cameraMake != null && cameraMake.toLowerCase().contains("apple"));
     }
 
-    // Skip the 10-byte signature, 2-byte version padding, and 2-byte 'MM' marker (reaches
-    // offset 0x0E)
-    // Apple MakerNotes enforce Big-Endian byte ordering
-    // Read the Entry Count at offset 0x0E
+    /**
+     * Parses Apple iOS MakerNote proprietary binary structure from a DNG/TIFF file container.
+     * 
+     * <p>
+     * <strong>Apple MakerNote Binary Layout:</strong>
+     * </p>
+     * 
+     * <table border="1" cellpadding="4" cellspacing="0">
+     * <caption>Apple MakerNote Binary Layout</caption>
+     * <thead>
+     * <tr>
+     * <th>Offset / Range</th>
+     * <th>Size</th>
+     * <th>Description</th>
+     * </tr>
+     * </thead>
+     * <tbody>
+     * <tr>
+     * <td>Bytes 0–9</td>
+     * <td>10 bytes</td>
+     * <td>Preamble signature string {@code "Apple iOS\0"}</td>
+     * </tr>
+     * <tr>
+     * <td>Bytes 10–11</td>
+     * <td>2 bytes</td>
+     * <td>Version padding / alignment bytes</td>
+     * </tr>
+     * <tr>
+     * <td>Bytes 12–13</td>
+     * <td>2 bytes</td>
+     * <td>Byte order marker {@code 'MM'} (Big-Endian motorola byte ordering)</td>
+     * </tr>
+     * <tr>
+     * <td>Offset 0x0E (14)</td>
+     * <td>2 bytes</td>
+     * <td>Entry Count (unsigned short specifying total IFD attributes)</td>
+     * </tr>
+     * <tr>
+     * <td>Offset 0x10 onward</td>
+     * <td>Variable</td>
+     * <td>Flat 12-byte IFD entry blocks (Tag ID, Field Type, Count, Value/Offset). Out-of-line data
+     * offsets are absolute relative to the start of the MakerNote buffer ({@code 0x00}).</td>
+     * </tr>
+     * </tbody>
+     * </table>
+     *
+     * @param entry
+     *        the TIFF IFD entry that encapsulates the raw Apple MakerNote byte array to be unpacked
+     * @param record
+     *        the target media record associated with the inspection batch
+     * @return a list of extracted {@link MetadataInspectionEvent} items
+     */
     @Override
     public List<MetadataInspectionEvent> processMakerNote(EntryIFD entry, MediaRecord record)
     {
@@ -62,17 +108,8 @@ public class AppleMakerNote extends VendorMakerNote
                     long count = reader.readUnsignedInteger();
                     byte[] valueBytes = reader.readBytes(4);
                     long valueOrOffset = ByteValueConverter.toUnsignedInteger(valueBytes, reader.getByteOrder());
-                    String tagName = lookupTagName(tagId);
+                    // String tagName = lookupTagName(tagId);
 
-                    if (tagName != null)
-                    {
-                        str = resolveTagValue(reader, rawBytes, fieldType, count, valueOrOffset);
-
-                        if (str != null && !str.isEmpty())
-                        {
-                            events.add(new MetadataInspectionEvent(record, "Apple", tagName, str));
-                        }
-                    }
                 }
             }
         }
@@ -83,101 +120,5 @@ public class AppleMakerNote extends VendorMakerNote
         }
 
         return events;
-    }
-
-    private String resolveTagValue(ByteArrayReader reader, byte[] rawBytes, TifFieldType fieldType, long count, long valueOrOffset)
-    {
-        long totalBytes = count * fieldType.getFieldSize();
-
-        /*
-         * If totalBytes is within the first 4 bytes, the data
-         * is stored inline inside the valueOrOffset field.
-         */
-        if (totalBytes <= IFDHandler.ENTRY_MAX_VALUE_LENGTH)
-        {
-            return String.valueOf(valueOrOffset);
-        }
-
-        /*
-         * In this case, valueOrOffset is an absolute offset relative
-         * to 0x00 ("Apple iOS\0") outside the current 12 byte block.
-         */
-        else if (valueOrOffset >= 0 && (valueOrOffset + totalBytes) <= rawBytes.length)
-        {
-            try
-            {
-                byte[] block = reader.peek(valueOrOffset, (int) totalBytes);
-
-                if (fieldType == TifFieldType.TYPE_ASCII)
-                {
-                    return new String(ByteValueConverter.readNullTerminatedString(block, 0, StandardCharsets.UTF_8));
-                }
-
-                else if (fieldType == TifFieldType.TYPE_RATIONAL_S)
-                {
-                    RationalNumber[] arr = ByteValueConverter.toRationalArray(block, reader.getByteOrder(), RationalNumber.DataType.SIGNED);
-                    System.out.printf("LOOK: %s\n", Arrays.toString(arr));
-                }
-
-                else
-                {
-                    return String.format("Binary Data (%d bytes at offset 0x%04X)", totalBytes, valueOrOffset);
-                }
-            }
-
-            catch (Exception exc)
-            {
-                // Fallback on read error
-            }
-        }
-
-        else
-        {
-            // TODO: consider returning some error code?
-        }
-
-        return null;
-    }
-
-    private String lookupTagName(int tagId)
-    {
-        switch (tagId)
-        {
-            case 0x0001:
-                return "MakerNote Version";
-
-            case 0x0003:
-                return "Run Time";
-
-            case 0x0008:
-                return "Acceleration Vector";
-
-            case 0x000A:
-                return "HDR Image Type";
-
-            case 0x000B:
-                return "Burst UUID";
-
-            case 0x0011:
-                return "Content Identifier";
-
-            case 0x0014:
-                return "Image Capture Type";
-
-            case 0x0017:
-                return "Live Photo Video Index";
-
-            case 0x002E:
-                return "Camera Type";
-
-            case 0x0038:
-                return "AF Measured Depth";
-
-            case 0x0063:
-                return "Reference Image Flag";
-
-            default:
-                return null;
-        }
     }
 }

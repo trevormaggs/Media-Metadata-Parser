@@ -769,8 +769,28 @@ public final class ByteValueConverter
 
         return result;
     }
-    
-    @Deprecated
+
+    /**
+     * Converts a byte array into an array of {@link RationalNumber} objects, interpreting each
+     * 8-byte segment as a numerator-denominator pair starting at offset 0.
+     * 
+     * @param data
+     *        the input byte array
+     * @param order
+     *        the byte order for interpreting the input bytes, using either
+     *        {@code ByteOrder.BIG_ENDIAN} or {@code ByteOrder.LITTLE_ENDIAN}
+     * @param type
+     *        whether the numerator and denominator values should be interpreted as signed or
+     *        unsigned
+     * @return an array of decoded {@link RationalNumber} objects
+     *
+     * @throws NullPointerException
+     *         if the input byte array, byte order, or rational data type is {@code null}
+     * @throws IndexOutOfBoundsException
+     *         if the offset is out of bounds
+     * @throws IllegalArgumentException
+     *         if the remaining byte count after the offset is not a multiple of 8
+     */
     public static RationalNumber[] toRationalArray(byte[] data, ByteOrder order, RationalNumber.DataType type)
     {
         return toRationalArray(data, 0, order, type);
