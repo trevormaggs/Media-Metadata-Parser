@@ -103,47 +103,16 @@ public class AppleMakerNote extends CameraMarkerNote
             {
                 if (reader.remaining() >= 12)
                 {
-                    String str = null;
+                    String[] infoPair = null;
                     int tagId = reader.readUnsignedShort();
                     TifFieldType fieldType = TifFieldType.getTiffType(reader.readUnsignedShort());
                     long count = reader.readUnsignedInteger();
                     byte[] valueBytes = reader.readBytes(4);
                     long valueOrOffset = ByteValueConverter.toUnsignedInteger(valueBytes, reader.getByteOrder());
                     long totalBytes = count * fieldType.getFieldSize();
-                    String tagName = lookupTagName(tagId);
 
-                    if (tagName == null)
-                    {
-                        // System.out.format("Apple_0x%04X%n", tagId);
-
-                        continue;
-                    }
-
-                    byte[] block = translateTagValue(reader, rawBytes, fieldType, totalBytes, valueOrOffset);
-
-                    if (fieldType == TifFieldType.TYPE_ASCII)
-                    {
-                        str = new String(ByteValueConverter.readNullTerminatedString(block, 0, StandardCharsets.UTF_8));
-                        System.out.printf("0x%03X\t%s =\t\t%s\n", tagId, tagName, str);
-                    }
-
-                    else if (fieldType == TifFieldType.TYPE_RATIONAL_S)
-                    {
-                        StringBuilder sb = new StringBuilder();
-                        RationalNumber[] arr = ByteValueConverter.toRationalArray(block, reader.getByteOrder(), RationalNumber.DataType.SIGNED);
-
-                        for (int j = 0; j < arr.length; j++)
-                        {
-                            if (j > 0)
-                            {
-                                sb.append(", "); 
-                            }
-                            
-                            sb.append(arr[j].toString());
-                        }
-                        
-                        System.out.printf("LOOK: %s     \n", sb);
-                    }
+                    infoPair = translate(tagId, reader, valueOrOffset, fieldType, totalBytes);
+                    System.out.format("0x%04X\t%s\n", tagId, Arrays.toString(infoPair));
                 }
             }
         }
@@ -156,31 +125,233 @@ public class AppleMakerNote extends CameraMarkerNote
         return events;
     }
 
-    private byte[] translateTagValue(ByteArrayReader reader, byte[] rawBytes, TifFieldType fieldType, long totalBytes, long valueOrOffset)
+    private String[] translate(int tagId, ByteArrayReader reader, long valueOrOffset, TifFieldType fieldType, long totalBytes)
     {
-        /*
-         * If totalBytes is within the first 4 bytes, the data
-         * is stored inline inside the valueOrOffset field.
-         */
+        String tagName = null;
+        Object rawValue = null;
+
         if (totalBytes <= IFDHandler.ENTRY_MAX_VALUE_LENGTH)
         {
-            return rawBytes;
+            rawValue = valueOrOffset;
         }
 
-        /*
-         * In this case, valueOrOffset is an absolute offset relative
-         * to 0x00 ("Apple iOS\0") outside the current 12 byte block.
-         */
-        if (valueOrOffset >= 0 && (valueOrOffset + totalBytes) <= rawBytes.length)
+        else if (valueOrOffset >= 0 && (valueOrOffset + totalBytes) <= reader.length())
         {
             byte[] block = reader.peek(valueOrOffset, (int) totalBytes);
 
-            return block;
+            if (fieldType == TifFieldType.TYPE_ASCII)
+            {
+                rawValue = new String(ByteValueConverter.readFirstNullTerminatedByteArray(block), StandardCharsets.UTF_8);
+            }
+
+            else if (fieldType == TifFieldType.TYPE_RATIONAL_S)
+            {
+                StringBuilder sb = new StringBuilder();
+                RationalNumber[] arr = ByteValueConverter.toRationalArray(block, reader.getByteOrder(), RationalNumber.DataType.SIGNED);
+
+                for (int j = 0; j < arr.length; j++)
+                {
+                    if (j > 0)
+                    {
+                        sb.append(", ");
+                    }
+
+                    sb.append(arr[j].toString());
+                }
+
+                rawValue = sb.toString();
+            }
+
+            else
+            {
+                rawValue = String.format("Binary Data (%d bytes)", totalBytes);
+            }
         }
 
-        return new byte[0];
+        else
+        {
+            rawValue = "X";
+        }
+
+        switch (tagId)
+        {
+            case 0x0001:
+                tagName = "MakerNoteVersion";
+            break;
+
+            case 0x0002:
+                tagName = "AEMatrix";
+            break;
+
+            case 0x0003:
+                tagName = "RunTime";
+            break;
+
+            case 0x0004:
+                tagName = "AEStable";
+
+                if (rawValue instanceof Number)
+                {
+                    long val = ((Number) rawValue).longValue();
+                    rawValue = (val == 1 ? "Yes" : (val == 0 ? "No" : rawValue));
+                }
+
+            break;
+
+            case 0x0005:
+                tagName = "AETarget";
+            break;
+
+            case 0x0006:
+                tagName = "AEAverage";
+            break;
+
+            case 0x0007:
+                tagName = "AFStable";
+
+                if (rawValue instanceof Number)
+                {
+                    long val = ((Number) rawValue).longValue();
+                    rawValue = (val == 1 ? "Yes" : (val == 0 ? "No" : rawValue));
+                }
+
+            break;
+
+            case 0x0008:
+                tagName = "AccelerationVector";
+            break;
+
+            case 0x000A:
+                tagName = "HDRImageType";
+            break;
+
+            case 0x000B:
+                tagName = "BurstUUID";
+            break;
+
+            case 0x000C:
+                tagName = "FocusDistanceRange";
+            break;
+
+            case 0x000F:
+                tagName = "OISMode";
+            break;
+
+            case 0x0011:
+                tagName = "ContentIdentifier";
+            break;
+
+            case 0x0014:
+                tagName = "ImageCaptureType";
+            break;
+
+            case 0x0015:
+                tagName = "ImageUniqueID";
+            break;
+
+            case 0x0017:
+                tagName = "LivePhotoVideoIndex";
+            break;
+
+            case 0x0019:
+                tagName = "ImageProcessingFlags";
+            break;
+
+            case 0x001A:
+                tagName = "QualityHint";
+            break;
+
+            case 0x001D:
+                tagName = "LuminanceNoiseAmplitude";
+            break;
+
+            case 0x001F:
+                tagName = "PhotosAppFeatureFlags";
+            break;
+
+            case 0x0020:
+                tagName = "ImageCaptureRequestID";
+            break;
+
+            case 0x0021:
+                tagName = "HDRHeadroom";
+            break;
+
+            case 0x0023:
+                tagName = "AFPerformance";
+            break;
+
+            case 0x0025:
+                tagName = "SceneFlags";
+            break;
+
+            case 0x0026:
+                tagName = "SignalToNoiseRatioType";
+            break;
+
+            case 0x0027:
+                tagName = "SignalToNoiseRatio";
+            break;
+
+            case 0x002B:
+                tagName = "PhotoIdentifier";
+            break;
+
+            case 0x002D:
+                tagName = "ColorTemperature";
+            break;
+
+            case 0x002E:
+                tagName = "CameraType";
+            break;
+
+            case 0x002F:
+                tagName = "FocusPosition";
+            break;
+
+            case 0x0030:
+                tagName = "HDRGain";
+            break;
+
+            case 0x0038:
+                tagName = "AFMeasuredDepth";
+            break;
+
+            case 0x003D:
+                tagName = "AFConfidence";
+            break;
+
+            case 0x003E:
+                tagName = "ColorCorrectionMatrix";
+            break;
+
+            case 0x003F:
+                tagName = "GreenGhostMitigationStatus";
+            break;
+
+            case 0x0040:
+                tagName = "SemanticStyle";
+            break;
+
+            case 0x0041:
+                tagName = "SemanticStyleRenderingVer";
+            break;
+
+            case 0x0042:
+                tagName = "SemanticStylePreset";
+            break;
+
+            default:
+                tagName = null;
+            break;
+        }
+
+        String valueStr = String.valueOf(rawValue);
+
+        return new String[]{tagName, valueStr};
     }
 
+    @Deprecated
     private String lookupTagName(int tagId)
     {
         switch (tagId)
@@ -303,5 +474,60 @@ public class AppleMakerNote extends CameraMarkerNote
                 // return String.format("Apple_0x%04X", tagId);
                 return null;
         }
+    }
+
+    @Deprecated
+    private String translateTagValue(ByteArrayReader reader, long valueOrOffset, TifFieldType fieldType, long totalBytes)
+    {
+        /*
+         * If totalBytes is within the first 4 bytes, the data
+         * is stored inline inside the valueOrOffset field.
+         */
+        if (totalBytes <= IFDHandler.ENTRY_MAX_VALUE_LENGTH)
+        {
+            return String.valueOf(valueOrOffset);
+        }
+
+        /*
+         * In this case, valueOrOffset is an absolute offset relative
+         * to 0x00 ("Apple iOS\0") outside the current 12 byte block.
+         */
+        else if (valueOrOffset >= 0 && (valueOrOffset + totalBytes) <= reader.length())
+        {
+            String str = null;
+            byte[] block = reader.peek(valueOrOffset, (int) totalBytes);
+
+            if (fieldType == TifFieldType.TYPE_ASCII)
+            {
+                str = new String(ByteValueConverter.readNullTerminatedString(block, 0, StandardCharsets.UTF_8));
+            }
+
+            else if (fieldType == TifFieldType.TYPE_RATIONAL_S)
+            {
+                StringBuilder sb = new StringBuilder();
+                RationalNumber[] arr = ByteValueConverter.toRationalArray(block, reader.getByteOrder(), RationalNumber.DataType.SIGNED);
+
+                for (int j = 0; j < arr.length; j++)
+                {
+                    if (j > 0)
+                    {
+                        sb.append(", ");
+                    }
+
+                    sb.append(arr[j].toString());
+                }
+
+                str = sb.toString();
+            }
+
+            else if (fieldType == TifFieldType.TYPE_LONG_S)
+            {
+                str = String.valueOf(valueOrOffset);
+            }
+
+            return str;
+        }
+
+        return "X";
     }
 }
