@@ -106,7 +106,7 @@ public final class MediaMetadataConsole
                     @Override
                     public void accept(final MetadataInspectionEvent event)
                     {
-                        //System.out.print(event.toString());
+                        System.out.print(event.toString());
                     }
                 });
 
