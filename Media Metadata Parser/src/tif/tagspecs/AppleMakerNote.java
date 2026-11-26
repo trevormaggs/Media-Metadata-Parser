@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import batch.MediaRecord;
 import batch.MetadataInspectionEvent;
 import common.ByteValueConverter;
@@ -140,6 +141,11 @@ public class AppleMakerNote extends CameraMarkerNote
                             rawValue = arr;
                         }
 
+                        else if (fieldType == TifFieldType.TYPE_UNDEFINED)
+                        {
+                            rawValue = block;
+                        }
+
                         else
                         {
                             rawValue = String.format("Binary Data (%d bytes)", totalBytes);
@@ -166,6 +172,57 @@ public class AppleMakerNote extends CameraMarkerNote
         return events;
     }
 
+    private Long extractBplistIntegerKey(byte[] block, String key)
+    {
+        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+        
+        for (int i = 0; i < block.length - keyBytes.length; i++)
+        {
+            boolean match = true;
+            
+            for (int j = 0; j < keyBytes.length; j++)
+            {
+                if (block[i + j] != keyBytes[j])
+                {
+                    match = false;
+                    break;
+                }
+            }
+            
+            if (match)
+            {
+                // Look ahead past the key string for the integer object marker (typically 0x10,
+                // 0x12, 0x13 for 1, 4, or 8-byte ints)
+                int valIdx = i + keyBytes.length;
+                
+                if (valIdx + 1 < block.length)
+                {
+                    int marker = block[valIdx] & 0xFF;
+                    // Binary plist integer markers: 0x10 (1 byte), 0x11 (2 bytes), 0x12 (4 bytes),
+                    // 0x13 (8 bytes)
+                    if (marker >= 0x10 && marker <= 0x13)
+                    {
+                        int bytesLen = 1 << (marker & 0x03);
+                        
+                        if (valIdx + 1 + bytesLen <= block.length)
+                        {
+                            long val = 0;
+                            
+                            for (int b = 0; b < bytesLen; b++)
+                            {
+                                val = (val << 8) | (block[valIdx + 1 + b] & 0xFF);
+                            }
+                            
+                            return val;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+
     private String[] translate(int tagId, Object rawData)
     {
         String tagName = null;
@@ -178,10 +235,32 @@ public class AppleMakerNote extends CameraMarkerNote
 
             case 0x0002:
                 tagName = "AEMatrix";
+
+                if (rawData instanceof byte[])
+                {
+                    rawData = String.format("Binary Data (%d bytes)", ((byte[]) rawData).length);
+                }
             break;
 
             case 0x0003:
                 tagName = "RunTime";
+
+                if (rawData instanceof byte[])
+                {
+                    final String name = "bplist";
+                    byte[] block = (byte[]) rawData;
+
+                    if (block.length > 8 && new String(block, 0, name.length(), StandardCharsets.UTF_8).equals(name))
+                    {
+                        rawData = "RunTime (Binary PLIST)";
+                    }
+
+                    else
+                    {
+                        rawData = String.format("Binary Data (%d bytes)", block.length);
+                    }
+                }
+
             break;
 
             case 0x0004:
@@ -228,6 +307,19 @@ public class AppleMakerNote extends CameraMarkerNote
 
             case 0x000C:
                 tagName = "FocusDistanceRange";
+
+                if (rawData instanceof RationalNumber[])
+                {
+                    RationalNumber[] arr = ((RationalNumber[]) rawData);
+
+                    if (arr != null && arr.length >= 2 && arr[0] != null && arr[1] != null)
+                    {
+                        double low = arr[0].doubleValue();
+                        double high = arr[1].doubleValue();
+                        rawData = String.format(Locale.ROOT, "%.02f - %.02f m", low, high);
+                    }
+                }
+
             break;
 
             case 0x000F:
@@ -240,6 +332,38 @@ public class AppleMakerNote extends CameraMarkerNote
 
             case 0x0014:
                 tagName = "ImageCaptureType";
+
+                if (rawData instanceof Number)
+                {
+                    int val = ((Number) rawData).intValue();
+
+                    switch (val)
+                    {
+                        case 1:
+                            rawData = "ProRAW";
+                        break;
+
+                        case 2:
+                            rawData = "Portrait";
+                        break;
+
+                        case 10:
+                            rawData = "Photo";
+                        break;
+
+                        case 11:
+                            rawData = "Manual Focus";
+                        break;
+
+                        case 12:
+                            rawData = "Scene";
+                        break;
+
+                        default:
+                            rawData = String.valueOf(val);
+                    }
+                }
+
             break;
 
             case 0x0015:
@@ -362,5 +486,101 @@ public class AppleMakerNote extends CameraMarkerNote
         String valueStr = TagValueTranslator.toStringValue(rawData, null);
 
         return new String[]{tagName, valueStr};
+    }
+    
+    /**
+     * Parses the Apple binary plist (bplist00) CMTime structure for RunTime (0x0003)
+     * and emits individual sub-tag inspection events matching ExifTool.
+     */
+    private void parseRunTimePlist(byte[] block, MediaRecord record, List<MetadataInspectionEvent> events)
+    {
+        try
+        {
+            // Verify bplist00 header signature
+            if (block.length > 8 && new String(block, 0, 6, StandardCharsets.UTF_8).equals("bplist"))
+            {
+                // Apple's CMTime bplist dictionary contains keys: flags, value, timescale, epoch.
+                // We perform targeted pattern searches within the binary block for known key signatures 
+                // or extract the serialized integer markers reliably.
+                
+                Long flags = extractBplistIntegerKey(block, "flags");
+                Long value = extractBplistIntegerKey(block, "value");
+                Long timescale = extractBplistIntegerKey(block, "timescale");
+                Long epoch = extractBplistIntegerKey(block, "epoch");
+
+                if (flags != null)
+                {
+                    events.add(new MetadataInspectionEvent(record, "Apple", "RunTimeFlags", translateRunTimeFlags(flags.intValue())));
+                }
+                if (value != null)
+                {
+                    events.add(new MetadataInspectionEvent(record, "Apple", "RunTimeValue", String.valueOf(value)));
+                }
+                if (timescale != null)
+                {
+                    events.add(new MetadataInspectionEvent(record, "Apple", "RunTimeScale", String.valueOf(timescale)));
+                }
+                if (epoch != null)
+                {
+                    events.add(new MetadataInspectionEvent(record, "Apple", "RunTimeEpoch", String.valueOf(epoch)));
+                }
+                return;
+            }
+        }
+        catch (Exception e)
+        {
+            // Fallback if structure varies
+        }
+
+        // Fallback generic event if plist parsing encounters an unexpected layout
+        events.add(new MetadataInspectionEvent(record, "Apple", "RunTime", String.format("Binary Data (%d bytes)", block.length)));
+    }
+
+    private Long extractBplistIntegerKey2(byte[] block, String key)
+    {
+        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+        for (int i = 0; i < block.length - keyBytes.length; i++)
+        {
+            boolean match = true;
+            for (int j = 0; j < keyBytes.length; j++)
+            {
+                if (block[i + j] != keyBytes[j])
+                {
+                    match = false;
+                    break;
+                }
+            }
+            if (match)
+            {
+                // Look ahead past the key string for the integer object marker (typically 0x10, 0x12, 0x13 for 1, 4, or 8-byte ints)
+                int valIdx = i + keyBytes.length;
+                if (valIdx + 1 < block.length)
+                {
+                    int marker = block[valIdx] & 0xFF;
+                    // Binary plist integer markers: 0x10 (1 byte), 0x11 (2 bytes), 0x12 (4 bytes), 0x13 (8 bytes)
+                    if (marker >= 0x10 && marker <= 0x13)
+                    {
+                        int bytesLen = 1 << (marker & 0x03);
+                        if (valIdx + 1 + bytesLen <= block.length)
+                        {
+                            long val = 0;
+                            for (int b = 0; b < bytesLen; b++)
+                            {
+                                val = (val << 8) | (block[valIdx + 1 + b] & 0xFF);
+                            }
+                            return val;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private String translateRunTimeFlags(int flags)
+    {
+        if (flags == 1) return "Valid";
+        // Combine or return flag bitmask description matching ExifTool
+        return "Valid (" + flags + ")";
     }
 }
