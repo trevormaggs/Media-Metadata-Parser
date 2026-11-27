@@ -375,6 +375,8 @@ public class AppleMakerNote extends CameraMarkerNote
      */
     private void processBinaryPropertyList(byte[] block, MediaRecord record, List<MetadataInspectionEvent> events)
     {
+// See https://newosxbook.com/bonus/bplist.pdf
+
         final byte[] bplist = "bplist00".getBytes(StandardCharsets.UTF_8);
         long epoch = -1, flags = -1, timescale = -1, value = -1;
         boolean bpmagic = Arrays.equals(Arrays.copyOf(bplist, bplist.length), bplist);
