@@ -21,7 +21,7 @@ import tif.TagValueTranslator;
 /**
  * Decodes Apple iOS and macOS proprietary MakerNote binary metadata structures embedded within
  * TIFF/DNG image containers, achieving exact functional parity with Phil Harvey's ExifTool. Apple
- * does not officially document the MakerNote binary specification; however, the structures
+ * does not officially document the MakerNote binary specification. H  owever, the structures
  * implemented herein are reverse-engineered and aligned with Phil Harvey's ExifTool Perl
  * implementation.
  * 
@@ -271,15 +271,18 @@ public class AppleMakerNote extends CameraMarkerNote
         final int headerLength = 14;
         byte[] rawBytes = entry.getByteArray();
         List<MetadataInspectionEvent> events = new ArrayList<>();
-
-        if (rawBytes == null || rawBytes.length < PREAMBLE_LENGTH + 4 || !Arrays.equals(Arrays.copyOf(rawBytes, APPLE_IOS_IDENTIFIER.length), APPLE_IOS_IDENTIFIER))
+        boolean magic = Arrays.equals(Arrays.copyOf(rawBytes, APPLE_IOS_IDENTIFIER.length), APPLE_IOS_IDENTIFIER);
+        
+        if (rawBytes == null || rawBytes.length < PREAMBLE_LENGTH + 4 || !magic)
         {
             return Collections.emptyList();
         }
 
         try (ByteArrayReader reader = new ByteArrayReader(rawBytes, ByteOrder.BIG_ENDIAN))
         {
+            // Jump straight to the beginning of EntryCount
             reader.seek(headerLength);
+            
             int entryCount = reader.readUnsignedShort();
 
             /* Process all 12-byte entries in this IFD sequentially */
@@ -287,14 +290,13 @@ public class AppleMakerNote extends CameraMarkerNote
             {
                 if (reader.remaining() >= 12)
                 {
+                    Object rawValue = null;
                     int tagId = reader.readUnsignedShort();
                     TifFieldType fieldType = TifFieldType.getTiffType(reader.readUnsignedShort());
                     long count = reader.readUnsignedInteger();
                     byte[] valueBytes = reader.readBytes(4);
                     long valueOrOffset = ByteValueConverter.toUnsignedInteger(valueBytes, reader.getByteOrder());
                     long totalBytes = count * fieldType.getFieldSize();
-
-                    Object rawValue = null;
 
                     if (totalBytes <= IFDHandler.ENTRY_MAX_VALUE_LENGTH)
                     {
@@ -373,10 +375,11 @@ public class AppleMakerNote extends CameraMarkerNote
      */
     private void processBinaryPropertyList(byte[] block, MediaRecord record, List<MetadataInspectionEvent> events)
     {
-        final String bplist = "bplist00";
+        final byte[] bplist = "bplist00".getBytes(StandardCharsets.UTF_8);
         long epoch = -1, flags = -1, timescale = -1, value = -1;
-
-        if (block != null && block.length > 32 && new String(block, 0, bplist.length(), StandardCharsets.UTF_8).equals(bplist))
+        boolean bpmagic = Arrays.equals(Arrays.copyOf(bplist, bplist.length), bplist);
+        
+        if (block != null && block.length > 32 && bpmagic)
         {
             int trailerStart = block.length - 32;
             long offsetTableOffset = convertToLong(block, trailerStart + 24, 8);

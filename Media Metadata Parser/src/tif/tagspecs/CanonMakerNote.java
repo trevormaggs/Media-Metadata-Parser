@@ -32,19 +32,19 @@ public class CanonMakerNote extends CameraMarkerNote
 
         try (ByteArrayReader reader = new ByteArrayReader(rawBytes, ByteOrder.LITTLE_ENDIAN))
         {
-            int entryCount = reader.readUnsignedShort();
+            //int entryCount = reader.readUnsignedShort();
             // Iterate and parse 12-byte IFD blocks...
         }
-        
+
         catch (Exception exc)
         {
             // Handle parsing exceptions
         }
-        
+
         return events;
     }
-    
-        public List<MetadataInspectionEvent> processMakerNote2(EntryIFD entry, MediaRecord record)
+
+    public List<MetadataInspectionEvent> processMakerNote2(EntryIFD entry, MediaRecord record)
     {
         byte[] rawBytes = entry.getByteArray();
         List<MetadataInspectionEvent> events = new ArrayList<>();
@@ -103,12 +103,17 @@ public class CanonMakerNote extends CameraMarkerNote
                 }
             }
         }
-        
+
         catch (Exception exc)
         {
             // Gracefully handle malformed binary streams
         }
 
         return events;
+    }
+
+    private String[] translateCanonTag(int tagId, Object rawValue)
+    {
+        return null;
     }
 }
