@@ -19,9 +19,39 @@ import tif.RationalNumber;
 import tif.TagValueTranslator;
 
 /**
+ * Decodes proprietary Apple iOS and macOS MakerNote binary metadata structures embedded within EXIF
+ * containers, with the aim of closely matching the metadata extraction performed by Phil Harvey's
+ * ExifTool.
+ *
+ * <p>
+ * Apple does not officially document the MakerNote binary specification. Consequently, the
+ * implementation is based on reverse-engineering the proprietary structures and adapting selected
+ * decoding algorithms from Phil Harvey's ExifTool Perl implementation.
+ * </p>
+ *
+ * <p>
+ * <strong>Implementation References</strong>
+ * </p>
+ * 
+ * <p>
+ * The primary reference for Apple MakerNote tag definitions is the
+ * <a href="https://exiftool.org/TagNames/Apple.html">ExifTool Apple Tags documentation</a>.
+ * Selected decoding algorithms have been adapted from Phil Harvey's Perl source code in ExifTool's
+ * {@code Apple.pm} and associated modules, and reimplemented in Java using the existing TIFF and
+ * binary-processing infrastructure of this project.
+ * </p>
+ *
+ * <p>
+ * ExifTool is also used as a reference implementation for validating extracted metadata values
+ * against actual image files.
+ * </p>
+ * 
+ * 
+ * 
+ * 
  * Decodes Apple iOS and macOS proprietary MakerNote binary metadata structures embedded within
  * TIFF/DNG image containers, achieving exact functional parity with Phil Harvey's ExifTool. Apple
- * does not officially document the MakerNote binary specification. H  owever, the structures
+ * does not officially document the MakerNote binary specification. H owever, the structures
  * implemented herein are reverse-engineered and aligned with Phil Harvey's ExifTool Perl
  * implementation.
  * 
@@ -272,7 +302,7 @@ public class AppleMakerNote extends CameraMarkerNote
         byte[] rawBytes = entry.getByteArray();
         List<MetadataInspectionEvent> events = new ArrayList<>();
         boolean magic = Arrays.equals(Arrays.copyOf(rawBytes, APPLE_IOS_IDENTIFIER.length), APPLE_IOS_IDENTIFIER);
-        
+
         if (rawBytes == null || rawBytes.length < PREAMBLE_LENGTH + 4 || !magic)
         {
             return Collections.emptyList();
@@ -282,7 +312,7 @@ public class AppleMakerNote extends CameraMarkerNote
         {
             // Jump straight to the beginning of EntryCount
             reader.seek(headerLength);
-            
+
             int entryCount = reader.readUnsignedShort();
 
             /* Process all 12-byte entries in this IFD sequentially */
@@ -375,12 +405,11 @@ public class AppleMakerNote extends CameraMarkerNote
      */
     private void processBinaryPropertyList(byte[] block, MediaRecord record, List<MetadataInspectionEvent> events)
     {
-// See https://newosxbook.com/bonus/bplist.pdf
-
+        // See https://newosxbook.com/bonus/bplist.pdf
         final byte[] bplist = "bplist00".getBytes(StandardCharsets.UTF_8);
         long epoch = -1, flags = -1, timescale = -1, value = -1;
         boolean bpmagic = Arrays.equals(Arrays.copyOf(bplist, bplist.length), bplist);
-        
+
         if (block != null && block.length > 32 && bpmagic)
         {
             int trailerStart = block.length - 32;
