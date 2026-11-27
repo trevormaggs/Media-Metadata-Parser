@@ -28,13 +28,13 @@ import png.PngDirectory;
 import png.PngMetadataProvider;
 import png.PngParser;
 import progressbar.ProgressListener;
+import tif.CameraMarkerNote;
 import tif.DirectoryIFD;
 import tif.DirectoryIFD.EntryIFD;
 import tif.DirectoryIdentifier;
 import tif.TifMetadata;
 import tif.TifMetadataProvider;
 import tif.TifParser;
-import tif.tagspecs.MakerNoteRegistry;
 import tif.tagspecs.TagIFD_Baseline;
 import tif.tagspecs.TagIFD_Exif;
 import tif.tagspecs.Taggable;
@@ -322,41 +322,7 @@ public final class MetadataInspector
         }
     }
 
-    /**
-     * Iterates through a collection of IFD directories and emits events for all valid metadata
-     * tags.
-     *
-     * @param directories
-     *        an iterable collection of IFD directories containing metadata tag entries
-     * @param record
-     *        the media record associated with the IFD entries
-     */
-    private void processDirectoriesIFD2(Iterable<DirectoryIFD> directories, MediaRecord record)
-    {
-        for (DirectoryIFD ifd : directories)
-        {
-            String groupName = ifd.getDirectoryType().getDescription();
-
-            for (EntryIFD entry : ifd)
-            {
-                Taggable tag = entry.getTag();
-
-                if (tag != null)
-                {
-                    String name = tag.getDescription();
-                    String value = tag.translate(entry.getData());
-
-                    if (!value.isEmpty())
-                    {
-                        MetadataInspectionEvent event = new MetadataInspectionEvent(record, groupName, name, value);
-                        emitMetadataEvent(event);
-                    }
-                }
-            }
-        }
-    }
-
-    private void processDirectoriesIFD(TifMetadataProvider tif, MediaRecord record)
+    private String getCameraTypeMakerNote(TifMetadataProvider tif)
     {
         String cameraMake = "";
 
@@ -375,9 +341,25 @@ public final class MetadataInspector
             }
         }
 
+        return cameraMake;
+    }
+
+    /**
+     * Iterates through a collection of IFD directories and emits events for all valid metadata
+     * tags.
+     *
+     * @param directories
+     *        an iterable collection of IFD directories containing metadata tag entries
+     * @param record
+     *        the media record associated with the IFD entries
+     */
+    private void processDirectoriesIFD(TifMetadataProvider tif, MediaRecord record)
+    {
+        String cameraMake = getCameraTypeMakerNote(tif);
+        List<MetadataInspectionEvent> makerEvents = null;
+
         for (DirectoryIFD ifd : tif)
         {
-            List<MetadataInspectionEvent> makerEvents = null;
             DirectoryIdentifier dirType = ifd.getDirectoryType();
 
             for (EntryIFD entry : ifd)
@@ -388,7 +370,7 @@ public final class MetadataInspector
                 {
                     if (dirType == DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY && tag == TagIFD_Exif.EXIF_MAKER_NOTE)
                     {
-                        makerEvents = MakerNoteRegistry.process(cameraMake, entry, record);
+                        makerEvents = CameraMarkerNote.process(cameraMake, entry, record);
                         continue;
                     }
 
@@ -403,13 +385,15 @@ public final class MetadataInspector
                     }
                 }
             }
-            
+
             if (makerEvents != null)
             {
                 for (MetadataInspectionEvent event : makerEvents)
                 {
                     emitMetadataEvent(event);
                 }
+
+                makerEvents.clear();
             }
         }
     }

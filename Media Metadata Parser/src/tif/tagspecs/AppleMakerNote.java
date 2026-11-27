@@ -282,6 +282,7 @@ public class AppleMakerNote extends CameraMarkerNote
             reader.seek(headerLength);
             int entryCount = reader.readUnsignedShort();
 
+            /* Process all 12-byte entries in this IFD sequentially */
             for (int i = 0; i < entryCount; i++)
             {
                 if (reader.remaining() >= 12)
@@ -326,8 +327,8 @@ public class AppleMakerNote extends CameraMarkerNote
                     }
 
                     /*
-                     * Because tag 0x0003 (RunTime bplist) requires multiple results for emitting
-                     * events, therefore its efficient to handle here.
+                     * It's efficient to handle results for emitting multiple events for in one go
+                     * here to support tag 0x0003 (RunTime bplist).
                      */
                     if (tagId == 0x0003 && rawValue instanceof byte[])
                     {
