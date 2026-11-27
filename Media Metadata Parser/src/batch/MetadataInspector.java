@@ -377,6 +377,7 @@ public final class MetadataInspector
 
         for (DirectoryIFD ifd : tif)
         {
+            List<MetadataInspectionEvent> makerEvents = null;
             DirectoryIdentifier dirType = ifd.getDirectoryType();
 
             for (EntryIFD entry : ifd)
@@ -385,20 +386,9 @@ public final class MetadataInspector
 
                 if (tag != null)
                 {
-                    // Delegate MakerNote processing polymorphically with cameraMake already
-                    // populated
                     if (dirType == DirectoryIdentifier.IFD_EXIF_SUBIFD_DIRECTORY && tag == TagIFD_Exif.EXIF_MAKER_NOTE)
                     {
-                        List<MetadataInspectionEvent> makerEvents = MakerNoteRegistry.process(cameraMake, entry, record);
-
-                        if (makerEvents != null)
-                        {
-                            for (MetadataInspectionEvent event : makerEvents)
-                            {
-                                emitMetadataEvent(event);
-                            }
-                        }
-
+                        makerEvents = MakerNoteRegistry.process(cameraMake, entry, record);
                         continue;
                     }
 
@@ -411,6 +401,14 @@ public final class MetadataInspector
                         MetadataInspectionEvent event = new MetadataInspectionEvent(record, groupName, name, value);
                         emitMetadataEvent(event);
                     }
+                }
+            }
+            
+            if (makerEvents != null)
+            {
+                for (MetadataInspectionEvent event : makerEvents)
+                {
+                    emitMetadataEvent(event);
                 }
             }
         }
